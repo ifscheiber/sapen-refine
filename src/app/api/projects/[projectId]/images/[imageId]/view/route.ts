@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireProjectRole } from "@/server/auth/rbac";
-import { getS3 } from "@/server/storage/s3";
+import { s3 } from "@/server/storage/s3";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -23,7 +23,6 @@ export async function GET(
   }
 
   const bucket = process.env.S3_BUCKET!;
-  const s3 = getS3();
 
   const cmd = new GetObjectCommand({
     Bucket: bucket,

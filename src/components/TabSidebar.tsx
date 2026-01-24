@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { Plus, Circle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,6 +96,7 @@ export function TabSidebar({
   selectedImage,
   onImageSelect,
   onCreateProject,
+  onAddImages,   // ADDED
   metadata,
   onMetadataChange,
   currentUser,

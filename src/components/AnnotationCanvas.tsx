@@ -78,14 +78,28 @@ export function AnnotationCanvas({
 
   // Load image
   useEffect(() => {
+      if (!imageUrl) {
+      setImage(null);
+      return;
+    }
+
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = imageUrl;
-    img.onload = () => {
-      setImage(img);
-      // Reset zoom when new image loads
-      setZoom(1);
-    };
+img.onload = () => {
+  setImage(img);
+
+  // Fit-to-screen zoom when new image loads
+  const fit = computeFitZoom(img);
+  setZoom(fit);
+
+  // Optional: reset scroll position so the image starts at the top-left of the viewport
+  if (containerRef.current) {
+    containerRef.current.scrollLeft = 0;
+    containerRef.current.scrollTop = 0;
+  }
+};
+
   }, [imageUrl]);
 
   // Draw image and mask
@@ -398,9 +412,39 @@ export function AnnotationCanvas({
     setZoom((prev) => Math.max(prev - 0.25, 0.1));
   };
 
-  const handleFitToScreen = () => {
-    setZoom(1);
-  };
+const handleFitToScreen = () => {
+  if (!image) return;
+  const fit = computeFitZoom(image);
+  setZoom(fit);
+  if (containerRef.current) {
+    containerRef.current.scrollLeft = 0;
+    containerRef.current.scrollTop = 0;
+  }
+};
+
+
+
+  const computeFitZoom = (img: HTMLImageElement) => {
+  const el = containerRef.current;
+  if (!el) return 1;
+
+  // visible viewport of the scroll container
+  const vw = el.clientWidth;
+  const vh = el.clientHeight;
+
+  // subtract a little padding so it doesn't touch edges
+  const padding = 24;
+  const availW = Math.max(1, vw - padding * 2);
+  const availH = Math.max(1, vh - padding * 2);
+
+  const zx = availW / img.width;
+  const zy = availH / img.height;
+
+  // never upscale above 100% on initial fit (optional, but usually desired)
+  return Math.min(1, zx, zy);
+};
+
+
 
   const handleResetZoom = () => {
     setZoom(1);
