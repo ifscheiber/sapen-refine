@@ -1,4 +1,15 @@
-import { redirect } from "next/navigation";
+import AppShell from "./AppShell";
+
+export default function AppPage() {
+  return <AppShell />;
+}
+
+
+
+
+
+
+/* import { redirect } from "next/navigation";
 import { getUserFromSessionCookie } from "@/server/auth/session";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -25,3 +36,4 @@ export default async function AppHome() {
     </main>
   );
 }
+ */
