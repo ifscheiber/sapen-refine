@@ -1,0 +1,120 @@
+import crypto from "crypto";
+import { cookies, headers } from "next/headers";
+import { prisma } from "@/server/db";
+import { SESSION_COOKIE_NAME, SESSION_TTL_DAYS } from "./constants";
+
+function sha256Base64Url(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("base64url");
+}
+
+export function createSessionToken(): string {
+  return crypto.randomBytes(32).toString("base64url"); // 256-bit
+}
+
+export async function getSessionCookie(): Promise<string | undefined> {
+  const c = await cookies();
+  return c.get(SESSION_COOKIE_NAME)?.value;
+}
+
+export async function setSessionCookie(token: string) {
+  const maxAge = SESSION_TTL_DAYS * 24 * 60 * 60;
+  const c =  await cookies();
+
+  c.set({
+    name: SESSION_COOKIE_NAME,
+    value: token,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge,
+  });
+}
+
+export async function clearSessionCookie() {
+  const c = await cookies();
+  c.set({
+    name: SESSION_COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+export async function createDbSession(userId: string, token: string) {
+  const tokenHash = sha256Base64Url(token);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  const h = await headers();
+  const userAgent = h.get("user-agent") ?? undefined;
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    h.get("x-real-ip") ??
+    undefined;
+
+  if (typeof token !== "string" || token.length === 0) {
+    console.error("createDbSession: token invalid", { token, type: typeof token });
+    throw new Error("SESSION_TOKEN_INVALID");
+  }
+
+  if (typeof tokenHash !== "string" || tokenHash.length === 0) {
+    console.error("createDbSession: tokenHash invalid", { tokenHash, type: typeof tokenHash, token });
+    throw new Error("SESSION_TOKENHASH_INVALID");
+  }
+
+
+  return prisma.session.create({
+    data: {
+      userId,
+      tokenHash,     // <-- MUSS drin sein
+      expiresAt,
+      lastSeenAt: now,
+      userAgent,
+      ip,
+    },
+  });
+}
+
+
+export async function getUserFromSessionCookie() {
+  const token = await getSessionCookie();
+  if (!token) return null;
+
+  const tokenHash = sha256Base64Url(token);
+  const now = new Date();
+
+  const session = await prisma.session.findFirst({
+    where: {
+      tokenHash,
+      revokedAt: null,
+      expiresAt: { gt: now },
+    },
+    include: { user: true },
+  });
+
+  if (!session) return null;
+
+  // lastSeenAt updaten (leicht throttlen wäre möglich, aber erstmal simple)
+  await prisma.session.update({
+    where: { id: session.id },
+    data: { lastSeenAt: now },
+  });
+
+  return session.user;
+}
+
+export async function revokeSessionFromCookie() {
+  const token = await getSessionCookie();
+  if (!token) return;
+
+  const tokenHash = sha256Base64Url(token);
+
+  await prisma.session.updateMany({
+    where: { tokenHash, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}

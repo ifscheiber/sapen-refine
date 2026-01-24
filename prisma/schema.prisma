@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GlobalRole {
+  ADMIN
+  USER
+}
+
+enum ProjectRole {
+  OWNER
+  QA
+  LABELER
+  VIEWER
+}
+
+enum MaskKind {
+  PREDICTION
+  REFINED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  globalRoles         UserGlobalRole[]
+  memberships         ProjectMember[]
+  auditLogs           AuditLog[]    @relation("AuditActor")
+  createdMaskVersions MaskVersion[] @relation("MaskVersionCreatedBy")
+  sessions            Session[]
+  createdImages       Image[]       @relation("ImageCreatedBy")
+}
+
+model Role {
+  id    String     @id @default(cuid())
+  name  GlobalRole @unique
+  users UserGlobalRole[]
+}
+
+model UserGlobalRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members ProjectMember[]
+  images  Image[]
+}
+
+model ProjectMember {
+  projectId String
+  userId    String
+  role      ProjectRole
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+}
+
+model Image {
+  id          String   @id @default(cuid())
+  projectId   String
+  storageKey  String   @unique
+  filename    String?
+  contentType String?
+  size        Int?
+  createdAt   DateTime @default(now())
+
+  // IMPORTANT: explicit opposite relation name
+  masks       Mask[]   @relation("ImageMasks")
+
+  createdById String?
+  createdBy   User?    @relation("ImageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdById])
+}
+
+model Mask {
+  id        String   @id @default(cuid())
+  imageId   String
+  kind      MaskKind
+  createdAt DateTime @default(now())
+
+  // IMPORTANT: matches Image.masks relation name
+  image     Image        @relation("ImageMasks", fields: [imageId], references: [id], onDelete: Cascade)
+  versions  MaskVersion[]
+
+  // so we can do: where: { imageId_kind: { imageId, kind } }
+  @@unique([imageId, kind], name: "imageId_kind")
+  @@index([imageId])
+}
+
+model MaskVersion {
+  id         String   @id @default(cuid())
+  maskId     String
+  version    Int
+  createdAt  DateTime @default(now())
+
+  storageKey String   @unique
+  size       Int
+  width      Int
+  height     Int
+  format     String   @default("u8raw-v1")
+
+  createdById String?
+  createdBy   User?    @relation("MaskVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  mask Mask @relation(fields: [maskId], references: [id], onDelete: Cascade)
+
+  @@unique([maskId, version])
+  @@index([maskId, createdAt])
+  @@index([createdById])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  createdAt DateTime @default(now())
+
+  action   String
+  entity   String
+  entityId String?
+  details  Json?
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+}
+
+model Session {
+  id        String @id @default(cuid())
+  userId    String
+  tokenHash String @unique
+
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  ip        String?
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
