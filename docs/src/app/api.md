@@ -13,12 +13,15 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/auth/me` - returns the current authenticated user.
 - `GET /api/projects` - lists projects visible to the current user.
 - `POST /api/projects` - creates a project and owner membership.
+- `PATCH /api/projects/[projectId]` - updates project name/description for `OWNER` and `QA`; attaches the default active label schema when missing.
 - `GET /api/projects/[projectId]/images` - lists images for a project.
 - `POST /api/projects/[projectId]/images/presign` - creates a presigned raw-image upload URL.
 - `POST /api/projects/[projectId]/images/commit` - records an uploaded raw image.
 - `POST /api/projects/[projectId]/images/upload` - uploads a raw image through the app server, stores it in S3/MinIO, and records the image row.
 - `GET /api/projects/[projectId]/images/[imageId]/view` - returns an app-mediated image asset URL after membership check.
 - `GET /api/images/[imageId]` - redirects to the app-mediated image asset route after membership check.
+- `GET /api/images/[imageId]/metadata` - returns immutable technical image metadata, acquisition/sample metadata, membership role, edit capability, and readiness summary.
+- `PATCH /api/images/[imageId]/metadata` - updates acquisition/sample metadata for editable project roles with typed validation.
 - `GET /api/images/[imageId]/view` - returns an app-mediated image asset URL.
 - `GET /api/images/[imageId]/asset` - streams image bytes through the app after membership check.
 - `GET /api/images/[imageId]/mask/latest` - returns latest mask version metadata and view URL.
@@ -32,13 +35,14 @@ This page lists the current API route handlers under `src/app/api`.
 - Project and image API routes must enforce authenticated access and project membership.
 - Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
+- Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
 - API routes should return stable error codes that clients can handle.
 
 ## Known Gaps
 
-- Upload commit validation is still incomplete for checksums, dimensions, and object metadata, but RB-046 adds server-side size limits and app-mediated trial upload routes.
+- Upload commit validation is still incomplete for checksum enforcement, dimensions, and object metadata, but RB-046 adds server-side size limits and RB-050 stores app-mediated upload checksums.
 - Audit logging is not consistently attached to route mutations.
-- Review, approval, export, metadata, and task persistence exists after RB-049, but user-facing APIs/workflows remain planned for RB-050+.
+- Review, approval, export, and task persistence exists after RB-049, but user-facing APIs/workflows remain planned for RB-051+.
 
 ## Related Tickets / Docs
 

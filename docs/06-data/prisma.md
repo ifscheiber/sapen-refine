@@ -11,7 +11,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `User`, `Role`, `UserGlobalRole`, and `Session` support local authentication and global roles.
 - `AnnotationProject` and `AnnotationProjectMember` are the standalone annotation project and membership boundary.
 - `LabelSchemaVersion` and `LabelDefinition` persist stable machine-readable label ids, semantic meanings, UI metadata, and task applicability.
-- `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` persist immutable image references plus metadata structures for RB-050.
+- `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` persist immutable image references plus the RB-050 image-level metadata workflow.
 - `AnnotationTask` and `AnnotationSession` provide the persistence baseline for assignment, future active-learning/preprediction fields, and edit context.
 - `AnnotationArtifact` and `AnnotationArtifactVersion` replace `Mask`/`MaskVersion` and separate semantic, support/instance, prediction, and derived artifact families.
 - `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
@@ -25,6 +25,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 
 - project routes use `AnnotationProject`,
 - image routes use `ImageAsset`,
+- image metadata routes use `ImageAcquisitionMetadata` and image-level/default `SampleMetadata`,
 - current editor mask saves create or append to a `SEMANTIC_MASK` `AnnotationArtifact`,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
@@ -54,7 +55,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 
 ## Known Deferred Work
 
-- RB-050 implements full metadata UI/API workflow.
+- RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.
 - RB-051 implements slice classification/support-mask user workflows.
 - RB-052 implements review/approval UI/API behavior.
 - RB-053 implements export generation.

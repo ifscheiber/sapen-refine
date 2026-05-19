@@ -160,7 +160,7 @@ Priority: Resolved.
 
 Context: RB-048 defines the target domain model. RB-049 implements the first persistence baseline in `prisma/schema.prisma`.
 
-Impact: Follow-up feature work can now build on the schema baseline, but UI/API workflows still need RB-050+.
+Impact: Follow-up feature work can now build on the schema baseline; after RB-050, support-mask, review, export, and prediction workflows still need RB-051+.
 
 Resolution: Implemented by RB-049 optimized ticket with `AnnotationProject`, `ImageAsset`, label schemas, tasks/sessions, artifact versions, review decisions, slice classifications, and export records.
 
@@ -176,13 +176,15 @@ Context: RB-049 adds `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetada
 
 Impact: Training exports cannot carry enough metadata for reproducible customer/lab datasets.
 
-Proposed next step: Implement the metadata workflow in `tickets/2026-05-19/RB-050-project-image-sample-metadata-workflow.md`.
+Resolution: Implemented by RB-050 optimized ticket. Project metadata edit/display, image metadata detail route, acquisition metadata edit, image-level/default sample metadata edit, T-number visibility, metadata readiness summaries, and desktop E2E coverage are in place.
 
-Affected modules: `src/features/images`, `src/features/projects`, `src/app/api/projects/[projectId]/images/*`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
+Remaining follow-up: Slice-specific sample metadata remains deferred to RB-051/RB-052 through `SliceInstance` or a later normalized sample entity. Full checksum/object/dimension/audit hardening remains RB-055.
 
-Owner: Unassigned.
+Affected modules: `src/features/images`, `src/features/projects`, `src/app/api/projects/[projectId]`, `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/metadata`, `src/server/domain/metadata.ts`, docs under `docs/03-features` and `docs/06-data`.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved.
 
 ## RB-051 - Slice Classification And Support-Mask Workflow
 

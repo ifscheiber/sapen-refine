@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model; workflow/UI depth remains split across RB-050+.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model; RB-050 adds the first project/image/sample metadata workflow. Review, support-mask, slice-classification, export, and preprediction workflow depth remains split across RB-051+.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -10,6 +10,8 @@ SaPen Annotate is the system of record for attributable annotation work that can
 
 - Current MVP schema: `prisma/schema.prisma`
 - Current image upload routes: `src/app/api/projects/[projectId]/images/*`
+- Current image metadata route: `src/app/api/images/[imageId]/metadata/route.ts`
+- Current image metadata UI: `src/features/images/ImageMetadataPage.tsx`, `src/features/images/ImageMetadataClient.tsx`
 - Current mask routes: `src/app/api/images/[imageId]/mask/*`
 - Current editor: `src/features/editor/EditorClient.tsx`
 - Current mask labels and serialization: `src/mask/labels.ts`, `src/mask/serialize.ts`
@@ -28,7 +30,7 @@ Responsibilities:
 - scopes access for annotation, review, and export,
 - provides the selection boundary for reproducible exports.
 
-Implemented in RB-049 as `AnnotationProject`.
+Implemented in RB-049 as `AnnotationProject`. RB-050 surfaces project name, description, membership role, timestamps, and active label schema state in `src/features/projects/ProjectOverview.tsx`.
 
 ### ImageAsset
 
@@ -49,7 +51,7 @@ Required target fields:
 
 Raw image storage objects must not be overwritten after commit. Corrections, transformations, masks, and exports reference the image asset instead.
 
-Implemented in RB-049 as `ImageAsset`.
+Implemented in RB-049 as `ImageAsset`. RB-050 displays immutable upload facts in the image metadata UI and stores a SHA-256 checksum for app-mediated uploads. Dimension extraction and stronger object validation remain RB-055.
 
 ### ImageAcquisitionMetadata
 
@@ -70,7 +72,7 @@ Planned fields:
 - imported EXIF,
 - notes.
 
-Missing metadata may be allowed during annotation, but export manifests must make missing values visible.
+RB-050 implements editable image-level acquisition metadata for project roles `OWNER`, `QA`, and `LABELER`. Missing metadata may be allowed during annotation, but export manifests must make missing values visible.
 
 ### Sample And Slice Metadata
 
@@ -87,7 +89,9 @@ Planned concepts:
 - free-form notes,
 - optional relationship to one or more slice instances in an image.
 
-RB-049 implements a first `SampleMetadata` structure tied to `ImageAsset`. RB-050 owns the full metadata workflow and any later normalization.
+RB-049 implements a first `SampleMetadata` structure tied to `ImageAsset`. RB-050 implements this as image-level/default sample metadata with editable T-number, specimen identifier, slice index, replicate, treatment/reference, and notes.
+
+Slice-specific sample metadata is not implemented in RB-050. If one image contains multiple slice instances with different sample metadata, RB-051/RB-052 must model the relationship through `SliceInstance` or a later normalized sample entity.
 
 ### AnnotationTask
 
@@ -263,6 +267,7 @@ Server-side route handlers must enforce these rules. Hiding UI controls is not s
 ## Soft Readiness Invariants
 
 - Missing acquisition metadata may be allowed, but exports must make it visible.
+- Missing image-level T-number is visible in the image list and metadata readiness summary, but RB-050 does not hard-block annotation.
 - Images without approved annotations may be excluded or flagged in export.
 - Copper semantic masks without slice support geometry may be allowed during annotation but should be flagged for instance/support training readiness.
 - Sapwood/heartwood semantic masks may be converted to support masks only through explicit documented rules.

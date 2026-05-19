@@ -14,6 +14,7 @@ Important files:
 ## Current Entry Route
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
+- Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
@@ -53,7 +54,7 @@ Important files:
 
 ## Desktop Browser Smoke Scope
 
-- The supported MVP smoke path is: open editor, draw with brush, save, reload, and confirm the latest mask loads.
+- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw with brush, save, reload, and confirm the latest mask loads.
 - RB-047 browser automation should keep this path small and avoid asserting unstable visual details.
 
 ## RB-045 Start Limitations

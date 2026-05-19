@@ -24,7 +24,7 @@ The word "refine" remains available only for a future prediction-correction mode
 
 - Existing local browser sessions from earlier builds are invalidated because the cookie name changed.
 - Documentation should use SaPen Annotate for the app and "future refine/correction mode" only when discussing prediction-assisted workflows.
-- MVP schema names such as `MaskKind.REFINED` remain for now because schema/domain redesign is outside RB-040.
+- Later RB-049 schema work removed `MaskKind.REFINED` from the active Prisma schema; historical RB-040 context may still mention it.
 
 ## Follow-Up
 

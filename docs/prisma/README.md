@@ -25,7 +25,8 @@
 
 ## Known Gaps
 
-- Metadata, review, slice support, and export persistence exists, but the user-facing workflows remain split across RB-050 through RB-055.
+- Project/image metadata workflow exists for image-level acquisition and default sample metadata.
+- Slice-specific metadata, review, slice support, and export workflows remain split across RB-051 through RB-055.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

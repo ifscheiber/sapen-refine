@@ -16,7 +16,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `User`, `Role`, `UserGlobalRole`, `Session` - local identity, global roles, and sessions.
 - `AnnotationProject`, `AnnotationProjectMember` - standalone annotation project and membership/access boundary.
 - `LabelSchemaVersion`, `LabelDefinition` - versioned label definitions with stable machine-readable ids.
-- `ImageAsset`, `ImageAcquisitionMetadata`, `SampleMetadata` - immutable image asset references and metadata structures.
+- `ImageAsset`, `ImageAcquisitionMetadata`, `SampleMetadata` - immutable image asset references plus RB-050 image-level acquisition/default sample metadata workflow storage.
 - `AnnotationTask`, `AnnotationSession` - assignment/edit context baseline with priority, confidence/uncertainty, and model-source placeholders.
 - `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline.
 - `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline.
@@ -35,7 +35,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 
 ## Known Gaps
 
-- Metadata capture UI remains RB-050.
+- Slice-specific metadata remains deferred to the `SliceInstance` workflow.
 - Slice support/classification workflows remain RB-051.
 - Review/approval workflows remain RB-052.
 - Export generation remains RB-053.

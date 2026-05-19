@@ -38,6 +38,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Create or open a project. | Project page and image list render. |  |  |
 | Upload a normal representative image. | Image uploads through the app and appears in the list. |  |  |
 | Upload an intentionally too-large image if available. | Request fails with controlled `UPLOAD_TOO_LARGE` or documented Caddy `413`. |  |  |
+| Open image metadata. | Technical metadata, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
+| Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |
 | Save and reload. | Latest mask reloads after route reload. |  |  |
@@ -74,7 +76,9 @@ Blocking failure criteria:
 | Open deployed HTTPS URL in iPad Safari. | Login and layout fit the smaller viewport. |  |  |
 | Add to Home Screen. | App launches with SaPen Annotate name/icon and opens at `/app`. |  |  |
 | Log in as named tester. | Session persists across reload and Home-Screen launch. |  |  |
-| Open project and editor. | Editor controls remain reachable without overlap. |  |  |
+| Open project and image metadata. | Metadata form controls remain reachable without overlap. |  |  |
+| Enter or inspect T-number and acquisition metadata. | Metadata fields fit the viewport and save/reload works. |  |  |
+| Open editor. | Editor controls remain reachable without overlap. |  |  |
 | Draw with finger using Brush. | Canvas draws and page does not scroll while drawing. |  |  |
 | Draw with Apple Pencil if available. | Pencil input draws through Pointer Events. |  |  |
 | Touch outside the canvas and scroll. | Page/editor container scrolling remains possible outside drawing surface. |  |  |
@@ -96,5 +100,6 @@ Blocking failure criteria:
 ## Known Limitations
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
-- Browser smoke is manual; automated browser coverage remains deferred.
-- The MVP schema still uses `MaskKind.REFINED` until a domain-model ticket replaces legacy terminology.
+- Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
+- Image-level/default sample metadata exists; slice-specific metadata remains deferred.
+- Review/export/support-mask workflows remain deferred.

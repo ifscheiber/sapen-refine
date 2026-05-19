@@ -101,5 +101,5 @@ Blocking: yes/no
 ## Known Limitations
 
 - Advanced multi-touch zoom/pan gestures are not implemented in RB-045.
-- The editor still uses the MVP `MaskKind.REFINED` save path until the annotation domain schema is redesigned.
+- Current editor saves create draft human semantic annotation artifact versions; support-mask, review, and export workflows remain separate follow-up slices.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

@@ -233,7 +233,7 @@ Implemented the database schema baseline for label schemas, metadata, tasks/sess
 
 ### RB-050 - Project/Image/Sample Metadata Workflow
 
-Add API and UI support for required image dimensions/checksums and structured sample/acquisition metadata, including T-number capture.
+Implemented first project/image/sample metadata workflow: project name/description and label schema display, image metadata detail route, app-mediated upload checksum storage, acquisition metadata edit, image-level/default sample metadata edit, T-number visibility, and readiness summaries. Full dimension extraction and checksum/object enforcement remain RB-055.
 
 ### RB-051 - Slice Classification And Support-Mask Workflow
 
@@ -253,13 +253,13 @@ Add prediction artifact and task-queue design details for model source, confiden
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
-Add checksum, dimensions, object metadata verification, and stronger audit events for image and mask artifacts if this is not fully completed in RB-049/RB-050.
+Add checksum enforcement, dimensions, object metadata verification, and stronger audit events for image and mask artifacts.
 
 ## Open Questions For RB-049
 
 - Resolved in RB-049: Prisma uses `AnnotationProject` while public browser URLs still use `/projects` for compatibility.
 - Resolved in RB-049: mask artifacts use generic `AnnotationArtifact` and `AnnotationArtifactVersion` tables with strict artifact kinds.
-- Resolved in RB-049 baseline: sample/specimen fields start as `SampleMetadata` tied to `ImageAsset`; richer workflow is RB-050.
+- Resolved in RB-049/RB-050: sample/specimen fields start as image-level/default `SampleMetadata` tied to `ImageAsset`; slice-specific metadata remains deferred to `SliceInstance` follow-up work.
 - Deferred: `QA` export permission policy remains RB-053.
 
 ## Related Docs
