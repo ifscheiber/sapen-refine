@@ -15,6 +15,14 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 
 ## Module Docs
 
+- Overview: [00-overview/current-state.md](00-overview/current-state.md)
+- Architecture: [01-architecture/module-boundaries.md](01-architecture/module-boundaries.md)
+- App routes/API: [02-app/routes.md](02-app/routes.md)
+- Features: [03-features/README.md](03-features/README.md)
+- Server: [04-server/db.md](04-server/db.md)
+- Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
+- Data: [06-data/prisma.md](06-data/prisma.md)
+- Quality gates: [07-testing/quality-gates.md](07-testing/quality-gates.md)
 - App routes and API handlers: [src/app/README.md](src/app/README.md)
 - Server auth, DB, and storage: [src/server/README.md](src/server/README.md)
 - Mask helpers and formats: [src/mask/README.md](src/mask/README.md)
