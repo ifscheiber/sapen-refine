@@ -11,6 +11,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 - Seed login exists: `admin@sapen.local` / `admin1234`.
 - At least one project exists; the seed creates `Demo Project`.
 - A representative wood-slice image is available for upload.
+- For customer-facing iPad testing, prefer the deployed HTTPS URL and named tester accounts from [manual-smoke-customer-browser-trial.md](manual-smoke-customer-browser-trial.md).
 
 ## Desktop Browser Smoke
 
@@ -37,6 +38,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 | Step | Expected Result | Pass/Fail | Notes |
 | --- | --- | --- | --- |
 | Open app in Safari on iPad. | Layout fits viewport without overlapping controls. |  |  |
+| Add deployed app to Home Screen if testing trial deployment. | Home-Screen icon/name render and launch opens the app. |  |  |
 | Log in. | Workspace opens and session persists. |  |  |
 | Open an uploaded image in the editor. | Image and controls render. |  |  |
 | Draw with finger using Brush. | Mask draws; canvas does not scroll the page while drawing. |  |  |

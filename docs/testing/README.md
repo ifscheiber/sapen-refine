@@ -25,6 +25,7 @@ This page defines the current validation baseline and the intended testing direc
 ## Manual Smoke
 
 - `docs/07-testing/manual-smoke-editor-ipad.md` defines the current desktop and iPad Safari editor trial checklist.
+- `docs/07-testing/manual-smoke-customer-browser-trial.md` defines the deployment-oriented desktop and iPad Safari customer-trial checklist.
 
 ## Baseline From RB-041
 

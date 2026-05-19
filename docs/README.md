@@ -27,6 +27,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Data: [06-data/prisma.md](06-data/prisma.md)
 - Quality gates: [07-testing/quality-gates.md](07-testing/quality-gates.md)
 - Editor manual smoke checklist: [07-testing/manual-smoke-editor-ipad.md](07-testing/manual-smoke-editor-ipad.md)
+- Customer browser trial smoke checklist: [07-testing/manual-smoke-customer-browser-trial.md](07-testing/manual-smoke-customer-browser-trial.md)
 - App routes and API handlers: [src/app/README.md](src/app/README.md)
 - Server auth, DB, and storage: [src/server/README.md](src/server/README.md)
 - Mask helpers and formats: [src/mask/README.md](src/mask/README.md)

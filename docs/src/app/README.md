@@ -7,6 +7,7 @@
 ## Important Files
 
 - `src/app/layout.tsx` - root metadata, fonts, global styles, and document shell.
+- `src/app/manifest.ts` - browser/iPad Web App Manifest metadata without service worker/offline caching.
 - `src/app/page.tsx` - redirects authenticated users to `/app` and unauthenticated users to `/login?next=/app`.
 - `src/app/(public)/login/page.tsx` - login route posting to `/api/auth/login` through `LoginForm.tsx`.
 - `src/app/(workspace)/app/layout.tsx` - protected application layout using `src/components/shell/AppShell.tsx`.
