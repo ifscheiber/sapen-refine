@@ -38,7 +38,7 @@ Important files:
 
 ## RB-045 Start Limitations
 
-- `npm run lint` reports hook dependency warnings in `src/features/editor/EditorClient.tsx`.
+- Hook dependency warnings in `src/features/editor/EditorClient.tsx` were resolved during RB-045.
 - Pointer cancellation is routed to pointer-up handling, but pointer-leave and out-of-bounds coordinate behavior need hardening.
 - Touch targets are functional but not yet tuned for iPad use.
 - Advanced iPad gestures such as two-finger zoom/pan are not part of the current editor model.

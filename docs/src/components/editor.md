@@ -35,7 +35,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 ## Known Gaps
 
 - Undo/redo, autosave, and canvas rendering need focused validation.
-- ESLint still reports non-blocking hook dependency warnings in `src/features/editor/EditorClient.tsx`.
+- RB-045 resolved the previous editor hook dependency warnings.
 - iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
 - Review/approval state is not part of the editor workflow yet.
 

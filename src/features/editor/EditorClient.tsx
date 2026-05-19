@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MaskBuffer } from "@/mask/maskBuffer";
 import { DEFAULT_LABELS, Labels, type LabelId } from "@/mask/labels";
 import { applyBrush, applyPolygonFill } from "@/mask/tools";
@@ -82,8 +82,24 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const loadedOnceRef = useRef(false);
   const pendingMaskRef = useRef<{ imageId: string; promise: Promise<Uint8Array | null> } | null>(null);
   const maskFetchAbortRef = useRef<AbortController | null>(null);
+  const keyboardActionsRef = useRef<{
+    canEdit: boolean;
+    tool: Tool;
+    undo: () => void;
+    redo: () => void;
+    resetLasso: () => void;
+    commitLasso: (points: Point[]) => void;
+  } | null>(null);
 
   // ---------- helpers ----------
+  const getPalette = useCallback(() => {
+    if (!paletteRef.current || paletteOpacityRef.current !== opacity) {
+      paletteRef.current = buildPalette(labels, opacity);
+      paletteOpacityRef.current = opacity;
+    }
+    return paletteRef.current;
+  }, [labels, opacity]);
+
   function ensureOverlayBuffer(w: number, h: number) {
     const cur = overlayImageRef.current;
     if (!cur || cur.width !== w || cur.height !== h) {
@@ -149,7 +165,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     }
   }
 
-  function rerenderOverlayFull() {
+  const rerenderOverlayFull = useCallback(() => {
     const mask = maskRef.current;
     const octx = overlayCtxRef.current;
     if (!mask || !octx) return;
@@ -178,10 +194,10 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     // start with a fresh buffer, then paint in chunks
     overlayImageRef.current = octx.createImageData(W, H);
     step();
-  }
+  }, [getPalette]);
 
   // ---------- Zoom / Fit ----------
-  function applyZoom(z: number) {
+  const applyZoom = useCallback((z: number) => {
     const base = baseCanvasRef.current;
     const over = overlayCanvasRef.current;
     const preview = previewCanvasRef.current;
@@ -198,9 +214,9 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     over.style.height = `${dispH}px`;
     preview.style.width = `${dispW}px`;
     preview.style.height = `${dispH}px`;
-  }
+  }, []);
 
-  function fitToContainer() {
+  const fitToContainer = useCallback(() => {
     const wrap = containerRef.current;
     const base = baseCanvasRef.current;
     if (!wrap || !base) return;
@@ -221,7 +237,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     });
     setZoom(z);
     applyZoom(z);
-  }
+  }, [applyZoom]);
 
   // ---------- Coords ----------
   function canvasToImageCoords(evt: React.PointerEvent<HTMLCanvasElement>) {
@@ -236,12 +252,12 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     });
   }
 
-  function clearPreview() {
+  const clearPreview = useCallback(() => {
     const ctx = previewCtxRef.current;
     const c = previewCanvasRef.current;
     if (!ctx || !c) return;
     ctx.clearRect(0, 0, c.width, c.height);
-  }
+  }, []);
 
   function drawLassoPreview(points: Point[], hover?: Point | null, showHandles = false) {
     const ctx = previewCtxRef.current;
@@ -304,12 +320,12 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     ctx.restore();
   }
 
-  function resetLasso() {
+  const resetLasso = useCallback(() => {
     lassoActiveRef.current = false;
     lassoPointsRef.current = [];
     lassoDragIndexRef.current = null;
     clearPreview();
-  }
+  }, [clearPreview]);
 
   function commitLasso(points: Point[]) {
     if (points.length < 3) {
@@ -431,16 +447,8 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     }
   }
 
-  function getPalette() {
-    if (!paletteRef.current || paletteOpacityRef.current !== opacity) {
-      paletteRef.current = buildPalette(labels, opacity);
-      paletteOpacityRef.current = opacity;
-    }
-    return paletteRef.current;
-  }
-
   // ---------- Load latest mask ----------
-  async function fetchLatestMaskBytes(signal?: AbortSignal) {
+  const fetchLatestMaskBytes = useCallback(async (signal?: AbortSignal) => {
     const res = await fetch(API_MASK_LATEST(imageId), { method: "GET", signal });
     if (!res.ok) return null;
 
@@ -458,7 +466,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
     const ab = await fetch(url, { signal }).then((r) => r.arrayBuffer());
     return new Uint8Array(ab);
-  }
+  }, [imageId]);
 
   // ---------- Image load ----------
   useEffect(() => {
@@ -490,7 +498,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         maskFetchAbortRef.current = null;
       }
     };
-  }, [imageId]);
+  }, [fetchLatestMaskBytes, imageId]);
 
   useEffect(() => {
     if (!imgUrl) return;
@@ -576,32 +584,31 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [imgUrl, imageId]);
+  }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, rerenderOverlayFull]);
 
   // Opacity affects palette => full redraw (rare)
   useEffect(() => {
     paletteRef.current = null;
     rerenderOverlayFull();
-  }, [opacity]);
+  }, [rerenderOverlayFull]);
 
   // Apply zoom
   useEffect(() => {
     applyZoom(zoom);
-  }, [zoom]);
+  }, [applyZoom, zoom]);
 
   // Fit on resize
   useEffect(() => {
     const onResize = () => fitToContainer();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fitToContainer]);
 
   useEffect(() => {
     resetLasso();
     draggingRef.current = false;
     lastPtRef.current = null;
-  }, [tool]);
+  }, [resetLasso, tool]);
 
   // ---------- Painting ----------
 function stamp(x: number, y: number) {
@@ -813,14 +820,24 @@ function stamp(x: number, y: number) {
     scheduleAutosave();
   }
 
+  keyboardActionsRef.current = {
+    canEdit,
+    tool,
+    undo,
+    redo,
+    resetLasso,
+    commitLasso,
+  };
+
   // keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!canEdit) return;
+      const actions = keyboardActionsRef.current;
+      if (!actions?.canEdit) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
         e.preventDefault();
-        undo();
+        actions.undo();
       }
 
       if (
@@ -828,23 +845,22 @@ function stamp(x: number, y: number) {
         (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))
       ) {
         e.preventDefault();
-        redo();
+        actions.redo();
       }
 
       if (e.key === "Escape") {
-        resetLasso();
+        actions.resetLasso();
       }
 
-      if (tool === "lasso_poly" && e.key === "Enter") {
+      if (actions.tool === "lasso_poly" && e.key === "Enter") {
         e.preventDefault();
-        commitLasso(lassoPointsRef.current.slice());
+        actions.commitLasso(lassoPointsRef.current.slice());
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit, tool]);
+  }, []);
 
   // ---------- Export (PNG indexed-style: label in RGB) ----------
   async function exportMaskPng() {

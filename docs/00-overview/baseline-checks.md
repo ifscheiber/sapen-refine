@@ -53,9 +53,14 @@ This page records validation commands run for baseline tickets and whether failu
 - `npm run test`: passed, 1 file and 2 tests.
 - `npm run check:design-hardcoding`: passed.
 
+## RB-045 Editor Hook Stabilization
+
+- `npm run lint`: passed with no warnings after stabilizing editor effect dependencies.
+- `npm run typecheck`: passed.
+- `npm run test`: passed, 2 files and 6 tests.
+
 ## Non-Blocking Warnings
 
-- `npm run lint` reports React hook dependency warnings in `src/features/editor/EditorClient.tsx`.
 - `npm run build` reports the Next.js middleware-to-proxy convention warning for `src/middleware.ts`.
 
 These are not baseline failures. They are deferred to the architecture/UI cleanup and remediation backlog.

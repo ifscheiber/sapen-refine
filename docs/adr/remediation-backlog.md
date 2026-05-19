@@ -106,13 +106,13 @@ Context: RB-041 restored green lint/build/typecheck/test gates. RB-043 removed t
 
 Impact: The warnings do not fail validation, but they obscure future lint output and point at code that should be simplified during architecture/UI cleanup.
 
-Proposed next step: RB-045 is addressing the remaining hook dependency warnings as part of the editor/iPad readiness baseline.
+Resolution: Fixed by RB-045. `npm run lint` now passes without editor hook dependency warnings.
 
 Affected modules: `src/features/editor/EditorClient.tsx`.
 
 Owner: Codex.
 
-Priority: In progress.
+Priority: Resolved.
 
 ## RB-041-B - Next Middleware Convention Warning
 
