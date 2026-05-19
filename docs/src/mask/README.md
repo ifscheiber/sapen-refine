@@ -16,7 +16,7 @@
 ## Public Interfaces / Routes / Functions
 
 - The current editor serializes masks as `u8raw-v1`.
-- Mask latest/commit routes live under `src/app/api/images/[imageId]/mask`.
+- Mask latest/commit routes live under `src/app/api/images/[imageId]/mask` and persist `AnnotationArtifactVersion` records.
 
 ## Invariants And Constraints
 
@@ -26,8 +26,8 @@
 
 ## Known Gaps
 
-- The current mask format is MVP-level and lacks explicit label-schema versioning.
-- Prisma mask kinds still use legacy refinement language.
+- The binary mask format is still simple `u8raw-v1`, while the database version row now references a label schema version.
+- Prisma mask kinds no longer use legacy refinement language; artifact kinds live in `AnnotationArtifactKind`.
 - Format compatibility tests are not present yet.
 - Copper is currently a semantic material label only. It is not slice support geometry and must stay separate from future support/instance masks.
 

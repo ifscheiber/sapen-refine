@@ -15,7 +15,7 @@ Scratch annotation is the primary product mode. Prediction-assisted correction a
 - Shell/UI boundary: `src/components/shell` owns reusable workspace layout; `src/components/ui` owns generic primitives.
 - Design boundary: `src/design` owns CSS-variable tokens, themes, and central canvas preview constants.
 - Authentication boundary: `src/server/auth` owns session cookie handling, session persistence, and project-role checks.
-- Database boundary: `prisma/schema.prisma` defines the current MVP persisted model; `src/server/db.ts` owns Prisma client setup.
+- Database boundary: `prisma/schema.prisma` defines the current annotation-domain persisted model; `src/server/db.ts` owns Prisma client setup.
 - Object storage boundary: `src/server/storage.ts` and `src/server/storage/s3.ts` create presigned S3/MinIO URLs for raw images and mask artifacts.
 - Client helper boundary: `src/lib` wraps current browser-side API calls.
 - Mask boundary: `src/mask` owns label constants, mask buffers, serialization, patching, tools, and overlay rendering helpers.
@@ -32,17 +32,20 @@ Scratch annotation is the primary product mode. Prediction-assisted correction a
 
 ## Current Data Model
 
-The current schema in [prisma/schema.prisma](prisma/schema.prisma) is MVP-level and not sufficient for final training-data workflows.
+The current schema in [prisma/schema.prisma](prisma/schema.prisma) is the RB-049 annotation-domain persistence baseline.
 
 Persisted entities today:
 
 - `User`, `Role`, `UserGlobalRole`, and `Session` for local auth.
-- `Project` and `ProjectMember` for collaboration scope.
-- `Image` for uploaded object references and basic file metadata.
-- `Mask` and `MaskVersion` for versioned mask artifacts.
-- `AuditLog`, present but not yet used as a complete audit trail.
+- `AnnotationProject` and `AnnotationProjectMember` for collaboration scope.
+- `LabelSchemaVersion` and `LabelDefinition` for stable label semantics.
+- `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` for image references and metadata structures.
+- `AnnotationTask` and `AnnotationSession` for assignment/edit context.
+- `AnnotationArtifact` and `AnnotationArtifactVersion` for semantic/support/instance/prediction/derived artifacts.
+- `SliceInstance` and `SliceClassificationVersion` for physical slice and classification persistence.
+- `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 
-Known model gaps include acquisition metadata, task queues, review/approval records, label-schema versions, export batches/manifests, stronger image checksums, and clearer standalone annotation terminology. `MaskKind.PREDICTION` and `MaskKind.REFINED` are legacy MVP names; "refine" is reserved for a future prediction-correction mode, not the product name. The RB-048 target model is documented in [docs/06-data/annotation-domain-model.md](docs/06-data/annotation-domain-model.md) and [docs/06-data/prisma-schema-proposal.md](docs/06-data/prisma-schema-proposal.md).
+Known workflow gaps include metadata capture UI, support-mask workflow, review/approval workflow, export generation, stronger upload checksum/dimension validation, and future prediction import. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -72,7 +75,7 @@ Known gaps:
 
 ## Known Follow-Up Areas
 
-- Annotation domain schema implementation from the RB-048 proposal.
+- Metadata, support-mask, review, export, and prediction workflows on top of the RB-049 schema baseline.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
 - Upload/commit validation hardening.

@@ -45,7 +45,8 @@ Important files:
 
 - The editor currently edits one semantic byte mask for the image.
 - The active label set comes from `src/mask/labels.ts`; the label schema is not persisted.
-- Current saves create `MaskVersion` rows under a `Mask` with `MaskKind.REFINED`.
+- Current saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SEMANTIC_MASK`.
+- `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor does not yet distinguish draft, submitted, approved, rejected, or superseded ground-truth state.
 - The editor does not yet manage annotation tasks, slice classifications, support/instance geometry, review comments, or export readiness.
 - Copper is currently available as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.

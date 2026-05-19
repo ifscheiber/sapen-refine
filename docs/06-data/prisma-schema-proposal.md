@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page proposes the future Prisma domain model for SaPen Annotate. It is design documentation only. RB-048 does not edit `prisma/schema.prisma` and does not add a migration.
+This page records the RB-048 proposal and the RB-049 implementation decision. The implemented schema source is `prisma/schema.prisma`; see [prisma.md](prisma.md) for the current persisted model.
 
 ## Current-To-Target Mapping
 
@@ -108,7 +108,13 @@ Implementation should choose one of two patterns in RB-049:
 - separate concrete tables such as `SemanticMaskVersion`, `SliceSupportMaskVersion`, and `PredictionArtifact`;
 - or one generic `AnnotationArtifactVersion` table with strict artifact type, typed metadata, and constraints.
 
-The proposal favors separate conceptual names in docs and allows RB-049 to choose the Prisma shape that keeps constraints clear.
+RB-049 chose the generic artifact pattern:
+
+- `AnnotationArtifact` groups one artifact family for an image/kind/scope.
+- `AnnotationArtifactVersion` stores immutable artifact versions.
+- `AnnotationArtifactKind` distinguishes `SEMANTIC_MASK`, `SLICE_SUPPORT_MASK`, `INSTANCE_MASK`, `PREDICTION_MASK`, and `DERIVED_MASK`.
+
+This keeps semantic/support/prediction semantics explicit without duplicating similar version tables.
 
 Required fields for mask artifacts:
 
@@ -223,7 +229,7 @@ Domain policy for the app:
 
 ### RB-049 - Annotation Domain Schema Implementation
 
-Implement the database schema baseline for label schemas, metadata, tasks/sessions, artifact versions, review state, and export tables. Because there is no production data, reset the development migration baseline if that is the cleanest path. Use `prisma migrate deploy` for trial/server deployment, not `prisma migrate dev`.
+Implemented the database schema baseline for label schemas, metadata, tasks/sessions, artifact versions, review state, and export tables. Because there is no production data, RB-049 resets the development migration baseline. Use `prisma migrate deploy` for trial/server deployment, not `prisma migrate dev`.
 
 ### RB-050 - Project/Image/Sample Metadata Workflow
 
@@ -251,10 +257,10 @@ Add checksum, dimensions, object metadata verification, and stronger audit event
 
 ## Open Questions For RB-049
 
-- Should `Project` be renamed in Prisma to `AnnotationProject`, or kept as `Project` with explicit docs/API naming?
-- Should mask artifacts use separate concrete tables or a generic typed artifact table?
-- Should sample/specimen metadata be normalized into first-class rows immediately or start as structured JSON with validation?
-- Should `QA` have export permission by default or require project policy?
+- Resolved in RB-049: Prisma uses `AnnotationProject` while public browser URLs still use `/projects` for compatibility.
+- Resolved in RB-049: mask artifacts use generic `AnnotationArtifact` and `AnnotationArtifactVersion` tables with strict artifact kinds.
+- Resolved in RB-049 baseline: sample/specimen fields start as `SampleMetadata` tied to `ImageAsset`; richer workflow is RB-050.
+- Deferred: `QA` export permission policy remains RB-053.
 
 ## Related Docs
 

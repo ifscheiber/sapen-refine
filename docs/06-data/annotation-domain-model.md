@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the planned SaPen Annotate domain model. It is a target model for RB-049+ and is not fully implemented in the current MVP schema.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model; workflow/UI depth remains split across RB-050+.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -28,7 +28,7 @@ Responsibilities:
 - scopes access for annotation, review, and export,
 - provides the selection boundary for reproducible exports.
 
-Current MVP equivalent: `Project`.
+Implemented in RB-049 as `AnnotationProject`.
 
 ### ImageAsset
 
@@ -49,7 +49,7 @@ Required target fields:
 
 Raw image storage objects must not be overwritten after commit. Corrections, transformations, masks, and exports reference the image asset instead.
 
-Current MVP equivalent: `Image`.
+Implemented in RB-049 as `ImageAsset`.
 
 ### ImageAcquisitionMetadata
 
@@ -87,7 +87,7 @@ Planned concepts:
 - free-form notes,
 - optional relationship to one or more slice instances in an image.
 
-Implementation may model this as separate `Sample`/`Specimen` rows or structured metadata rows. The schema ticket must choose one option explicitly.
+RB-049 implements a first `SampleMetadata` structure tied to `ImageAsset`. RB-050 owns the full metadata workflow and any later normalization.
 
 ### AnnotationTask
 
@@ -113,7 +113,7 @@ Active-learning and preprediction compatibility:
 - prediction artifact source,
 - queue/ranking context.
 
-Model predictions must be proposals or inputs. They must not become ground truth without explicit human action and review state.
+Model predictions must be proposals or inputs. They must not become ground truth without explicit human action and review state. RB-049 persists task priority, task reason, uncertainty/confidence, model source, and source artifact placeholders; model queue behavior remains RB-054.
 
 ### AnnotationSession
 
@@ -145,9 +145,9 @@ Rules:
 
 See [annotation-label-schema.md](annotation-label-schema.md).
 
-### SemanticMaskVersion
+### Semantic Mask Versions
 
-Versioned material mask artifact.
+Versioned material mask artifact. RB-049 implements this through `AnnotationArtifact.kind = SEMANTIC_MASK` and immutable `AnnotationArtifactVersion` rows.
 
 Planned fields:
 
@@ -164,11 +164,11 @@ Planned fields:
 
 Semantic material labels include sapwood, heartwood, copper, background, and unknown/review-required where the label schema defines them.
 
-### SliceSupportMaskVersion / InstanceMaskVersion
+### Slice Support / Instance Mask Versions
 
 Versioned physical slice/object geometry.
 
-This is separate from semantic material masks. A support mask identifies the physical slice area or object instance geometry. It is not the same thing as a copper material mask.
+This is separate from semantic material masks. A support mask identifies the physical slice area or object instance geometry. It is not the same thing as a copper material mask. RB-049 implements this through `AnnotationArtifact.kind = SLICE_SUPPORT_MASK` or `INSTANCE_MASK`.
 
 Copper-specific rule:
 
@@ -208,7 +208,7 @@ Required artifact states:
 
 Approved artifacts must remain immutable and exportable by exact version id.
 
-Review records should include:
+RB-049 implements `ReviewDecision` and artifact `reviewState` with:
 
 - reviewed artifact version,
 - status decision,
@@ -219,7 +219,7 @@ Review records should include:
 
 ### ExportBatch And ExportManifest
 
-Admin-created training-data export.
+Admin-created training-data export. RB-049 adds `ExportBatch` and `ExportItem` persistence only; generation remains RB-053.
 
 Planned fields:
 
@@ -237,7 +237,7 @@ See [training-export-contract.md](training-export-contract.md).
 
 ## Ownership And Access Roles
 
-Current `ProjectRole` values are `OWNER`, `QA`, `LABELER`, and `VIEWER`.
+Current `AnnotationProjectRole` values are `OWNER`, `QA`, `LABELER`, and `VIEWER`.
 
 Planned role behavior:
 

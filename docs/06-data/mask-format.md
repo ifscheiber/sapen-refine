@@ -26,13 +26,13 @@ These ids are currently code constants, not persisted label-schema records. Disp
 
 ## Current Storage
 
-Mask artifacts are stored in S3/MinIO and referenced by `MaskVersion.storageKey` in `prisma/schema.prisma`. App-mediated browser reads stream the bytes through `src/app/api/images/[imageId]/mask/versions/[versionId]/asset/route.ts`.
+Mask artifacts are stored in S3/MinIO and referenced by `AnnotationArtifactVersion.storageKey` in `prisma/schema.prisma`. App-mediated browser reads stream the bytes through `src/app/api/images/[imageId]/mask/versions/[versionId]/asset/route.ts`.
 
 ## Current Limitations
 
-- The current format does not embed or reference a persisted label schema version.
-- Semantic masks and future slice support/instance masks are not separated in the database yet.
-- `MaskKind.REFINED` is legacy MVP terminology and does not express whether a mask is draft ground truth, approved ground truth, prediction, or support geometry.
-- Copper is currently stored as a semantic label only; it must not be treated as physical slice support geometry.
+- The binary format does not embed the label schema; the database `AnnotationArtifactVersion` row references the label schema version.
+- Semantic masks and slice support/instance masks are separated by `AnnotationArtifactKind`.
+- `MaskKind.REFINED` is removed from the active schema.
+- Copper is stored as a semantic label only; it must not be treated as physical slice support geometry.
 
-RB-048 documents the target mask/artifact model only. Format or schema migration remains deferred to a later implementation ticket.
+RB-049 implements the schema baseline. Binary format normalization remains deferred to a later implementation ticket.

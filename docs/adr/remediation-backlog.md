@@ -18,17 +18,17 @@ Priority: Resolved.
 
 ## RB-040-B - MVP Mask Terminology Still Uses Refinement-Oriented Names
 
-Context: `prisma/schema.prisma` defines `MaskKind.PREDICTION` and `MaskKind.REFINED`.
+Context: The pre-RB-049 schema defined `MaskKind.PREDICTION` and `MaskKind.REFINED`.
 
 Impact: The schema language does not yet reflect standalone scratch annotation, label schemas, review states, or export-ready ground truth.
 
-Resolution: RB-048 documents the target annotation-domain model. RB-049 is the schema implementation ticket.
+Resolution: RB-048 documents the target annotation-domain model. RB-049 removes `MaskKind` and maps the current editor path to draft semantic annotation artifacts.
 
 Affected modules: `prisma/schema.prisma`, `src/app/api/images/[imageId]/mask/*`, `src/mask/*`, docs under `docs/prisma` and `docs/src/mask`.
 
-Owner: Codex for design; implementation unassigned.
+Owner: Codex.
 
-Priority: Superseded by RB-049.
+Priority: Resolved by RB-049.
 
 ## RB-040-C - Upload And Commit Endpoint Hardening
 
@@ -158,21 +158,21 @@ Priority: Resolved.
 
 ## RB-049 - Annotation Domain Schema Implementation
 
-Context: RB-048 defines the target domain model, but `prisma/schema.prisma` remains the MVP schema.
+Context: RB-048 defines the target domain model. RB-049 implements the first persistence baseline in `prisma/schema.prisma`.
 
-Impact: Follow-up feature work cannot safely implement metadata, review, export, or support masks until the persisted model exists.
+Impact: Follow-up feature work can now build on the schema baseline, but UI/API workflows still need RB-050+.
 
-Proposed next step: Implement the schema baseline in `tickets/2026-05-19/RB-049-annotation-domain-schema-implementation.md`.
+Resolution: Implemented by RB-049 optimized ticket with `AnnotationProject`, `ImageAsset`, label schemas, tasks/sessions, artifact versions, review decisions, slice classifications, and export records.
 
 Affected modules: `prisma/schema.prisma`, `prisma/migrations`, `src/app/api`, `src/server`, `src/mask`, docs under `docs/06-data` and `docs/prisma`.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved.
 
 ## RB-050 - Project, Image, And Sample Metadata Workflow
 
-Context: The current image workflow records only basic file metadata and does not capture dimensions, checksums, acquisition metadata, sample/specimen data, or T-number.
+Context: RB-049 adds `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata`, but the current image workflow still captures only basic file metadata.
 
 Impact: Training exports cannot carry enough metadata for reproducible customer/lab datasets.
 
@@ -186,7 +186,7 @@ Priority: P1.
 
 ## RB-051 - Slice Classification And Support-Mask Workflow
 
-Context: Copper, sapwood, and heartwood are currently semantic labels only. The app does not yet model physical slice support/instance geometry or slice classifications.
+Context: RB-049 adds support/instance artifact kinds and slice classification persistence. The app does not yet expose the user workflow for physical slice support/instance geometry or slice classifications.
 
 Impact: Copper semantic masks could be misused as support geometry unless the domain workflow separates these artifacts.
 
@@ -200,7 +200,7 @@ Priority: P1.
 
 ## RB-052 - Review And Approval Workflow
 
-Context: Review/approval is a core ground-truth concept in RB-048, but the current app has no draft/submitted/approved/rejected/superseded workflow.
+Context: RB-049 adds review/approval persistence, but the current app has no draft/submitted/approved/rejected/superseded workflow.
 
 Impact: The app cannot identify approved training artifacts or preserve reviewer attribution.
 
@@ -214,7 +214,7 @@ Priority: P1.
 
 ## RB-053 - Admin Training Export MVP
 
-Context: RB-048 defines semantic segmentation, support/instance segmentation, slice classification, and combined manifest export targets, but no export implementation exists.
+Context: RB-049 adds export batch/item persistence. RB-048 defines semantic segmentation, support/instance segmentation, slice classification, and combined manifest export targets, but no export generation exists.
 
 Impact: The app cannot produce reproducible training-data bundles.
 
@@ -242,7 +242,7 @@ Priority: P2.
 
 ## RB-055 - Upload Artifact Validation And Checksum Hardening
 
-Context: Upload routes have size limits and app-mediated browser paths, but still need object metadata verification, checksums, dimensions, and stronger audit events.
+Context: RB-049 adds checksum/dimension fields. Upload routes have size limits and app-mediated browser paths, but still need object metadata verification, checksum enforcement, dimensions, and stronger audit events.
 
 Impact: Raw-image immutability and artifact reproducibility remain weaker than required for customer training data.
 

@@ -27,6 +27,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Trial backup/restore: [04-server/backup-restore.md](04-server/backup-restore.md)
 - Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
 - Data: [06-data/prisma.md](06-data/prisma.md)
+- Current-to-target schema map: [06-data/current-to-target-schema-map.md](06-data/current-to-target-schema-map.md)
 - Annotation domain model: [06-data/annotation-domain-model.md](06-data/annotation-domain-model.md)
 - Prisma schema proposal: [06-data/prisma-schema-proposal.md](06-data/prisma-schema-proposal.md)
 - Training export contract: [06-data/training-export-contract.md](06-data/training-export-contract.md)

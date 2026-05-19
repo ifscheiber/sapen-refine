@@ -23,6 +23,12 @@ For an already running local database that only needs schema and seed data:
 npm run db:bootstrap
 ```
 
+After RB-049 schema changes, prefer the destructive rebuild because the development baseline migration was replaced:
+
+```bash
+npm run db:rebuild
+```
+
 ## Important Files
 
 - `package.json` - root scripts.

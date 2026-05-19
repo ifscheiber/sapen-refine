@@ -25,12 +25,12 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/mask/versions/[versionId]/asset` - streams mask bytes through the app after membership check.
 - `POST /api/images/[imageId]/mask/presign` - creates a presigned mask upload URL.
 - `POST /api/images/[imageId]/mask/commit` - records a new mask version.
-- `POST /api/images/[imageId]/mask/upload` - uploads mask bytes through the app server and records a new mask version.
+- `POST /api/images/[imageId]/mask/upload` - uploads mask bytes through the app server and records a new draft semantic `AnnotationArtifactVersion`.
 
 ## Invariants And Constraints
 
 - Project and image API routes must enforce authenticated access and project membership.
-- Mask commits must remain append-only; do not overwrite historical mask versions.
+- Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
 - API routes should return stable error codes that clients can handle.
 
@@ -38,7 +38,7 @@ This page lists the current API route handlers under `src/app/api`.
 
 - Upload commit validation is still incomplete for checksums, dimensions, and object metadata, but RB-046 adds server-side size limits and app-mediated trial upload routes.
 - Audit logging is not consistently attached to route mutations.
-- Review, approval, export, metadata, and task APIs are planned but missing.
+- Review, approval, export, metadata, and task persistence exists after RB-049, but user-facing APIs/workflows remain planned for RB-050+.
 
 ## Related Tickets / Docs
 

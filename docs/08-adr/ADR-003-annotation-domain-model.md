@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-048 design; implementation deferred to RB-049+.
+Accepted for RB-048 design. First persistence baseline implemented by RB-049.
 
 ## Context
 
@@ -10,7 +10,7 @@ SaPen Annotate now has a green technical baseline, app-mediated browser upload/r
 
 The current MVP schema in `prisma/schema.prisma` is sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload. It is not sufficient for exportable training data because it lacks label schema versions, structured metadata, task state, review/approval, export manifests, and clear separation between semantic material masks and support/instance geometry.
 
-`MaskKind.REFINED` is legacy MVP terminology and should not define the final standalone annotation model.
+`MaskKind.REFINED` was legacy MVP terminology and does not define the standalone annotation model. RB-049 removed it from the active schema.
 
 ## Decision
 
@@ -28,14 +28,13 @@ Copper semantic masks remain material annotations only. They must not be treated
 
 ## Consequences
 
-- RB-049 should implement schema changes from the proposal rather than extending the MVP `MaskKind.REFINED` model directly.
+- RB-049 implements schema changes from the proposal rather than extending the MVP `MaskKind.REFINED` model directly.
 - Existing MVP routes may need compatibility handling or a clean development reset during schema implementation.
 - Export implementation can target semantic segmentation, support/instance segmentation, slice classification, or combined manifest exports without conflating their artifacts.
 - Active-learning and model preprediction can fit later through task priority, task reason, confidence/uncertainty, and prediction provenance.
 
 ## Deferred Work
 
-- Prisma schema implementation.
 - API and UI workflow migration.
 - Review/approval UI and route handlers.
 - Training export manifest implementation.

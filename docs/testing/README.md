@@ -17,6 +17,7 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Current Unit Coverage
 
+- `tests/integration/annotation-domain-schema.test.ts` covers RB-049 domain persistence invariants against local PostgreSQL: default label schema, image/project ownership, semantic/support artifact separation, Copper-not-support logic, attribution, and export references.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, and upload limit parsing.
@@ -55,7 +56,8 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Invariants And Constraints
 
-- No real network calls to external services in tests.
+- `npm run test` now includes a local PostgreSQL integration test. Local DB must be running, migrated, and seeded; `npm run db:rebuild` is the clean recovery path.
+- No real network calls to external hosted services in tests.
 - Use deterministic fixtures and clean up DB rows created by tests.
 - Mock object storage where possible.
 
@@ -63,7 +65,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API and DB integration tests are not configured yet.
+- API route-handler tests remain limited; RB-049 adds DB/domain integration coverage.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

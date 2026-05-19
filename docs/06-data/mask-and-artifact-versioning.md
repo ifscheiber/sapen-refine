@@ -4,7 +4,7 @@
 
 This page defines the planned distinction between semantic masks, support/instance masks, prediction artifacts, and reviewed ground-truth artifacts.
 
-Current MVP mask code lives in `src/mask/*`, current mask APIs live in `src/app/api/images/[imageId]/mask/*`, and the current persisted model is `Mask`/`MaskVersion` in `prisma/schema.prisma`.
+Current mask code lives in `src/mask/*`, current mask APIs live in `src/app/api/images/[imageId]/mask/*`, and RB-049 persists mask artifacts as `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
 
 ## Artifact Families
 
@@ -20,7 +20,7 @@ Relevant labels include:
 - heartwood,
 - copper.
 
-Semantic masks must reference one label schema version.
+Semantic masks must reference one label schema version. The current editor save path writes `AnnotationArtifact.kind = SEMANTIC_MASK` and appends `AnnotationArtifactVersion` rows with `reviewState = DRAFT`.
 
 ### Slice Support / Instance Masks
 
@@ -52,7 +52,7 @@ Classification artifacts should reference the relevant image, optional slice ins
 
 Prediction artifacts are model-generated proposals.
 
-They must record:
+RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence placeholders. Future prediction import must record:
 
 - model source,
 - checkpoint/run/config where available,
@@ -99,7 +99,7 @@ Exports must include coordinate-space metadata.
 
 ## Format Compatibility
 
-Current `u8raw-v1`/`MSK1` artifacts may remain readable during migration.
+Current `u8raw-v1`/`MSK1` artifacts remain the browser editor artifact format after RB-049.
 
 Future format work should decide:
 

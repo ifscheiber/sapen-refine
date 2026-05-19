@@ -2,12 +2,12 @@
 
 ## Purpose
 
-`prisma` owns the persisted MVP domain model, migrations, and seed scripts.
+`prisma` owns the persisted annotation-domain model, migrations, and seed scripts.
 
 ## Important Files
 
 - `prisma/schema.prisma` - current database schema.
-- `prisma/migrations/20260519090000_init/migration.sql` - current development baseline migration.
+- `prisma/migrations/20260519213000_annotation_domain_baseline/migration.sql` - current development baseline migration.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `prisma.config.ts` - Prisma config and environment loading.
 
@@ -25,12 +25,12 @@
 
 ## Known Gaps
 
-- Current schema is MVP-level and lacks final annotation metadata, task, review, approval, label-schema, and export models.
-- Legacy `MaskKind.REFINED` naming remains in the schema, migrations, and current mask route handlers until a schema/domain ticket changes it.
-- RB-048 documents the target schema direction in `docs/06-data/prisma-schema-proposal.md`; implementation is deferred.
+- Metadata, review, slice support, and export persistence exists, but the user-facing workflows remain split across RB-050 through RB-055.
+- `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs
 
 - [schema.md](schema.md)
+- [../06-data/current-to-target-schema-map.md](../06-data/current-to-target-schema-map.md)
 - [../06-data/prisma-schema-proposal.md](../06-data/prisma-schema-proposal.md)
 - [../adr/remediation-backlog.md](../adr/remediation-backlog.md)

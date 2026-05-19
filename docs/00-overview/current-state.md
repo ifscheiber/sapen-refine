@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This page records the repository state after RB-047 and before annotation-domain schema implementation.
+This page records the repository state after RB-049 annotation-domain schema implementation.
 
 ## Important Files
 
 - `package.json` - root scripts for Prisma generation, lint, typecheck, build, Vitest, Playwright E2E, and design-hardcoding checks.
-- `prisma/schema.prisma` - current MVP persisted model.
+- `prisma/schema.prisma` - current annotation-domain persisted model.
 - `src/app/(public)/login/page.tsx` and `src/app/(public)/login/LoginForm.tsx` - public login route.
 - `src/app/(workspace)/app/**` - protected App Router workspace URLs.
 - `src/app/api/**` - current auth, project, image, mask, health, and readiness route handlers.
@@ -34,7 +34,7 @@ There is no `check:docs-links` script in `package.json` yet.
 ## Current Application Model
 
 - Local login uses `src/app/api/auth/login/route.ts`, `src/server/auth/session.ts`, and the `User`/`Session` tables.
-- Project membership is the current access boundary through `Project` and `ProjectMember`; `src/server/auth/rbac.ts` enforces project roles for protected project/image workflows.
+- Project membership is the current access boundary through `AnnotationProject` and `AnnotationProjectMember`; `src/server/auth/rbac.ts` enforces project roles for protected project/image workflows.
 - Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes still exist for compatibility.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
@@ -43,10 +43,10 @@ There is no `check:docs-links` script in `package.json` yet.
 
 ## Current Data Model
 
-- `Project` is the standalone collaboration container, but it does not yet carry label-schema choice, export settings, metadata defaults, or workflow state.
-- `Image` stores a raw object key and basic file metadata, but not checksum, dimensions, acquisition metadata, sample/specimen metadata, or image validation status.
-- `Mask` groups mask versions by `imageId` and `MaskKind`; `MaskKind.REFINED` is legacy MVP terminology for the current human-edited mask.
-- `MaskVersion` is append-only per `Mask` and stores artifact key, size, dimensions, format, creator, and timestamp.
+- `AnnotationProject` is the standalone collaboration container and can reference an active label schema version.
+- `ImageAsset` stores a raw object key, basic file metadata, optional checksum/dimensions, validation status, uploader, and metadata relations.
+- `AnnotationArtifact` groups semantic/support/instance/prediction/derived artifacts by image, kind, and scope key.
+- `AnnotationArtifactVersion` is append-only per artifact and stores artifact key, size, dimensions, format, label schema version, review state, provenance, creator, and timestamp.
 - `AuditLog` exists but is not yet a complete attribution/audit trail for project, image, mask, review, approval, or export actions.
 
 ## Invariants And Constraints
@@ -55,11 +55,11 @@ There is no `check:docs-links` script in `package.json` yet.
 - Raw image objects should be treated as immutable after commit.
 - Mask saves should append versions instead of overwriting previous versions.
 - Writes must be tied to an authenticated user or an explicit future system actor.
-- Development data may be destroyed during later schema implementation, but RB-048 is documentation only.
+- Development data may be destroyed during schema work; RB-049 replaces the baseline migration and uses `npm run db:rebuild`.
 
 ## Known Gaps
 
-- The current schema is MVP-level and does not yet model label schemas, annotation tasks, acquisition/sample metadata, review/approval, slice instances, export batches, or prediction provenance.
+- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and prediction provenance placeholders. User-facing workflows remain split across RB-050+.
 - Copper masks are currently just one semantic label in `src/mask/labels.ts`; there is no separate slice support/instance geometry model yet.
 - Upload hardening still needs checksum, object metadata, dimensions, and stronger audit coverage.
 - Real iPad Safari validation remains deferred until deployment/device access is available.

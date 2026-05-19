@@ -26,7 +26,10 @@ Manual smoke coverage:
 
 Optional local destructive smoke:
 
+- `npm run db:rebuild` before DB-backed tests when the local schema changed.
 - `npm run db:reset`
 - `npm run prisma:migrate`
 - `npm run seed`
 - `npm run dev`
+
+RB-049 note: `npm run test` includes `tests/integration/annotation-domain-schema.test.ts`, which connects to the local PostgreSQL container. Run `npm run db:rebuild` after schema changes or when the local DB is stale.

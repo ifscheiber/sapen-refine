@@ -7,7 +7,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ projectId: string }> }
 ) {
-  const { projectId } = await ctx.params; // ✅ wichtig
+  const { projectId } = await ctx.params;
 
   const { user } = await requireProjectRole(projectId, ["OWNER", "QA", "LABELER"]);
 

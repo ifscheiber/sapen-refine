@@ -20,10 +20,11 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 ## Current Data Captured
 
-- `Image.projectId` ties the image to exactly one current project.
-- `Image.storageKey` records the S3/MinIO object key and is unique.
-- `Image.filename`, `Image.contentType`, and `Image.size` record basic file metadata.
-- `Image.createdById` records the uploader when the app-mediated upload or commit route is used by an authenticated user.
+- `ImageAsset.projectId` ties the image to exactly one annotation project.
+- `ImageAsset.storageKey` records the S3/MinIO object key and is unique.
+- `ImageAsset.filename`, `contentType`, `size`, optional `checksum`, optional dimensions, and validation status record the artifact baseline.
+- `ImageAsset.uploadedById` records the uploader when the app-mediated upload or commit route is used by an authenticated user.
+- `ImageAcquisitionMetadata` and `SampleMetadata` exist as RB-049 persistence structures; full workflow capture remains RB-050.
 
 ## Current API Surface
 
@@ -34,8 +35,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 ## MVP Limitations
 
-- Image upload validates size, but object checksums, final acquisition metadata, and image dimension validation remain future hardening work.
+- Image upload validates size, but checksum enforcement, final acquisition metadata workflow, and image dimension validation remain future hardening work.
 - Legacy presigned upload/view routes remain for compatibility, but the trial browser workflow should use app-mediated upload and read paths so MinIO can stay private.
-- There is no structured sample/specimen/T-number metadata model yet.
-- There is no acquisition metadata model for camera, lighting, color profile, capture timestamp, or imported EXIF.
+- Structured sample/specimen/T-number and acquisition metadata tables exist, but user-facing capture remains RB-050.
 - There is no explicit image validation status for training export readiness.
