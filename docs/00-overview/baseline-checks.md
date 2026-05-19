@@ -117,6 +117,19 @@ This page records validation commands run for baseline tickets and whether failu
 - `npm run test`: passed, 6 files and 21 tests.
 - `npm run check:design-hardcoding`: passed.
 
+## RB-047 Desktop Browser E2E/iPad Preparation Final Baseline
+
+- `git status --short`: clean before final validation.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6.
+- `npm run test`: passed, 6 files and 21 tests.
+- `npm run check:design-hardcoding`: passed.
+- `npm run test:e2e`: passed, 2 Playwright tests.
+- `npx playwright install chromium`: failed because Playwright 1.60 does not support bundled Chromium on `ubuntu26.04-x64`; RB-047 uses system Chrome through the Playwright `chrome` channel instead.
+- `npm run test:e2e:ipad-prep`: passed earlier in the RB-047 slice; this is viewport/manifest preparation only, not real iPad Safari validation.
+
 ## Resolved Warnings
 
 - RB-046 replaced `src/middleware.ts` with `src/proxy.ts`. `npm run build` no longer reports the Next.js middleware-to-proxy convention warning.

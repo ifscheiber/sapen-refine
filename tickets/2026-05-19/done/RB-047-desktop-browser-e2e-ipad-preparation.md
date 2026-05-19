@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done
 
 ## Priority
 
@@ -329,3 +329,29 @@ git commit -m "chore: finalize browser smoke baseline ticket"
 - Prefer a small reliable browser smoke over a broad brittle E2E suite.
 - Keep all existing validation gates green.
 - If the current MVP workflow is too incomplete for a full smoke, document the exact missing pieces and create backlog entries.
+
+---
+
+## Completion Notes
+
+Completed in RB-047 implementation.
+
+- Documented the desktop browser MVP smoke path and current MVP limitations.
+- Routed normal browser image and mask reads through app-mediated routes so MinIO can remain private during the customer-trial deployment.
+- Added Playwright E2E scripts and tests:
+  - `npm run test:e2e`
+  - `npm run test:e2e:headed`
+  - `npm run test:e2e:ipad-prep`
+- Added a desktop Chrome smoke that logs in, creates a project, uploads an image fixture, opens the editor, draws, saves, reloads, and verifies latest mask persistence.
+- Added an iPad-sized Chromium preparation smoke for login viewport and manifest availability; this is not a substitute for real iPad Safari.
+- Added ADR-002 documenting desktop-browser-first sequencing while real iPad validation is deferred.
+- Refined iPad smoke docs with the explicit deferred gate and blocking failure criteria.
+- Final validation passed:
+  - `npm run prisma:generate`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test`
+  - `npm run check:design-hardcoding`
+  - `npm run test:e2e`
+- Real iPad Safari smoke remains not executed in RB-047 because deployment/device access is unavailable.
