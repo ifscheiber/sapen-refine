@@ -43,6 +43,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await expect(drawingSurface).toBeVisible();
+  await drawingSurface.scrollIntoViewIfNeeded();
   const box = await drawingSurface.boundingBox();
   expect(box).not.toBeNull();
   if (!box) return;
@@ -67,23 +68,51 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
     "true",
   );
 
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.35);
+  await drawingSurface.scrollIntoViewIfNeeded();
+  const supportBox = await drawingSurface.boundingBox();
+  expect(supportBox).not.toBeNull();
+  if (!supportBox) return;
+
+  await page.mouse.move(supportBox.x + supportBox.width * 0.3, supportBox.y + supportBox.height * 0.35);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.65, { steps: 8 });
+  await page.mouse.move(supportBox.x + supportBox.width * 0.7, supportBox.y + supportBox.height * 0.65, { steps: 8 });
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
   await page.getByRole("button", { name: "Save support mask" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
-  await page.getByLabel("Slice classification").selectOption("COPPER_SLICE");
+  await page.getByRole("combobox", { name: "Slice classification" }).selectOption("COPPER_SLICE");
   await page.getByRole("button", { name: "Save classification" }).click();
   await expect(page.getByText("Classification saved")).toBeVisible();
 
+  await expect(page.getByRole("button", { name: "Submit Semantic mask" })).toBeEnabled();
+  await page.getByRole("button", { name: "Submit Semantic mask" }).click();
+  await expect(page.getByText("Semantic mask Submitted")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve Semantic mask" })).toBeEnabled();
+  await page.getByRole("button", { name: "Approve Semantic mask" }).click();
+  await expect(page.getByText("Semantic mask Approved")).toBeVisible();
+
+  await expect(page.getByRole("button", { name: "Submit Slice support mask" })).toBeEnabled();
+  await page.getByRole("button", { name: "Submit Slice support mask" }).click();
+  await expect(page.getByText("Slice support mask Submitted")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve Slice support mask" })).toBeEnabled();
+  await page.getByRole("button", { name: "Approve Slice support mask" }).click();
+  await expect(page.getByText("Slice support mask Approved")).toBeVisible();
+
+  await expect(page.getByRole("button", { name: "Submit Slice classification" })).toBeEnabled();
+  await page.getByRole("button", { name: "Submit Slice classification" }).click();
+  await expect(page.getByText("Slice classification Submitted")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve Slice classification" })).toBeEnabled();
+  await page.getByRole("button", { name: "Approve Slice classification" }).click();
+  await expect(page.getByText("Slice classification Approved")).toBeVisible();
+  await expect(page.getByText("Export-ready: Yes")).toBeVisible();
+
   await page.reload();
   await expect(page.getByLabel("Mask drawing surface")).toBeVisible();
-  await expect(page.getByText(/Support mask: Draft v\d+ saved/)).toBeVisible();
+  await expect(page.getByText(/Support mask: Approved v\d+ saved/)).toBeVisible();
   await expect(page.getByText("Classification: Copper slice")).toBeVisible();
+  await expect(page.getByText("Export-ready: Yes")).toBeVisible();
 
   await expect.poll(async () => {
     return page.evaluate(async (id) => {
@@ -117,4 +146,20 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
       return body.latestClassification?.class ?? null;
     }, imageId);
   }).toBe("COPPER_SLICE");
+
+  await expect.poll(async () => {
+    return page.evaluate(async (id) => {
+      const response = await fetch(`/api/images/${id}/review-state`, {
+        credentials: "include",
+      });
+      if (!response.ok) return false;
+      const body = await response.json();
+      return (
+        body.exportReady === true &&
+        Boolean(body.reviewables?.semanticMask?.latestApprovedVersion?.id) &&
+        Boolean(body.reviewables?.supportMask?.latestApprovedVersion?.id) &&
+        Boolean(body.reviewables?.sliceClassification?.latestApprovedVersion?.id)
+      );
+    }, imageId);
+  }).toBe(true);
 });
