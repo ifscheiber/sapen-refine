@@ -26,6 +26,10 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function errorMessage(error: unknown, fallback = "Save failed") {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function EditorClient({ imageId, canEdit }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -351,7 +355,8 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     try {
       setStatus("Saving…");
 
-      const bytes = mask.data; // Uint8Array
+      const bytes = new Uint8Array(mask.data.length);
+      bytes.set(mask.data);
       const blob = new Blob([bytes], { type: "application/octet-stream" });
 
       // 1) presign (contentType muss rein)
@@ -406,9 +411,9 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       dirtyMaskRef.current = false;
       setStatus("Saved");
       setTimeout(() => setStatus(""), 800);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setStatus(e?.message ?? "Save failed");
+      setStatus(errorMessage(e));
     } finally {
       savingRef.current = false;
       if (saveQueuedRef.current) {
@@ -569,13 +574,11 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   useEffect(() => {
     paletteRef.current = null;
     rerenderOverlayFull();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opacity]);
 
   // Apply zoom
   useEffect(() => {
     applyZoom(zoom);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
   // Fit on resize

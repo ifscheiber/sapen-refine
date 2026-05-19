@@ -37,6 +37,10 @@ function fmt(dt: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 function hexToRgb(hex: string): [number, number, number] | null {
   const h = hex.replace("#", "").trim();
   if (h.length !== 6) return null;
@@ -373,10 +377,11 @@ function overlayLabelsFromUI() {
     }
 
     const ac = new AbortController();
+    const imageId = selectedImage;
 
     async function loadLatestMask() {
       try {
-        const latest = await apiGetLatestMask(selectedImage);
+        const latest = await apiGetLatestMask(imageId);
 
         if (!latest.exists) {
           setMaskHistory({ items: [], index: 0 });
@@ -402,8 +407,8 @@ function overlayLabelsFromUI() {
         setMaskDirty(false);
         setSaveStatus("idle");
         setLastSaveTime(null);
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
+      } catch (e: unknown) {
+        if (isAbortError(e)) return;
         console.error("Failed to load latest mask", e);
         setMaskHistory({ items: [], index: 0 });
         setMaskDirty(false);
@@ -412,7 +417,6 @@ function overlayLabelsFromUI() {
 
     loadLatestMask();
     return () => ac.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedImage]);
 
   // Autosave (debounced): only run after user changes the mask

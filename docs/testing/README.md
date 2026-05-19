@@ -6,18 +6,20 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Current Commands
 
-- `npx prisma generate`
+- `npm run prisma:generate`
 - `npm run lint`
+- `npm run typecheck`
 - `npm run build`
+- `npm run test`
 
-There is no root `typecheck` or `test` script yet.
-
-## Baseline From RB-040
+## Baseline From RB-041
 
 - `npm install` completed.
-- `npx prisma generate` passed after allowing Prisma to update its cache outside the workspace.
-- `npm run lint` failed on pre-existing ESLint and React compiler issues.
-- `npm run build` needed network access for Google font fetching, then failed on a pre-existing TypeScript issue in `src/app/app/AppShell.tsx`.
+- `npm run prisma:generate` passed.
+- `npm run lint` passed with warnings only.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `npm run test` passed with the initial mask serialization unit tests.
 
 ## Preferred Test Order
 
@@ -34,8 +36,9 @@ There is no root `typecheck` or `test` script yet.
 
 ## Known Gaps
 
-- No test harness is configured yet.
-- Baseline lint/build failures must be fixed before validation can serve as a reliable regression gate.
+- Current tests cover only stable mask serialization utilities.
+- Prototype editor hook warnings remain and are deferred to the architecture/UI cleanup.
+- API and DB integration tests are not configured yet.
 
 ## Related Tickets / Docs
 

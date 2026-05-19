@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-
+function errorMessage(error: unknown, fallback = "ERROR") {
+  return error instanceof Error ? error.message : fallback;
+}
 
 type ImageRow = {
   id: string;
@@ -92,8 +94,8 @@ export function ImagesClient({
       if (!commit.ok) throw new Error(commitData?.error ?? `COMMIT_FAILED_${commit.status}`);
 
       await load();
-    } catch (e: any) {
-      setError(e?.message ?? "ERROR");
+    } catch (e: unknown) {
+      setError(errorMessage(e));
     } finally {
       setLoading(false);
     }

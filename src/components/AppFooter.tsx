@@ -53,7 +53,7 @@ export function AppFooter({
 
       {/* Right: Logo */}
       <div className="min-w-64 flex items-center justify-end text-gray-400 text-xs">
-        <img src={assembleMindLogo} alt="assembleMIND" className="h-5 w-auto" />
+        <img src={assembleMindLogo.src} alt="assembleMIND" className="h-5 w-auto" />
       </div>
     </footer>
   );

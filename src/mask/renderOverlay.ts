@@ -1,5 +1,4 @@
 import type { MaskBuffer } from "./maskBuffer";
-import type { LabelId } from "./labels";
 
 type LabelDef = {
   id: number;
@@ -133,7 +132,7 @@ export function updateOverlayRegionWithPalette(
   const src = mask.data;
 
   for (let yy = y0; yy < y1; yy++) {
-    let row = yy * W;
+    const row = yy * W;
     for (let xx = x0; xx < x1; xx++) {
       const i = row + xx;
       const id = src[i] as number;

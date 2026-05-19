@@ -12,6 +12,7 @@ cp .env.example .env
 cp .env.example .env.local
 npm run db:up
 npx prisma generate
+npm run prisma:generate
 npm run prisma:migrate
 npm run seed
 npm run dev
@@ -31,8 +32,8 @@ npm run dev
 
 ## Known Gaps
 
-- `npm run lint` and `npm run build` are not green at the RB-040 baseline.
-- There is no local test command yet.
+- Destructive DB reset is allowed during development, but it is intentionally not part of the required root gate.
+- Prototype editor lint warnings remain and are tracked for architecture/UI cleanup.
 
 ## Related Tickets / Docs
 

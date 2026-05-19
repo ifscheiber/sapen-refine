@@ -8,13 +8,13 @@ Context: Baseline `npm run lint` fails before RB-040 changes. Baseline `npm run 
 
 Impact: Future changes cannot rely on lint/build as green regression gates until existing errors are fixed.
 
-Proposed next step: Create a focused validation debt ticket that fixes existing ESLint and TypeScript failures without changing product behavior.
+Resolution: Fixed by RB-041. Root validation now includes `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run test`.
 
 Affected modules: `src/app/app/AppShell.tsx`, `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`, `src/app/app/projects/[projectId]/images/ui.tsx`, `src/components/AnnotationCanvas.tsx`, `src/components/ui/sidebar.tsx`, `src/mask/renderOverlay.ts`.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved.
 
 ## RB-040-B - MVP Mask Terminology Still Uses Refinement-Oriented Names
 
@@ -85,3 +85,31 @@ Affected modules: `package.json`, `package-lock.json`, dependency tree.
 Owner: Unassigned.
 
 Priority: P1.
+
+## RB-041-A - Prototype Editor Lint Warnings
+
+Context: RB-041 restored green lint/build/typecheck/test gates, but ESLint still reports non-blocking hook dependency and image-element warnings in prototype editor components.
+
+Impact: The warnings do not fail validation, but they obscure future lint output and point at code that should be simplified during architecture/UI cleanup.
+
+Proposed next step: Address or remove the prototype editor components as part of RB-043 architecture/UI baseline.
+
+Affected modules: `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`, `src/components/AppFooter.tsx`, `src/components/TabSidebar.tsx`.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-041-B - Next Middleware Convention Warning
+
+Context: `npm run build` passes but reports that the `middleware` file convention is deprecated in favor of `proxy`.
+
+Impact: This is not a current failure, but it should be cleaned up before larger routing work.
+
+Proposed next step: Rename or adapt `src/middleware.ts` during the app-router architecture baseline if the current Next.js version expects `proxy.ts`.
+
+Affected modules: `src/middleware.ts`, routing docs.
+
+Owner: Unassigned.
+
+Priority: P2.

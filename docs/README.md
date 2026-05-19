@@ -7,6 +7,8 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Contributor and Codex rules: [../AGENTS.md](../AGENTS.md)
 - Architecture map: [../ARCHITECTURE.md](../ARCHITECTURE.md)
 - Known gaps: [known-gaps.md](known-gaps.md)
+- Current state: [00-overview/current-state.md](00-overview/current-state.md)
+- Baseline checks: [00-overview/baseline-checks.md](00-overview/baseline-checks.md)
 - Remediation backlog: [adr/remediation-backlog.md](adr/remediation-backlog.md)
 - Naming ADR: [architecture/decisions/ADR-0001-sapen-annotate-naming.md](architecture/decisions/ADR-0001-sapen-annotate-naming.md)
 

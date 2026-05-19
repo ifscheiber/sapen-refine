@@ -76,30 +76,49 @@ export function AnnotationCanvas({
   const lassoPointsRef = useRef<{ x: number; y: number }[]>([]);
   const lassoBaseMaskRef = useRef<ImageData | null>(null);
 
+  function computeFitZoom(img: HTMLImageElement) {
+    const el = containerRef.current;
+    if (!el) return 1;
+
+    const padding = 24;
+    const availW = Math.max(1, el.clientWidth - padding * 2);
+    const availH = Math.max(1, el.clientHeight - padding * 2);
+
+    const zx = availW / img.width;
+    const zy = availH / img.height;
+
+    return Math.min(1, zx, zy);
+  }
+
   // Load image
   useEffect(() => {
-      if (!imageUrl) {
-      setImage(null);
-      return;
+    if (!imageUrl) {
+      const timer = window.setTimeout(() => setImage(null), 0);
+      return () => window.clearTimeout(timer);
     }
 
     const img = new Image();
+    let cancelled = false;
+
+    img.onload = () => {
+      if (cancelled) return;
+      setImage(img);
+
+      const fit = computeFitZoom(img);
+      setZoom(fit);
+
+      if (containerRef.current) {
+        containerRef.current.scrollLeft = 0;
+        containerRef.current.scrollTop = 0;
+      }
+    };
+
     img.crossOrigin = "anonymous";
     img.src = imageUrl;
-img.onload = () => {
-  setImage(img);
 
-  // Fit-to-screen zoom when new image loads
-  const fit = computeFitZoom(img);
-  setZoom(fit);
-
-  // Optional: reset scroll position so the image starts at the top-left of the viewport
-  if (containerRef.current) {
-    containerRef.current.scrollLeft = 0;
-    containerRef.current.scrollTop = 0;
-  }
-};
-
+    return () => {
+      cancelled = true;
+    };
   }, [imageUrl]);
 
   // Draw image and mask
@@ -421,30 +440,6 @@ const handleFitToScreen = () => {
     containerRef.current.scrollTop = 0;
   }
 };
-
-
-
-  const computeFitZoom = (img: HTMLImageElement) => {
-  const el = containerRef.current;
-  if (!el) return 1;
-
-  // visible viewport of the scroll container
-  const vw = el.clientWidth;
-  const vh = el.clientHeight;
-
-  // subtract a little padding so it doesn't touch edges
-  const padding = 24;
-  const availW = Math.max(1, vw - padding * 2);
-  const availH = Math.max(1, vh - padding * 2);
-
-  const zx = availW / img.width;
-  const zy = availH / img.height;
-
-  // never upscale above 100% on initial fit (optional, but usually desired)
-  return Math.min(1, zx, zy);
-};
-
-
 
   const handleResetZoom = () => {
     setZoom(1);

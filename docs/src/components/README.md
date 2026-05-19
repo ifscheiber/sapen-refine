@@ -9,8 +9,6 @@
 - `src/components/AnnotationCanvas.tsx` - canvas drawing and viewport behavior.
 - `src/components/EditorToolsBar.tsx` - editor tool controls.
 - `src/components/TabSidebar.tsx` - current project/image/sidebar panels.
-- `src/components/MetadataPanel.tsx` - MVP metadata UI.
-- `src/components/ToolPanel.tsx` - tool panel UI.
 - `src/components/AppFooter.tsx` - application footer.
 - `src/components/ui/*` - reusable UI primitives.
 
@@ -28,7 +26,7 @@ These components are consumed by `src/app/app/AppShell.tsx` and editor pages und
 
 - Editor state is still heavily client-side.
 - iPad/Pencil-specific ergonomics are planned but not implemented.
-- Existing lint issues in component files are tracked as validation debt.
+- Prototype editor warnings remain and are tracked as cleanup debt.
 
 ## Related Tickets / Docs
 

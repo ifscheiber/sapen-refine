@@ -46,15 +46,18 @@ npm run db:up              # Start PostgreSQL and MinIO
 npm run db:down            # Stop local services
 npm run db:reset           # Recreate local service volumes
 npx prisma generate        # Generate Prisma Client
+npm run prisma:generate    # Generate Prisma Client through the package script
 npm run prisma:migrate     # Apply local Prisma migrations
 npm run prisma:studio      # Open Prisma Studio
 npm run seed               # Seed local data
 npm run dev                # Start Next.js development server
 npm run lint               # Run ESLint
+npm run typecheck          # Run TypeScript without emitting files
 npm run build              # Run production build/typecheck
+npm run test               # Run unit tests
 ```
 
-There is no root `typecheck` or `test` script yet.
+The required root validation baseline is `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run test`.
 
 ## Storage Assumptions
 
