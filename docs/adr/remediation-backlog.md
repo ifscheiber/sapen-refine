@@ -120,13 +120,13 @@ Context: `npm run build` passes but reports that the `middleware` file conventio
 
 Impact: This is not a current failure, but it should be cleaned up before larger routing work.
 
-Proposed next step: Rename or adapt `src/middleware.ts` during the app-router architecture baseline if the current Next.js version expects `proxy.ts`.
+Resolution: Fixed by RB-046. `src/middleware.ts` was replaced with `src/proxy.ts`, public health/readiness and browser asset paths are allowlisted, and `npm run build` no longer reports the convention warning.
 
 Affected modules: `src/middleware.ts`, routing docs.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved.
 
 ## RB-045-A - Advanced iPad Zoom And Pan Gestures
 

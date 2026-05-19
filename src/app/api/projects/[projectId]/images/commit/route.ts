@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
+import { uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 export async function POST(
   req: Request,
@@ -24,6 +25,13 @@ export async function POST(
     );
   }
 
+  const sizeValidation = validateUploadSize(size, "image");
+  if (!sizeValidation.ok) {
+    return NextResponse.json(uploadErrorPayload(sizeValidation), {
+      status: sizeValidation.status,
+    });
+  }
+
   const image = await prisma.image.create({
     data: {
       projectId,
@@ -38,4 +46,3 @@ export async function POST(
 
   return NextResponse.json({ ok: true, image });
 }
-

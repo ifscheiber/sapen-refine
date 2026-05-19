@@ -1,20 +1,26 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  HeadBucketCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const endpoint = process.env.S3_ENDPOINT!;
-const accessKeyId = process.env.S3_ACCESS_KEY!;
-const secretAccessKey = process.env.S3_SECRET_KEY!;
-const region = process.env.S3_REGION || "us-east-1";
-const forcePathStyle = (process.env.S3_FORCE_PATH_STYLE || "true") === "true";
+import { getRuntimeConfig } from "@/server/runtime/config";
+
+const storageConfig = getRuntimeConfig().s3;
 
 export const s3 = new S3Client({
-  region,
-  endpoint,
-  forcePathStyle,
-  credentials: { accessKeyId, secretAccessKey },
+  region: storageConfig.region,
+  endpoint: storageConfig.endpoint,
+  forcePathStyle: storageConfig.forcePathStyle,
+  credentials: {
+    accessKeyId: storageConfig.accessKeyId,
+    secretAccessKey: storageConfig.secretAccessKey,
+  },
 });
 
-export const bucket = process.env.S3_BUCKET!;
+export const bucket = storageConfig.bucket;
 
 export async function presignPutObject(key: string, contentType: string, expiresSeconds = 300) {
   const cmd = new PutObjectCommand({
@@ -31,4 +37,18 @@ export async function presignGetObject(key: string, expiresSeconds = 300) {
     Key: key,
   });
   return getSignedUrl(s3, cmd, { expiresIn: expiresSeconds });
+}
+
+export async function putObject(key: string, body: Uint8Array, contentType: string) {
+  const cmd = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  });
+  await s3.send(cmd);
+}
+
+export async function checkStorageReady() {
+  await s3.send(new HeadBucketCommand({ Bucket: bucket }));
 }

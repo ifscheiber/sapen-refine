@@ -6,10 +6,10 @@ This page summarizes known limitations after the RB-040 through RB-045 baseline 
 
 - Validation baseline is green: `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding` pass.
 - RB-045 resolved the previous editor hook dependency warnings.
-- `npm run build` still reports the Next.js middleware-to-proxy convention warning for `src/middleware.ts`.
+- RB-046 migrated the deprecated Next.js `middleware.ts` convention to `src/proxy.ts`; the production build no longer reports that warning.
 - Current Prisma schema is MVP-level and does not yet model final annotation metadata, tasks, review/approval, label schemas, or export batches.
 - Mask terminology still includes legacy refinement-oriented names such as `MaskKind.REFINED`.
-- Upload and commit routes need stronger storage/object validation and audit events.
+- Upload and commit routes have RB-046 size limits and app-mediated trial upload paths, but still need stronger storage/object metadata validation, checksums, image dimension validation, and audit events.
 - Admin export and manifest reproducibility are not implemented.
 - Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
 - Editor browser smoke is documented manually; automated golden-path browser coverage is deferred.

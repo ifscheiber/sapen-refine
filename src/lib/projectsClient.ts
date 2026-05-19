@@ -54,6 +54,7 @@ export async function apiPresignImageUpload(projectId: string, file: File) {
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || "application/octet-stream",
+      size: file.size,
     }),
   });
   const data = await res.json().catch(() => null);
@@ -74,5 +75,19 @@ export async function apiCommitImage(projectId: string, args: { key: string; fil
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error ?? "COMMIT_FAILED");
+  return data.image;
+}
+
+export async function apiUploadImage(projectId: string, file: File) {
+  const res = await fetch(`/api/projects/${projectId}/images/upload`, {
+    method: "POST",
+    headers: {
+      "content-type": file.type || "application/octet-stream",
+      "x-filename": encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error ?? "UPLOAD_FAILED");
   return data.image;
 }

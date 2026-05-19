@@ -57,44 +57,17 @@ export function ImagesClient({
     setError(null);
 
     try {
-      // 1) presign
-      const pres = await fetch(`/api/projects/${projectId}/images/presign`, {
+      const upload = await fetch(`/api/projects/${projectId}/images/upload`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type || "application/octet-stream",
-        }),
-      });
-
-      const presData = await pres.json().catch(() => null);
-      if (!pres.ok) throw new Error(presData?.error ?? `PRESIGN_FAILED_${pres.status}`);
-
-      const { uploadUrl, key } = presData as { uploadUrl: string; key: string };
-
-      // 2) upload directly to MinIO
-      const put = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "content-type": file.type || "application/octet-stream" },
+        headers: {
+          "content-type": file.type || "application/octet-stream",
+          "x-filename": encodeURIComponent(file.name),
+        },
         body: file,
       });
 
-      if (!put.ok) throw new Error("UPLOAD_FAILED");
-
-      // 3) commit to DB
-      const commit = await fetch(`/api/projects/${projectId}/images/commit`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          key,
-          filename: file.name,
-          contentType: file.type || null,
-          size: file.size,
-        }),
-      });
-
-      const commitData = await commit.json().catch(() => null);
-      if (!commit.ok) throw new Error(commitData?.error ?? `COMMIT_FAILED_${commit.status}`);
+      const uploadData = await upload.json().catch(() => null);
+      if (!upload.ok) throw new Error(uploadData?.error ?? `UPLOAD_FAILED_${upload.status}`);
 
       await load();
     } catch (e: unknown) {

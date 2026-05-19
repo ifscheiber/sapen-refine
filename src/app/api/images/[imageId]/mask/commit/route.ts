@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
 import { MaskKind } from "@prisma/client";
-
-const KEEP_LAST_VERSIONS = 25; // <- anpassen oder auf null setzen, wenn du nie löschen willst
+import { uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 export async function POST(
   req: Request,
@@ -22,6 +21,13 @@ export async function POST(
 
   if (!Number.isInteger(size) || size <= 0)
     return NextResponse.json({ error: "SIZE_REQUIRED" }, { status: 400 });
+
+  const sizeValidation = validateUploadSize(size, "mask");
+  if (!sizeValidation.ok) {
+    return NextResponse.json(uploadErrorPayload(sizeValidation), {
+      status: sizeValidation.status,
+    });
+  }
 
   if (!Number.isInteger(width) || width <= 0)
     return NextResponse.json({ error: "WIDTH_REQUIRED" }, { status: 400 });
@@ -75,22 +81,6 @@ export async function POST(
     },
     select: { id: true, createdAt: true, version: true },
   });
-
-  // ✅ Optional: alte Versionen löschen (DB sauber halten)
-  if (KEEP_LAST_VERSIONS && KEEP_LAST_VERSIONS > 0) {
-    const old = await prisma.maskVersion.findMany({
-      where: { maskId: mask.id },
-      orderBy: { version: "desc" },
-      skip: KEEP_LAST_VERSIONS,
-      select: { id: true },
-    });
-
-    if (old.length) {
-      await prisma.maskVersion.deleteMany({
-        where: { id: { in: old.map((x) => x.id) } },
-      });
-    }
-  }
 
   return NextResponse.json({
     ok: true,

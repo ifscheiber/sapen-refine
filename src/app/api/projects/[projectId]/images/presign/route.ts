@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 
-import { s3 } from "@/server/storage/s3";
 import { requireProjectRole } from "@/server/auth/rbac";
+import { presignPutObject } from "@/server/storage/s3";
+import { uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 export async function POST(
   req: Request,
@@ -21,20 +20,18 @@ export async function POST(
       ? body.contentType
       : "application/octet-stream";
 
-  const bucket = process.env.S3_BUCKET!;
-  if (!bucket) return NextResponse.json({ ok: false, error: "S3_BUCKET_MISSING" }, { status: 500 });
+  if (typeof body?.size === "number") {
+    const sizeValidation = validateUploadSize(body.size, "image");
+    if (!sizeValidation.ok) {
+      return NextResponse.json(uploadErrorPayload(sizeValidation), {
+        status: sizeValidation.status,
+      });
+    }
+  }
 
   const ext = filename.includes(".") ? filename.split(".").pop() : "bin";
   const key = `projects/${projectId}/images/${crypto.randomUUID()}.${ext}`;
 
- 
-  const cmd = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ContentType: contentType,
-  });
-
-  const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 60 * 5 });
+  const uploadUrl = await presignPutObject(key, contentType, 60 * 5);
   return NextResponse.json({ ok: true, uploadUrl, key });
 }
-

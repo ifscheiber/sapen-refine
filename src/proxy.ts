@@ -1,24 +1,28 @@
 import { NextResponse, type NextRequest } from "next/server";
+
 import { SESSION_COOKIE_NAME } from "@/server/auth/constants";
 
 const PUBLIC_PATHS = new Set<string>([
   "/login",
+  "/api/health",
+  "/api/ready",
+  "/manifest.webmanifest",
+  "/manifest.json",
+  "/apple-touch-icon.png",
 ]);
 
-function isPublicPath(pathname: string) {
+export function isPublicPath(pathname: string) {
   if (PUBLIC_PATHS.has(pathname)) return true;
 
-  // Allow auth endpoints
   if (pathname.startsWith("/api/auth")) return true;
-
-  // Allow Next internals/static
   if (pathname.startsWith("/_next")) return true;
   if (pathname.startsWith("/favicon")) return true;
+  if (pathname.startsWith("/icons/")) return true;
 
   return false;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   if (isPublicPath(pathname)) {
@@ -39,7 +43,7 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // run on everything except static assets
+    // Run on everything except static assets.
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

@@ -22,8 +22,7 @@ type Props = {
 
 const API_IMAGE_VIEW = (imageId: string) => `/api/images/${imageId}/view`;
 const API_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/mask/latest`;
-const API_MASK_PRESIGN = (imageId: string) => `/api/images/${imageId}/mask/presign`;
-const API_MASK_COMMIT = (imageId: string) => `/api/images/${imageId}/mask/commit`;
+const API_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/mask/upload`;
 
 type Stroke = Patch[];
 type Tool = "brush" | "lasso_free" | "lasso_poly";
@@ -418,53 +417,20 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       bytes.set(mask.data);
       const blob = new Blob([bytes], { type: "application/octet-stream" });
 
-      // 1) presign (contentType muss rein)
-      const pres = await fetch(API_MASK_PRESIGN(imageId), {
+      const upload = await fetch(API_MASK_UPLOAD(imageId), {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contentType: blob.type,
-          // falls dein presign endpoint mehr will, kannst du hier erweitern
-        }),
-      });
-
-      if (!pres.ok) {
-        const t = await pres.text().catch(() => "");
-        throw new Error(`PRESIGN_FAILED ${pres.status}: ${t}`);
-      }
-
-      const { uploadUrl, key } = await pres.json();
-
-      // 2) upload raw u8
-      const put = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "content-type": blob.type },
+        headers: {
+          "content-type": blob.type,
+          "x-mask-width": String(mask.width),
+          "x-mask-height": String(mask.height),
+          "x-mask-format": "u8raw-v1",
+        },
         body: blob,
       });
 
-      if (!put.ok) {
-        const t = await put.text().catch(() => "");
-        throw new Error(`UPLOAD_FAILED ${put.status}: ${t}`);
-      }
-
-      // 3) commit DB
-      const com = await fetch(API_MASK_COMMIT(imageId), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        // zur Kompatibilität: width/height/size mitsenden (auch wenn DB es nicht speichert)
-        body: JSON.stringify({
-          key,
-          size: blob.size,
-          width: mask.width,
-          height: mask.height,
-          format: "u8raw-v1",
-          contentType: blob.type,
-        }),
-      });
-
-      if (!com.ok) {
-        const t = await com.text().catch(() => "");
-        throw new Error(`COMMIT_FAILED ${com.status}: ${t}`);
+      if (!upload.ok) {
+        const t = await upload.text().catch(() => "");
+        throw new Error(`UPLOAD_FAILED ${upload.status}: ${t}`);
       }
 
       if (dirtyRevisionRef.current === saveRevision) {

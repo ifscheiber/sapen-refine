@@ -11,11 +11,16 @@ This page defines the current validation baseline and the intended testing direc
 - `npm run typecheck`
 - `npm run build`
 - `npm run test`
+- `npm run check:design-hardcoding`
 
 ## Current Unit Coverage
 
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
+- `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, and upload limit parsing.
+- `tests/unit/upload-validation.test.ts` covers image/mask upload size validation and `413` payloads.
+- `tests/unit/health-readiness.test.ts` covers health payloads and dependency readiness aggregation.
+- `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths and protected workspace paths.
 
 ## Manual Smoke
 
@@ -46,7 +51,7 @@ This page defines the current validation baseline and the intended testing direc
 ## Known Gaps
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
-- Prototype editor hook warnings remain and are deferred to the architecture/UI cleanup.
+- Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
 - API and DB integration tests are not configured yet.
 - The editor/iPad smoke checklist is manual; automated browser coverage remains deferred.
 
