@@ -7,6 +7,7 @@ import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
+import { ProjectExportPanel } from "./ProjectExportPanel";
 import { ProjectMetadataForm } from "./ProjectMetadataForm";
 
 export async function ProjectOverview({ projectId }: { projectId: string }) {
@@ -69,6 +70,9 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
             </div>
           </div>
         </div>
+      </AppSection>
+      <AppSection>
+        <ProjectExportPanel projectId={project.id} />
       </AppSection>
     </AppMain>
   );
