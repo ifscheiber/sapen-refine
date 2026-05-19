@@ -107,6 +107,16 @@ This page records validation commands run for baseline tickets and whether failu
 - `curl -i http://localhost:3100/api/health`: returned `200 OK` with `status: ok`.
 - `curl -i http://localhost:3100/api/ready`: returned `200 OK` with database and storage checks `ok`.
 
+## RB-047 Desktop Browser E2E/iPad Preparation Start Baseline
+
+- `git status --short`: one untracked ticket file, `tickets/2026-05-19/RB-047-desktop-browser-e2e-ipad-preparation.md`.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6.
+- `npm run test`: passed, 6 files and 21 tests.
+- `npm run check:design-hardcoding`: passed.
+
 ## Resolved Warnings
 
 - RB-046 replaced `src/middleware.ts` with `src/proxy.ts`. `npm run build` no longer reports the Next.js middleware-to-proxy convention warning.

@@ -15,6 +15,7 @@ Current editor-related unit coverage:
 
 Manual smoke coverage:
 
+- `docs/07-testing/manual-smoke-desktop-browser.md` defines the current desktop browser MVP smoke path.
 - `docs/07-testing/manual-smoke-editor-ipad.md` defines the current desktop and iPad Safari editor trial checklist.
 
 Optional local destructive smoke:

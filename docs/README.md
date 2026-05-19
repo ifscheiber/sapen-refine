@@ -26,6 +26,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
 - Data: [06-data/prisma.md](06-data/prisma.md)
 - Quality gates: [07-testing/quality-gates.md](07-testing/quality-gates.md)
+- Desktop browser manual smoke checklist: [07-testing/manual-smoke-desktop-browser.md](07-testing/manual-smoke-desktop-browser.md)
 - Editor manual smoke checklist: [07-testing/manual-smoke-editor-ipad.md](07-testing/manual-smoke-editor-ipad.md)
 - Customer browser trial smoke checklist: [07-testing/manual-smoke-customer-browser-trial.md](07-testing/manual-smoke-customer-browser-trial.md)
 - App routes and API handlers: [src/app/README.md](src/app/README.md)
