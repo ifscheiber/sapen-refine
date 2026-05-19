@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done
 
 ## Priority
 
@@ -449,3 +449,14 @@ git commit -m "chore: finalize slice support workflow ticket"
 - Keep semantic masks and support masks separate in persistence, API, UI, tests, and docs.
 - Copper semantic staining is not physical support geometry.
 - Preserve all existing workflows and tests.
+
+## 10. Completion Notes
+
+- Replaced the old broad RB-051 draft with this optimized ticket as the canonical implementation ticket.
+- Implemented one default `SliceInstance` per image for the MVP workflow.
+- Implemented `SLICE_SUPPORT_MASK` save/read APIs separate from semantic mask APIs.
+- Added editor `Semantic mask` / `Slice support` modes and slice classification control.
+- Persisted `SliceClassificationVersion` rows with actor and label schema version.
+- Added unit, DB integration, and desktop browser smoke coverage.
+- Updated docs for editor, images, API, mask/artifact versioning, label schema, Prisma, testing, smoke checklists, known gaps, and backlog.
+- Deferred multi-slice/multi-object editing and slice-specific sample metadata.
