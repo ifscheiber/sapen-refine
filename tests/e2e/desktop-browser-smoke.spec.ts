@@ -6,6 +6,7 @@ const fixturePath = path.resolve("tests/e2e/fixtures/wood-slice.svg");
 
 test("desktop MVP browser workflow can upload, edit, save, and reload", async ({ page }) => {
   const projectName = `E2E Desktop ${Date.now()}`;
+  const tNumber = `T-E2E-${Date.now()}`;
 
   await page.goto("/login");
   await page.getByLabel("Email").fill(process.env.E2E_EMAIL ?? "admin@sapen.local");
@@ -22,6 +23,20 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByRole("link", { name: "Images" }).click();
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("wood-slice.svg")).toBeVisible();
+
+  await page.getByRole("link", { name: "Metadata" }).click();
+  await expect(page.getByRole("heading", { name: "Sample Metadata" })).toBeVisible();
+  await page.getByLabel("T-number").fill(tNumber);
+  await page.getByLabel("Specimen identifier").fill("Desktop browser specimen");
+  await page.getByLabel("Slice index").fill("1");
+  await page.getByLabel("Camera/device").fill("Desktop browser camera");
+  await page.getByLabel("Lighting setup").fill("E2E light box");
+  await page.getByRole("button", { name: "Save metadata" }).click();
+  await expect(page.getByText("Metadata saved")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel("T-number")).toHaveValue(tNumber);
+  await expect(page.getByLabel("Camera/device")).toHaveValue("Desktop browser camera");
 
   await page.getByRole("link", { name: "Open editor" }).click();
   await expect(page.getByRole("button", { name: "Brush" })).toBeVisible();
