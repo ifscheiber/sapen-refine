@@ -22,13 +22,13 @@ Context: `prisma/schema.prisma` defines `MaskKind.PREDICTION` and `MaskKind.REFI
 
 Impact: The schema language does not yet reflect standalone scratch annotation, label schemas, review states, or export-ready ground truth.
 
-Proposed next step: Add a schema/domain ticket for annotation mask kinds, label-schema versions, review state, and migration compatibility.
+Resolution: RB-048 documents the target annotation-domain model. RB-049 is the schema implementation ticket.
 
 Affected modules: `prisma/schema.prisma`, `src/app/api/images/[imageId]/mask/*`, `src/mask/*`, docs under `docs/prisma` and `docs/src/mask`.
 
-Owner: Unassigned.
+Owner: Codex for design; implementation unassigned.
 
-Priority: P1.
+Priority: Superseded by RB-049.
 
 ## RB-040-C - Upload And Commit Endpoint Hardening
 
@@ -36,13 +36,13 @@ Context: Current upload commit routes record object keys and basic metadata but 
 
 Impact: Training-data reproducibility and raw-image immutability are not strong enough for production.
 
-Proposed next step: Add validation around storage metadata, content length, checksum, image dimensions, and commit idempotency.
+Proposed next step: RB-055 covers checksum, object metadata, dimensions, stable upload errors, and audit events.
 
 Affected modules: `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/mask/*`, `src/server/storage/*`, `prisma/schema.prisma`.
 
 Owner: Unassigned.
 
-Priority: P1.
+Priority: Tracked by RB-055.
 
 ## RB-040-D - Admin Export And Manifest Workflow Missing
 
@@ -50,13 +50,13 @@ Context: SaPen Annotate is intended to export reviewed datasets, but no export b
 
 Impact: The app cannot yet produce reproducible training datasets.
 
-Proposed next step: Add an export-domain ticket covering DB model, manifest format, API routes, authorization, and tests.
+Proposed next step: RB-053 covers admin export batches and reproducible manifests.
 
 Affected modules: `prisma/schema.prisma`, `src/app/api`, `src/server`, future export docs.
 
 Owner: Unassigned.
 
-Priority: P1.
+Priority: Tracked by RB-053.
 
 ## RB-040-E - Editor Consolidation And iPad/Pencil UX
 
@@ -146,12 +146,110 @@ Priority: P2.
 
 Context: RB-045 adds a manual smoke checklist for desktop and iPad Safari. The repo does not yet have Playwright or equivalent browser automation.
 
-Impact: Login, upload, open-editor, draw, save, and reload remain manually verified workflows.
+Impact: Login, upload, open-editor, draw, save, and reload were manually verified workflows.
 
-Proposed next step: Add a small automated browser smoke suite once the editor trial path stabilizes and test fixtures for image upload/storage are defined.
+Resolution: Fixed by RB-047. `npm run test:e2e` now covers login, project creation, upload, editor open, draw, save, reload, and latest-mask existence.
 
 Affected modules: future browser tests, `src/app/(workspace)/app/projects/**`, `src/features/images/*`, `src/features/editor/*`, and local storage/test fixtures.
 
+Owner: Codex.
+
+Priority: Resolved.
+
+## RB-049 - Annotation Domain Schema Implementation
+
+Context: RB-048 defines the target domain model, but `prisma/schema.prisma` remains the MVP schema.
+
+Impact: Follow-up feature work cannot safely implement metadata, review, export, or support masks until the persisted model exists.
+
+Proposed next step: Implement the schema baseline in `tickets/2026-05-19/RB-049-annotation-domain-schema-implementation.md`.
+
+Affected modules: `prisma/schema.prisma`, `prisma/migrations`, `src/app/api`, `src/server`, `src/mask`, docs under `docs/06-data` and `docs/prisma`.
+
 Owner: Unassigned.
 
-Priority: P3.
+Priority: P1.
+
+## RB-050 - Project, Image, And Sample Metadata Workflow
+
+Context: The current image workflow records only basic file metadata and does not capture dimensions, checksums, acquisition metadata, sample/specimen data, or T-number.
+
+Impact: Training exports cannot carry enough metadata for reproducible customer/lab datasets.
+
+Proposed next step: Implement the metadata workflow in `tickets/2026-05-19/RB-050-project-image-sample-metadata-workflow.md`.
+
+Affected modules: `src/features/images`, `src/features/projects`, `src/app/api/projects/[projectId]/images/*`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-051 - Slice Classification And Support-Mask Workflow
+
+Context: Copper, sapwood, and heartwood are currently semantic labels only. The app does not yet model physical slice support/instance geometry or slice classifications.
+
+Impact: Copper semantic masks could be misused as support geometry unless the domain workflow separates these artifacts.
+
+Proposed next step: Implement the workflow in `tickets/2026-05-19/RB-051-slice-classification-and-support-mask-workflow.md`.
+
+Affected modules: `src/features/editor`, `src/mask`, `src/app/api`, `prisma/schema.prisma`, docs under `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-052 - Review And Approval Workflow
+
+Context: Review/approval is a core ground-truth concept in RB-048, but the current app has no draft/submitted/approved/rejected/superseded workflow.
+
+Impact: The app cannot identify approved training artifacts or preserve reviewer attribution.
+
+Proposed next step: Implement the workflow in `tickets/2026-05-19/RB-052-review-approval-workflow.md`.
+
+Affected modules: `src/app/api`, `src/features/editor`, future review UI, `prisma/schema.prisma`, docs under `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-053 - Admin Training Export MVP
+
+Context: RB-048 defines semantic segmentation, support/instance segmentation, slice classification, and combined manifest export targets, but no export implementation exists.
+
+Impact: The app cannot produce reproducible training-data bundles.
+
+Proposed next step: Implement the export MVP in `tickets/2026-05-19/RB-053-admin-training-export-mvp.md`.
+
+Affected modules: future export routes/services, `prisma/schema.prisma`, storage helpers, docs under `docs/06-data` and `docs/04-server`.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-054 - Model Preprediction And Active-Learning Design
+
+Context: RB-048 reserves task priority, uncertainty/confidence, model source, and task reason concepts for future model-assisted workflows.
+
+Impact: Prediction-assisted annotation could compromise ground-truth integrity if model proposals are not modeled separately.
+
+Proposed next step: Complete the focused design ticket in `tickets/2026-05-19/RB-054-model-preprediction-active-learning-design.md`.
+
+Affected modules: future prediction import services, annotation tasks, editor workflow, docs under `docs/06-data` and `docs/workflows`.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-055 - Upload Artifact Validation And Checksum Hardening
+
+Context: Upload routes have size limits and app-mediated browser paths, but still need object metadata verification, checksums, dimensions, and stronger audit events.
+
+Impact: Raw-image immutability and artifact reproducibility remain weaker than required for customer training data.
+
+Proposed next step: Implement hardening in `tickets/2026-05-19/RB-055-upload-artifact-validation-checksum-hardening.md`.
+
+Affected modules: `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/mask/*`, `src/server/storage/*`, `src/server/uploads/*`, `prisma/schema.prisma`, docs under `docs/04-server` and `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P1.
