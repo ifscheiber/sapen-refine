@@ -1,5 +1,7 @@
 import { prisma } from "@/server/db";
 
+type MetadataDb = typeof prisma;
+
 export type MetadataStatus =
   | "complete"
   | "incomplete"
@@ -273,8 +275,8 @@ export function computeMetadataCompleteness(input: {
   return { overall, items };
 }
 
-export async function loadImageMetadataBundle(imageId: string, userId: string) {
-  const image = await prisma.imageAsset.findUnique({
+export async function loadImageMetadataBundle(imageId: string, userId: string, db: MetadataDb = prisma) {
+  const image = await db.imageAsset.findUnique({
     where: { id: imageId },
     select: {
       id: true,
@@ -302,7 +304,7 @@ export async function loadImageMetadataBundle(imageId: string, userId: string) {
 
   if (!image) return null;
 
-  const membership = await prisma.annotationProjectMember.findUnique({
+  const membership = await db.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId } },
     select: { role: true },
   });
@@ -321,14 +323,14 @@ export async function updateImageMetadataForUser(params: {
   imageId: string;
   userId: string;
   input: unknown;
-}) {
-  const image = await prisma.imageAsset.findUnique({
+}, db: MetadataDb = prisma) {
+  const image = await db.imageAsset.findUnique({
     where: { id: params.imageId },
     select: { id: true, projectId: true },
   });
   if (!image) throw new MetadataValidationError("IMAGE_NOT_FOUND");
 
-  const membership = await prisma.annotationProjectMember.findUnique({
+  const membership = await db.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: params.userId } },
     select: { role: true },
   });
@@ -339,7 +341,7 @@ export async function updateImageMetadataForUser(params: {
   const parsed = parseMetadataUpdate(params.input);
 
   if (parsed.acquisition) {
-    await prisma.imageAcquisitionMetadata.upsert({
+    await db.imageAcquisitionMetadata.upsert({
       where: { imageId: image.id },
       update: parsed.acquisition,
       create: { imageId: image.id, ...parsed.acquisition },
@@ -347,14 +349,14 @@ export async function updateImageMetadataForUser(params: {
   }
 
   if (parsed.sample) {
-    await prisma.sampleMetadata.upsert({
+    await db.sampleMetadata.upsert({
       where: { imageId: image.id },
       update: parsed.sample,
       create: { imageId: image.id, ...parsed.sample },
     });
   }
 
-  return loadImageMetadataBundle(image.id, params.userId);
+  return loadImageMetadataBundle(image.id, params.userId, db);
 }
 
 export function metadataErrorResponse(error: unknown): { error: string; status: number } {
