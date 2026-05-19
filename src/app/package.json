@@ -1,0 +1,33 @@
+{
+  "name": "sapen",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:core": "npm run dev -w apps/sapen-core",
+    "build:core": "npm run build -w apps/sapen-core",
+    "dev:refine": "npm run dev -w apps/sapen-refine",
+    "build:refine": "npm run build -w apps/sapen-refine",
+    "start:refine": "npm run start -w apps/sapen-refine",
+    "prisma:generate": "npm run prisma:generate -w packages/db",
+    "prisma:studio": "npm run prisma:studio -w packages/db",
+    "prisma:migrate": "npm run prisma:migrate -w packages/db",
+    "prisma:push": "npm run prisma:push -w packages/db",
+    "prisma:seed": "npm run prisma:seed -w packages/db",
+    "lint:refine": "npm run lint -w apps/sapen-refine",
+    "infra:up": "docker compose up -d postgres minio redis",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f --tail=200",
+    "db:init": "docker compose run --rm db-init",
+    "minio:init": "docker compose run --rm minio-init",
+    "dev:boot": "npm run infra:up && npm run db:init && npm run minio:init",
+    "dev:proxy": "caddy run --config Caddyfile --watch",
+    "dev": "npm run dev:boot && concurrently -k -n core,refine,proxy \"npm run dev:core\" \"npm run dev:refine\" \"npm run dev:proxy\"",
+    "postinstall": "npm -w packages/db run prisma:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
