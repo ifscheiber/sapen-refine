@@ -35,6 +35,45 @@ This checklist verifies the current browser editor baseline for a customer trial
 
 ## iPad Safari Smoke
 
+## Deferred Gate: Real iPad Safari Trial
+
+Status: Not executed in RB-047.
+
+Required before customer pilot: yes.
+
+Reason: deployment/device access is unavailable during RB-047. The Playwright iPad viewport preparation smoke is not a substitute for real iPad Safari and Apple Pencil validation.
+
+Required environment:
+
+- Deployed HTTPS SaPen Annotate trial URL.
+- Named tester account with project access.
+- iPad running current iPadOS Safari.
+- Apple Pencil if available for the pilot workflow.
+
+Blocking failure criteria:
+
+- Login or session persistence fails on iPad Safari.
+- Editor canvas cannot load images or saved masks.
+- Finger/Pencil drawing does not update the mask.
+- Drawing scrolls the page instead of drawing on the canvas.
+- Save/reload loses the latest mask.
+- Controls overlap or become unusable on the iPad viewport.
+
+Failure logging template:
+
+```text
+Device/iPadOS:
+Browser:
+URL:
+Tester:
+Project/Image:
+Step:
+Expected:
+Actual:
+Screenshot/video:
+Blocking: yes/no
+```
+
 | Step | Expected Result | Pass/Fail | Notes |
 | --- | --- | --- | --- |
 | Open app in Safari on iPad. | Layout fits viewport without overlapping controls. |  |  |

@@ -45,6 +45,30 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 
 ## iPad Safari Smoke
 
+## Deferred Gate: Real iPad Safari Trial
+
+Status: Not executed in RB-047.
+
+Required before customer pilot: yes.
+
+Reason: the Strato/customer-trial deployment and real iPad Safari device access are not available during RB-047. The desktop E2E smoke and iPad viewport preparation smoke only reduce regression risk; they do not validate Safari, Apple Pencil, or Home-Screen behavior on a real device.
+
+Required inputs before execution:
+
+- Deployed HTTPS URL.
+- Named tester account.
+- Representative project and image.
+- iPad Safari and Apple Pencil if Pencil input is part of the pilot.
+
+Blocking failure criteria:
+
+- HTTPS trial URL cannot be opened on iPad Safari.
+- Login/session persistence fails.
+- Home-Screen launch fails when testing installed app behavior.
+- Editor image or latest mask cannot be loaded.
+- Finger/Pencil drawing, save, or reload fails.
+- Layout overlap prevents normal annotation controls from being used.
+
 | Step | Expected Result | Pass/Fail | Notes |
 | --- | --- | --- | --- |
 | Open deployed HTTPS URL in iPad Safari. | Login and layout fit the smaller viewport. |  |  |

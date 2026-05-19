@@ -12,6 +12,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Dependency audit: [00-overview/dependency-audit.md](00-overview/dependency-audit.md)
 - Remediation backlog: [adr/remediation-backlog.md](adr/remediation-backlog.md)
 - Naming ADR: [architecture/decisions/ADR-0001-sapen-annotate-naming.md](architecture/decisions/ADR-0001-sapen-annotate-naming.md)
+- Desktop-first/iPad-deferred ADR: [08-adr/ADR-002-desktop-browser-first-ipad-deferred.md](08-adr/ADR-002-desktop-browser-first-ipad-deferred.md)
 
 ## Module Docs
 

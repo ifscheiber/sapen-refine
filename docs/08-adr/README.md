@@ -7,3 +7,4 @@ This folder exists for the numbered RB-043 documentation structure and links bac
 - `docs/adr/README.md`
 - `docs/adr/remediation-backlog.md`
 - `docs/architecture/decisions/ADR-0001-sapen-annotate-naming.md`
+- `docs/08-adr/ADR-002-desktop-browser-first-ipad-deferred.md`
