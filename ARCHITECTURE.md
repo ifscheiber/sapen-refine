@@ -1,248 +1,89 @@
-# ARCHITECTURE.md — SaPen Annotate (Top-Level Map)
+# ARCHITECTURE.md - SaPen Annotate
 
-This file is a high-level architecture map.
-`docs/` is the implementation-level system of record.
-If anything here conflicts with docs, update this file to align.
+This is the high-level architecture map. Detailed, evidence-backed documentation lives under [docs/](docs/). If this file and `docs/` disagree, update both and treat `docs/` as the implementation-level source of truth.
 
----
+## Overview
 
-## System Overview
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, editor access, mask commit, and latest-mask reload. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, and reproducible dataset exports.
 
-SaPen Annotate is a standalone web application for creating high-quality, attributable, exportable ground-truth datasets for SaPen model training.
+Scratch annotation is the primary product mode. Prediction-assisted correction and SaPen Core handoff workflows are future modes and must remain explicit provenance-bearing integrations.
 
-Primary workflow:
+## System Boundaries
 
-annotation project -> image upload + acquisition metadata -> annotation task -> mask editing -> versioned mask commit -> review/approval -> dataset export/manifest
+- Application boundary: `src/app` owns Next App Router pages, layouts, and API route handlers.
+- Authentication boundary: `src/server/auth` owns session cookie handling, session persistence, and project-role checks.
+- Database boundary: `prisma/schema.prisma` defines the current MVP persisted model; `src/server/db.ts` owns Prisma client setup.
+- Object storage boundary: `src/server/storage.ts` and `src/server/storage/s3.ts` create presigned S3/MinIO URLs for raw images and mask artifacts.
+- Client helper boundary: `src/lib` wraps current browser-side API calls.
+- Mask boundary: `src/mask` owns label constants, mask buffers, serialization, patching, tools, and overlay rendering helpers.
+- Future SaPen Core/training boundary: integration must use explicit export or handoff contracts, not implicit shared project semantics.
 
-The application focuses on annotation from scratch first. Assisted correction from model predictions and Core handoff workflows are later extensions.
+## Current Technical Stack
 
----
+- Next.js App Router with React client components.
+- Prisma 7 with PostgreSQL.
+- S3-compatible object storage, locally MinIO through [docker-compose.yml](docker-compose.yml).
+- Local email/password authentication seeded by [prisma/seed.ts](prisma/seed.ts) and [prisma/seed.mjs](prisma/seed.mjs).
+- ESLint and `next build` as the current validation gates.
 
-## Repository Topology
+## Current Data Model
 
-Expected top-level structure:
+The current schema in [prisma/schema.prisma](prisma/schema.prisma) is MVP-level and not sufficient for final training-data workflows.
 
-- `src/app` – Next App Router routes, layouts, pages, and API routes
-- `src/server` – server-only auth, RBAC, DB, storage, and domain services
-- `src/mask` – mask formats, labels, patching, rendering helpers, coordinate-space logic
-- `src/components` – reusable UI and editor components
-- `src/lib` – client-side API wrappers and client utilities
-- `src/assets` – static app assets
-- `src/styles` – global styles/theme/font wiring
-- `prisma` – Prisma configuration/schema/migrations if used in this repo
-- `public` – public static assets
-- `docs` – authoritative repository documentation mirrored to repo structure
+Persisted entities today:
 
-Docs should mirror this topology where practical, for example:
+- `User`, `Role`, `UserGlobalRole`, and `Session` for local auth.
+- `Project` and `ProjectMember` for collaboration scope.
+- `Image` for uploaded object references and basic file metadata.
+- `Mask` and `MaskVersion` for versioned mask artifacts.
+- `AuditLog`, present but not yet used as a complete audit trail.
 
-- `docs/src/app/README.md`
-- `docs/src/server/README.md`
-- `docs/src/mask/README.md`
-- `docs/src/components/README.md`
-- `docs/src/lib/README.md`
-- `docs/prisma/README.md`
-- `docs/testing/README.md`
-- `docs/adr/README.md`
+Known model gaps include acquisition metadata, task queues, review/approval records, label-schema versions, export batches/manifests, stronger image checksums, and clearer standalone annotation terminology. `MaskKind.PREDICTION` and `MaskKind.REFINED` are legacy MVP names; “refine” is reserved for a future prediction-correction mode, not the product name.
 
----
+## Current Flows
 
-## Product Modes and Boundaries
+- Login/session: `/login` posts to `/api/auth/login`; successful login creates a database session and sets `sapen_annotate_session`.
+- Project list/create: `/app/projects` and `/api/projects` list memberships and create owner-scoped projects.
+- Image upload: clients request `/api/projects/[projectId]/images/presign`, upload to S3/MinIO, then call `/api/projects/[projectId]/images/commit`.
+- Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders the editor client.
+- Mask save/reload: the editor requests `/api/images/[imageId]/mask/presign`, uploads serialized bytes, commits through `/api/images/[imageId]/mask/commit`, and reloads through `/api/images/[imageId]/mask/latest`.
 
-### 1. Standalone Annotation Mode — primary
+## Security And Audit Assumptions
 
-Users create annotation projects directly in SaPen Annotate, upload images, record metadata, draw/edit masks, review/approve versions, and export training datasets.
+Current MVP protections:
 
-This mode owns:
-- annotation projects,
-- image assets,
-- T-number/image identifiers,
-- acquisition metadata,
-- semantic masks,
-- instance/support masks,
-- slice labels/classes,
-- annotation/review state,
-- dataset export manifests.
+- Route handlers call `requireUser` or `requireProjectRole` for protected workflows.
+- Upload and mask commit routes require project membership.
+- Raw binary storage is accessed through short-lived presigned URLs.
+- Session cookies are HTTP-only, `sameSite=lax`, and secure in production.
 
-This mode must not depend on SaPen Core experiments.
+Known gaps:
 
-### 2. Assisted Annotation / Pre-Prediction Mode — future
+- Rate limiting and brute-force protection are not implemented.
+- Admin user-management and export authorization are incomplete.
+- Upload commit hardening is incomplete: object existence, content length, checksums, dimensions, and content type need stronger verification.
+- Audit logging is not complete enough for production attribution.
+- Approved ground-truth immutability and review state are not fully modeled yet.
 
-A future model may provide pre-predicted masks or uncertainty-ranked image queues.
+## Known Follow-Up Areas
 
-Rules:
-- predictions are inputs, not ground truth;
-- human-approved masks remain separate versioned artifacts;
-- prediction provenance must include model/run/checkpoint/config where available;
-- uncertainty rankings must not change approved ground-truth state.
+- Annotation domain model for tasks, metadata, label schemas, review, approval, and exports.
+- Mask format normalization and backward compatibility.
+- Editor consolidation and iPad/Pencil-focused interaction work.
+- Upload/commit validation hardening.
+- Admin export and manifest reproducibility.
+- Prediction-assisted annotation as a separate future refine/correction mode.
 
-### 3. Core Handoff / Correction Mode — future integration
+See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md) for the working backlog.
 
-SaPen Core may later open Core-originated predictions in SaPen Annotate for correction through explicit handoff URLs/APIs.
+## Documentation Links
 
-Rules:
-- Core-originated data must carry explicit provenance;
-- Core predictions must never be overwritten;
-- Annotate must not silently duplicate Core experiment/project ownership semantics;
-- any returned artifact must be versioned and traceable.
-
----
-
-## Core Domain Concepts
-
-Conceptual model, not necessarily current schema:
-
-- `User` – authenticated actor
-- `Role` / `ProjectMember` – authorization and collaboration context
-- `AnnotationProject` – top-level standalone dataset/project container
-- `ImageAsset` – immutable raw uploaded image plus storage/provenance metadata
-- `AcquisitionMetadata` – camera, exposure, color profile, operator, timestamp, etc.
-- `AnnotationTask` – work item assigning image/labeling scope to a user or queue
-- `LabelSchema` – versioned label definitions and allowed class values
-- `Mask` – logical mask container for an image and mask kind
-- `MaskVersion` – immutable stored mask artifact with author/provenance
-- `SliceInstance` – instance/support representation of a detected/annotated wood slice
-- `Review` / `Approval` – explicit quality-control state
-- `ExportBatch` – reproducible dataset export with manifest and artifact references
-- `AuditEvent` – immutable action/provenance record
-
-Important distinction:
-- Semantic labels (`SAPWOOD`, `HEARTWOOD`, `COPPER`) describe material/penetration classes.
-- Instance/support masks describe object geometry and slice support.
-- For copper slices, copper annotation may not cover the whole wood slice; therefore a separate instance/support mask may be required for instance-segmentation training.
-
----
-
-## Runtime Model (Local Dev)
-
-Expected local runtime components:
-
-- Next.js application server
-- Database, usually PostgreSQL if Prisma is used
-- Object storage, local filesystem or S3-compatible storage
-- Optional reverse proxy for integrated local SaPen deployments
-- Optional worker/model service in future assisted annotation mode
-
-Root scripts should be documented in `docs/README.md` and this section should be updated after repo hygiene.
-
-Typical script groups to document:
-- dev/start/build
-- lint/typecheck/test
-- prisma generate/migrate/studio
-- storage/bootstrap helpers
-- docs/link checks if present
-
----
-
-## Architecture Principles
-
-- URL-first: annotation workflows must be route-addressable.
-- Backend as source of truth: API + DB own domain state transitions.
-- Ground-truth integrity: raw images and approved mask versions are immutable artifacts.
-- Attribution-first: all writes are tied to authenticated users or system actors.
-- Versioned labels: mask semantics depend on explicit label-schema version.
-- Clear product modes: scratch annotation is primary; predictions and Core handoff are separate future modes.
-- Export reproducibility: exports must be reconstructable from stored artifacts and manifest state.
-- Documentation mirrors implementation: docs must reference real repo paths.
-
----
-
-## Canonical Technical Sources
-
-Current/expected sources:
-
-- App routes/API:
-  - `src/app`
-- Server-only infrastructure:
-  - `src/server`
-- Auth/session/RBAC:
-  - `src/server/auth`
-- Storage:
-  - `src/server/storage`
-- Mask semantics and formats:
-  - `src/mask`
-- UI/editor components:
-  - `src/components`
-- Client API wrappers:
-  - `src/lib`
-- Database model:
-  - `prisma` and/or server DB module
-- Repository documentation:
-  - `docs/`
-
-These paths must be updated if the repo is reorganized.
-
----
-
-## Data and Storage Boundaries
-
-### Raw images
-
-Raw uploaded image files are immutable after commit.
-The database should record:
-- storage key,
-- content type,
-- size/checksum where available,
-- width/height,
-- upload actor,
-- acquisition metadata,
-- project ownership.
-
-### Masks
-
-Mask artifacts are versioned.
-The database should record:
-- mask kind,
-- label schema version,
-- image reference,
-- dimensions/coordinate space,
-- storage key,
-- author,
-- creation time,
-- provenance.
-
-### Exports
-
-Dataset exports must be explicit export batches, not ad-hoc downloads.
-Export manifests should include:
-- project metadata,
-- images and checksums,
-- acquisition metadata,
-- mask versions,
-- label schema,
-- review/approval state,
-- export creator and timestamp,
-- intended training target, e.g. semantic segmentation, slice classification, or instance segmentation.
-
----
-
-## Testing Conventions (Link Only)
-
-Testing policy and conventions should be documented in:
-- `docs/testing/README.md`
-
-Minimum recommended coverage areas:
-- auth/RBAC for annotation and admin/export routes,
-- project/image ownership,
-- image upload commit validation,
-- mask commit validation,
-- mask serialization/deserialization,
-- review/approval state transitions,
-- export manifest completeness and reproducibility.
-
----
-
-## Deep Docs (Authoritative)
-
-- Docs index: `docs/README.md`
-- App/API docs: `docs/src/app/README.md`
-- Server docs: `docs/src/server/README.md`
-- Mask docs: `docs/src/mask/README.md`
-- Component/editor docs: `docs/src/components/README.md`
-- Client library docs: `docs/src/lib/README.md`
-- Prisma/domain docs: `docs/prisma/README.md`
-- Testing docs: `docs/testing/README.md`
-- ADR/backlog docs: `docs/adr/README.md`
-
----
-
-End of file.
+- Docs index: [docs/README.md](docs/README.md)
+- App routes and APIs: [docs/src/app/README.md](docs/src/app/README.md)
+- Server/auth/storage: [docs/src/server/README.md](docs/src/server/README.md)
+- Masks: [docs/src/mask/README.md](docs/src/mask/README.md)
+- Components/editor: [docs/src/components/README.md](docs/src/components/README.md)
+- Client wrappers: [docs/src/lib/README.md](docs/src/lib/README.md)
+- Prisma schema: [docs/prisma/README.md](docs/prisma/README.md)
+- Testing: [docs/testing/README.md](docs/testing/README.md)
+- ADRs: [docs/adr/README.md](docs/adr/README.md)

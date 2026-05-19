@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SaPen Annotate
 
-## Getting Started
+SaPen Annotate is a standalone annotation app for creating attributable, exportable wood-slice ground-truth data for SaPen model training. The current MVP supports local authentication, project creation, image upload through S3-compatible storage, and mask editing/saving. Broader annotation metadata, review, approval, and training export workflows are planned but not implemented yet.
 
-First, run the development server:
+The app is separate from SaPen Core. Future integration should happen through explicit handoff/export contracts rather than shared implicit project state.
+
+## Start Here
+
+- Agent and contributor rules: [AGENTS.md](AGENTS.md)
+- High-level architecture map: [ARCHITECTURE.md](ARCHITECTURE.md)
+- Detailed docs index: [docs/README.md](docs/README.md)
+- Known gaps and deferred work: [docs/known-gaps.md](docs/known-gaps.md)
+
+## Local Setup
 
 ```bash
+npm install
+cp .env.example .env
+cp .env.example .env.local
+npm run db:up
+npx prisma generate
+npm run prisma:migrate
+npm run seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`. The seed data currently creates a demo login documented on the login page.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The session cookie was renamed to `sapen_annotate_session` during the repository rename. Existing local browser sessions from earlier builds are expected to be invalidated.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment
 
-## Learn More
+`.env.example` contains placeholders only. Do not commit real `.env` or `.env.local` files.
 
-To learn more about Next.js, take a look at the following resources:
+Required local variables:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `DATABASE_URL` for Prisma/PostgreSQL.
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` for Docker Compose.
+- `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT` for local MinIO.
+- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_FORCE_PATH_STYLE` for presigned image and mask uploads.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Commands
 
-## Deploy on Vercel
+```bash
+npm run db:up              # Start PostgreSQL and MinIO
+npm run db:down            # Stop local services
+npm run db:reset           # Recreate local service volumes
+npx prisma generate        # Generate Prisma Client
+npm run prisma:migrate     # Apply local Prisma migrations
+npm run prisma:studio      # Open Prisma Studio
+npm run seed               # Seed local data
+npm run dev                # Start Next.js development server
+npm run lint               # Run ESLint
+npm run build              # Run production build/typecheck
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+There is no root `typecheck` or `test` script yet.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Storage Assumptions
+
+Images and mask artifacts are uploaded to S3-compatible object storage using presigned URLs. Local development uses MinIO from [docker-compose.yml](docker-compose.yml). The database stores object keys and metadata; it does not store image or mask binary data.
+
+## MVP Limitations
+
+- The Prisma schema still uses MVP names such as `MaskKind.PREDICTION` and `MaskKind.REFINED`; this is legacy terminology, not the final standalone annotation domain.
+- Image metadata, review/approval state, audit events, export batches, and label-schema versioning are incomplete.
+- The editor and mask serialization paths need follow-up hardening before production training-data workflows.
+- Baseline validation is not green yet; current failures are tracked in [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md).
+
+## Repository Hygiene
+
+Local secrets, build output, dependency folders, generated caches, and local storage data are ignored by [.gitignore](.gitignore). The stale nested `src/app/package.json` and `src/app/docker-compose.yml` files from an earlier monorepo layout were removed; root [package.json](package.json) and [docker-compose.yml](docker-compose.yml) are the intended entry points.

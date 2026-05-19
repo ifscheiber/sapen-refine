@@ -244,7 +244,7 @@ Commit discipline:
 - At the end of each completed slice or meaningful section, run the relevant validation for that slice.
 - If the slice is green and logically complete, create a focused git commit before starting the next slice.
 - Do not accumulate several unrelated finished slices into one large commit.
-- Commit messages should state the intent and affected area, for example `docs: add annotate architecture baseline` or `refactor: rename refine package to annotate`.
+- Commit messages should state the intent and affected area, for example `docs: add annotate architecture baseline` or `refactor: rename app package to annotate`.
 - If a slice cannot be committed because validation is blocked by known pre-existing failures, document that explicitly in the handoff notes.
 
 ---
@@ -324,6 +324,46 @@ Changes must:
 
 If uncertain:
 → Prefer consistency, explicit provenance, and data integrity over convenience.
+
+---
+
+## 12. Current Repository Baseline
+
+Project identity:
+- App/product name: SaPen Annotate.
+- Package/repo identifier: `sapen-annotate`.
+- Relationship to SaPen Core: separate standalone app; future Core integration must use explicit handoff/export contracts.
+
+Current repository map:
+- `src/app` – App Router pages and API routes.
+- `src/server/auth` – local session cookie, session persistence, and RBAC helpers.
+- `src/server/storage` – S3/MinIO presigned URL helpers.
+- `src/mask` – current mask labels, buffers, serialization, patching, and overlay helpers.
+- `src/components` – current reusable UI and editor components.
+- `src/lib` – browser-side API wrappers.
+- `prisma` – Prisma schema, migrations, and seed scripts.
+- `docs` – authoritative implementation documentation.
+
+Commands:
+- Install: `npm install`
+- Prisma generate: `npx prisma generate`
+- Local services: `npm run db:up` / `npm run db:down`
+- Migrate/seed: `npm run prisma:migrate` / `npm run seed`
+- Dev server: `npm run dev`
+- Lint: `npm run lint`
+- Build/typecheck: `npm run build`
+
+Validation expectations:
+- Run the strongest available command for the touched scope.
+- If dependencies, Prisma cache access, network font fetches, Docker, or environment variables block validation, record the exact command and failure.
+- There is no root `typecheck` or `test` script yet.
+
+Known architectural risks:
+- Current mask terminology and serialization are MVP-level and need normalization.
+- Editor implementation is not yet consolidated for production annotation workflows.
+- Current Prisma domain model is too narrow for final training-data attribution, metadata, review, and export workflows.
+- Admin export is planned but not implemented.
+- Upload/commit endpoints need stronger object validation and audit hardening.
 
 ---
 
