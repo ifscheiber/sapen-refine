@@ -14,7 +14,7 @@ P1 — must be done before larger standalone annotation-domain work, because nam
 
 ## Context
 
-The current repository is named `sapen-refine`. That name fits the later correction/refinement workflow for model predictions, but the planned standalone app is broader:
+The current repository has previously named `sapen-refine`. That name fits the later correction/refinement workflow for model predictions, but the planned standalone app is broader:
 
 - scratch annotation of Heartwood/Sapwood masks and Copper masks,
 - accountable user attribution for every annotation action,
@@ -23,7 +23,7 @@ The current repository is named `sapen-refine`. That name fits the later correct
 - admin export of images, masks and metadata for training,
 - later prediction-assisted annotation and uncertainty-based prioritization.
 
-Therefore the first infrastructure slice should rename the product/repository and clean up the repo before changing the domain model.
+Therefore the the product/repository has been changed to **sapen-annotate". The first slice should be to clean up the repo before changing the domain model.
 
 ## Goal
 
@@ -192,7 +192,7 @@ Minimum required sections:
 
 ## E. Add `docs/` folder mirroring the repository structure
 
-Create a documentation folder that mirrors the relevant repo structure and makes navigation easy for humans and Codex.
+Create a documentation folder (already done) that mirrors the relevant repo structure and makes navigation easy for humans and Codex.
 
 The docs folder does not need exhaustive documentation yet, but it must establish the structure and include useful starter pages.
 
