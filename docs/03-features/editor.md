@@ -27,6 +27,9 @@ Important files:
 - The overlay canvas uses `touch-none`, so drawing on the canvas is intended not to scroll the page on touch devices.
 - Pointer capture is already used for brush strokes, freehand lasso, and polygon-handle dragging.
 - Coordinate conversion and fit/zoom sizing helpers live in `src/features/editor/canvasGeometry.ts` and are covered by unit tests.
+- RB-045 ignores non-primary touch/stylus pointers and non-left mouse buttons for drawing.
+- RB-045 handles `pointercancel` separately from `pointerup`: brush strokes are finalized, freehand lasso is cancelled instead of committed, and polygon dragging is safely released.
+- The editor canvas container uses overscroll containment; touch scrolling should remain available outside the drawing surface.
 
 ## Current Save And History Model
 
@@ -39,7 +42,6 @@ Important files:
 ## RB-045 Start Limitations
 
 - Hook dependency warnings in `src/features/editor/EditorClient.tsx` were resolved during RB-045.
-- Pointer cancellation is routed to pointer-up handling, but pointer-leave and out-of-bounds coordinate behavior need hardening.
 - Touch targets are functional but not yet tuned for iPad use.
 - Advanced iPad gestures such as two-finger zoom/pan are not part of the current editor model.
 

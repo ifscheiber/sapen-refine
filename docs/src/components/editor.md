@@ -24,6 +24,8 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 - Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions via `src/features/editor/canvasGeometry.ts`.
 - Brush, freehand lasso, and polygon lasso all use Pointer Events.
 - The drawing canvas is expected to suppress page scroll while drawing; page scroll should remain available outside the canvas container.
+- `pointercancel` is handled as an interruption, not as a normal lasso completion.
+- Non-primary touch/stylus pointers and non-left mouse buttons are ignored for drawing.
 
 ## Invariants And Constraints
 
@@ -37,6 +39,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 - Undo/redo, autosave, and canvas rendering need focused validation.
 - RB-045 resolved the previous editor hook dependency warnings.
 - iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
+- Advanced multi-touch zoom/pan remains deferred.
 - Review/approval state is not part of the editor workflow yet.
 
 ## Related Tickets / Docs

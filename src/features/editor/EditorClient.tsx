@@ -33,6 +33,30 @@ function errorMessage(error: unknown, fallback = "Save failed") {
   return error instanceof Error ? error.message : fallback;
 }
 
+function shouldIgnorePointerDown(evt: React.PointerEvent<HTMLCanvasElement>) {
+  if (evt.pointerType === "mouse" && evt.button !== 0) return true;
+  if (evt.pointerType !== "mouse" && !evt.isPrimary) return true;
+  return false;
+}
+
+function capturePointer(target: HTMLCanvasElement, pointerId: number) {
+  try {
+    target.setPointerCapture(pointerId);
+  } catch {
+    // Pointer capture can fail if the browser already cancelled the pointer.
+  }
+}
+
+function releasePointer(target: HTMLCanvasElement, pointerId: number) {
+  try {
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+  } catch {
+    // Releasing a cancelled pointer is best-effort across browsers.
+  }
+}
+
 export default function EditorClient({ imageId, canEdit }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -626,8 +650,10 @@ function stamp(x: number, y: number) {
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!canEdit) return;
     if (!maskRef.current) return;
+    if (shouldIgnorePointerDown(e)) return;
     e.preventDefault();
 
+    const target = e.currentTarget;
     const p = canvasToImageCoords(e);
 
     if (tool === "brush") {
@@ -635,7 +661,7 @@ function stamp(x: number, y: number) {
       currentStrokeRef.current = [];
       redoRef.current = []; // new action kills redo
       lastPtRef.current = p;
-      (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
+      capturePointer(target, e.pointerId);
       stamp(p.x, p.y);
       return;
     }
@@ -645,7 +671,7 @@ function stamp(x: number, y: number) {
       lassoPointsRef.current = [p];
       redoRef.current = [];
       drawLassoPreview(lassoPointsRef.current);
-      (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
+      capturePointer(target, e.pointerId);
       return;
     }
 
@@ -658,7 +684,7 @@ function stamp(x: number, y: number) {
           const dy = p.y - pts[i].y;
           if (dx * dx + dy * dy <= handleRadius * handleRadius) {
             lassoDragIndexRef.current = i;
-            (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
+            capturePointer(target, e.pointerId);
             drawLassoPreview(pts, null, true);
             return;
           }
@@ -751,22 +777,21 @@ function stamp(x: number, y: number) {
 
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    const target = e.currentTarget;
+
     if (tool === "brush") {
       draggingRef.current = false;
       lastPtRef.current = null;
       finishStroke();
-      try {
-        (e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId);
-      } catch {}
+      releasePointer(target, e.pointerId);
       return;
     }
 
     if (tool === "lasso_free") {
       if (lassoActiveRef.current) {
         lassoActiveRef.current = false;
-        try {
-          (e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId);
-        } catch {}
+        releasePointer(target, e.pointerId);
         commitLasso(lassoPointsRef.current.slice());
       }
       return;
@@ -775,12 +800,47 @@ function stamp(x: number, y: number) {
     if (tool === "lasso_poly") {
       if (lassoDragIndexRef.current !== null) {
         lassoDragIndexRef.current = null;
-        try {
-          (e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId);
-        } catch {}
+        releasePointer(target, e.pointerId);
         drawLassoPreview(lassoPointsRef.current, null, true);
       }
       return;
+    }
+  }
+
+  function onPointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    const target = e.currentTarget;
+
+    if (tool === "brush") {
+      draggingRef.current = false;
+      lastPtRef.current = null;
+      finishStroke();
+      releasePointer(target, e.pointerId);
+      return;
+    }
+
+    if (tool === "lasso_free") {
+      lassoActiveRef.current = false;
+      releasePointer(target, e.pointerId);
+      resetLasso();
+      return;
+    }
+
+    if (tool === "lasso_poly") {
+      lassoDragIndexRef.current = null;
+      releasePointer(target, e.pointerId);
+      drawLassoPreview(lassoPointsRef.current, null, true);
+    }
+  }
+
+  function onPointerLeave(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (tool === "lasso_poly" && lassoDragIndexRef.current === null) {
+      drawLassoPreview(lassoPointsRef.current, null, true);
+    }
+    if (tool === "brush" && draggingRef.current && !e.currentTarget.hasPointerCapture(e.pointerId)) {
+      draggingRef.current = false;
+      lastPtRef.current = null;
+      finishStroke();
     }
   }
 
@@ -1035,16 +1095,20 @@ function stamp(x: number, y: number) {
         </div>
       </div>
 
-      <div ref={containerRef} className="relative h-[70vh] w-full overflow-auto bg-background">
+      <div ref={containerRef} className="relative h-[70vh] w-full overflow-auto overscroll-contain bg-background">
         <div className="relative inline-block">
           <canvas ref={baseCanvasRef} className="block" />
           <canvas
             ref={overlayCanvasRef}
-            className="absolute left-0 top-0 touch-none"
+            aria-label="Mask drawing surface"
+            className="absolute left-0 top-0 touch-none select-none"
+            draggable={false}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onPointerLeave={onPointerLeave}
+            style={{ touchAction: "none" }}
             onDoubleClick={() => {
               if (tool === "lasso_poly") {
                 commitLasso(lassoPointsRef.current.slice());
