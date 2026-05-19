@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done
 
 ## Priority
 
@@ -400,3 +400,26 @@ git commit -m "chore: finalize annotation schema ticket"
 - Do not treat Copper semantic staining as physical slice support.
 - Do not silently keep old `MaskKind.REFINED` semantics.
 - Add small compatibility code only where needed to preserve tests and E2E.
+
+---
+
+## 9. Completion Notes
+
+Implemented as the first annotation-domain persistence baseline.
+
+Key results:
+
+- Replaced the previous MVP migration with `prisma/migrations/20260519213000_annotation_domain_baseline/migration.sql`.
+- Added `AnnotationProject`, `AnnotationProjectMember`, `ImageAsset`, acquisition/sample metadata, label schema versions/definitions, annotation tasks/sessions, annotation artifacts/versions, slice instances/classifications, review decisions, export batches/items, and supporting enums.
+- Removed `MaskKind.PREDICTION` and `MaskKind.REFINED` from the active Prisma schema.
+- Preserved the current browser route/API flow by mapping current project/image/mask routes to the new persistence model.
+- Current editor saves now create draft `SEMANTIC_MASK` `AnnotationArtifactVersion` rows.
+- Added idempotent default label schema seed/bootstrap in `prisma/seed.mjs` and kept `prisma/seed.ts` aligned.
+- Added DB integration coverage in `tests/integration/annotation-domain-schema.test.ts`.
+- Documented the current-to-target mapping, rebuild path, implemented-vs-planned behavior, and DB-backed test prerequisite.
+
+Compatibility/debt:
+
+- Public route names remain `/projects`, `/images`, and `/mask` for browser compatibility.
+- Metadata, support-mask, review/approval, export generation, and checksum enforcement workflows remain RB-050 through RB-055.
+- `npm run test` now includes a local PostgreSQL integration test and expects the local DB to be running, migrated, and seeded.
