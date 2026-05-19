@@ -92,11 +92,24 @@ This page records validation commands run for baseline tickets and whether failu
 - `npm run test`: passed, 2 files and 6 tests.
 - `npm run check:design-hardcoding`: passed.
 
-## Non-Blocking Warnings
+## RB-046 Customer Browser Trial Readiness Final Baseline
 
-- `npm run build` reports the Next.js middleware-to-proxy convention warning for `src/middleware.ts`.
+- `git status --short`: clean before final validation.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6 with no middleware-to-proxy warning.
+- `npm run test`: passed, 6 files and 21 tests.
+- `npm run check:design-hardcoding`: passed.
+- `docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.trial.yml config`: passed.
+- `docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.trial.yml --profile tools config`: passed.
+- `npm run start -- -p 3100`: started the production server after sandbox escalation for local port binding.
+- `curl -i http://localhost:3100/api/health`: returned `200 OK` with `status: ok`.
+- `curl -i http://localhost:3100/api/ready`: returned `200 OK` with database and storage checks `ok`.
 
-This is not a baseline failure. RB-046 targets this warning as part of the browser deployment baseline.
+## Resolved Warnings
+
+- RB-046 replaced `src/middleware.ts` with `src/proxy.ts`. `npm run build` no longer reports the Next.js middleware-to-proxy convention warning.
 
 ## Optional Local Smoke
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done
 
 ## Priority
 
@@ -737,6 +737,22 @@ npm run start
 - iPad Safari usage remains a first-class requirement.
 - Prefer simple, documented deployment over heavy infrastructure.
 - Do not add a service worker unless explicitly justified; stale annotation state would be worse than no offline support.
+
+---
+
+## Completion Notes
+
+Completed in RB-046 implementation.
+
+- Added server runtime config validation, upload size limits, `/api/health`, `/api/ready`, and focused unit tests.
+- Migrated deprecated Next `middleware.ts` convention to `src/proxy.ts`; final build has no middleware-to-proxy warning.
+- Added app-mediated image and mask upload routes so MinIO can remain private during customer trials.
+- Added Dockerfile, all-Compose customer-trial deployment, Caddy config, one-shot `migrate` service using `prisma migrate deploy`, and trial env template.
+- Added named trial-user CLI path through `npm run trial:user:create` and documented account rotation/session revocation.
+- Added copy-paste PostgreSQL, MinIO, and Caddy backup/restore runbooks.
+- Added Web App Manifest, iPad/Home-Screen icons, App Router metadata, and customer browser/iPad smoke checklist.
+- Final validation passed: `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding`.
+- Local production smoke passed on port `3100`: `/api/health` and `/api/ready` returned `200 OK`.
 - Preserve the green validation baseline.
 - Keep routes thin and use the established `src/features/**`, `src/components/shell/**`, `src/server/**`, and `src/design/**` boundaries.
 - If a limitation is real but too large for this ticket, document it precisely and continue.
