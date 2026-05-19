@@ -42,7 +42,7 @@ Persisted entities today:
 - `Mask` and `MaskVersion` for versioned mask artifacts.
 - `AuditLog`, present but not yet used as a complete audit trail.
 
-Known model gaps include acquisition metadata, task queues, review/approval records, label-schema versions, export batches/manifests, stronger image checksums, and clearer standalone annotation terminology. `MaskKind.PREDICTION` and `MaskKind.REFINED` are legacy MVP names; “refine” is reserved for a future prediction-correction mode, not the product name.
+Known model gaps include acquisition metadata, task queues, review/approval records, label-schema versions, export batches/manifests, stronger image checksums, and clearer standalone annotation terminology. `MaskKind.PREDICTION` and `MaskKind.REFINED` are legacy MVP names; "refine" is reserved for a future prediction-correction mode, not the product name. The RB-048 target model is documented in [docs/06-data/annotation-domain-model.md](docs/06-data/annotation-domain-model.md) and [docs/06-data/prisma-schema-proposal.md](docs/06-data/prisma-schema-proposal.md).
 
 ## Current Flows
 
@@ -72,7 +72,7 @@ Known gaps:
 
 ## Known Follow-Up Areas
 
-- Annotation domain model for tasks, metadata, label schemas, review, approval, and exports.
+- Annotation domain schema implementation from the RB-048 proposal.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
 - Upload/commit validation hardening.
@@ -84,6 +84,8 @@ See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.m
 ## Documentation Links
 
 - Docs index: [docs/README.md](docs/README.md)
+- Annotation domain model: [docs/06-data/annotation-domain-model.md](docs/06-data/annotation-domain-model.md)
+- Training export contract: [docs/06-data/training-export-contract.md](docs/06-data/training-export-contract.md)
 - App routes and APIs: [docs/src/app/README.md](docs/src/app/README.md)
 - Architecture baseline: [docs/01-architecture/module-boundaries.md](docs/01-architecture/module-boundaries.md)
 - Server/auth/storage: [docs/src/server/README.md](docs/src/server/README.md)

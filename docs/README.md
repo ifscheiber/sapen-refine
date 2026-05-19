@@ -13,6 +13,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Remediation backlog: [adr/remediation-backlog.md](adr/remediation-backlog.md)
 - Naming ADR: [architecture/decisions/ADR-0001-sapen-annotate-naming.md](architecture/decisions/ADR-0001-sapen-annotate-naming.md)
 - Desktop-first/iPad-deferred ADR: [08-adr/ADR-002-desktop-browser-first-ipad-deferred.md](08-adr/ADR-002-desktop-browser-first-ipad-deferred.md)
+- Annotation domain model ADR: [08-adr/ADR-003-annotation-domain-model.md](08-adr/ADR-003-annotation-domain-model.md)
 
 ## Module Docs
 
@@ -26,6 +27,9 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Trial backup/restore: [04-server/backup-restore.md](04-server/backup-restore.md)
 - Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
 - Data: [06-data/prisma.md](06-data/prisma.md)
+- Annotation domain model: [06-data/annotation-domain-model.md](06-data/annotation-domain-model.md)
+- Prisma schema proposal: [06-data/prisma-schema-proposal.md](06-data/prisma-schema-proposal.md)
+- Training export contract: [06-data/training-export-contract.md](06-data/training-export-contract.md)
 - Quality gates: [07-testing/quality-gates.md](07-testing/quality-gates.md)
 - Desktop browser manual smoke checklist: [07-testing/manual-smoke-desktop-browser.md](07-testing/manual-smoke-desktop-browser.md)
 - Editor manual smoke checklist: [07-testing/manual-smoke-editor-ipad.md](07-testing/manual-smoke-editor-ipad.md)

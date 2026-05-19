@@ -27,8 +27,10 @@
 
 - Current schema is MVP-level and lacks final annotation metadata, task, review, approval, label-schema, and export models.
 - Legacy `MaskKind.REFINED` naming remains in the schema, migrations, and current mask route handlers until a schema/domain ticket changes it.
+- RB-048 documents the target schema direction in `docs/06-data/prisma-schema-proposal.md`; implementation is deferred.
 
 ## Related Tickets / Docs
 
 - [schema.md](schema.md)
+- [../06-data/prisma-schema-proposal.md](../06-data/prisma-schema-proposal.md)
 - [../adr/remediation-backlog.md](../adr/remediation-backlog.md)
