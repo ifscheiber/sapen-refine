@@ -39,7 +39,7 @@ Important files:
 - RB-045 exposes dirty/saving state in the editor toolbar and guards browser unload while unsaved edits exist.
 - If edits happen while a save is in flight, the editor tracks dirty revisions and queues another save instead of clearing the newer dirty state.
 - Manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
-- Latest saved mask bytes are loaded from `/api/images/[imageId]/mask/latest`.
+- Latest saved mask metadata is loaded from `/api/images/[imageId]/mask/latest`; the mask bytes are fetched through an app-mediated version asset URL.
 
 ## Desktop Browser Smoke Scope
 

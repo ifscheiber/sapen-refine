@@ -49,6 +49,18 @@ export async function putObject(key: string, body: Uint8Array, contentType: stri
   await s3.send(cmd);
 }
 
+export async function getObjectBytes(key: string): Promise<Uint8Array> {
+  const cmd = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+  const response = await s3.send(cmd);
+  if (!response.Body) {
+    throw new Error("Storage object response body is empty");
+  }
+  return response.Body.transformToByteArray();
+}
+
 export async function checkStorageReady() {
   await s3.send(new HeadBucketCommand({ Bucket: bucket }));
 }

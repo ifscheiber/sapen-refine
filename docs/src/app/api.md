@@ -17,10 +17,12 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects/[projectId]/images/presign` - creates a presigned raw-image upload URL.
 - `POST /api/projects/[projectId]/images/commit` - records an uploaded raw image.
 - `POST /api/projects/[projectId]/images/upload` - uploads a raw image through the app server, stores it in S3/MinIO, and records the image row.
-- `GET /api/projects/[projectId]/images/[imageId]/view` - returns a presigned image view URL after membership check.
-- `GET /api/images/[imageId]` - redirects to a presigned image URL after membership check.
-- `GET /api/images/[imageId]/view` - returns a presigned image view URL.
+- `GET /api/projects/[projectId]/images/[imageId]/view` - returns an app-mediated image asset URL after membership check.
+- `GET /api/images/[imageId]` - redirects to the app-mediated image asset route after membership check.
+- `GET /api/images/[imageId]/view` - returns an app-mediated image asset URL.
+- `GET /api/images/[imageId]/asset` - streams image bytes through the app after membership check.
 - `GET /api/images/[imageId]/mask/latest` - returns latest mask version metadata and view URL.
+- `GET /api/images/[imageId]/mask/versions/[versionId]/asset` - streams mask bytes through the app after membership check.
 - `POST /api/images/[imageId]/mask/presign` - creates a presigned mask upload URL.
 - `POST /api/images/[imageId]/mask/commit` - records a new mask version.
 - `POST /api/images/[imageId]/mask/upload` - uploads mask bytes through the app server and records a new mask version.
@@ -29,7 +31,7 @@ This page lists the current API route handlers under `src/app/api`.
 
 - Project and image API routes must enforce authenticated access and project membership.
 - Mask commits must remain append-only; do not overwrite historical mask versions.
-- Customer-trial upload paths should use app-mediated upload routes so MinIO can stay private on the Docker network.
+- Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
 - API routes should return stable error codes that clients can handle.
 
 ## Known Gaps

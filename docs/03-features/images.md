@@ -15,6 +15,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 - `/app/projects/[projectId]/images` lists images for the project.
 - Editable project roles can upload an image through `POST /api/projects/[projectId]/images/upload`.
+- Browser image reads use app-mediated asset routes rather than direct MinIO URLs.
 - Uploaded images appear in the image list and link to the editor.
 
 ## MVP Limitations

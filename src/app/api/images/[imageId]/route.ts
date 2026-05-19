@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
-import { getPresignedGetUrl } from "@/server/storage"; // gleich unten
 
 export async function GET(
   _req: Request,
@@ -12,7 +11,7 @@ export async function GET(
 
   const image = await prisma.image.findUnique({
     where: { id: imageId },
-    select: { id: true, projectId: true, storageKey: true, contentType: true },
+    select: { id: true, projectId: true },
   });
 
   if (!image) {
@@ -29,9 +28,5 @@ export async function GET(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  // Presigned GET für Objekt
-  const url = await getPresignedGetUrl(image.storageKey);
-
-  // Browser folgt Redirect und lädt Bild direkt aus MinIO
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(new URL(`/api/images/${image.id}/asset`, _req.url));
 }

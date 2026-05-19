@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
 import { MaskKind } from "@prisma/client";
-import { presignGetObject } from "@/server/storage/s3";
 
 export async function GET(
   _req: Request,
@@ -63,8 +62,6 @@ export async function GET(
     return NextResponse.json({ ok: true, exists: false, maskId: mask.id });
   }
 
-  const url = await presignGetObject(latest.storageKey, 300);
-
   return NextResponse.json({
     ok: true,
     exists: true,
@@ -77,6 +74,6 @@ export async function GET(
     height: latest.height,
     format: latest.format,
     createdAt: latest.createdAt,
-    url,
+    url: `/api/images/${imageId}/mask/versions/${latest.id}/asset`,
   });
 }

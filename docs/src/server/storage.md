@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Server storage helpers create presigned S3/MinIO URLs for compatibility paths and app-mediated S3/MinIO writes for customer-trial upload operations.
+Server storage helpers create presigned S3/MinIO URLs for compatibility paths and app-mediated S3/MinIO reads/writes for customer-trial browser operations.
 
 ## Important Files
 
@@ -12,14 +12,17 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 - `src/server/storage.ts` - app-level wrapper functions.
 - `src/app/api/projects/[projectId]/images/presign/route.ts` - image upload presign.
 - `src/app/api/projects/[projectId]/images/upload/route.ts` - app-mediated raw-image upload.
+- `src/app/api/images/[imageId]/asset/route.ts` - app-mediated raw-image read.
 - `src/app/api/images/[imageId]/mask/presign/route.ts` - mask upload presign.
 - `src/app/api/images/[imageId]/mask/upload/route.ts` - app-mediated mask upload.
+- `src/app/api/images/[imageId]/mask/versions/[versionId]/asset/route.ts` - app-mediated mask read.
 
 ## Public Interfaces / Routes / Functions
 
 - `getPresignedPutUrl(key, contentType)`.
 - `getPresignedGetUrl(key)`.
 - `putObject(key, body, contentType)`.
+- `getObjectBytes(key)`.
 - `checkStorageReady()`.
 - Local storage service: MinIO from `docker-compose.yml`.
 
@@ -28,7 +31,7 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 - Raw image files must not be overwritten after commit.
 - Mask versions must be append-only artifacts.
 - Object storage keys should be generated server-side, not trusted from arbitrary client paths.
-- Customer-trial browser uploads should go through the app server by default, so MinIO console and S3 API can remain private.
+- Customer-trial browser uploads and reads should go through the app server by default, so MinIO console and S3 API can remain private.
 
 ## Known Gaps
 
