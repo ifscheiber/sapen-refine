@@ -19,6 +19,10 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByLabel("Name").fill(projectName);
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
+  const projectMatch = page.url().match(/\/app\/projects\/([^/?#]+)/);
+  expect(projectMatch).not.toBeNull();
+  const projectId = projectMatch?.[1];
+  expect(projectId).toBeTruthy();
 
   await page.getByRole("link", { name: "Images" }).click();
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
@@ -162,4 +166,24 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
       );
     }, imageId);
   }).toBe(true);
+
+  await page.goto(`/app/projects/${projectId}`);
+  await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Training export" })).toBeVisible();
+  await expect(page.getByText("Semantic approved")).toBeVisible();
+  await expect(page.getByText("Support approved")).toBeVisible();
+  await expect(page.getByText("Classifications approved")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create export" })).toBeEnabled();
+  await page.getByRole("button", { name: "Create export" }).click();
+  await expect(page.getByText("Export COMPLETED")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("link", { name: "Download manifest" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download package" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download manifest" })).toHaveAttribute(
+    "href",
+    /\/api\/exports\/[^/]+\/download\?file=manifest/,
+  );
+  await expect(page.getByRole("link", { name: "Download package" })).toHaveAttribute(
+    "href",
+    /\/api\/exports\/[^/]+\/download\?file=package/,
+  );
 });
