@@ -1,6 +1,6 @@
 # Editor Feature
 
-The current editor is prototype-level but useful for drawing and saving masks. RB-045 is stabilizing it as the browser/iPad trial baseline before domain expansion.
+The current editor is prototype-level but useful for drawing and saving masks. RB-045 established the browser/iPad trial baseline before domain expansion.
 
 Important files:
 

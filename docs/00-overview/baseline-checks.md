@@ -72,11 +72,21 @@ This page records validation commands run for baseline tickets and whether failu
 - `npm run test`: passed, 2 files and 6 tests.
 - `npm run check:design-hardcoding`: passed.
 
+## Final RB-045 Baseline
+
+- `git status --short`: clean before final validation.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed with no warnings.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6 with the known middleware-to-proxy warning.
+- `npm run test`: passed, 2 files and 6 tests.
+- `npm run check:design-hardcoding`: passed.
+
 ## Non-Blocking Warnings
 
 - `npm run build` reports the Next.js middleware-to-proxy convention warning for `src/middleware.ts`.
 
-These are not baseline failures. They are deferred to the architecture/UI cleanup and remediation backlog.
+This is not a baseline failure. It is deferred to the remediation backlog.
 
 ## Optional Local Smoke
 

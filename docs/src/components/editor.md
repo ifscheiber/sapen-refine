@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw semantic mask overlays, save a serialized mask version, and reload the latest mask. RB-045 is the stabilization pass for desktop and iPad browser readiness.
+The current editor lets users view an uploaded image, draw semantic mask overlays, save a serialized mask version, and reload the latest mask. RB-045 established the desktop and iPad browser readiness baseline.
 
 ## Important Files
 

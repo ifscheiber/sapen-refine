@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Done
 
 ## Priority
 
@@ -69,6 +69,27 @@ Potential follow-up candidates if discovered during implementation:
 - Advanced iPad zoom/pan/gesture model for large images.
 - Dedicated editor state reducer if callback stabilization becomes too broad.
 - Playwright/browser automation for login-upload-open-editor once the manual smoke path is stable.
+
+Implementation summary:
+
+- Recorded the RB-045 editor/iPad start baseline and updated stale known-gaps docs.
+- Added tested editor canvas geometry helpers for coordinate mapping, fit zoom, display sizing, and coordinate clamping.
+- Removed editor React hook dependency warnings without eslint suppression.
+- Hardened Pointer Events handling for mouse, touch, and stylus input.
+- Added visible dirty/saving state, unsaved-change browser unload guard, larger touch targets, and safer queued-save behavior.
+- Added manual desktop and iPad Safari smoke checklist at `docs/07-testing/manual-smoke-editor-ipad.md`.
+- Added follow-up backlog entries for advanced iPad zoom/pan gestures and future automated browser smoke.
+
+Final verification:
+
+- `git status --short`: clean before final ticket move.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed with no warnings.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with the known middleware-to-proxy warning.
+- `npm run test`: passed, 2 files and 6 tests.
+- `npm run check:design-hardcoding`: passed.
+- Manual iPad smoke was documented but not executed by Codex.
 
 ## 1. Context
 
