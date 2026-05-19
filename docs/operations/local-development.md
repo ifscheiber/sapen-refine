@@ -38,7 +38,7 @@ npm run db:bootstrap
 ## Known Gaps
 
 - Destructive DB reset is allowed during development. `npm run db:rebuild` removes Docker volumes, recreates local Postgres/MinIO, applies Prisma migrations, and runs the seed.
-- Prototype editor lint warnings remain and are tracked for architecture/UI cleanup.
+- Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved the previous editor hook lint warnings.
 
 ## Related Tickets / Docs
 

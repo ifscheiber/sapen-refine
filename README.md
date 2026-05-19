@@ -17,10 +17,8 @@ The app is separate from SaPen Core. Future integration should happen through ex
 npm install
 cp .env.example .env
 cp .env.example .env.local
-npm run db:up
-npx prisma generate
-npm run prisma:migrate
-npm run seed
+npm run db:rebuild
+npm run prisma:generate
 npm run dev
 ```
 
@@ -45,9 +43,11 @@ Required local variables:
 npm run db:up              # Start PostgreSQL and MinIO
 npm run db:down            # Stop local services
 npm run db:reset           # Recreate local service volumes
+npm run db:rebuild         # Recreate local volumes, apply migrations, and seed demo data
 npx prisma generate        # Generate Prisma Client
 npm run prisma:generate    # Generate Prisma Client through the package script
 npm run prisma:migrate     # Apply local Prisma migrations
+npm run db:bootstrap       # Apply deployed migrations and seed an existing local DB
 npm run prisma:studio      # Open Prisma Studio
 npm run seed               # Seed local data
 npm run dev                # Start Next.js development server
@@ -57,7 +57,7 @@ npm run build              # Run production build/typecheck
 npm run test               # Run unit tests
 ```
 
-The required root validation baseline is `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run test`.
+The required root validation baseline is `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding`.
 
 ## Storage Assumptions
 
@@ -68,7 +68,7 @@ Images and mask artifacts are uploaded to S3-compatible object storage using pre
 - The Prisma schema still uses MVP names such as `MaskKind.PREDICTION` and `MaskKind.REFINED`; this is legacy terminology, not the final standalone annotation domain.
 - Image metadata, review/approval state, audit events, export batches, and label-schema versioning are incomplete.
 - The editor and mask serialization paths need follow-up hardening before production training-data workflows.
-- Baseline validation is not green yet; current failures are tracked in [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md).
+- The validation baseline is green; remaining product and deployment gaps are tracked in [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md).
 
 ## Repository Hygiene
 

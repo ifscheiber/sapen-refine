@@ -73,7 +73,7 @@ Known gaps:
 
 - Annotation domain model for tasks, metadata, label schemas, review, approval, and exports.
 - Mask format normalization and backward compatibility.
-- Editor hook cleanup and iPad/Pencil-focused interaction work.
+- Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
 - Upload/commit validation hardening.
 - Admin export and manifest reproducibility.
 - Prediction-assisted annotation as a separate future refine/correction mode.

@@ -82,11 +82,21 @@ This page records validation commands run for baseline tickets and whether failu
 - `npm run test`: passed, 2 files and 6 tests.
 - `npm run check:design-hardcoding`: passed.
 
+## RB-046 Customer Browser Trial Readiness Start Baseline
+
+- `git status --short`: one untracked ticket file, `tickets/2026-05-19/RB-046-customer-browser-deployment-trial-readiness.md`.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6 with the known middleware-to-proxy warning.
+- `npm run test`: passed, 2 files and 6 tests.
+- `npm run check:design-hardcoding`: passed.
+
 ## Non-Blocking Warnings
 
 - `npm run build` reports the Next.js middleware-to-proxy convention warning for `src/middleware.ts`.
 
-This is not a baseline failure. It is deferred to the remediation backlog.
+This is not a baseline failure. RB-046 targets this warning as part of the browser deployment baseline.
 
 ## Optional Local Smoke
 
