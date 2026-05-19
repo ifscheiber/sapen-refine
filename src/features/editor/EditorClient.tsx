@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MaskBuffer } from "@/mask/maskBuffer";
-import { DEFAULT_LABELS, Labels, type LabelId } from "@/mask/labels";
+import { DEFAULT_LABELS, Labels, supportMaskLabels, type LabelId } from "@/mask/labels";
 import { applyBrush, applyPolygonFill } from "@/mask/tools";
 import { applyPatch, type Patch } from "@/mask/patch";
 import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
@@ -23,10 +23,49 @@ type Props = {
 const API_IMAGE_VIEW = (imageId: string) => `/api/images/${imageId}/view`;
 const API_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/mask/latest`;
 const API_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/mask/upload`;
+const API_SUPPORT_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/support-mask/latest`;
+const API_SUPPORT_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/support-mask/upload`;
+const API_SLICE_STATE = (imageId: string) => `/api/images/${imageId}/slice`;
+const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imageId}/slice/classification`;
 
 type Stroke = Patch[];
 type Tool = "brush" | "lasso_free" | "lasso_poly";
+type MaskMode = "semantic" | "support";
 type Point = { x: number; y: number };
+
+type SliceClassValue =
+  | "SAP_HEARTWOOD_SLICE"
+  | "COPPER_SLICE"
+  | "UNKNOWN"
+  | "REVIEW_REQUIRED";
+
+type SliceState = {
+  canEdit: boolean;
+  supportLabels: { background: number; sliceSupport: number };
+  sliceInstance: { id: string; supportArtifactVersionId: string | null } | null;
+  latestSupportMask: {
+    id: string;
+    version: number;
+    reviewState: string;
+    createdAt: string;
+    createdBy: { email: string; name: string | null } | null;
+  } | null;
+  latestClassification: {
+    id: string;
+    version: number;
+    class: SliceClassValue;
+    reviewState: string;
+    createdAt: string;
+    createdBy: { email: string; name: string | null } | null;
+  } | null;
+};
+
+const SLICE_CLASS_OPTIONS: Array<{ value: SliceClassValue; label: string }> = [
+  { value: "SAP_HEARTWOOD_SLICE", label: "Sap/Heartwood slice" },
+  { value: "COPPER_SLICE", label: "Copper slice" },
+  { value: "UNKNOWN", label: "Unknown" },
+  { value: "REVIEW_REQUIRED", label: "Review required" },
+];
 
 function errorMessage(error: unknown, fallback = "Save failed") {
   return error instanceof Error ? error.message : fallback;
@@ -72,10 +111,19 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const [brushRadius, setBrushRadius] = useState<number>(12);
   const [activeLabel, setActiveLabel] = useState<LabelId>(Labels.COPPER);
   const [tool, setTool] = useState<Tool>("brush");
+  const [maskMode, setMaskMode] = useState<MaskMode>("semantic");
+  const [sliceState, setSliceState] = useState<SliceState | null>(null);
+  const [selectedSliceClass, setSelectedSliceClass] = useState<SliceClassValue | "">("");
+  const [classificationStatus, setClassificationStatus] = useState<string>("");
+  const [classificationSaving, setClassificationSaving] = useState(false);
 
   const [zoom, setZoom] = useState<number>(1);
 
-  const labels = useMemo(() => DEFAULT_LABELS, []);
+  const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
+  const labels = useMemo(
+    () => (maskMode === "support" ? supportMaskLabels(supportLabelValue) : DEFAULT_LABELS),
+    [maskMode, supportLabelValue],
+  );
 
   const maskRef = useRef<MaskBuffer | null>(null);
 
@@ -106,7 +154,11 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const saveQueuedRef = useRef(false);
   const dirtyRevisionRef = useRef(0);
   const loadedOnceRef = useRef(false);
-  const pendingMaskRef = useRef<{ imageId: string; promise: Promise<Uint8Array | null> } | null>(null);
+  const pendingMaskRef = useRef<{
+    imageId: string;
+    mode: MaskMode;
+    promise: Promise<Uint8Array | null>;
+  } | null>(null);
   const maskFetchAbortRef = useRef<AbortController | null>(null);
   const keyboardActionsRef = useRef<{
     canEdit: boolean;
@@ -116,6 +168,22 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     resetLasso: () => void;
     commitLasso: (points: Point[]) => void;
   } | null>(null);
+
+  const loadSliceState = useCallback(async () => {
+    const res = await fetch(API_SLICE_STATE(imageId), { method: "GET", cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      setClassificationStatus(data?.error ?? `SLICE_STATE_FAILED_${res.status}`);
+      return;
+    }
+    const nextState = data as SliceState;
+    setSliceState(nextState);
+    setSelectedSliceClass(nextState.latestClassification?.class ?? "");
+  }, [imageId]);
+
+  useEffect(() => {
+    void loadSliceState();
+  }, [loadSliceState]);
 
   // ---------- helpers ----------
   const getPalette = useCallback(() => {
@@ -159,6 +227,19 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     dirtyMaskRef.current = true;
     dirtyRevisionRef.current += 1;
     setHasUnsavedChanges(true);
+  }
+
+  function switchMaskMode(nextMode: MaskMode) {
+    if (nextMode === maskMode) return;
+    if (hasUnsavedChanges || dirtyMaskRef.current) {
+      setStatus("Save current mask before switching modes");
+      return;
+    }
+
+    resetLasso();
+    setMaskMode(nextMode);
+    setActiveLabel(nextMode === "support" ? supportLabelValue : Labels.COPPER);
+    setStatus("");
   }
 
   function queueOverlayUpdate(x: number, y: number, w: number, h: number) {
@@ -417,7 +498,9 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       bytes.set(mask.data);
       const blob = new Blob([bytes], { type: "application/octet-stream" });
 
-      const upload = await fetch(API_MASK_UPLOAD(imageId), {
+      const upload = await fetch(
+        maskMode === "support" ? API_SUPPORT_MASK_UPLOAD(imageId) : API_MASK_UPLOAD(imageId),
+        {
         method: "POST",
         headers: {
           "content-type": blob.type,
@@ -426,7 +509,8 @@ export default function EditorClient({ imageId, canEdit }: Props) {
           "x-mask-format": "u8raw-v1",
         },
         body: blob,
-      });
+        },
+      );
 
       if (!upload.ok) {
         const t = await upload.text().catch(() => "");
@@ -438,6 +522,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         setHasUnsavedChanges(false);
         setStatus("Saved");
         setTimeout(() => setStatus(""), 800);
+        if (maskMode === "support") void loadSliceState();
       } else {
         saveQueuedRef.current = true;
       }
@@ -456,7 +541,10 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
   // ---------- Load latest mask ----------
   const fetchLatestMaskBytes = useCallback(async (signal?: AbortSignal) => {
-    const res = await fetch(API_MASK_LATEST(imageId), { method: "GET", signal });
+    const res = await fetch(
+      maskMode === "support" ? API_SUPPORT_MASK_LATEST(imageId) : API_MASK_LATEST(imageId),
+      { method: "GET", signal },
+    );
     if (!res.ok) return null;
 
     const json = await res.json().catch(() => null);
@@ -473,7 +561,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
     const ab = await fetch(url, { signal }).then((r) => r.arrayBuffer());
     return new Uint8Array(ab);
-  }, [imageId]);
+  }, [imageId, maskMode]);
 
   // ---------- Image load ----------
   useEffect(() => {
@@ -497,7 +585,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     }
     const controller = new AbortController();
     maskFetchAbortRef.current = controller;
-    pendingMaskRef.current = { imageId, promise: fetchLatestMaskBytes(controller.signal) };
+    pendingMaskRef.current = { imageId, mode: maskMode, promise: fetchLatestMaskBytes(controller.signal) };
     return () => {
       alive = false;
       if (maskFetchAbortRef.current) {
@@ -505,7 +593,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         maskFetchAbortRef.current = null;
       }
     };
-  }, [fetchLatestMaskBytes, imageId]);
+  }, [fetchLatestMaskBytes, imageId, maskMode]);
 
   useEffect(() => {
     if (!imgUrl) return;
@@ -564,7 +652,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       try {
         const pending = pendingMaskRef.current;
         const bytes =
-          pending && pending.imageId === imageId
+          pending && pending.imageId === imageId && pending.mode === maskMode
             ? await pending.promise
             : await fetchLatestMaskBytes(maskFetchAbortRef.current?.signal);
         if (cancelled) return;
@@ -594,7 +682,32 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, rerenderOverlayFull]);
+  }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, maskMode, rerenderOverlayFull]);
+
+  async function saveSliceClassification() {
+    if (!canEdit || !selectedSliceClass) return;
+
+    setClassificationSaving(true);
+    setClassificationStatus("");
+    try {
+      const res = await fetch(API_SLICE_CLASSIFICATION(imageId), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ class: selectedSliceClass }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `CLASSIFICATION_FAILED_${res.status}`);
+      }
+      setSliceState(data as SliceState);
+      setClassificationStatus("Classification saved");
+      setTimeout(() => setClassificationStatus(""), 1000);
+    } catch (error) {
+      setClassificationStatus(errorMessage(error, "Classification save failed"));
+    } finally {
+      setClassificationSaving(false);
+    }
+  }
 
   // Opacity affects palette => full redraw (rare)
   useEffect(() => {
@@ -961,10 +1074,37 @@ function stamp(x: number, y: number) {
   const activeButtonClass = "min-h-11 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90";
   const idleButtonClass =
     "min-h-11 rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground hover:bg-accent";
+  const latestClassificationLabel =
+    SLICE_CLASS_OPTIONS.find((option) => option.value === sliceState?.latestClassification?.class)?.label ??
+    "Missing";
+  const latestSupportStatus = sliceState?.latestSupportMask
+    ? `Draft v${sliceState.latestSupportMask.version} saved`
+    : "Missing";
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
       <div className="border-b border-border bg-muted p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            aria-pressed={maskMode === "semantic"}
+            className={maskMode === "semantic" ? activeButtonClass : idleButtonClass}
+            onClick={() => switchMaskMode("semantic")}
+          >
+            Semantic mask
+          </button>
+          <button
+            aria-pressed={maskMode === "support"}
+            className={maskMode === "support" ? activeButtonClass : idleButtonClass}
+            onClick={() => switchMaskMode("support")}
+          >
+            Slice support
+          </button>
+          <div className="flex min-h-11 flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span>Support mask: {latestSupportStatus}</span>
+            <span>Classification: {latestClassificationLabel}</span>
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -1064,7 +1204,7 @@ function stamp(x: number, y: number) {
             onClick={() => void saveMaskNow()}
             disabled={!canEdit || isSaving || !hasUnsavedChanges}
           >
-            Save now
+            {maskMode === "support" ? "Save support mask" : "Save now"}
           </button>
           <button
             className={idleButtonClass}
@@ -1087,6 +1227,38 @@ function stamp(x: number, y: number) {
               <span className="tabular-nums w-10">{Math.round(zoom * 100)}%</span>
             </div>
           </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2">
+            <span className="text-xs text-muted-foreground">Slice classification</span>
+            <select
+              aria-label="Slice classification"
+              value={selectedSliceClass}
+              disabled={!canEdit || classificationSaving}
+              onChange={(event) => setSelectedSliceClass(event.target.value as SliceClassValue | "")}
+              className="min-h-11 rounded-md border border-border bg-input-background px-3 py-2 text-sm"
+            >
+              <option value="">No classification</option>
+              {SLICE_CLASS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className={idleButtonClass}
+            onClick={() => void saveSliceClassification()}
+            disabled={!canEdit || classificationSaving || !selectedSliceClass}
+          >
+            {classificationSaving ? "Saving classification..." : "Save classification"}
+          </button>
+          {classificationStatus && (
+            <div className="flex min-h-11 items-center text-xs text-muted-foreground">
+              {classificationStatus}
+            </div>
+          )}
         </div>
       </div>
 
