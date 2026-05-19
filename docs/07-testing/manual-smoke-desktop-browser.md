@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This checklist verifies the current desktop browser MVP workflow after the RB-050 metadata slice. It targets the local or trial-deployed browser app and does not require iPad Safari.
+This checklist verifies the current desktop browser MVP workflow after the RB-051 slice-support workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
 
 ## Preconditions
 
@@ -27,15 +27,20 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Open editor. | Image, canvas stack, tools, labels, zoom, and save controls render. |  |  |
 | Draw with Brush. | Overlay changes and dirty state becomes visible. |  |  |
 | Click `Save now`. | Save completes and dirty state clears. |  |  |
+| Switch to `Slice support`. | Support mode loads separately from semantic mask mode. |  |  |
+| Draw a support mask and save. | Support-mask status shows a draft version after save. |  |  |
+| Set slice classification. | Classification persists and is visible after save. |  |  |
 | Reload editor. | Latest saved mask reloads without runtime errors. |  |  |
+| Confirm semantic/support distinction. | Semantic latest mask and support latest mask both exist through their separate APIs. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
 
 ## Current MVP Limitations
 
-- Review/approval, export, support-mask, and slice-specific metadata workflows are not implemented.
+- Review/approval, export, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
+- RB-051 supports one default slice/support geometry per image.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload plus the MVP editor golden path.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, and slice classification persistence.
 
 ## Result Tracking
 

@@ -4,7 +4,7 @@
 
 This page defines the planned distinction between semantic masks, support/instance masks, prediction artifacts, and reviewed ground-truth artifacts.
 
-Current mask code lives in `src/mask/*`, current mask APIs live in `src/app/api/images/[imageId]/mask/*`, and RB-049 persists mask artifacts as `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
+Current mask code lives in `src/mask/*`, semantic mask APIs live in `src/app/api/images/[imageId]/mask/*`, support-mask APIs live in `src/app/api/images/[imageId]/support-mask/*`, and persisted mask artifacts are `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
 
 ## Artifact Families
 
@@ -35,6 +35,8 @@ Copper-specific rule:
 
 A copper semantic mask is not a support mask. Copper regions may be smaller than the physical slice, especially for copper penetration/staining workflows.
 
+RB-051 support masks are draft `SLICE_SUPPORT_MASK` artifact versions with default `scopeKey = "default"`. The first workflow supports one default support geometry per image; multi-object instance masks remain deferred.
+
 ### Slice Classification Artifacts
 
 Slice classification records classify a slice instance or image context.
@@ -46,7 +48,7 @@ Expected classes include:
 - `UNKNOWN`
 - `REVIEW_REQUIRED`
 
-Classification artifacts should reference the relevant image, optional slice instance, actor, and label schema/class schema version.
+Classification versions reference the relevant image, default slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows and does not implement review/approval.
 
 ### Prediction Artifacts
 
@@ -99,12 +101,15 @@ Exports must include coordinate-space metadata.
 
 ## Format Compatibility
 
-Current `u8raw-v1`/`MSK1` artifacts remain the browser editor artifact format after RB-049.
+Current `u8raw-v1` raw byte artifacts remain the browser editor artifact format after RB-051 for both semantic masks and support masks.
+
+RB-051 support-mask values are resolved through the active label schema where practical:
+
+- `0` remains background,
+- `slice_support` comes from the label schema byte value, currently `10` in the seed schema.
 
 Future format work should decide:
 
-- whether semantic and support masks share one binary container format,
-- where byte-value-to-label mapping lives,
 - how to represent instance ids,
 - how to preserve old MVP artifacts after schema reset or migration.
 

@@ -160,7 +160,7 @@ Priority: Resolved.
 
 Context: RB-048 defines the target domain model. RB-049 implements the first persistence baseline in `prisma/schema.prisma`.
 
-Impact: Follow-up feature work can now build on the schema baseline; after RB-050, support-mask, review, export, and prediction workflows still need RB-051+.
+Impact: Follow-up feature work can now build on the schema baseline; after RB-051, review, export, prediction, and multi-slice workflows still need later tickets.
 
 Resolution: Implemented by RB-049 optimized ticket with `AnnotationProject`, `ImageAsset`, label schemas, tasks/sessions, artifact versions, review decisions, slice classifications, and export records.
 
@@ -192,13 +192,15 @@ Context: RB-049 adds support/instance artifact kinds and slice classification pe
 
 Impact: Copper semantic masks could be misused as support geometry unless the domain workflow separates these artifacts.
 
-Proposed next step: Implement the workflow in `tickets/2026-05-19/RB-051-slice-classification-and-support-mask-workflow.md`.
+Resolution: Implemented by RB-051 optimized ticket. The app now supports one default `SliceInstance` per image, separate `SLICE_SUPPORT_MASK` artifact versions, editor support-mask mode, and draft `SliceClassificationVersion` writes.
 
-Affected modules: `src/features/editor`, `src/mask`, `src/app/api`, `prisma/schema.prisma`, docs under `docs/06-data`.
+Remaining follow-up: Multi-object/multi-slice editing, true slice-specific sample metadata, review/approval, and export generation remain deferred.
 
-Owner: Unassigned.
+Affected modules: `src/features/editor`, `src/mask`, `src/app/api/images/[imageId]/slice/*`, `src/app/api/images/[imageId]/support-mask/*`, `src/server/domain/slices.ts`, docs under `docs/03-features` and `docs/06-data`.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved.
 
 ## RB-052 - Review And Approval Workflow
 

@@ -19,8 +19,10 @@ This page defines the current validation baseline and the intended testing direc
 
 - `tests/integration/annotation-domain-schema.test.ts` covers RB-049 domain persistence invariants against local PostgreSQL: default label schema, image/project ownership, semantic/support artifact separation, Copper-not-support logic, attribution, and export references.
 - `tests/integration/metadata-workflow.test.ts` covers RB-050 image metadata persistence, editable role behavior, viewer rejection, and rejection of immutable upload facts.
+- `tests/integration/slice-workflow.test.ts` covers RB-051 default slice creation, support-mask artifact versions, classification versions, viewer rejection, dimension checks, and semantic-as-support rejection.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/metadata-validation.test.ts` covers RB-050 metadata parsing, completeness/readiness calculation, and immutable-field validation.
+- `tests/unit/slice-domain.test.ts` covers RB-051 support artifact kind helpers and latest classification resolution.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, and upload limit parsing.
 - `tests/unit/upload-validation.test.ts` covers image/mask upload size validation and `413` payloads.
@@ -29,7 +31,7 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Current E2E Coverage
 
-- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, image upload, image-level metadata edit/reload, editor open, brush draw, save, reload, and latest-mask existence.
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, image upload, image-level metadata edit/reload, editor open, semantic mask save, support mask save, slice classification save, reload, and latest-artifact API checks.
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
 - E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.
@@ -67,7 +69,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; RB-049 adds DB/domain integration coverage and RB-050 adds metadata domain integration coverage.
+- API route-handler tests remain limited; RB-049 adds DB/domain integration coverage, RB-050 adds metadata domain integration coverage, and RB-051 adds slice/support domain integration coverage.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

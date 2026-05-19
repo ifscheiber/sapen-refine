@@ -18,8 +18,8 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `LabelSchemaVersion`, `LabelDefinition` - versioned label definitions with stable machine-readable ids.
 - `ImageAsset`, `ImageAcquisitionMetadata`, `SampleMetadata` - immutable image asset references plus RB-050 image-level acquisition/default sample metadata workflow storage.
 - `AnnotationTask`, `AnnotationSession` - assignment/edit context baseline with priority, confidence/uncertainty, and model-source placeholders.
-- `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline.
-- `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline.
+- `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts.
+- `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline; RB-051 uses one default slice instance per image.
 - `ReviewDecision` - review/approval decision baseline.
 - `ExportBatch`, `ExportItem` - export persistence baseline.
 - `AuditLog` - generic audit rows, still not exhaustively used by all mutation routes.
@@ -28,15 +28,15 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 
 - `ImageAsset.storageKey` and `AnnotationArtifactVersion.storageKey` are unique.
 - `AnnotationArtifactVersion` is versioned per `AnnotationArtifact`.
-- `AnnotationArtifact` is unique by `(imageId, kind, scopeKey)` so the current editor has one default semantic mask artifact per image.
+- `AnnotationArtifact` is unique by `(imageId, kind, scopeKey)` so the current editor has one default semantic mask artifact and one default slice-support artifact per image.
 - Every annotation artifact version references exactly one `LabelSchemaVersion`.
 - `AnnotationArtifactKind.SEMANTIC_MASK` is separate from `SLICE_SUPPORT_MASK` and `INSTANCE_MASK`.
 - Copper is a semantic label in the default label schema and is not support geometry.
 
 ## Known Gaps
 
-- Slice-specific metadata remains deferred to the `SliceInstance` workflow.
-- Slice support/classification workflows remain RB-051.
+- Slice-specific metadata and multi-slice/multi-object editing remain deferred.
+- One-default-slice support/classification workflows exist after RB-051.
 - Review/approval workflows remain RB-052.
 - Export generation remains RB-053.
 - Checksum/dimension enforcement remains RB-055.

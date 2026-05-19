@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model; RB-050 adds the first project/image/sample metadata workflow. Review, support-mask, slice-classification, export, and preprediction workflow depth remains split across RB-051+.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, and RB-051 adds the first default-slice support-mask/classification workflow. Review, export, preprediction, and multi-slice workflow depth remains split across later tickets.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -174,6 +174,8 @@ Versioned physical slice/object geometry.
 
 This is separate from semantic material masks. A support mask identifies the physical slice area or object instance geometry. It is not the same thing as a copper material mask. RB-049 implements this through `AnnotationArtifact.kind = SLICE_SUPPORT_MASK` or `INSTANCE_MASK`.
 
+RB-051 implements the first user workflow for `SLICE_SUPPORT_MASK` only. It uses `AnnotationArtifact.scopeKey = "default"` and appends draft human `AnnotationArtifactVersion` rows.
+
 Copper-specific rule:
 
 Copper semantic masks annotate copper-stained or penetrated material regions. They may cover only part of a wood slice and must not be used as physical slice support geometry.
@@ -197,6 +199,10 @@ Slice classifications should include at least:
 - `COPPER_SLICE`
 - `UNKNOWN`
 - `REVIEW_REQUIRED`
+
+RB-051 creates or reuses one default `SliceInstance` per image and links it to the latest default support-mask version when available. This is an MVP convention, not the final multi-slice model.
+
+`SliceClassificationVersion` stores draft classification versions with actor attribution and label schema version. RB-051 supports `SAP_HEARTWOOD_SLICE`, `COPPER_SLICE`, `UNKNOWN`, and `REVIEW_REQUIRED`.
 
 ### Review And Approval
 

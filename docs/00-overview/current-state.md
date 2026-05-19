@@ -60,7 +60,7 @@ There is no `check:docs-links` script in `package.json` yet.
 ## Known Gaps
 
 - The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and prediction provenance placeholders. RB-050 adds the first project/image metadata workflow; remaining user-facing workflows start with RB-051.
-- Copper masks are semantic material annotations; support/instance artifact kinds exist in the schema, but the separate user workflow remains RB-051.
+- Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - Upload hardening still needs checksum, object metadata, dimensions, and stronger audit coverage.
 - Real iPad Safari validation remains deferred until deployment/device access is available.
 

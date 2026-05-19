@@ -29,6 +29,11 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/images/[imageId]/mask/presign` - creates a presigned mask upload URL.
 - `POST /api/images/[imageId]/mask/commit` - records a new mask version.
 - `POST /api/images/[imageId]/mask/upload` - uploads mask bytes through the app server and records a new draft semantic `AnnotationArtifactVersion`.
+- `GET /api/images/[imageId]/slice` - returns default-slice state, support label values, latest support mask, and latest classification.
+- `POST /api/images/[imageId]/slice/ensure` - creates or returns the default slice instance for editable project roles.
+- `PATCH /api/images/[imageId]/slice/classification` - appends a draft `SliceClassificationVersion`.
+- `GET /api/images/[imageId]/support-mask/latest` - returns latest support-mask version metadata and app-mediated asset URL.
+- `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server and records a draft `SLICE_SUPPORT_MASK` artifact version.
 
 ## Invariants And Constraints
 
@@ -36,13 +41,14 @@ This page lists the current API route handlers under `src/app/api`.
 - Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
 - Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
+- Support-mask APIs must not accept semantic mask versions as physical support geometry.
 - API routes should return stable error codes that clients can handle.
 
 ## Known Gaps
 
 - Upload commit validation is still incomplete for checksum enforcement, dimensions, and object metadata, but RB-046 adds server-side size limits and RB-050 stores app-mediated upload checksums.
 - Audit logging is not consistently attached to route mutations.
-- Review, approval, export, and task persistence exists after RB-049, but user-facing APIs/workflows remain planned for RB-051+.
+- Review, approval, export, and task persistence exists after RB-049, but user-facing APIs/workflows remain planned for RB-052+.
 
 ## Related Tickets / Docs
 

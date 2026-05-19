@@ -27,6 +27,8 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - image routes use `ImageAsset`,
 - image metadata routes use `ImageAcquisitionMetadata` and image-level/default `SampleMetadata`,
 - current editor mask saves create or append to a `SEMANTIC_MASK` `AnnotationArtifact`,
+- support-mask editor saves create or append to a `SLICE_SUPPORT_MASK` `AnnotationArtifact`,
+- slice classification writes create `SliceClassificationVersion` rows for the default `SliceInstance`,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.
@@ -56,7 +58,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 ## Known Deferred Work
 
 - RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.
-- RB-051 implements slice classification/support-mask user workflows.
+- RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements review/approval UI/API behavior.
 - RB-053 implements export generation.
 - RB-055 strengthens checksum and object metadata validation.

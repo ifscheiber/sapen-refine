@@ -87,6 +87,9 @@ Current MVP labels in `src/mask/labels.ts` map to the future schema as follows:
 | `Labels.SAPWOOD` | 1 | `sapwood` | Sapwood material region. |
 | `Labels.HEARTWOOD` | 2 | `heartwood` | Heartwood material region. |
 | `Labels.COPPER` | 3 | `copper` | Copper-stained/penetrated material region, not slice support geometry. |
+| `Labels.SLICE_SUPPORT` | 10 | `slice_support` | Physical slice support geometry for support-mask artifacts only. |
+
+After RB-051, the browser editor has separate semantic and support label sets. The support-mask UI is binary, but the stored support byte value follows the active label schema definition for `slice_support`; it is not inferred from the Copper semantic label.
 
 ## Export Requirements
 

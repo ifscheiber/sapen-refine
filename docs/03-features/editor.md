@@ -39,22 +39,34 @@ Important files:
 - Autosave debounces dirty mask writes after edits.
 - RB-045 exposes dirty/saving state in the editor toolbar and guards browser unload while unsaved edits exist.
 - If edits happen while a save is in flight, the editor tracks dirty revisions and queues another save instead of clearing the newer dirty state.
-- Manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
-- Latest saved mask metadata is loaded from `/api/images/[imageId]/mask/latest`; the mask bytes are fetched through an app-mediated version asset URL.
+- In `Semantic mask` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
+- In `Slice support` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/support-mask/upload`.
+- Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
+- Mask bytes are fetched through app-mediated version asset URLs.
 
 ## Current Domain Model
 
-- The editor currently edits one semantic byte mask for the image.
-- The active label set comes from `src/mask/labels.ts`; the label schema is not persisted.
+- The editor now has two explicit modes: `Semantic mask` and `Slice support`.
+- Semantic mode edits one semantic byte mask for the image.
+- Slice support mode edits one default physical slice support mask for the image.
+- The active browser label sets come from `src/mask/labels.ts`; persisted mask versions still reference the project label schema version.
 - Current saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SEMANTIC_MASK`.
+- Slice support saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SLICE_SUPPORT_MASK` and link the default `SliceInstance.supportArtifactVersionId`.
+- Slice classification is set from the editor and persisted as `SliceClassificationVersion`.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor does not yet distinguish draft, submitted, approved, rejected, or superseded ground-truth state.
-- The editor does not yet manage annotation tasks, slice classifications, support/instance geometry, review comments, or export readiness.
-- Copper is currently available as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
+- The editor does not yet manage annotation tasks, multi-object support geometry, review comments, or export readiness.
+- Copper is available only as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
+
+## Default Slice Baseline
+
+- RB-051 implements one default `SliceInstance` per image as the MVP workflow.
+- Multi-slice and multi-object editing remain deferred.
+- Image-level/default `SampleMetadata` from RB-050 remains image-level/default metadata; it is not true per-slice sample metadata.
 
 ## Desktop Browser Smoke Scope
 
-- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw with brush, save, reload, and confirm the latest mask loads.
+- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/save a semantic mask, switch to slice support, draw/save a support mask, set slice classification, reload, and confirm both masks and classification persist.
 - RB-047 browser automation should keep this path small and avoid asserting unstable visual details.
 
 ## RB-045 Start Limitations

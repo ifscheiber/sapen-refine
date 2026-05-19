@@ -237,7 +237,7 @@ Implemented first project/image/sample metadata workflow: project name/descripti
 
 ### RB-051 - Slice Classification And Support-Mask Workflow
 
-Add slice instance/support geometry and slice classification workflows. Keep support geometry separate from copper semantic masks.
+Implemented the first default-slice workflow: one default `SliceInstance` per image, separate `SLICE_SUPPORT_MASK` versions, editor support-mask mode, and draft `SliceClassificationVersion` writes. Multi-slice and multi-object editing remain deferred.
 
 ### RB-052 - Review/Approval Workflow
 

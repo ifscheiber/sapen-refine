@@ -42,7 +42,11 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |
-| Save and reload. | Latest mask reloads after route reload. |  |  |
+| Save semantic mask. | Semantic mask save completes and persists. |  |  |
+| Switch to `Slice support`. | UI clearly indicates support mode, separate from semantic labels. |  |  |
+| Draw and save support mask. | Support-mask status shows a draft version. |  |  |
+| Set slice classification. | Classification persists after save. |  |  |
+| Reload. | Semantic mask, support mask status, and classification reload. |  |  |
 | Inspect browser console. | No unexpected runtime errors. |  |  |
 
 ## iPad Safari Smoke
@@ -80,6 +84,8 @@ Blocking failure criteria:
 | Enter or inspect T-number and acquisition metadata. | Metadata fields fit the viewport and save/reload works. |  |  |
 | Open editor. | Editor controls remain reachable without overlap. |  |  |
 | Draw with finger using Brush. | Canvas draws and page does not scroll while drawing. |  |  |
+| Switch to `Slice support`. | Mode switch and support controls fit the iPad viewport. |  |  |
+| Save support mask and set classification. | Support state and classification persist after reload. |  |  |
 | Draw with Apple Pencil if available. | Pencil input draws through Pointer Events. |  |  |
 | Touch outside the canvas and scroll. | Page/editor container scrolling remains possible outside drawing surface. |  |  |
 | Change labels/tools by touch. | Touch targets are usable and active state is clear. |  |  |
@@ -102,4 +108,5 @@ Blocking failure criteria:
 - Advanced multi-touch zoom/pan gestures are not implemented.
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
-- Review/export/support-mask workflows remain deferred.
+- RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
+- Review/export workflows remain deferred.

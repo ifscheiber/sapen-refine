@@ -101,5 +101,5 @@ Blocking: yes/no
 ## Known Limitations
 
 - Advanced multi-touch zoom/pan gestures are not implemented in RB-045.
-- Current editor saves create draft human semantic annotation artifact versions; support-mask, review, and export workflows remain separate follow-up slices.
+- Current editor saves draft human semantic and default slice-support artifact versions; review and export workflows remain separate follow-up slices.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.
