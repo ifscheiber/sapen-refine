@@ -1,4 +1,4 @@
-# RB-041 — Architecture & UI Baseline Before Domain Expansion
+# RB-043 — Architecture & UI Baseline Before Domain Expansion
 
 ## Status
 
@@ -25,7 +25,7 @@ The goal is not to implement the future annotation domain yet. The goal is to ma
 - centralized design tokens,
 - reusable components,
 - light/dark mode readiness,
-- baseline checks/tests,
+- green baseline checks/tests from RB-041,
 - focused commits after each meaningful slice.
 
 ## Non-Goals

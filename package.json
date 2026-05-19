@@ -22,6 +22,9 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  "overrides": {
+    "postcss": "^8.5.14"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.974.0",
     "@aws-sdk/s3-request-presigner": "^3.974.0",
@@ -39,7 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
-    "next": "16.1.4",
+    "next": "^16.2.6",
     "pg": "^8.17.2",
     "prisma": "^7.3.0",
     "react": "19.2.3",
@@ -53,7 +56,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.4",
+    "eslint-config-next": "^16.2.6",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",

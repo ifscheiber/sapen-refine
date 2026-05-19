@@ -78,13 +78,27 @@ Context: `npm install --package-lock-only` reported 26 audit findings: 13 modera
 
 Impact: Dependency risk is not understood or remediated, and automated fixes may introduce breaking changes if handled inside an unrelated ticket.
 
-Proposed next step: Run `npm audit` in a dedicated dependency-maintenance ticket, classify direct versus transitive findings, and update packages with validation.
+Resolution: RB-042 ran `npm audit`, applied non-forced fixes, updated Next.js to `16.2.6`, and added a PostCSS override. The audit is reduced to 3 moderate Prisma CLI transitive findings.
 
 Affected modules: `package.json`, `package-lock.json`, dependency tree.
 
+Owner: Codex.
+
+Priority: Resolved with follow-up below.
+
+## RB-042-A - Remaining Prisma CLI Audit Findings
+
+Context: After RB-042, `npm audit --json` reports 3 moderate findings: direct `prisma`, transitive `@prisma/dev`, and transitive `@hono/node-server`.
+
+Impact: These affect the Prisma CLI/dev dependency chain. The app runtime dependency `@prisma/client` is not the reported vulnerable direct package.
+
+Proposed next step: Re-check Prisma 7.x releases in a dedicated dependency ticket. Do not apply npm's current `--force` recommendation without review because it would install `prisma@6.19.3` and npm marks that as semver-major.
+
+Affected modules: `package.json`, `package-lock.json`, Prisma CLI dependency chain.
+
 Owner: Unassigned.
 
-Priority: P1.
+Priority: P2.
 
 ## RB-041-A - Prototype Editor Lint Warnings
 
