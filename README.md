@@ -61,7 +61,13 @@ The required root validation baseline is `npm run prisma:generate`, `npm run lin
 
 ## Storage Assumptions
 
-Images and mask artifacts are uploaded to S3-compatible object storage using presigned URLs. Local development uses MinIO from [docker-compose.yml](docker-compose.yml). The database stores object keys and metadata; it does not store image or mask binary data.
+Images and mask artifacts are stored in S3-compatible object storage. The current browser-trial path uploads through the app server so MinIO can remain private; presigned URL routes remain for compatibility. Local development uses MinIO from [docker-compose.yml](docker-compose.yml). The database stores object keys and metadata; it does not store image or mask binary data.
+
+## Customer Trial Deployment
+
+The RB-046 browser-trial baseline uses Docker Compose for Caddy, the Next.js app, PostgreSQL, and MinIO. Start with [docs/04-server/deployment.md](docs/04-server/deployment.md), [docs/04-server/reverse-proxy-caddy.md](docs/04-server/reverse-proxy-caddy.md), and [docs/04-server/backup-restore.md](docs/04-server/backup-restore.md).
+
+Customer-facing trials should use named user accounts per tester. Do not expose shared demo credentials unless that risk is explicitly accepted.
 
 ## MVP Limitations
 

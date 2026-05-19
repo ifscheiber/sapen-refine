@@ -1,0 +1,15 @@
+.next
+.env
+.env.*
+!.env.example
+.git
+.codex
+node_modules
+npm-debug.log*
+coverage
+tmp
+temp
+pgdata
+miniodata
+storage
+uploads

@@ -1,0 +1,15 @@
+{$TRIAL_HOSTNAME} {
+	encode zstd gzip
+
+	request_body {
+		max_size {$CADDY_MAX_BODY_SIZE}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+
+	reverse_proxy app:3000
+}

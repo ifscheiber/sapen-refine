@@ -8,6 +8,7 @@
     "db:reset": "docker compose down -v && docker compose up -d",
     "db:bootstrap": "prisma migrate deploy && prisma db seed",
     "db:rebuild": "docker compose down -v && docker compose up -d --wait postgres minio && docker compose up -d minio-init && prisma migrate deploy && prisma db seed",
+    "trial:user:create": "node scripts/create-trial-user.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

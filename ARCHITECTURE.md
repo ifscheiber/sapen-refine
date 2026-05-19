@@ -26,6 +26,7 @@ Scratch annotation is the primary product mode. Prediction-assisted correction a
 - Next.js App Router with React client components.
 - Prisma 7 with PostgreSQL.
 - S3-compatible object storage, locally MinIO through [docker-compose.yml](docker-compose.yml).
+- Customer-trial deployment baseline with Caddy, app, PostgreSQL, and MinIO through [deploy/docker-compose.trial.yml](deploy/docker-compose.trial.yml).
 - Local email/password authentication seeded by [prisma/seed.ts](prisma/seed.ts) and [prisma/seed.mjs](prisma/seed.mjs).
 - ESLint, TypeScript, Next build, Vitest, Prisma generation, and the design-hardcoding check as current validation gates.
 

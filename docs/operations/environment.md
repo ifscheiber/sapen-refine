@@ -45,3 +45,5 @@ These avoid accidentally connecting to older SaPen Refine/Core services on stand
 ## Related Tickets / Docs
 
 - [local-development.md](local-development.md)
+- [../04-server/runtime-config.md](../04-server/runtime-config.md)
+- [../04-server/deployment.md](../04-server/deployment.md)

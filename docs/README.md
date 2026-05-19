@@ -20,6 +20,9 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - App routes/API: [02-app/routes.md](02-app/routes.md)
 - Features: [03-features/README.md](03-features/README.md)
 - Server: [04-server/db.md](04-server/db.md)
+- Runtime config: [04-server/runtime-config.md](04-server/runtime-config.md)
+- Customer trial deployment: [04-server/deployment.md](04-server/deployment.md)
+- Trial backup/restore: [04-server/backup-restore.md](04-server/backup-restore.md)
 - Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
 - Data: [06-data/prisma.md](06-data/prisma.md)
 - Quality gates: [07-testing/quality-gates.md](07-testing/quality-gates.md)
@@ -38,6 +41,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Future prediction-assisted annotation: [workflows/future-prediction-assisted-annotation.md](workflows/future-prediction-assisted-annotation.md)
 - Local development: [operations/local-development.md](operations/local-development.md)
 - Environment variables: [operations/environment.md](operations/environment.md)
+- Caddy reverse proxy: [04-server/reverse-proxy-caddy.md](04-server/reverse-proxy-caddy.md)
 - Handoff ZIP checklist: [operations/handoff-zip-checklist.md](operations/handoff-zip-checklist.md)
 
 ## Structure Note

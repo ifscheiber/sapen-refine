@@ -1,0 +1,15 @@
+annotate.example.com {
+	encode zstd gzip
+
+	request_body {
+		max_size 120MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+
+	reverse_proxy app:3000
+}
