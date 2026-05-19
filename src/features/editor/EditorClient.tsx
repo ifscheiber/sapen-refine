@@ -27,6 +27,10 @@ const API_SUPPORT_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/sup
 const API_SUPPORT_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/support-mask/upload`;
 const API_SLICE_STATE = (imageId: string) => `/api/images/${imageId}/slice`;
 const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imageId}/slice/classification`;
+const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-state`;
+const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;
+const API_CLASSIFICATION_REVIEW = (versionId: string) =>
+  `/api/slice-classification-versions/${versionId}/review`;
 
 type Stroke = Patch[];
 type Tool = "brush" | "lasso_free" | "lasso_poly";
@@ -38,6 +42,8 @@ type SliceClassValue =
   | "COPPER_SLICE"
   | "UNKNOWN"
   | "REVIEW_REQUIRED";
+type ReviewStateValue = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+type ReviewAction = "submit" | "approve" | "reject";
 
 type SliceState = {
   canEdit: boolean;
@@ -60,6 +66,43 @@ type SliceState = {
   } | null;
 };
 
+type ReviewVersion = {
+  id: string;
+  version: number;
+  reviewState: ReviewStateValue;
+  createdAt: string;
+  createdBy: { email: string; name: string | null } | null;
+};
+
+type ClassificationReviewVersion = ReviewVersion & {
+  class: SliceClassValue;
+};
+
+type ReviewableState = {
+  type: "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK" | "SLICE_CLASSIFICATION";
+  label: string;
+  latestVersion: ReviewVersion | ClassificationReviewVersion | null;
+  latestApprovedVersion: ReviewVersion | ClassificationReviewVersion | null;
+  exportReady: boolean;
+  actions: {
+    canSubmit: boolean;
+    canApprove: boolean;
+    canReject: boolean;
+  };
+};
+
+type ImageReviewState = {
+  myRole: string;
+  permissions: { canSubmit: boolean; canReview: boolean };
+  reviewables: {
+    semanticMask: ReviewableState;
+    supportMask: ReviewableState;
+    sliceClassification: ReviewableState;
+  };
+  exportReady: boolean;
+  warnings: string[];
+};
+
 const SLICE_CLASS_OPTIONS: Array<{ value: SliceClassValue; label: string }> = [
   { value: "SAP_HEARTWOOD_SLICE", label: "Sap/Heartwood slice" },
   { value: "COPPER_SLICE", label: "Copper slice" },
@@ -69,6 +112,16 @@ const SLICE_CLASS_OPTIONS: Array<{ value: SliceClassValue; label: string }> = [
 
 function errorMessage(error: unknown, fallback = "Save failed") {
   return error instanceof Error ? error.message : fallback;
+}
+
+function formatReviewState(state: ReviewStateValue | string | null | undefined) {
+  if (!state) return "Missing";
+  const normalized = state.toLowerCase().replaceAll("_", " ");
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatVersion(version: ReviewVersion | ClassificationReviewVersion | null) {
+  return version ? `${formatReviewState(version.reviewState)} v${version.version}` : "Missing";
 }
 
 function shouldIgnorePointerDown(evt: React.PointerEvent<HTMLCanvasElement>) {
@@ -116,6 +169,10 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const [selectedSliceClass, setSelectedSliceClass] = useState<SliceClassValue | "">("");
   const [classificationStatus, setClassificationStatus] = useState<string>("");
   const [classificationSaving, setClassificationSaving] = useState(false);
+  const [reviewState, setReviewState] = useState<ImageReviewState | null>(null);
+  const [reviewStatus, setReviewStatus] = useState<string>("");
+  const [reviewComment, setReviewComment] = useState<string>("");
+  const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
 
   const [zoom, setZoom] = useState<number>(1);
 
@@ -181,9 +238,21 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     setSelectedSliceClass(nextState.latestClassification?.class ?? "");
   }, [imageId]);
 
+  const loadReviewState = useCallback(async () => {
+    const res = await fetch(API_REVIEW_STATE(imageId), { method: "GET", cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      setReviewStatus(data?.error ?? `REVIEW_STATE_FAILED_${res.status}`);
+      return;
+    }
+    setReviewState(data as ImageReviewState);
+    setReviewStatus("");
+  }, [imageId]);
+
   useEffect(() => {
     void loadSliceState();
-  }, [loadSliceState]);
+    void loadReviewState();
+  }, [loadReviewState, loadSliceState]);
 
   // ---------- helpers ----------
   const getPalette = useCallback(() => {
@@ -523,6 +592,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         setStatus("Saved");
         setTimeout(() => setStatus(""), 800);
         if (maskMode === "support") void loadSliceState();
+        void loadReviewState();
       } else {
         saveQueuedRef.current = true;
       }
@@ -684,6 +754,47 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     };
   }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, maskMode, rerenderOverlayFull]);
 
+  async function runReviewAction(reviewable: ReviewableState, action: ReviewAction) {
+    const version = reviewable.latestVersion;
+    if (!version) return;
+
+    const comment = reviewComment.trim();
+    if (action === "reject" && !comment) {
+      setReviewStatus("Reject reason required");
+      return;
+    }
+
+    const busyKey = `${reviewable.type}:${version.id}:${action}`;
+    setReviewBusyKey(busyKey);
+    setReviewStatus("");
+    try {
+      const endpoint =
+        reviewable.type === "SLICE_CLASSIFICATION"
+          ? API_CLASSIFICATION_REVIEW(version.id)
+          : API_ARTIFACT_REVIEW(version.id);
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          comment: comment || undefined,
+          reason: action === "reject" ? comment : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `REVIEW_ACTION_FAILED_${res.status}`);
+      }
+      setReviewComment("");
+      setReviewStatus(`${reviewable.label} ${formatReviewState(data.toState)}`);
+      await Promise.all([loadReviewState(), loadSliceState()]);
+    } catch (error) {
+      setReviewStatus(errorMessage(error, "Review action failed"));
+    } finally {
+      setReviewBusyKey(null);
+    }
+  }
+
   async function saveSliceClassification() {
     if (!canEdit || !selectedSliceClass) return;
 
@@ -700,6 +811,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         throw new Error(data?.error ?? `CLASSIFICATION_FAILED_${res.status}`);
       }
       setSliceState(data as SliceState);
+      void loadReviewState();
       setClassificationStatus("Classification saved");
       setTimeout(() => setClassificationStatus(""), 1000);
     } catch (error) {
@@ -1078,8 +1190,15 @@ function stamp(x: number, y: number) {
     SLICE_CLASS_OPTIONS.find((option) => option.value === sliceState?.latestClassification?.class)?.label ??
     "Missing";
   const latestSupportStatus = sliceState?.latestSupportMask
-    ? `Draft v${sliceState.latestSupportMask.version} saved`
+    ? `${formatReviewState(sliceState.latestSupportMask.reviewState)} v${sliceState.latestSupportMask.version} saved`
     : "Missing";
+  const reviewItems = reviewState
+    ? [
+        reviewState.reviewables.semanticMask,
+        reviewState.reviewables.supportMask,
+        reviewState.reviewables.sliceClassification,
+      ]
+    : [];
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
@@ -1259,6 +1378,79 @@ function stamp(x: number, y: number) {
               {classificationStatus}
             </div>
           )}
+        </div>
+
+        <div className="mt-3 border-t border-border pt-3">
+          <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span>
+              Export-ready: {reviewState ? (reviewState.exportReady ? "Yes" : "No") : "Loading"}
+            </span>
+            {reviewState && !reviewState.exportReady && (
+              <span>{reviewState.warnings.length} missing approved item(s)</span>
+            )}
+            {reviewStatus && <span>{reviewStatus}</span>}
+          </div>
+
+          <div className="grid gap-2 lg:grid-cols-3">
+            {reviewItems.map((item) => {
+              const version = item.latestVersion;
+              const busyPrefix = version ? `${item.type}:${version.id}:` : "";
+              return (
+                <div key={item.type} className="rounded-md border border-border bg-background p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium">{item.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Latest: {formatVersion(item.latestVersion)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Approved: {formatVersion(item.latestApprovedVersion)}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {item.exportReady ? "Ground truth" : "Not ready"}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      aria-label={`Submit ${item.label}`}
+                      className={idleButtonClass}
+                      disabled={!item.actions.canSubmit || reviewBusyKey?.startsWith(busyPrefix)}
+                      onClick={() => void runReviewAction(item, "submit")}
+                    >
+                      Submit
+                    </button>
+                    <button
+                      aria-label={`Approve ${item.label}`}
+                      className={idleButtonClass}
+                      disabled={!item.actions.canApprove || reviewBusyKey?.startsWith(busyPrefix)}
+                      onClick={() => void runReviewAction(item, "approve")}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      aria-label={`Reject ${item.label}`}
+                      className={idleButtonClass}
+                      disabled={!item.actions.canReject || reviewBusyKey?.startsWith(busyPrefix)}
+                      onClick={() => void runReviewAction(item, "reject")}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <label className="mt-2 block text-xs text-muted-foreground">
+            Review comment / reject reason
+            <textarea
+              aria-label="Review comment"
+              value={reviewComment}
+              onChange={(event) => setReviewComment(event.target.value)}
+              className="mt-1 min-h-16 w-full rounded-md border border-border bg-input-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
         </div>
       </div>
 
