@@ -43,6 +43,16 @@ This page records validation commands run for baseline tickets and whether failu
 - `POST /api/auth/login` with `admin@sapen.local` / `admin1234`: passed with `200 OK` and `sapen_annotate_session` cookie.
 - Standard gates after RB-044 passed: `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding`.
 
+## RB-045 Editor/iPad Readiness Start Baseline
+
+- `git status --short`: one untracked ticket file, `tickets/2026-05-19/RB-045-editor-ipad-readiness-smoke-baseline.md`.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed with four React hook dependency warnings in `src/features/editor/EditorClient.tsx`.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6 with the known middleware-to-proxy warning.
+- `npm run test`: passed, 1 file and 2 tests.
+- `npm run check:design-hardcoding`: passed.
+
 ## Non-Blocking Warnings
 
 - `npm run lint` reports React hook dependency warnings in `src/features/editor/EditorClient.tsx`.
@@ -61,4 +71,4 @@ npm run seed
 npm run dev
 ```
 
-This smoke path is optional and intentionally separate from the root green baseline.
+The current development reset path is `npm run db:rebuild`; this destructive smoke path is optional and intentionally separate from the root green baseline.
