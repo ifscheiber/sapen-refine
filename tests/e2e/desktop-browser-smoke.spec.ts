@@ -54,15 +54,36 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
   await page.getByRole("button", { name: "Save now" }).click();
-  await expect(page.getByText("Saved")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
   const match = page.url().match(/\/images\/([^/]+)\/edit/);
   expect(match).not.toBeNull();
   const imageId = match?.[1];
   expect(imageId).toBeTruthy();
 
+  await page.getByRole("button", { name: "Slice support" }).first().click();
+  await expect(page.getByRole("button", { name: "Slice support" }).first()).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.35);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.65, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await page.getByRole("button", { name: "Save support mask" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Slice classification").selectOption("COPPER_SLICE");
+  await page.getByRole("button", { name: "Save classification" }).click();
+  await expect(page.getByText("Classification saved")).toBeVisible();
+
   await page.reload();
   await expect(page.getByLabel("Mask drawing surface")).toBeVisible();
+  await expect(page.getByText(/Support mask: Draft v\d+ saved/)).toBeVisible();
+  await expect(page.getByText("Classification: Copper slice")).toBeVisible();
 
   await expect.poll(async () => {
     return page.evaluate(async (id) => {
@@ -74,4 +95,26 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
       return body.exists === true;
     }, imageId);
   }).toBe(true);
+
+  await expect.poll(async () => {
+    return page.evaluate(async (id) => {
+      const support = await fetch(`/api/images/${id}/support-mask/latest`, {
+        credentials: "include",
+      });
+      if (!support.ok) return false;
+      const body = await support.json();
+      return body.exists === true;
+    }, imageId);
+  }).toBe(true);
+
+  await expect.poll(async () => {
+    return page.evaluate(async (id) => {
+      const slice = await fetch(`/api/images/${id}/slice`, {
+        credentials: "include",
+      });
+      if (!slice.ok) return null;
+      const body = await slice.json();
+      return body.latestClassification?.class ?? null;
+    }, imageId);
+  }).toBe("COPPER_SLICE");
 });
