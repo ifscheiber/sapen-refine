@@ -7,6 +7,10 @@ export function isSupportArtifactKind(kind: AnnotationArtifactKind): boolean {
   );
 }
 
+export function isSupportMaskArtifactKind(kind: AnnotationArtifactKind): boolean {
+  return kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK;
+}
+
 export function assertSupportArtifactKind(kind: AnnotationArtifactKind): void {
   if (!isSupportArtifactKind(kind)) {
     throw new Error("ARTIFACT_NOT_SUPPORT_GEOMETRY");
