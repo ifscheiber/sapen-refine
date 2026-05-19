@@ -1,0 +1,64 @@
+# Manual Smoke - Editor Desktop And iPad
+
+## Purpose
+
+This checklist verifies the current browser editor baseline for a customer trial. It is manual by design; Codex cannot validate real iPad Safari or Apple Pencil behavior in this environment.
+
+## Preconditions
+
+- Local infra is running and seeded with `npm run db:rebuild` or `npm run db:bootstrap`.
+- Development server is running with `npm run dev`.
+- Seed login exists: `admin@sapen.local` / `admin1234`.
+- At least one project exists; the seed creates `Demo Project`.
+- A representative wood-slice image is available for upload.
+
+## Desktop Browser Smoke
+
+| Step | Expected Result | Pass/Fail | Notes |
+| --- | --- | --- | --- |
+| Open `/login`. | Login form renders without console errors. |  |  |
+| Log in as `admin@sapen.local`. | Browser lands in the workspace and receives a session cookie. |  |  |
+| Open `/app/projects`. | Project list renders. |  |  |
+| Open or create a project. | Project page renders with image navigation. |  |  |
+| Upload a representative image. | Image appears in the project image list. |  |  |
+| Open the editor. | Image loads and editor controls are visible. |  |  |
+| Select each label. | Active label state is visible and touch target remains stable. |  |  |
+| Select Brush and draw with mouse. | Mask overlay follows the pointer and page does not scroll unexpectedly. |  |  |
+| Select Lasso and draw a freehand region. | Region commits as a mask change after pointer up. |  |  |
+| Select Polygon and create a polygon. | Handles render; Enter/double-click/closing near first point commits the region. |  |  |
+| Use Undo and Redo. | Mask state changes predictably. |  |  |
+| Draw, then wait for autosave or click Save now. | Dirty state clears after save. |  |  |
+| Reload the editor route. | Latest saved mask reloads. |  |  |
+| Try leaving the page while dirty. | Browser shows unsaved-change protection. |  |  |
+| Inspect console during normal use. | No unexpected runtime errors. |  |  |
+
+## iPad Safari Smoke
+
+| Step | Expected Result | Pass/Fail | Notes |
+| --- | --- | --- | --- |
+| Open app in Safari on iPad. | Layout fits viewport without overlapping controls. |  |  |
+| Log in. | Workspace opens and session persists. |  |  |
+| Open an uploaded image in the editor. | Image and controls render. |  |  |
+| Draw with finger using Brush. | Mask draws; canvas does not scroll the page while drawing. |  |  |
+| Draw with Apple Pencil if available. | Pencil draws through Pointer Events. |  |  |
+| Touch outside the canvas and scroll. | Page/editor container scrolling remains possible outside drawing surface. |  |  |
+| Change labels and tools by touch. | Controls are large enough and active state is clear. |  |  |
+| Try freehand Lasso with finger/Pencil. | Region commits on pointer up; cancellation does not commit partial lasso. |  |  |
+| Try Polygon with touch. | Points and handles are usable enough for a trial. |  |  |
+| Save and reload. | Saved mask persists after reload. |  |  |
+| Rotate iPad or change viewport. | Fit/zoom remains usable; document any layout issue. |  |  |
+| Inspect Safari console if available. | No unexpected runtime errors. |  |  |
+
+## Result Tracking
+
+| Environment | Tester | Date | Result | Notes |
+| --- | --- | --- | --- | --- |
+| Desktop browser |  |  |  |  |
+| iPad Safari - finger |  |  |  |  |
+| iPad Safari - Apple Pencil |  |  |  |  |
+
+## Known Limitations
+
+- Advanced multi-touch zoom/pan gestures are not implemented in RB-045.
+- The editor still uses the MVP `MaskKind.REFINED` save path until the annotation domain schema is redesigned.
+- This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

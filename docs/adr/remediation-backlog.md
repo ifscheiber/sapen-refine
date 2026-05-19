@@ -127,3 +127,31 @@ Affected modules: `src/middleware.ts`, routing docs.
 Owner: Unassigned.
 
 Priority: P2.
+
+## RB-045-A - Advanced iPad Zoom And Pan Gestures
+
+Context: RB-045 hardens the existing editor for Pointer Events, touch targets, fit/zoom controls, and iPad smoke testing. It intentionally does not implement a larger multi-touch gesture model.
+
+Impact: Large images may still require manual zoom-slider and scroll-container interaction instead of native-feeling two-finger zoom/pan on iPad.
+
+Proposed next step: Design and implement a dedicated editor viewport interaction model for touch devices, covering two-finger pan/zoom, Pencil drawing isolation, and predictable coordinate mapping.
+
+Affected modules: `src/features/editor/EditorClient.tsx`, `src/features/editor/canvasGeometry.ts`, future editor viewport helpers, and editor smoke docs.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-045-B - Automated Browser Smoke For Editor Golden Path
+
+Context: RB-045 adds a manual smoke checklist for desktop and iPad Safari. The repo does not yet have Playwright or equivalent browser automation.
+
+Impact: Login, upload, open-editor, draw, save, and reload remain manually verified workflows.
+
+Proposed next step: Add a small automated browser smoke suite once the editor trial path stabilizes and test fixtures for image upload/storage are defined.
+
+Affected modules: future browser tests, `src/app/(workspace)/app/projects/**`, `src/features/images/*`, `src/features/editor/*`, and local storage/test fixtures.
+
+Owner: Unassigned.
+
+Priority: P3.

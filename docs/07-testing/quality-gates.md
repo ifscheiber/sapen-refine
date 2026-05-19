@@ -13,6 +13,10 @@ Current editor-related unit coverage:
 
 - `tests/unit/editor-canvas-geometry.test.ts` covers coordinate mapping, clamping, fit zoom, and display sizing helpers.
 
+Manual smoke coverage:
+
+- `docs/07-testing/manual-smoke-editor-ipad.md` defines the current desktop and iPad Safari editor trial checklist.
+
 Optional local destructive smoke:
 
 - `npm run db:reset`

@@ -12,6 +12,7 @@ This page summarizes known limitations after the RB-040 through RB-044 baseline 
 - Upload and commit routes need stronger storage/object validation and audit events.
 - Admin export and manifest reproducibility are not implemented.
 - Editor UX is consolidated under `src/features/editor`; advanced iPad zoom/pan gestures remain deferred beyond RB-045.
+- Editor browser smoke is documented manually; automated golden-path browser coverage is deferred.
 - Prediction-assisted refine/correction mode is planned but not implemented.
 
 ## Intentional Remaining "Refine" References

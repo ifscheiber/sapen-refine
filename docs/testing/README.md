@@ -17,6 +17,10 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
 
+## Manual Smoke
+
+- `docs/07-testing/manual-smoke-editor-ipad.md` defines the current desktop and iPad Safari editor trial checklist.
+
 ## Baseline From RB-041
 
 - `npm install` completed.
@@ -44,6 +48,7 @@ This page defines the current validation baseline and the intended testing direc
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Prototype editor hook warnings remain and are deferred to the architecture/UI cleanup.
 - API and DB integration tests are not configured yet.
+- The editor/iPad smoke checklist is manual; automated browser coverage remains deferred.
 
 ## Related Tickets / Docs
 
