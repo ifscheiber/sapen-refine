@@ -14,6 +14,7 @@
 - `src/server/runtime/health.ts` and `src/server/runtime/readiness.ts` - operational health/readiness helpers.
 - `src/server/uploads/validation.ts` - upload size validation shared by image and mask routes.
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
+- `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/storage.ts` - app-level storage wrapper for presigned URLs.
 - `src/server/storage/s3.ts` - AWS SDK S3/MinIO client setup, presign helpers, object writes, and storage readiness check.
 
@@ -24,6 +25,7 @@
 - `getPresignedGetUrl(key)` and `getPresignedPutUrl(key, contentType)` wrap S3 presigned URLs.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
+- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the RB-053 owner-only training export workflow.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 
 ## Invariants And Constraints
@@ -38,6 +40,7 @@
 - Audit logging is incomplete.
 - There is no rate limiting for login or API writes.
 - Storage helpers do not yet verify object checksums or dimensions.
+- Export generation is synchronous and intended for trial-sized datasets; large export job handling remains deferred.
 
 ## Related Tickets / Docs
 

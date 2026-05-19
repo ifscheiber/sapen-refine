@@ -23,7 +23,7 @@ This page lists current browser routes backed by `src/app`.
 
 ## Known Gaps
 
-- Export routes are not implemented.
+- Export UI is implemented as a project overview panel; there is no separate export history/dashboard browser route.
 - Review/approval is implemented as API/editor controls, not as a separate reviewer dashboard route.
 
 ## Related Tickets / Docs

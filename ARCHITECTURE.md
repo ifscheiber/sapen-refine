@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, metadata capture, editor access, semantic/support mask commits, slice classification, and minimal review/approval. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, and reproducible dataset exports.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, and owner-created training exports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, and reproducible dataset exports.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction and SaPen Core handoff workflows are future modes and must remain explicit provenance-bearing integrations.
 
@@ -45,7 +45,7 @@ Persisted entities today:
 - `SliceInstance` and `SliceClassificationVersion` for physical slice and classification persistence.
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 
-Known workflow gaps include export generation, reviewer dashboards/bulk review, stronger upload checksum/dimension validation, multi-slice support, and future prediction import. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include advanced export filters/history/job handling, reviewer dashboards/bulk review, stronger upload checksum/dimension validation, multi-slice support, and future prediction import. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -56,6 +56,7 @@ Known workflow gaps include export generation, reviewer dashboards/bulk review, 
 - Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders `src/features/editor/EditorClient.tsx`.
 - Mask/classification save/reload: the editor posts semantic bytes to `/api/images/[imageId]/mask/upload`, support bytes to `/api/images/[imageId]/support-mask/upload`, and classifications to `/api/images/[imageId]/slice/classification`; latest artifacts are streamed through app-mediated version asset routes.
 - Review/approval: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, and `/api/slice-classification-versions/[versionId]/review` implement minimal draft/submitted/approved/rejected transitions and export-readiness state.
+- Training export: the project overview uses `/api/projects/[projectId]/export/readiness` and `/api/projects/[projectId]/exports` to create owner-only approved-version exports; `/api/exports/[exportId]/download` streams manifest and ZIP package downloads through the app.
 
 ## Security And Audit Assumptions
 
@@ -69,19 +70,18 @@ Current MVP protections:
 Known gaps:
 
 - Rate limiting and brute-force protection are not implemented.
-- Admin user-management and export authorization are incomplete.
+- Admin user-management and advanced export authorization policy are incomplete; RB-053 currently restricts export creation/download to project owners.
 - Upload commit hardening is incomplete: object existence, content length, checksums, dimensions, and content type need stronger verification.
 - Audit logging is not complete enough for production attribution.
 - Review decisions are append-only for the minimal RB-052 workflow, but full audit logging remains incomplete.
 
 ## Known Follow-Up Areas
 
-- Export and prediction workflows on top of the RB-049/RB-052 schema baseline.
+- Advanced export filtering/history/job handling and prediction workflows on top of the RB-049/RB-053 schema baseline.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
 - Upload/commit validation hardening.
-- Admin export and manifest reproducibility.
 - Prediction-assisted annotation as a separate future refine/correction mode.
 
 See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md) for the working backlog.

@@ -56,6 +56,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `POST /api/images/[imageId]/support-mask/upload` uploads support-mask bytes through the app server and records a `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` returns latest and latest-approved review state for semantic mask, support mask, and slice classification.
 - `GET /api/images/[imageId]/view` and `GET /api/images/[imageId]/asset` return or stream app-mediated image reads.
+- Project-level export APIs consume latest approved image artifacts and classifications through `GET /api/projects/[projectId]/export/readiness` and `POST /api/projects/[projectId]/exports`.
 
 ## MVP Limitations
 
@@ -64,4 +65,4 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - Only one default slice/support geometry per image is implemented.
 - Multi-slice and multi-object workflows remain deferred.
-- Export generation remains deferred to RB-053; RB-052 provides only approved-version readiness.
+- RB-053 exports approved semantic/support/classification data only and warns about missing metadata or missing approved components.

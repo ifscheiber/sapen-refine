@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This checklist verifies the current desktop browser MVP workflow after the RB-052 review/approval workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
+This checklist verifies the current desktop browser MVP workflow after the RB-053 training export workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
 
 ## Preconditions
 
@@ -34,15 +34,18 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Approve semantic mask, support mask, and slice classification as `OWNER`/`QA`. | Each reviewable unit shows an approved version and export-ready becomes yes. |  |  |
 | Reload editor. | Latest saved mask reloads without runtime errors. |  |  |
 | Confirm semantic/support/review distinction. | Semantic latest mask, support latest mask, slice classification, and review-state APIs report separate approved versions. |  |  |
+| Return to project overview. | Training export panel shows approved semantic, support, and classification counts. |  |  |
+| Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links. |  |  |
+| Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
 
 ## Current MVP Limitations
 
-- Export, multi-object support geometry, and slice-specific metadata workflows are not implemented.
+- Advanced export filters/history, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, and the owner review happy path.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, and creation of an export with manifest/package links.
 
 ## Result Tracking
 

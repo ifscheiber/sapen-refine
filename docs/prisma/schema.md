@@ -22,7 +22,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts.
 - `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline; RB-051 uses one default slice instance per image.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
-- `ExportBatch`, `ExportItem` - export persistence baseline.
+- `ExportBatch`, `ExportItem` - RB-053 export batch persistence, manifest/package metadata, warnings, actor attribution, and exact exported version references.
 - `AuditLog` - generic audit rows, still not exhaustively used by all mutation routes.
 
 ## Invariants And Constraints
@@ -40,7 +40,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Slice-specific metadata and multi-slice/multi-object editing remain deferred.
 - One-default-slice support/classification workflows exist after RB-051.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
-- Export generation remains RB-053.
+- RB-053 implements synchronous owner-only export generation; advanced filters, export history UI, QA export policy, and job queues remain deferred.
 - Checksum/dimension enforcement remains RB-055.
 
 ## Related Tickets / Docs

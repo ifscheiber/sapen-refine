@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, and RB-052 adds the first review/approval workflow. Export, preprediction, and multi-slice workflow depth remains split across later tickets.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, and RB-053 adds the first owner-only training export workflow. Preprediction, advanced export policy, and multi-slice workflow depth remain split across later tickets.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -16,6 +16,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current editor: `src/features/editor/EditorClient.tsx`
 - Current mask labels and serialization: `src/mask/labels.ts`, `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
+- Current export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
 
 ## Core Concepts
 
@@ -247,19 +248,22 @@ The schema allows a review decision to target either an artifact version or a sl
 
 ### ExportBatch And ExportManifest
 
-Admin-created training-data export. RB-049 adds `ExportBatch` and `ExportItem` persistence only; generation remains RB-053.
+Owner-created training-data export. RB-053 uses `ExportBatch` and `ExportItem` persistence for a synchronous project-level export workflow with app-mediated manifest and ZIP downloads.
 
-Planned fields:
+`ExportBatch` records:
 
-- exportedBy,
-- exportedAt,
-- project filters and selection criteria,
-- included image ids,
-- included mask/support/classification version ids,
-- label schema version,
+- project id,
+- target and status,
 - manifest format version,
-- export artifact key,
-- checksums and reproducibility metadata.
+- selection criteria,
+- exportedBy and exportedAt,
+- manifest storage key and checksum,
+- warnings,
+- metadata summary with package storage key, package checksum, package size, item count, skipped image count, and warning count.
+
+`ExportItem` records role-specific exact references for included images, semantic mask artifact versions, support mask artifact versions, and slice classification versions.
+
+The RB-053 export generator uses latest approved versions only. It does not export draft, submitted, rejected, or superseded versions as training targets. Semantic segmentation, support segmentation, slice classification, and combined exports remain separate target concepts in the manifest; Copper semantic masks are never used as slice support geometry.
 
 See [training-export-contract.md](training-export-contract.md).
 

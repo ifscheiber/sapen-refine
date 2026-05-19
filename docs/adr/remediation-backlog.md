@@ -210,7 +210,7 @@ Impact: Without this workflow, the app could not identify approved training arti
 
 Resolution: Implemented by RB-052 optimized ticket. Semantic mask versions, slice support mask versions, and slice classification versions can now be submitted, approved, or rejected with append-only review decisions. The editor shows minimal review controls and approved-version export readiness.
 
-Remaining follow-up: Reviewer dashboards, bulk review, notifications, multi-reviewer approval, and export generation remain deferred.
+Remaining follow-up: Reviewer dashboards, bulk review, notifications, and multi-reviewer approval remain deferred.
 
 Affected modules: `src/app/api/images/[imageId]/review-state`, `src/app/api/artifact-versions/[versionId]/review`, `src/app/api/slice-classification-versions/[versionId]/review`, `src/server/domain/review.ts`, `src/features/editor`, `prisma/schema.prisma`, docs under `docs/03-features`, `docs/06-data`, and `docs/testing`.
 
@@ -220,17 +220,19 @@ Priority: Resolved.
 
 ## RB-053 - Admin Training Export MVP
 
-Context: RB-049 adds export batch/item persistence. RB-048 defines semantic segmentation, support/instance segmentation, slice classification, and combined manifest export targets, but no export generation exists.
+Context: RB-049 adds export batch/item persistence. RB-048 defines semantic segmentation, support/instance segmentation, slice classification, and combined manifest export targets. Before RB-053, no export generation existed.
 
 Impact: The app cannot produce reproducible training-data bundles.
 
-Proposed next step: Implement the export MVP in `tickets/2026-05-19/RB-053-admin-training-export-mvp.md`.
+Resolution: Implemented by RB-053 optimized ticket. Project owners can create synchronous training exports from the project overview. The export workflow records an `ExportBatch`, exact `ExportItem` references, a manifest checksum, package checksum/size metadata, warnings, and actor attribution. Downloads are served through app routes without exposing private MinIO URLs.
 
-Affected modules: future export routes/services, `prisma/schema.prisma`, storage helpers, docs under `docs/06-data` and `docs/04-server`.
+Remaining follow-up: Advanced export filters, export history/dashboard UI, QA export policy, job queue/large dataset handling, and RB-055 checksum/object validation hardening remain deferred.
 
-Owner: Unassigned.
+Affected modules: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness`, `src/app/api/projects/[projectId]/exports`, `src/app/api/exports/[exportId]`, `src/features/projects/ProjectExportPanel.tsx`, `tests/integration/export-workflow.test.ts`, `tests/e2e/desktop-browser-smoke.spec.ts`, and docs under `docs/03-features`, `docs/04-server`, `docs/06-data`, and `docs/testing`.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved.
 
 ## RB-054 - Model Preprediction And Active-Learning Design
 

@@ -73,6 +73,7 @@ Prediction artifacts must never overwrite human ground-truth versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
+- RB-053 training exports consume latest approved versions only and record exact artifact version ids in the manifest and `ExportItem` rows.
 
 ## Review State
 
@@ -98,6 +99,8 @@ Each mask artifact should record either:
 - a declared transform to the image coordinate space.
 
 Exports must include coordinate-space metadata.
+
+RB-053 includes each exported mask's format, width, height, coordinate space, label schema version id, and relative package path in the manifest.
 
 ## Format Compatibility
 

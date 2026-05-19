@@ -10,7 +10,7 @@ This page records the RB-049 decisions for replacing the MVP persistence model w
 | --- | --- | --- |
 | `Project` | Replaced after development DB reset. | `AnnotationProject` in `prisma/schema.prisma`. Existing URLs still use `/projects` for browser compatibility. |
 | `ProjectMember` | Replaced after development DB reset. | `AnnotationProjectMember` with `AnnotationProjectRole`. |
-| `ProjectRole` | Replaced after development DB reset. | `AnnotationProjectRole` with `OWNER`, `QA`, `LABELER`, `VIEWER`. RB-052 enforces submit/review permissions; export authorization remains RB-053 work. |
+| `ProjectRole` | Replaced after development DB reset. | `AnnotationProjectRole` with `OWNER`, `QA`, `LABELER`, `VIEWER`. RB-052 enforces submit/review permissions; RB-053 makes export creation/download owner-only while QA export policy remains deferred. |
 | `Image` | Replaced after development DB reset. | `ImageAsset` with storage key, size/content type, optional checksum/dimensions, validation state, uploadedBy/uploadedAt, and metadata relations. |
 | `Mask` | Replaced after development DB reset. | `AnnotationArtifact` with `AnnotationArtifactKind` and scoped uniqueness by image/kind/scopeKey. |
 | `MaskVersion` | Replaced after development DB reset. | `AnnotationArtifactVersion` with label schema version, review state, provenance, coordinate space, storage metadata, actor attribution, and source/parent support. |

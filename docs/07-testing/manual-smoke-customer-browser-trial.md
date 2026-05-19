@@ -48,6 +48,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Set slice classification. | Classification persists after save. |  |  |
 | Submit and approve semantic mask, support mask, and slice classification. | Review state shows approved versions and export-ready becomes yes. |  |  |
 | Reload. | Semantic mask, support mask status, classification, and approved review state reload. |  |  |
+| Return to project overview and create a training export as owner. | Export readiness counts include the approved components and export creation returns manifest/package download links. |  |  |
+| Download manifest and package. | Files download through app routes; no MinIO console/S3 URL is exposed to the browser. |  |  |
 | Inspect browser console. | No unexpected runtime errors. |  |  |
 
 ## iPad Safari Smoke
@@ -88,6 +90,7 @@ Blocking failure criteria:
 | Switch to `Slice support`. | Mode switch and support controls fit the iPad viewport. |  |  |
 | Save support mask and set classification. | Support state and classification persist after reload. |  |  |
 | Inspect review controls. | Review state fits the iPad viewport without blocking normal editor controls. |  |  |
+| Inspect project export panel. | Readiness counts and export controls fit the iPad viewport; owner-only behavior is clear. |  |  |
 | Draw with Apple Pencil if available. | Pencil input draws through Pointer Events. |  |  |
 | Touch outside the canvas and scroll. | Page/editor container scrolling remains possible outside drawing surface. |  |  |
 | Change labels/tools by touch. | Touch targets are usable and active state is clear. |  |  |
@@ -111,4 +114,4 @@ Blocking failure criteria:
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
-- Export generation remains deferred; review/approval exists as a minimal per-image/editor workflow.
+- RB-053 export generation is synchronous and owner-only; advanced export filters/history and large dataset job handling remain deferred.

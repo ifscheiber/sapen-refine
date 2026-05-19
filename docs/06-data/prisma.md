@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050/RB-051/RB-052 workflow extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050/RB-051/RB-052/RB-053 workflow extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -16,7 +16,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `AnnotationArtifact` and `AnnotationArtifactVersion` replace `Mask`/`MaskVersion` and separate semantic, support/instance, prediction, and derived artifact families.
 - `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
 - `ReviewDecision` and `ArtifactReviewState` provide the persistence and workflow baseline for draft/submitted/approved/rejected/superseded ground-truth state. RB-052 decisions can target artifact versions or slice classification versions.
-- `ExportBatch` and `ExportItem` provide the persistence baseline for RB-053 export manifests.
+- `ExportBatch` and `ExportItem` persist RB-053 training export batches, manifest/package metadata, warnings, actor attribution, and exact exported version references.
 - `AuditLog` remains available for explicit audit events and is not yet a complete audit trail.
 
 ## Current Compatibility Behavior
@@ -61,7 +61,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.
 - RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
-- RB-053 implements export generation.
+- RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, QA export policy, export history UI, and job queues remain deferred.
 - RB-055 strengthens checksum and object metadata validation.
 
 ## Related Docs

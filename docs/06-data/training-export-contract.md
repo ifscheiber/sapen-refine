@@ -2,27 +2,29 @@
 
 ## Purpose
 
-This page defines the planned export contract for reproducible SaPen Annotate training datasets. Admin export is not implemented in the current MVP.
+This page defines the implemented RB-053 export contract for reproducible SaPen Annotate training datasets.
 
-Exports must be reproducible from stored image assets, approved artifact/classification versions, label schema versions, metadata, attribution, review decisions, and the manifest.
+Exports are generated from stored image assets, latest approved artifact/classification versions, label schema versions, metadata, attribution, review decisions, and the manifest. The current implementation is a synchronous, trial-sized project export that stores a manifest and ZIP package in MinIO and serves downloads through app routes.
 
-## Common Export Metadata
+## Current Implementation
 
-Every export batch should record:
+Important files:
 
-- export id,
-- export target,
-- manifest format version,
-- project id and project name at export time,
-- exportedBy,
-- exportedAt,
-- selection/filter criteria,
-- included image ids,
-- included artifact version ids,
-- label schema id/version,
-- object keys and checksums,
-- application/schema version context,
-- warnings such as missing metadata or missing support masks.
+- `src/server/domain/exports.ts` - readiness, manifest generation, ZIP packaging, export persistence, and download authorization.
+- `src/app/api/projects/[projectId]/export/readiness/route.ts` - project export readiness.
+- `src/app/api/projects/[projectId]/exports/route.ts` - export creation.
+- `src/app/api/exports/[exportId]/route.ts` - export summary.
+- `src/app/api/exports/[exportId]/download/route.ts` - manifest/package download through the app.
+- `src/features/projects/ProjectExportPanel.tsx` - project overview export UI.
+
+API target strings:
+
+- `semantic_segmentation`
+- `support_segmentation`
+- `slice_classification`
+- `combined`
+
+The persisted `ExportBatch.target` maps single-target exports to the existing Prisma enum values and maps multi-target or combined selections to `COMBINED_MANIFEST`.
 
 ## Export Targets
 
@@ -32,32 +34,29 @@ Purpose: train/evaluate material segmentation models.
 
 Includes:
 
-- immutable raw images,
-- approved semantic material mask versions,
-- label schema version,
-- byte-value mapping,
+- immutable raw image bytes,
+- latest approved `SEMANTIC_MASK` artifact version for each included image,
+- label schema version and byte-value definitions,
 - semantic label meanings,
 - mask dimensions and coordinate space,
-- creator/reviewer attribution,
-- review state.
+- creator and approval attribution,
+- review decision metadata where available.
 
 Copper semantic masks are included here as material masks, not support masks.
 
-### Instance / Support Segmentation Export
+### Support Segmentation Export
 
-Purpose: train/evaluate slice/object support or instance geometry models.
+Purpose: train/evaluate physical slice/object support geometry models.
 
 Includes:
 
-- immutable raw images,
-- approved support/instance mask versions,
-- slice instance ids,
-- bounding boxes or geometry summaries when available,
+- immutable raw image bytes,
+- latest approved `SLICE_SUPPORT_MASK` artifact version for each included image,
 - support label schema/version,
 - coordinate-space metadata,
-- review attribution.
+- creator and approval attribution.
 
-Copper semantic material masks must not be exported as support geometry unless an explicit derived support artifact exists and records its derivation rule.
+Copper semantic material masks are never exported as support geometry. A support segmentation export requires a separate approved `SLICE_SUPPORT_MASK` artifact version.
 
 ### Slice Classification Export
 
@@ -65,79 +64,125 @@ Purpose: train/evaluate image or slice-level classifiers.
 
 Includes:
 
-- image ids and optional slice instance ids,
+- image ids and raw image bytes,
+- latest approved `SliceClassificationVersion`,
 - class labels such as `SAP_HEARTWOOD_SLICE`, `COPPER_SLICE`, `UNKNOWN`, or `REVIEW_REQUIRED`,
-- class schema/label schema version,
-- sample/specimen metadata,
-- reviewer attribution,
-- selection criteria.
+- label schema version,
+- image-level sample/acquisition metadata where available,
+- creator and approval attribution.
 
-Classification exports may include image references without mask artifacts when the target model does not consume masks.
+Classification data is stored in the manifest; no separate classification file is emitted in the MVP ZIP package.
 
 ### Combined Manifest Export
 
-Purpose: provide a single reproducible bundle for downstream training pipelines that need images, semantic masks, support masks, classifications, metadata, and provenance.
+Purpose: provide one reproducible bundle for downstream training pipelines that need images, semantic masks, support masks, classifications, metadata, and provenance.
 
-Includes:
-
-- all included image assets,
-- semantic mask version references,
-- support/instance mask version references,
-- slice classification records,
-- sample/acquisition metadata,
-- label schema versions,
-- review records,
-- export warnings and completeness flags.
-
-Combined exports must keep each target type explicit. A consumer should not infer support geometry from copper semantic masks.
+Combined exports keep each target type explicit. They include any approved selected components that exist for an image and add warnings for missing approved components. Consumers must not infer support geometry from copper semantic masks.
 
 ## Manifest Shape
 
-The exact JSON schema belongs to the export implementation ticket, but the manifest must contain these top-level sections:
+Current manifest version:
 
-- `export`
+```text
+sapen-annotate-training-export-v1
+```
+
+Top-level sections:
+
+- `manifestVersion`
+- `exportId`
+- `exportedAt`
+- `exportedBy`
 - `project`
+- `selection`
 - `labelSchemas`
-- `images`
-- `semanticMasks`
-- `supportMasks`
-- `sliceClassifications`
-- `metadata`
-- `reviews`
+- `items`
+- `skippedImages`
 - `warnings`
+- `summary`
 
-Each artifact entry must include:
+Each item contains:
 
-- immutable artifact version id,
-- storage key or relative export path,
-- checksum,
-- dimensions,
-- format,
-- label schema version,
-- createdBy and createdAt,
-- review status and reviewedBy when approved/rejected.
+- `image` with id, filename, relative package path, content type, size, dimensions, checksum when available, and upload timestamp.
+- `acquisitionMetadata` and `sampleMetadata` when available.
+- `semanticMask` with exact artifact version id, version number, relative package path, checksum, size, dimensions, format, coordinate space, label schema version id, createdBy, and createdAt.
+- `supportMask` with the same exact artifact-version fields when selected and approved.
+- `classification` with exact classification version id, version, class, slice instance id, label schema version id, createdBy, and createdAt.
+- `review` with approval decision ids, approvedBy, and approvedAt for included components where available.
+- `eligibleTargets` and `warnings`.
+
+API responses intentionally omit private MinIO storage keys. Manifest package paths are relative export paths, not public object-store URLs.
+
+## Package Layout
+
+The ZIP package is transport around the manifest:
+
+```text
+manifest.json
+images/<imageId>.<ext>
+masks/semantic/<imageId>.u8raw
+masks/support/<imageId>.u8raw
+```
+
+Raw images and mask bytes are copied from private object storage into the ZIP. Classification records remain in `manifest.json`.
+
+The server stores generated artifacts under:
+
+```text
+projects/<projectId>/exports/<exportId>/manifest.json
+projects/<projectId>/exports/<exportId>/package.zip
+```
+
+These storage keys remain server-private. Browser downloads use `/api/exports/[exportId]/download?file=manifest` and `/api/exports/[exportId]/download?file=package`.
 
 ## Export Eligibility
 
-Default MVP export behavior should include approved artifacts/classifications only. RB-052 implements the readiness boundary that RB-053 export generation must consume:
+The MVP exports approved ground-truth components only:
 
 - latest approved semantic mask version,
-- latest approved support/instance mask version,
+- latest approved support mask version,
 - latest approved slice classification version.
 
-Images or artifacts that are draft, submitted, rejected, or missing required metadata should either be excluded or included with explicit warnings depending on the export target and admin selection.
+Draft, submitted, rejected, and superseded versions are not exported as training targets.
+
+Images with no approved data for the requested targets are skipped with `NO_REQUESTED_APPROVED_DATA`. Images missing a selected component are included only for the approved components they do have and receive warnings such as `MISSING_APPROVED_SEMANTIC_MASK`, `MISSING_APPROVED_SUPPORT_MASK`, or `MISSING_APPROVED_SLICE_CLASSIFICATION`. Missing T-number and acquisition metadata are warning conditions, not hard blockers.
+
+## Persistence And Checksums
+
+`ExportBatch` records:
+
+- project id,
+- export target,
+- status,
+- manifest format version,
+- selection criteria,
+- exportedBy/exportedAt,
+- manifest storage key and checksum,
+- warnings,
+- metadata summary with package storage key, package checksum, package size, item count, skipped image count, and warning count.
+
+`ExportItem` rows reference the included image, semantic/support artifact versions, and slice classification versions with role-specific rows. These references are the database audit trail for exact immutable export inputs.
+
+Current checksums use stored image/mask checksums where available and calculate manifest/package checksums at export time. Stronger object metadata, dimension, and checksum enforcement remains RB-055.
 
 ## Access
 
-Export creation is an administrative action.
+Current MVP access:
 
-Planned default:
+- Any authenticated project member can inspect export readiness.
+- `OWNER` can create export batches and download generated export files.
+- `QA`, `LABELER`, and `VIEWER` cannot create or download exports in RB-053.
 
-- `OWNER` can create export batches.
-- `QA` may create export batches only when project policy allows it.
-- `LABELER` and `VIEWER` cannot create export batches.
+All export creation records the authenticated actor. Future project policy may allow QA export access, but that is deferred.
 
-All export actions must be attributable to the authenticated actor.
+## MVP Limits
+
+- Export generation is synchronous and intended for trial-sized datasets.
+- There is no background job queue, retry dashboard, or large dataset sharding.
+- There is no advanced filtering by T-number, label, date, annotator, reviewer, or metadata completeness.
+- The UI exposes only the most recent created export result in the project overview panel; there is no export history page.
+- Only one default support geometry and one default slice classification per image are implemented.
+- RB-055 still needs stronger object validation and checksum/dimension enforcement.
 
 ## Related Docs
 

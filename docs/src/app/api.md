@@ -37,6 +37,10 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
 - `POST /api/artifact-versions/[versionId]/review` - submits, approves, or rejects semantic/support artifact versions after membership and transition checks.
 - `POST /api/slice-classification-versions/[versionId]/review` - submits, approves, or rejects slice classification versions after membership and transition checks.
+- `GET /api/projects/[projectId]/export/readiness` - returns project export readiness, approved artifact/classification counts, candidate warnings, and owner export capability for project members.
+- `POST /api/projects/[projectId]/exports` - creates a synchronous RB-053 training export for project owners.
+- `GET /api/exports/[exportId]` - returns sanitized export summary and download routes for project owners.
+- `GET /api/exports/[exportId]/download?file=manifest|package` - streams the stored manifest JSON or ZIP package through the app for project owners.
 
 ## Invariants And Constraints
 
@@ -47,13 +51,15 @@ This page lists the current API route handlers under `src/app/api`.
 - Support-mask APIs must not accept semantic mask versions as physical support geometry.
 - Review APIs enforce server-side permissions: `OWNER`/`QA` can approve/reject, `OWNER`/`QA`/`LABELER` can submit, and `VIEWER` cannot mutate review state.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
+- Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
+- Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - API routes should return stable error codes that clients can handle.
 
 ## Known Gaps
 
 - Upload commit validation is still incomplete for checksum enforcement, dimensions, and object metadata, but RB-046 adds server-side size limits and RB-050 stores app-mediated upload checksums.
 - Audit logging is not consistently attached to route mutations.
-- Export and task workflows remain deferred; RB-052 implements only the minimal review/approval API and editor controls.
+- Task workflows remain deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
 
 ## Related Tickets / Docs
 

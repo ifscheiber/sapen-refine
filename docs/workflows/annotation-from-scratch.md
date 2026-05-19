@@ -17,6 +17,7 @@ This is the current primary workflow for SaPen Annotate.
 9. Editor uploads serialized mask bytes to S3/MinIO and appends `AnnotationArtifactVersion` rows.
 10. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
 11. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest` and `/api/images/[imageId]/support-mask/latest`; review readiness is read through `/api/images/[imageId]/review-state`.
+12. A project `OWNER` can return to the project overview, create a training export from latest approved versions, and download the generated manifest/package through app routes.
 
 ## Important Files
 
@@ -30,6 +31,10 @@ This is the current primary workflow for SaPen Annotate.
 - `src/app/api/images/[imageId]/review-state/route.ts`
 - `src/app/api/artifact-versions/[versionId]/review/route.ts`
 - `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
+- `src/app/api/projects/[projectId]/export/readiness/route.ts`
+- `src/app/api/projects/[projectId]/exports/route.ts`
+- `src/app/api/exports/[exportId]/download/route.ts`
+- `src/features/projects/ProjectExportPanel.tsx`
 
 ## Invariants And Constraints
 
@@ -40,7 +45,7 @@ This is the current primary workflow for SaPen Annotate.
 
 ## Known Gaps
 
-- Export is not implemented.
+- Advanced export filters/history/job handling are not implemented.
 - Multi-slice and multi-object annotation remain deferred.
 
 ## Related Tickets / Docs

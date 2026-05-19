@@ -245,7 +245,7 @@ Implemented minimal submit, approve, and reject flows with server-side authoriza
 
 ### RB-053 - Admin Training Export MVP
 
-Add export batch creation and manifest generation for semantic segmentation, support/instance segmentation, slice classification, and combined exports.
+Implemented synchronous owner-only project export creation and manifest/ZIP generation for semantic segmentation, support segmentation, slice classification, and combined exports. RB-053 records exact image, artifact-version, and classification-version references through `ExportBatch`/`ExportItem`, stores manifest/package objects in MinIO, and exposes app-mediated downloads.
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
@@ -260,7 +260,7 @@ Add checksum enforcement, dimensions, object metadata verification, and stronger
 - Resolved in RB-049: Prisma uses `AnnotationProject` while public browser URLs still use `/projects` for compatibility.
 - Resolved in RB-049: mask artifacts use generic `AnnotationArtifact` and `AnnotationArtifactVersion` tables with strict artifact kinds.
 - Resolved in RB-049/RB-050: sample/specimen fields start as image-level/default `SampleMetadata` tied to `ImageAsset`; slice-specific metadata remains deferred to `SliceInstance` follow-up work.
-- Deferred: `QA` export permission policy remains RB-053.
+- Deferred after RB-053: `QA` export permission policy remains a future project-policy decision.
 
 ## Related Docs
 

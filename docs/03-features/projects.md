@@ -11,8 +11,13 @@ Important files:
 - `src/features/projects/NewProjectPage.tsx`
 - `src/features/projects/ProjectOverview.tsx`
 - `src/features/projects/ProjectMetadataForm.tsx`
+- `src/features/projects/ProjectExportPanel.tsx`
 - `src/app/api/projects/route.ts`
 - `src/app/api/projects/[projectId]/route.ts`
+- `src/app/api/projects/[projectId]/export/readiness/route.ts`
+- `src/app/api/projects/[projectId]/exports/route.ts`
+- `src/app/api/exports/[exportId]/route.ts`
+- `src/app/api/exports/[exportId]/download/route.ts`
 
 Route files are thin wrappers around `src/features/projects`.
 
@@ -20,7 +25,8 @@ Route files are thin wrappers around `src/features/projects`.
 
 - `/app/projects` lists projects where the authenticated user has membership.
 - `/app/projects/new` creates a project through `POST /api/projects`.
-- `/app/projects/[projectId]` shows the project overview, editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, and a link to images.
+- `/app/projects/[projectId]` shows the project overview, editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, a link to images, and the training export panel.
+- The training export panel shows approved semantic/support/classification readiness counts, target selection, and owner-only export creation with manifest/package download links.
 - Project membership remains the authorization boundary for image and editor routes.
 
 ## Current Ownership And Access
@@ -30,10 +36,13 @@ Route files are thin wrappers around `src/features/projects`.
 - `AnnotationProjectRole.OWNER`, `QA`, `LABELER`, and `VIEWER` exist in `prisma/schema.prisma`.
 - `src/server/auth/rbac.ts` checks project membership for project/image/editor access.
 - Current editable image and mask routes allow `OWNER`, `QA`, and `LABELER`; `VIEWER` can read project/image data where route handlers permit it.
+- `GET /api/projects/[projectId]/export/readiness` is available to authenticated project members.
+- `POST /api/projects/[projectId]/exports` and export downloads are restricted to `OWNER` in RB-053.
 
 ## MVP Limitations
 
-- Projects now carry an optional active label schema version and surface missing schema setup in the UI; dataset export settings and advanced reviewer administration remain deferred.
+- Projects now carry an optional active label schema version and surface missing schema setup in the UI.
+- RB-053 adds basic owner-only training export from the project overview. Advanced export filters, export history UI, QA export policy, and advanced reviewer administration remain deferred.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.
