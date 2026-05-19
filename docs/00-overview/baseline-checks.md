@@ -65,6 +65,13 @@ This page records validation commands run for baseline tickets and whether failu
 - `npm run typecheck`: passed.
 - `npm run test`: passed, 2 files and 6 tests.
 
+## RB-045 Editor Trial Usability
+
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run test`: passed, 2 files and 6 tests.
+- `npm run check:design-hardcoding`: passed.
+
 ## Non-Blocking Warnings
 
 - `npm run build` reports the Next.js middleware-to-proxy convention warning for `src/middleware.ts`.

@@ -36,13 +36,15 @@ Important files:
 - Brush and lasso operations write to a `MaskBuffer` in memory.
 - Undo/redo stores patch arrays in refs and applies patches back into the mask buffer.
 - Autosave debounces dirty mask writes after edits.
+- RB-045 exposes dirty/saving state in the editor toolbar and guards browser unload while unsaved edits exist.
+- If edits happen while a save is in flight, the editor tracks dirty revisions and queues another save instead of clearing the newer dirty state.
 - Manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/presign`, then commits through `/api/images/[imageId]/mask/commit`.
 - Latest saved mask bytes are loaded from `/api/images/[imageId]/mask/latest`.
 
 ## RB-045 Start Limitations
 
 - Hook dependency warnings in `src/features/editor/EditorClient.tsx` were resolved during RB-045.
-- Touch targets are functional but not yet tuned for iPad use.
+- RB-045 increased core tool/action/label touch targets for iPad browser use.
 - Advanced iPad gestures such as two-finger zoom/pan are not part of the current editor model.
 
 Editor ownership remains under `src/features/editor` without a full editor rewrite.

@@ -67,6 +67,8 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [opacity, setOpacity] = useState<number>(0.45);
   const [brushRadius, setBrushRadius] = useState<number>(12);
   const [activeLabel, setActiveLabel] = useState<LabelId>(Labels.COPPER);
@@ -103,6 +105,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const saveTimerRef = useRef<number | null>(null);
   const savingRef = useRef(false);
   const saveQueuedRef = useRef(false);
+  const dirtyRevisionRef = useRef(0);
   const loadedOnceRef = useRef(false);
   const pendingMaskRef = useRef<{ imageId: string; promise: Promise<Uint8Array | null> } | null>(null);
   const maskFetchAbortRef = useRef<AbortController | null>(null);
@@ -151,6 +154,12 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     updateOverlayRegionWithPalette(oimg, mask, palette, x0, y0, x1 - x0, y1 - y0);
 
     octx.putImageData(oimg, 0, 0, x0, y0, x1 - x0, y1 - y0);
+  }
+
+  function markMaskDirty() {
+    dirtyMaskRef.current = true;
+    dirtyRevisionRef.current += 1;
+    setHasUnsavedChanges(true);
   }
 
   function queueOverlayUpdate(x: number, y: number, w: number, h: number) {
@@ -368,7 +377,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     undoRef.current.push([patch]);
     redoRef.current = [];
     queueOverlayUpdate(patch.x, patch.y, patch.w, patch.h);
-    dirtyMaskRef.current = true;
+    markMaskDirty();
     scheduleAutosave();
     resetLasso();
   }
@@ -378,7 +387,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     if (!loadedOnceRef.current) return; // nicht während initial load
     if (!canEdit) return;
 
-    dirtyMaskRef.current = true;
+    markMaskDirty();
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
 
     // debounce: 1.2s nach letzter Änderung
@@ -400,6 +409,8 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     }
 
     savingRef.current = true;
+    setIsSaving(true);
+    const saveRevision = dirtyRevisionRef.current;
     try {
       setStatus("Saving…");
 
@@ -456,14 +467,20 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         throw new Error(`COMMIT_FAILED ${com.status}: ${t}`);
       }
 
-      dirtyMaskRef.current = false;
-      setStatus("Saved");
-      setTimeout(() => setStatus(""), 800);
+      if (dirtyRevisionRef.current === saveRevision) {
+        dirtyMaskRef.current = false;
+        setHasUnsavedChanges(false);
+        setStatus("Saved");
+        setTimeout(() => setStatus(""), 800);
+      } else {
+        saveQueuedRef.current = true;
+      }
     } catch (e: unknown) {
       console.error(e);
       setStatus(errorMessage(e));
     } finally {
       savingRef.current = false;
+      setIsSaving(false);
       if (saveQueuedRef.current) {
         saveQueuedRef.current = false;
         await saveMaskNow();
@@ -562,6 +579,9 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       redoRef.current = [];
       currentStrokeRef.current = [];
       dirtyMaskRef.current = false;
+      dirtyRevisionRef.current = 0;
+      setHasUnsavedChanges(false);
+      setIsSaving(false);
 
       // clear overlay immediately (mask bytes may still be loading)
       const octx = overlayCtxRef.current;
@@ -634,6 +654,18 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     lastPtRef.current = null;
   }, [resetLasso, tool]);
 
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   // ---------- Painting ----------
 function stamp(x: number, y: number) {
   const mask = maskRef.current;
@@ -643,8 +675,8 @@ function stamp(x: number, y: number) {
   currentStrokeRef.current.push(patch);
   queueOverlayUpdate(patch.x, patch.y, patch.w, patch.h);
 
-  // nur markieren, nicht speichern
-  dirtyMaskRef.current = true;
+  // Mark immediately so iPad/browser users see unsaved state while drawing.
+  markMaskDirty();
 }
 
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -959,45 +991,41 @@ function stamp(x: number, y: number) {
   }
 
   // ---------- UI ----------
+  const editorStatus = isSaving ? "Saving…" : status || (hasUnsavedChanges ? "Unsaved changes" : "");
+  const activeButtonClass = "min-h-11 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90";
+  const idleButtonClass =
+    "min-h-11 rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground hover:bg-accent";
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
       <div className="border-b border-border bg-muted p-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <button
-              className={`rounded-md px-2 py-1 text-sm ${
-                tool === "brush"
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
+              aria-pressed={tool === "brush"}
+              className={tool === "brush" ? activeButtonClass : idleButtonClass}
               onClick={() => setTool("brush")}
               disabled={!canEdit}
             >
               Brush
             </button>
             <button
-              className={`rounded-md px-2 py-1 text-sm ${
-                tool === "lasso_free"
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
+              aria-pressed={tool === "lasso_free"}
+              className={tool === "lasso_free" ? activeButtonClass : idleButtonClass}
               onClick={() => setTool("lasso_free")}
               disabled={!canEdit}
             >
               Lasso
             </button>
             <button
-              className={`rounded-md px-2 py-1 text-sm ${
-                tool === "lasso_poly"
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
+              aria-pressed={tool === "lasso_poly"}
+              className={tool === "lasso_poly" ? activeButtonClass : idleButtonClass}
               onClick={() => setTool("lasso_poly")}
               disabled={!canEdit}
             >
               Polygon
             </button>
-            <div className="ml-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="ml-3 flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
               <span>Tool Size: {brushRadius}px</span>
               <input
                 type="range"
@@ -1006,7 +1034,7 @@ function stamp(x: number, y: number) {
                 value={brushRadius}
                 onChange={(e) => setBrushRadius(Number(e.target.value))}
                 disabled={!canEdit || tool === "lasso_poly"}
-                className="w-28"
+                className="w-32"
               />
             </div>
           </div>
@@ -1015,16 +1043,17 @@ function stamp(x: number, y: number) {
             {labels.map((label) => (
               <button
                 key={label.id}
+                aria-pressed={activeLabel === label.id}
                 onClick={() => setActiveLabel(label.id)}
                 disabled={!canEdit}
-                className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs ${
+                className={`flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm ${
                   activeLabel === label.id
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-secondary text-secondary-foreground hover:bg-accent"
                 }`}
               >
                 <span
-                  className="h-2 w-2 rounded-full"
+                  className="h-3 w-3 rounded-full"
                   style={{ background: `rgb(${label.rgb[0]}, ${label.rgb[1]}, ${label.rgb[2]})` }}
                 />
                 <span>{label.name}</span>
@@ -1032,7 +1061,7 @@ function stamp(x: number, y: number) {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
             <span>Mask Opacity</span>
             <input
               type="range"
@@ -1040,7 +1069,7 @@ function stamp(x: number, y: number) {
               max={100}
               value={Math.round(opacity * 100)}
               onChange={(e) => setOpacity(Number(e.target.value) / 100)}
-              className="w-28"
+              className="w-32"
             />
             <span className="tabular-nums w-10">{Math.round(opacity * 100)}%</span>
           </div>
@@ -1048,37 +1077,37 @@ function stamp(x: number, y: number) {
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <button
-            className="rounded-md bg-secondary px-2 py-1 text-secondary-foreground hover:bg-accent"
+            className={idleButtonClass}
             onClick={undo}
             disabled={!canEdit}
           >
             Undo
           </button>
           <button
-            className="rounded-md bg-secondary px-2 py-1 text-secondary-foreground hover:bg-accent"
+            className={idleButtonClass}
             onClick={redo}
             disabled={!canEdit}
           >
             Redo
           </button>
-          <button className="rounded-md bg-secondary px-2 py-1 text-secondary-foreground hover:bg-accent" onClick={fitToContainer}>
+          <button className={idleButtonClass} onClick={fitToContainer}>
             Fit
           </button>
           <button
-            className="rounded-md bg-secondary px-2 py-1 text-secondary-foreground hover:bg-accent"
+            className={idleButtonClass}
             onClick={() => void saveMaskNow()}
-            disabled={!canEdit}
+            disabled={!canEdit || isSaving || !hasUnsavedChanges}
           >
             Save now
           </button>
           <button
-            className="rounded-md bg-secondary px-2 py-1 text-secondary-foreground hover:bg-accent"
+            className={idleButtonClass}
             onClick={() => void exportMaskPng()}
           >
             Export PNG
           </button>
-          <div className="ml-auto flex items-center gap-3">
-            {status && <div className="text-xs text-destructive">{status}</div>}
+          <div className="ml-auto flex min-h-11 items-center gap-3">
+            {editorStatus && <div className="text-xs text-muted-foreground">{editorStatus}</div>}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Zoom</span>
               <input
@@ -1087,7 +1116,7 @@ function stamp(x: number, y: number) {
                 max={300}
                 value={Math.round(zoom * 100)}
                 onChange={(e) => setZoom(clampNumber(Number(e.target.value) / 100, 0.05, 3))}
-                className="w-28"
+                className="w-32"
               />
               <span className="tabular-nums w-10">{Math.round(zoom * 100)}%</span>
             </div>

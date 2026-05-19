@@ -26,6 +26,8 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 - The drawing canvas is expected to suppress page scroll while drawing; page scroll should remain available outside the canvas container.
 - `pointercancel` is handled as an interruption, not as a normal lasso completion.
 - Non-primary touch/stylus pointers and non-left mouse buttons are ignored for drawing.
+- Core tool/action/label controls use larger touch targets for iPad browser use.
+- Dirty and saving state is visible in the toolbar; browser unload is guarded while unsaved edits exist.
 
 ## Invariants And Constraints
 
