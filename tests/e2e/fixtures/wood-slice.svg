@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180" role="img" aria-label="E2E wood slice">
+  <rect width="240" height="180" fill="#f8f5ee"/>
+  <ellipse cx="120" cy="90" rx="92" ry="68" fill="#d9a95f" stroke="#6b3f22" stroke-width="4"/>
+  <ellipse cx="120" cy="90" rx="68" ry="48" fill="#ba6f36" stroke="#6b3f22" stroke-width="3"/>
+  <ellipse cx="120" cy="90" rx="42" ry="30" fill="#f0d091" stroke="#6b3f22" stroke-width="2"/>
+  <path d="M134 22 C132 48 138 66 132 88 C126 112 132 136 130 158" fill="none" stroke="#447a5b" stroke-width="8" stroke-linecap="round"/>
+</svg>

@@ -8,10 +8,16 @@ Current required root gates:
 - `npm run build`
 - `npm run test`
 - `npm run check:design-hardcoding`
+- `npm run test:e2e` for the desktop browser smoke when local DB/MinIO are available.
 
 Current editor-related unit coverage:
 
 - `tests/unit/editor-canvas-geometry.test.ts` covers coordinate mapping, clamping, fit zoom, and display sizing helpers.
+
+Current E2E coverage:
+
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the current desktop MVP browser workflow.
+- `tests/e2e/ipad-viewport-prep.spec.ts` covers only iPad-sized browser preparation, not real iPad Safari.
 
 Manual smoke coverage:
 

@@ -12,6 +12,8 @@ This page defines the current validation baseline and the intended testing direc
 - `npm run build`
 - `npm run test`
 - `npm run check:design-hardcoding`
+- `npm run test:e2e` after `npm run build` when local PostgreSQL/MinIO are running and seeded.
+- `npm run test:e2e:ipad-prep` for the non-device iPad viewport/manifest preparation smoke.
 
 ## Current Unit Coverage
 
@@ -21,6 +23,13 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/upload-validation.test.ts` covers image/mask upload size validation and `413` payloads.
 - `tests/unit/health-readiness.test.ts` covers health payloads and dependency readiness aggregation.
 - `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths and protected workspace paths.
+
+## Current E2E Coverage
+
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, image upload, editor open, brush draw, save, reload, and latest-mask existence.
+- `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
+- `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
+- E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.
 
 ## Manual Smoke
 
@@ -55,7 +64,7 @@ This page defines the current validation baseline and the intended testing direc
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
 - API and DB integration tests are not configured yet.
-- The editor/iPad smoke checklist is manual; automated browser coverage remains deferred.
+- Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs
 
