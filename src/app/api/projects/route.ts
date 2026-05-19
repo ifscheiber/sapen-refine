@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac"; // Pfad ggf. anpassen
-import { ProjectRole } from "@prisma/client";
+import { AnnotationProjectRole } from "@prisma/client";
 
 export async function GET() {
   const user = await requireUser();
 
-  const projects = await prisma.project.findMany({
+  const projects = await prisma.annotationProject.findMany({
     where: { members: { some: { userId: user.id } } },
     orderBy: { updatedAt: "desc" },
     select: {
@@ -43,13 +43,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "NAME_REQUIRED" }, { status: 400 });
   }
 
-  const project = await prisma.project.create({
+  const labelSchema = await prisma.labelSchemaVersion.findFirst({
+    where: { isDefault: true, status: "ACTIVE" },
+    select: { id: true },
+  });
+
+  const project = await prisma.annotationProject.create({
     data: {
       name,
+      createdById: user.id,
+      labelSchemaVersionId: labelSchema?.id,
       members: {
         create: {
           userId: user.id,
-          role: ProjectRole.OWNER,
+          role: AnnotationProjectRole.OWNER,
         },
       },
     },

@@ -13,7 +13,7 @@ export async function EditImagePage({
 }) {
   const { membership } = await requireProjectRole(projectId, ["OWNER", "QA", "LABELER", "VIEWER"]);
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: { id: true, filename: true, contentType: true, size: true, projectId: true },
   });

@@ -9,7 +9,7 @@ export async function GET(
   const { imageId } = await props.params;
   const user = await requireUser();
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: { id: true, projectId: true },
   });
@@ -19,7 +19,7 @@ export async function GET(
   }
 
   // Authorization: User muss Projektmitglied sein
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });

@@ -12,7 +12,7 @@ export async function ProjectImagesPage({ projectId }: { projectId: string }) {
     "VIEWER",
   ]);
 
-  const project = await prisma.project.findUnique({
+  const project = await prisma.annotationProject.findUnique({
     where: { id: projectId },
     select: { id: true, name: true },
   });

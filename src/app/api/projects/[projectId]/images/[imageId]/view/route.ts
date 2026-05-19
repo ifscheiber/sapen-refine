@@ -10,7 +10,7 @@ export async function GET(
 
   await requireProjectRole(projectId, ["OWNER", "QA", "LABELER", "VIEWER"]);
 
-  const image = await prisma.image.findFirst({
+  const image = await prisma.imageAsset.findFirst({
     where: { id: imageId, projectId },
     select: { id: true },
   });

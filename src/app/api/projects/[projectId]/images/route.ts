@@ -9,7 +9,7 @@ export async function GET(
   const { projectId } = await ctx.params;
   await requireProjectRole(projectId, ["OWNER", "QA", "LABELER", "VIEWER"]);
 
-  const images = await prisma.image.findMany({
+  const images = await prisma.imageAsset.findMany({
     where: { projectId },
     orderBy: { createdAt: "desc" },
     select: {

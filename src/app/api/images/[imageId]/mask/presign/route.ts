@@ -13,14 +13,14 @@ export async function POST(req: Request, props: { params: Promise<{ imageId: str
     return NextResponse.json({ error: "CONTENT_TYPE_REQUIRED" }, { status: 400 });
   }
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: { id: true, projectId: true },
   });
   if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
 
   // optional: membership check (recommended)
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
@@ -33,4 +33,3 @@ export async function POST(req: Request, props: { params: Promise<{ imageId: str
 
   return NextResponse.json({ uploadUrl, key });
 }
-

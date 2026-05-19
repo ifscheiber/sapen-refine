@@ -12,7 +12,7 @@ export async function GET(
   const user = await requireUser();
   const { imageId } = await props.params;
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: {
       id: true,
@@ -24,7 +24,7 @@ export async function GET(
   });
   if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
 
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });

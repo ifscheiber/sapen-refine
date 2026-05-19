@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
-import { MaskKind } from "@prisma/client";
+import { AnnotationArtifactKind } from "@prisma/client";
 
 export async function GET(
   _req: Request,
@@ -14,7 +14,7 @@ export async function GET(
     return NextResponse.json({ error: "IMAGE_ID_REQUIRED" }, { status: 400 });
   }
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: { id: true, projectId: true },
   });
@@ -22,7 +22,7 @@ export async function GET(
     return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
   }
 
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
@@ -30,21 +30,19 @@ export async function GET(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  const kind: MaskKind = MaskKind.REFINED;
+  const kind = AnnotationArtifactKind.SEMANTIC_MASK;
 
-  // ✅ eindeutige Maske per (imageId, kind)
-  const mask = await prisma.mask.findUnique({
-    where: { imageId_kind: { imageId, kind } },
+  const artifact = await prisma.annotationArtifact.findUnique({
+    where: { imageId_kind_scopeKey: { imageId, kind, scopeKey: "default" } },
     select: { id: true },
   });
 
-  if (!mask) {
+  if (!artifact) {
     return NextResponse.json({ ok: true, exists: false });
   }
 
-  // ✅ neueste Version
-  const latest = await prisma.maskVersion.findFirst({
-    where: { maskId: mask.id },
+  const latest = await prisma.annotationArtifactVersion.findFirst({
+    where: { artifactId: artifact.id },
     orderBy: { version: "desc" },
     select: {
       id: true,
@@ -59,13 +57,13 @@ export async function GET(
   });
 
   if (!latest) {
-    return NextResponse.json({ ok: true, exists: false, maskId: mask.id });
+    return NextResponse.json({ ok: true, exists: false, maskId: artifact.id });
   }
 
   return NextResponse.json({
     ok: true,
     exists: true,
-    maskId: mask.id,
+    maskId: artifact.id,
     versionId: latest.id,
     version: latest.version,
     key: latest.storageKey,

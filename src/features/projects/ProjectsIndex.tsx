@@ -11,7 +11,7 @@ import { prisma } from "@/server/db";
 export async function ProjectsIndex() {
   const user = await requireUser();
 
-  const projects = await prisma.project.findMany({
+  const projects = await prisma.annotationProject.findMany({
     where: { members: { some: { userId: user.id } } },
     orderBy: { updatedAt: "desc" },
     select: {

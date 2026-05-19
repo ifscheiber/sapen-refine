@@ -1,9 +1,10 @@
 import { randomUUID } from "crypto";
-import { MaskKind } from "@prisma/client";
+import { AnnotationArtifactKind } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
+import { getProjectLabelSchemaVersionId } from "@/server/domain/labelSchema";
 import { putObject } from "@/server/storage/s3";
 import {
   readContentLength,
@@ -49,13 +50,13 @@ export async function POST(
     });
   }
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: { id: true, projectId: true },
   });
   if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
 
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
@@ -67,29 +68,32 @@ export async function POST(
   const contentType = req.headers.get("content-type") || "application/octet-stream";
   await putObject(key, bytes, contentType);
 
-  const kind: MaskKind = MaskKind.REFINED;
-  const mask = await prisma.mask.upsert({
-    where: { imageId_kind: { imageId, kind } },
+  const labelSchemaVersionId = await getProjectLabelSchemaVersionId(image.projectId);
+  const kind = AnnotationArtifactKind.SEMANTIC_MASK;
+  const artifact = await prisma.annotationArtifact.upsert({
+    where: { imageId_kind_scopeKey: { imageId, kind, scopeKey: "default" } },
     update: {},
-    create: { imageId, kind },
+    create: { projectId: image.projectId, imageId, kind, scopeKey: "default", createdById: user.id },
     select: { id: true },
   });
 
-  const last = await prisma.maskVersion.findFirst({
-    where: { maskId: mask.id },
+  const last = await prisma.annotationArtifactVersion.findFirst({
+    where: { artifactId: artifact.id },
     orderBy: { version: "desc" },
     select: { version: true },
   });
 
-  const version = await prisma.maskVersion.create({
+  const version = await prisma.annotationArtifactVersion.create({
     data: {
-      maskId: mask.id,
+      artifactId: artifact.id,
       version: (last?.version ?? 0) + 1,
       storageKey: key,
+      contentType,
       size: bytes.byteLength,
       width,
       height,
       format: req.headers.get("x-mask-format") || "u8raw-v1",
+      labelSchemaVersionId,
       createdById: user.id,
     },
     select: { id: true, createdAt: true, version: true },
@@ -97,7 +101,7 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    maskId: mask.id,
+    maskId: artifact.id,
     versionId: version.id,
     version: version.version,
     createdAt: version.createdAt,

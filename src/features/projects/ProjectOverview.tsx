@@ -11,7 +11,7 @@ import { prisma } from "@/server/db";
 export async function ProjectOverview({ projectId }: { projectId: string }) {
   const user = await requireUser();
 
-  const project = await prisma.project.findUnique({
+  const project = await prisma.annotationProject.findUnique({
     where: { id: projectId },
     include: {
       members: { where: { userId: user.id }, take: 1, select: { role: true } },

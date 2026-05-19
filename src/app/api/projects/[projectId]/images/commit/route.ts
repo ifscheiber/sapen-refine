@@ -32,14 +32,14 @@ export async function POST(
     });
   }
 
-  const image = await prisma.image.create({
+  const image = await prisma.imageAsset.create({
     data: {
       projectId,
       storageKey: key,
       filename,
       contentType,
       size,
-      createdById: user.id, // falls dein Schema das Feld hat
+      uploadedById: user.id,
     },
     select: { id: true, filename: true, storageKey: true, createdAt: true },
   });

@@ -98,7 +98,7 @@ async function main() {
     await ensureGlobalUserRole(prisma, user.id);
 
     if (projectId) {
-      const project = await prisma.project.findUnique({
+      const project = await prisma.annotationProject.findUnique({
         where: { id: projectId },
         select: { id: true, name: true },
       });
@@ -106,7 +106,7 @@ async function main() {
         throw new Error(`Project not found: ${projectId}`);
       }
 
-      await prisma.projectMember.upsert({
+      await prisma.annotationProjectMember.upsert({
         where: { projectId_userId: { projectId: project.id, userId: user.id } },
         update: { role: projectRole },
         create: { projectId: project.id, userId: user.id, role: projectRole },

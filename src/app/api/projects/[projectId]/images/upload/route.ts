@@ -58,14 +58,14 @@ export async function POST(
 
   await putObject(key, bytes, contentType);
 
-  const image = await prisma.image.create({
+  const image = await prisma.imageAsset.create({
     data: {
       projectId,
       storageKey: key,
       filename,
       contentType,
       size: bytes.byteLength,
-      createdById: user.id,
+      uploadedById: user.id,
     },
     select: { id: true, filename: true, storageKey: true, createdAt: true },
   });

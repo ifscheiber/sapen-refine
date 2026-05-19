@@ -11,16 +11,97 @@ enum GlobalRole {
   USER
 }
 
-enum ProjectRole {
+enum AnnotationProjectRole {
   OWNER
   QA
   LABELER
   VIEWER
 }
 
-enum MaskKind {
-  PREDICTION
-  REFINED
+enum LabelSchemaStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  ARCHIVED
+}
+
+enum LabelApplicability {
+  SEMANTIC_MASK
+  SUPPORT_MASK
+  SLICE_CLASSIFICATION
+  REVIEW_FLAG
+}
+
+enum ImageValidationStatus {
+  PENDING
+  VALIDATED
+  FAILED
+}
+
+enum AnnotationTaskType {
+  SEMANTIC_MATERIAL_MASK
+  SLICE_SUPPORT_MASK
+  SLICE_CLASSIFICATION
+  REVIEW_APPROVAL
+  MODEL_PREDICTION_CORRECTION
+}
+
+enum AnnotationTaskStatus {
+  OPEN
+  IN_PROGRESS
+  SUBMITTED
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum AnnotationArtifactKind {
+  SEMANTIC_MASK
+  SLICE_SUPPORT_MASK
+  INSTANCE_MASK
+  PREDICTION_MASK
+  DERIVED_MASK
+}
+
+enum ArtifactReviewState {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+enum ArtifactProvenance {
+  HUMAN_ANNOTATION
+  HUMAN_CORRECTION
+  MODEL_PREDICTION
+  DERIVED
+  SYSTEM_IMPORT
+}
+
+enum CoordinateSpace {
+  IMAGE_PIXEL
+  TRANSFORMED
+}
+
+enum SliceClass {
+  SAP_HEARTWOOD_SLICE
+  COPPER_SLICE
+  UNKNOWN
+  REVIEW_REQUIRED
+}
+
+enum ExportTarget {
+  SEMANTIC_SEGMENTATION
+  INSTANCE_SUPPORT_SEGMENTATION
+  SLICE_CLASSIFICATION
+  COMBINED_MANIFEST
+}
+
+enum ExportStatus {
+  CREATED
+  COMPLETED
+  FAILED
 }
 
 model User {
@@ -31,12 +112,22 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  globalRoles         UserGlobalRole[]
-  memberships         ProjectMember[]
-  auditLogs           AuditLog[]    @relation("AuditActor")
-  createdMaskVersions MaskVersion[] @relation("MaskVersionCreatedBy")
-  sessions            Session[]
-  createdImages       Image[]       @relation("ImageCreatedBy")
+  globalRoles                 UserGlobalRole[]
+  projectMemberships          AnnotationProjectMember[]
+  auditLogs                   AuditLog[]                  @relation("AuditActor")
+  sessions                    Session[]
+  createdProjects             AnnotationProject[]         @relation("ProjectCreatedBy")
+  uploadedImages              ImageAsset[]                @relation("ImageUploadedBy")
+  createdLabelSchemas         LabelSchemaVersion[]        @relation("LabelSchemaCreatedBy")
+  createdTasks                AnnotationTask[]            @relation("TaskCreatedBy")
+  assignedTasks               AnnotationTask[]            @relation("TaskAssignedTo")
+  editingSessions             AnnotationSession[]         @relation("AnnotationSessionActor")
+  createdArtifacts            AnnotationArtifact[]        @relation("ArtifactCreatedBy")
+  createdArtifactVersions     AnnotationArtifactVersion[] @relation("ArtifactVersionCreatedBy")
+  createdSliceInstances       SliceInstance[]             @relation("SliceInstanceCreatedBy")
+  createdSliceClassifications SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
+  reviewDecisions             ReviewDecision[]            @relation("ReviewDecisionReviewedBy")
+  exportBatches               ExportBatch[]               @relation("ExportBatchExportedBy")
 }
 
 model Role {
@@ -55,84 +146,387 @@ model UserGlobalRole {
   @@id([userId, roleId])
 }
 
-model Project {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model AnnotationProject {
+  id                    String   @id @default(cuid())
+  name                  String
+  description           String?
+  labelSchemaVersionId  String?
+  createdById           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  members ProjectMember[]
-  images  Image[]
+  labelSchemaVersion  LabelSchemaVersion?       @relation("ProjectActiveLabelSchema", fields: [labelSchemaVersionId], references: [id], onDelete: SetNull)
+  createdBy           User?                     @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members             AnnotationProjectMember[]
+  images              ImageAsset[]
+  tasks               AnnotationTask[]
+  annotationSessions  AnnotationSession[]
+  artifacts           AnnotationArtifact[]
+  sliceInstances      SliceInstance[]
+  classifications     SliceClassificationVersion[]
+  reviewDecisions     ReviewDecision[]
+  exportBatches       ExportBatch[]
+
+  @@index([labelSchemaVersionId])
+  @@index([createdById])
 }
 
-model ProjectMember {
+model AnnotationProjectMember {
   projectId String
   userId    String
-  role      ProjectRole
+  role      AnnotationProjectRole
+  joinedAt  DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userId])
   @@index([userId])
+  @@index([role])
 }
 
-model Image {
-  id          String   @id @default(cuid())
-  projectId   String
-  storageKey  String   @unique
-  filename    String?
-  contentType String?
-  size        Int?
-  createdAt   DateTime @default(now())
-
-  // IMPORTANT: explicit opposite relation name
-  masks       Mask[]   @relation("ImageMasks")
-
+model LabelSchemaVersion {
+  id          String            @id @default(cuid())
+  name        String
+  version     String
+  status      LabelSchemaStatus @default(ACTIVE)
+  isDefault   Boolean           @default(false)
   createdById String?
-  createdBy   User?    @relation("ImageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User?                         @relation("LabelSchemaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  definitions     LabelDefinition[]
+  activeProjects  AnnotationProject[]           @relation("ProjectActiveLabelSchema")
+  artifactVersions AnnotationArtifactVersion[]
+  classifications SliceClassificationVersion[]
+
+  @@unique([name, version])
+  @@index([isDefault, status])
+  @@index([createdById])
+}
+
+model LabelDefinition {
+  id              String             @id @default(cuid())
+  schemaVersionId String
+  stableId        String
+  byteValue       Int?
+  displayName     String
+  semanticMeaning String
+  applicability   LabelApplicability
+  colorToken      String?
+  sortOrder       Int                @default(0)
+  isTrainable     Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+
+  schemaVersion LabelSchemaVersion @relation(fields: [schemaVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([schemaVersionId, stableId])
+  @@unique([schemaVersionId, byteValue])
+  @@index([schemaVersionId, applicability])
+}
+
+model ImageAsset {
+  id               String                @id @default(cuid())
+  projectId        String
+  storageKey       String                @unique
+  filename         String?
+  contentType      String?
+  size             Int?
+  checksum         String?
+  width            Int?
+  height           Int?
+  validationStatus ImageValidationStatus @default(PENDING)
+  uploadedById     String?
+  uploadedAt       DateTime              @default(now())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  project             AnnotationProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy          User?                    @relation("ImageUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  acquisitionMetadata ImageAcquisitionMetadata?
+  sampleMetadata      SampleMetadata?
+  tasks               AnnotationTask[]
+  annotationSessions  AnnotationSession[]
+  artifacts           AnnotationArtifact[]
+  sliceInstances      SliceInstance[]
+  classifications     SliceClassificationVersion[]
+  exportItems         ExportItem[]
 
   @@index([projectId])
-  @@index([createdById])
+  @@index([uploadedById])
+  @@index([validationStatus])
 }
 
-model Mask {
-  id        String   @id @default(cuid())
-  imageId   String
-  kind      MaskKind
-  createdAt DateTime @default(now())
+model ImageAcquisitionMetadata {
+  id            String   @id @default(cuid())
+  imageId       String   @unique
+  cameraDevice  String?
+  lensObjective String?
+  exposure      String?
+  aperture      String?
+  iso           String?
+  whiteBalance  String?
+  colorProfile  String?
+  lightingSetup String?
+  capturedBy    String?
+  capturedAt    DateTime?
+  importedExif  Json?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  // IMPORTANT: matches Image.masks relation name
-  image     Image        @relation("ImageMasks", fields: [imageId], references: [id], onDelete: Cascade)
-  versions  MaskVersion[]
+  image ImageAsset @relation(fields: [imageId], references: [id], onDelete: Cascade)
+}
 
-  // so we can do: where: { imageId_kind: { imageId, kind } }
-  @@unique([imageId, kind], name: "imageId_kind")
+model SampleMetadata {
+  id                 String   @id @default(cuid())
+  imageId            String   @unique
+  tNumber            String?
+  specimenIdentifier String?
+  sliceIndex         Int?
+  replicate          String?
+  treatmentReference String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  image ImageAsset @relation(fields: [imageId], references: [id], onDelete: Cascade)
+}
+
+model AnnotationTask {
+  id                      String               @id @default(cuid())
+  projectId               String
+  imageId                 String?
+  sliceInstanceId         String?
+  type                    AnnotationTaskType
+  status                  AnnotationTaskStatus @default(OPEN)
+  priority                Int                  @default(0)
+  taskReason              String?
+  uncertaintyScore        Float?
+  confidenceScore         Float?
+  modelSource             String?
+  sourceArtifactVersionId String?
+  createdById             String?
+  assigneeId              String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  project          AnnotationProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image            ImageAsset?             @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance    SliceInstance?          @relation(fields: [sliceInstanceId], references: [id], onDelete: SetNull)
+  createdBy        User?                   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee         User?                   @relation("TaskAssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
+  annotationSessions AnnotationSession[]
+  artifactVersions   AnnotationArtifactVersion[]
+  classifications    SliceClassificationVersion[]
+
+  @@index([projectId, status])
   @@index([imageId])
+  @@index([assigneeId, status])
+  @@index([type])
 }
 
-model MaskVersion {
-  id         String   @id @default(cuid())
-  maskId     String
-  version    Int
-  createdAt  DateTime @default(now())
+model AnnotationSession {
+  id             String    @id @default(cuid())
+  projectId      String
+  imageId        String?
+  taskId         String?
+  actorId        String
+  startedAt      DateTime  @default(now())
+  committedAt    DateTime?
+  clientVersion  String?
+  toolMode       String?
+  auditContext   Json?
 
-  storageKey String   @unique
-  size       Int
-  width      Int
-  height     Int
-  format     String   @default("u8raw-v1")
+  project          AnnotationProject             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image            ImageAsset?                   @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  task             AnnotationTask?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  actor            User                          @relation("AnnotationSessionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  artifactVersions AnnotationArtifactVersion[]
 
+  @@index([projectId, startedAt])
+  @@index([imageId])
+  @@index([taskId])
+  @@index([actorId])
+}
+
+model AnnotationArtifact {
+  id          String                 @id @default(cuid())
+  projectId   String
+  imageId     String
+  kind        AnnotationArtifactKind
+  scopeKey    String                 @default("default")
   createdById String?
-  createdBy   User?    @relation("MaskVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
-  mask Mask @relation(fields: [maskId], references: [id], onDelete: Cascade)
+  project   AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image     ImageAsset                  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  createdBy User?                       @relation("ArtifactCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  versions  AnnotationArtifactVersion[]
 
-  @@unique([maskId, version])
-  @@index([maskId, createdAt])
+  @@unique([imageId, kind, scopeKey])
+  @@index([projectId, kind])
   @@index([createdById])
+}
+
+model AnnotationArtifactVersion {
+  id                   String              @id @default(cuid())
+  artifactId           String
+  version              Int
+  reviewState          ArtifactReviewState @default(DRAFT)
+  provenance           ArtifactProvenance  @default(HUMAN_ANNOTATION)
+  storageKey           String              @unique
+  contentType          String?
+  size                 Int
+  checksum             String?
+  width                Int
+  height               Int
+  coordinateSpace      CoordinateSpace     @default(IMAGE_PIXEL)
+  coordinateTransform  Json?
+  format               String              @default("u8raw-v1")
+  labelSchemaVersionId String
+  taskId               String?
+  sessionId            String?
+  parentVersionId      String?
+  createdById          String?
+  createdAt            DateTime            @default(now())
+
+  artifact           AnnotationArtifact          @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  labelSchemaVersion LabelSchemaVersion          @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
+  task               AnnotationTask?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  session            AnnotationSession?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  parentVersion      AnnotationArtifactVersion?  @relation("ArtifactVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions      AnnotationArtifactVersion[] @relation("ArtifactVersionParent")
+  createdBy          User?                       @relation("ArtifactVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  supportForSlices   SliceInstance[]             @relation("SliceSupportArtifactVersion")
+  reviewDecisions    ReviewDecision[]
+  exportItems        ExportItem[]
+
+  @@unique([artifactId, version])
+  @@index([artifactId, createdAt])
+  @@index([labelSchemaVersionId])
+  @@index([reviewState])
+  @@index([createdById])
+  @@index([parentVersionId])
+}
+
+model SliceInstance {
+  id                       String   @id @default(cuid())
+  projectId                String
+  imageId                  String
+  supportArtifactVersionId String?
+  boundingBox              Json?
+  createdById              String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  project                AnnotationProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image                  ImageAsset                 @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  supportArtifactVersion AnnotationArtifactVersion? @relation("SliceSupportArtifactVersion", fields: [supportArtifactVersionId], references: [id], onDelete: SetNull)
+  createdBy              User?                      @relation("SliceInstanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks                  AnnotationTask[]
+  classifications        SliceClassificationVersion[]
+
+  @@index([projectId])
+  @@index([imageId])
+  @@index([supportArtifactVersionId])
+  @@index([createdById])
+}
+
+model SliceClassificationVersion {
+  id                   String              @id @default(cuid())
+  projectId            String
+  imageId              String
+  sliceInstanceId      String
+  version              Int
+  class                SliceClass
+  labelSchemaVersionId String
+  reviewState          ArtifactReviewState @default(DRAFT)
+  taskId               String?
+  createdById          String?
+  createdAt            DateTime            @default(now())
+
+  project            AnnotationProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image              ImageAsset         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance      SliceInstance      @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  labelSchemaVersion LabelSchemaVersion @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
+  task               AnnotationTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy          User?              @relation("SliceClassificationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  exportItems        ExportItem[]
+
+  @@unique([sliceInstanceId, version])
+  @@index([projectId, class])
+  @@index([imageId])
+  @@index([reviewState])
+  @@index([labelSchemaVersionId])
+}
+
+model ReviewDecision {
+  id                String              @id @default(cuid())
+  projectId         String
+  artifactVersionId String
+  fromState         ArtifactReviewState?
+  toState           ArtifactReviewState
+  reviewedById      String
+  reviewedAt        DateTime            @default(now())
+  comments          String?
+  reason            String?
+  createdAt         DateTime            @default(now())
+
+  project         AnnotationProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifactVersion AnnotationArtifactVersion @relation(fields: [artifactVersionId], references: [id], onDelete: Cascade)
+  reviewedBy      User                     @relation("ReviewDecisionReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, reviewedAt])
+  @@index([artifactVersionId])
+  @@index([reviewedById])
+  @@index([toState])
+}
+
+model ExportBatch {
+  id                    String       @id @default(cuid())
+  projectId             String
+  target                ExportTarget
+  status                ExportStatus @default(CREATED)
+  manifestFormatVersion String       @default("sapen-annotate-manifest-v1")
+  manifestStorageKey    String?
+  manifestChecksum      String?
+  selectionCriteria     Json?
+  warnings              Json?
+  metadataSummary       Json?
+  exportedById          String
+  exportedAt            DateTime     @default(now())
+  createdAt             DateTime     @default(now())
+
+  project    AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exportedBy User              @relation("ExportBatchExportedBy", fields: [exportedById], references: [id], onDelete: Restrict)
+  items      ExportItem[]
+
+  @@index([projectId, exportedAt])
+  @@index([exportedById])
+  @@index([target, status])
+}
+
+model ExportItem {
+  id                           String   @id @default(cuid())
+  exportBatchId                String
+  imageId                      String?
+  artifactVersionId            String?
+  sliceClassificationVersionId String?
+  role                         String
+  createdAt                    DateTime @default(now())
+
+  exportBatch                ExportBatch                 @relation(fields: [exportBatchId], references: [id], onDelete: Cascade)
+  image                      ImageAsset?                 @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  artifactVersion            AnnotationArtifactVersion?  @relation(fields: [artifactVersionId], references: [id], onDelete: SetNull)
+  sliceClassificationVersion SliceClassificationVersion? @relation(fields: [sliceClassificationVersionId], references: [id], onDelete: SetNull)
+
+  @@index([exportBatchId])
+  @@index([imageId])
+  @@index([artifactVersionId])
+  @@index([sliceClassificationVersionId])
 }
 
 model AuditLog {
@@ -155,10 +549,10 @@ model Session {
   userId    String
   tokenHash String @unique
 
-  createdAt   DateTime  @default(now())
-  lastSeenAt  DateTime?
-  expiresAt   DateTime
-  revokedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  expiresAt  DateTime
+  revokedAt  DateTime?
 
   ip        String?
   userAgent String?

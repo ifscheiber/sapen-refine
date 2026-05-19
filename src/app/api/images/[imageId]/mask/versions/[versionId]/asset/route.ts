@@ -12,13 +12,13 @@ export async function GET(
   const user = await requireUser();
   const { imageId, versionId } = await props.params;
 
-  const version = await prisma.maskVersion.findUnique({
+  const version = await prisma.annotationArtifactVersion.findUnique({
     where: { id: versionId },
     select: {
       id: true,
       storageKey: true,
       format: true,
-      mask: {
+      artifact: {
         select: {
           imageId: true,
           image: { select: { projectId: true } },
@@ -27,12 +27,12 @@ export async function GET(
     },
   });
 
-  if (!version || version.mask.imageId !== imageId) {
+  if (!version || version.artifact.imageId !== imageId) {
     return NextResponse.json({ error: "MASK_VERSION_NOT_FOUND" }, { status: 404 });
   }
 
-  const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId: version.mask.image.projectId, userId: user.id } },
+  const membership = await prisma.annotationProjectMember.findUnique({
+    where: { projectId_userId: { projectId: version.artifact.image.projectId, userId: user.id } },
     select: { role: true },
   });
   if (!membership) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
