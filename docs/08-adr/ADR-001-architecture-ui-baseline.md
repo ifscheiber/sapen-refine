@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-043 implementation.
+Accepted and implemented by RB-043.
 
 ## Decision
 
@@ -11,5 +11,5 @@ SaPen Annotate will keep stable public URLs while moving implementation into thi
 ## Consequences
 
 - `/app` remains a valid URL but should redirect to `/app/projects`.
-- The old prototype AppShell should not remain as a parallel active workflow.
+- The old prototype AppShell was removed; `src/components/shell/AppShell.tsx` is the active workspace shell.
 - Design values should move to `src/design`.

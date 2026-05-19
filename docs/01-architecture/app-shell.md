@@ -1,13 +1,13 @@
 # App Shell
 
-RB-043 target shell concepts:
+Implemented shell components:
 
-- authenticated workspace layout,
-- primary navigation/sidebar,
-- topbar with user/session context,
-- consistent page header pattern,
-- constrained main content region,
-- reusable empty/loading/error states,
-- responsive desktop and iPad behavior.
+- `src/components/shell/AppShell.tsx` - authenticated workspace frame.
+- `src/components/shell/AppSidebar.tsx` - desktop primary navigation.
+- `src/components/shell/AppTopbar.tsx` - user/session context and logout action.
+- `src/components/shell/AppPageHeader.tsx` - page title/description/action pattern.
+- `src/components/shell/AppMain.tsx` - responsive content container.
+- `src/components/shell/AppEmptyState.tsx` - reusable empty state.
+- `src/components/shell/AppSection.tsx` - reusable bordered surface.
 
-The shell must not own annotation-domain business logic. It should compose children and route context only.
+`src/app/(workspace)/app/layout.tsx` authenticates the user and composes the shell. The shell does not own annotation-domain business logic.

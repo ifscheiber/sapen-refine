@@ -1,6 +1,12 @@
 # Tokens
 
-RB-043 token groups:
+Token files:
+
+- `src/design/tokens.css` - light/dark semantic CSS variables.
+- `src/design/themes.css` - Tailwind v4 token mapping and base element styles.
+- `src/design/editorCanvas.ts` - centrally approved canvas preview colors.
+
+Token groups:
 
 - background and foreground,
 - surface/card/popover,
@@ -10,3 +16,5 @@ RB-043 token groups:
 - shell/sidebar,
 - annotation labels,
 - typography, radius, and shadow.
+
+Production components should consume tokens through semantic Tailwind classes. Raw hex/RGB values are limited to `src/design/**` and label definitions.

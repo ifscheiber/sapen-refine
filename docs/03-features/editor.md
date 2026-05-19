@@ -4,8 +4,9 @@ The current editor is prototype-level but useful for drawing and saving masks.
 
 Important files:
 
-- `src/app/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
-- `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
+- `src/features/editor/EditImagePage.tsx`
+- `src/features/editor/EditorClient.tsx`
 - `src/mask/*`
 
-RB-043 target: clarify ownership under `src/features/editor` without a full editor rewrite.
+Editor ownership is now under `src/features/editor` without a full editor rewrite.

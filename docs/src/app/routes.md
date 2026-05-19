@@ -7,13 +7,13 @@ This page lists current browser routes backed by `src/app`.
 ## Current Routes
 
 - `/` - redirects to `/app` or `/login?next=/app` from `src/app/page.tsx`.
-- `/login` - login form from `src/app/login/page.tsx`.
-- `/app` - MVP application shell from `src/app/app/page.tsx` and `src/app/app/AppShell.tsx`.
-- `/app/projects` - authenticated project list from `src/app/app/projects/page.tsx`.
-- `/app/projects/new` - project creation page from `src/app/app/projects/new/page.tsx`.
-- `/app/projects/[projectId]` - project landing page from `src/app/app/projects/[projectId]/page.tsx`.
-- `/app/projects/[projectId]/images` - project image list/upload page from `src/app/app/projects/[projectId]/images/page.tsx`.
-- `/app/projects/[projectId]/images/[imageId]/edit` - image editor from `src/app/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
+- `/login` - login form from `src/app/(public)/login/page.tsx`.
+- `/app` - redirects to `/app/projects` from `src/app/(workspace)/app/page.tsx`.
+- `/app/projects` - authenticated project list from `src/app/(workspace)/app/projects/page.tsx` and `src/features/projects/ProjectsIndex.tsx`.
+- `/app/projects/new` - project creation page from `src/app/(workspace)/app/projects/new/page.tsx` and `src/features/projects/NewProjectPage.tsx`.
+- `/app/projects/[projectId]` - project landing page from `src/app/(workspace)/app/projects/[projectId]/page.tsx` and `src/features/projects/ProjectOverview.tsx`.
+- `/app/projects/[projectId]/images` - project image list/upload page from `src/app/(workspace)/app/projects/[projectId]/images/page.tsx` and `src/features/images/ProjectImagesPage.tsx`.
+- `/app/projects/[projectId]/images/[imageId]/edit` - image editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx` and `src/features/editor/EditImagePage.tsx`.
 
 ## Invariants And Constraints
 
@@ -22,7 +22,6 @@ This page lists current browser routes backed by `src/app`.
 
 ## Known Gaps
 
-- The `/app` shell and project pages overlap in responsibility and need future consolidation.
 - Editor routes are present, but review/approval/export routes are not implemented.
 
 ## Related Tickets / Docs

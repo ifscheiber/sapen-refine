@@ -6,11 +6,9 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 
 ## Important Files
 
-- `src/app/app/AppShell.tsx` - MVP shell that wires project/image state into editor components.
-- `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx` - route-specific editor client.
-- `src/components/AnnotationCanvas.tsx` - drawing canvas.
-- `src/components/EditorToolsBar.tsx` - brush/tool/opacity controls.
-- `src/components/TabSidebar.tsx` - project/image/sidebar panels.
+- `src/features/editor/EditImagePage.tsx` - server-side route composition and RBAC check.
+- `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, and export.
+- `src/design/editorCanvas.ts` - central preview styling constants for lasso handles and polygon previews.
 - `src/mask/serialize.ts` - mask byte serialization used by saves.
 
 ## Public Interfaces / Routes / Functions
@@ -27,7 +25,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 ## Known Gaps
 
 - Undo/redo, autosave, and canvas rendering need focused validation.
-- There are current lint/type errors in editor-related files.
+- ESLint still reports non-blocking hook dependency warnings in `src/features/editor/EditorClient.tsx`.
 - Review/approval state is not part of the editor workflow yet.
 
 ## Related Tickets / Docs

@@ -4,13 +4,13 @@ Deferred work discovered during repository hygiene should be recorded here inste
 
 ## RB-040-A - Baseline Validation Is Not Green
 
-Context: Baseline `npm run lint` fails before RB-040 changes. Baseline `npm run build` succeeds at compilation when network font access is available, then fails TypeScript in `src/app/app/AppShell.tsx`.
+Context: Baseline `npm run lint` failed before RB-040 changes. Baseline `npm run build` succeeded at compilation when network font access was available, then failed TypeScript in the pre-RB-043 prototype AppShell.
 
 Impact: Future changes cannot rely on lint/build as green regression gates until existing errors are fixed.
 
 Resolution: Fixed by RB-041. Root validation now includes `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run test`.
 
-Affected modules: `src/app/app/AppShell.tsx`, `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`, `src/app/app/projects/[projectId]/images/ui.tsx`, `src/components/AnnotationCanvas.tsx`, `src/components/ui/sidebar.tsx`, `src/mask/renderOverlay.ts`.
+Affected modules: deleted pre-RB-043 prototype shell/editor files, `src/components/ui/sidebar.tsx`, `src/mask/renderOverlay.ts`.
 
 Owner: Codex.
 
@@ -66,7 +66,7 @@ Impact: Annotation ergonomics and data quality may suffer on tablet devices.
 
 Proposed next step: Add a focused editor UX ticket after domain model cleanup, covering responsive layout, touch/pointer interactions, canvas scaling, and undo/save behavior.
 
-Affected modules: `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`, `src/components/AnnotationCanvas.tsx`, `src/components/EditorToolsBar.tsx`, `src/components/TabSidebar.tsx`.
+Affected modules: `src/features/editor/EditorClient.tsx`, `src/features/editor/EditImagePage.tsx`, `src/mask/*`, `src/design/editorCanvas.ts`.
 
 Owner: Unassigned.
 
@@ -102,13 +102,13 @@ Priority: P2.
 
 ## RB-041-A - Prototype Editor Lint Warnings
 
-Context: RB-041 restored green lint/build/typecheck/test gates, but ESLint still reports non-blocking hook dependency and image-element warnings in prototype editor components.
+Context: RB-041 restored green lint/build/typecheck/test gates. RB-043 removed the duplicate shell/editor prototype components, but ESLint still reports non-blocking hook dependency warnings in the active editor client.
 
 Impact: The warnings do not fail validation, but they obscure future lint output and point at code that should be simplified during architecture/UI cleanup.
 
-Proposed next step: Address or remove the prototype editor components as part of RB-043 architecture/UI baseline.
+Proposed next step: Address the remaining hook dependency warnings in a focused editor state-management ticket.
 
-Affected modules: `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`, `src/components/AppFooter.tsx`, `src/components/TabSidebar.tsx`.
+Affected modules: `src/features/editor/EditorClient.tsx`.
 
 Owner: Unassigned.
 

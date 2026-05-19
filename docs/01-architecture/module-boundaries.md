@@ -1,8 +1,8 @@
 # Module Boundaries
 
-Target ownership after RB-043:
+Ownership after RB-043:
 
-- `src/app` - thin route composition and API route handlers.
+- `src/app` - thin route composition, route groups, layouts, and API route handlers.
 - `src/components/ui` - generic primitive UI components.
 - `src/components/shell` - reusable authenticated workspace shell.
 - `src/features` - feature-specific UI and workflow composition.

@@ -2,19 +2,17 @@
 
 ## Purpose
 
-`src/components` contains reusable UI pieces and the current MVP editor UI used by SaPen Annotate.
+`src/components` contains reusable UI pieces used by SaPen Annotate. Feature-specific UI lives under `src/features`.
 
 ## Important Files
 
-- `src/components/AnnotationCanvas.tsx` - canvas drawing and viewport behavior.
-- `src/components/EditorToolsBar.tsx` - editor tool controls.
-- `src/components/TabSidebar.tsx` - current project/image/sidebar panels.
-- `src/components/AppFooter.tsx` - application footer.
 - `src/components/ui/*` - reusable UI primitives.
+- `src/components/shell/*` - authenticated workspace shell components.
+- `src/components/LogoutButton.tsx` - logout action shared by shell variants.
 
 ## Public Interfaces / Routes / Functions
 
-These components are consumed by `src/app/app/AppShell.tsx` and editor pages under `src/app/app/projects/[projectId]/images/[imageId]/edit`.
+These components are consumed by route layouts under `src/app/(workspace)/app` and feature modules under `src/features`.
 
 ## Invariants And Constraints
 
@@ -24,7 +22,7 @@ These components are consumed by `src/app/app/AppShell.tsx` and editor pages und
 
 ## Known Gaps
 
-- Editor state is still heavily client-side.
+- Editor state is still heavily client-side in `src/features/editor/EditorClient.tsx`.
 - iPad/Pencil-specific ergonomics are planned but not implemented.
 - Prototype editor warnings remain and are tracked as cleanup debt.
 

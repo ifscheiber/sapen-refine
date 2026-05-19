@@ -107,6 +107,10 @@ If something important is missing:
 - Pages and route handlers must stay thin where possible.
 - Business/domain decisions belong in server/domain modules, not deeply embedded in UI components.
 
+`src/features`
+- Owns feature-specific workflow composition and UI for projects, images, editor, auth-adjacent screens, and future domain areas.
+- Server components in this tree may call server-only helpers; client components must use APIs instead of bypassing backend invariants.
+
 `src/server`  
 - Owns server-only infrastructure: database access, auth/session helpers, RBAC, storage, and server-side domain services.
 - Must not import client components.
@@ -116,8 +120,12 @@ If something important is missing:
 - Any change to mask format requires migration/backward-compatibility consideration and documentation.
 
 `src/components`  
-- Owns reusable UI components.
+- Owns reusable UI components, including `src/components/ui` primitives and `src/components/shell` workspace layout components.
 - Domain-heavy editor state should be factored into dedicated editor/domain modules if it grows.
+
+`src/design`
+- Owns CSS tokens, theme layering, and centrally approved canvas/design constants.
+- Production components should consume semantic token classes rather than one-off raw color values.
 
 `src/lib`  
 - Owns client-side API wrappers and shared client helpers.

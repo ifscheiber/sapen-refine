@@ -8,10 +8,9 @@
 
 - `src/app/layout.tsx` - root metadata, fonts, global styles, and document shell.
 - `src/app/page.tsx` - redirects authenticated users to `/app` and unauthenticated users to `/login?next=/app`.
-- `src/app/login/page.tsx` - client login form posting to `/api/auth/login`.
-- `src/app/app/layout.tsx` - protected application layout.
-- `src/app/app/AppShell.tsx` - current MVP project/image/editor shell.
-- `src/app/app/projects/**` - route-addressable project, image, and editor pages.
+- `src/app/(public)/login/page.tsx` - login route posting to `/api/auth/login` through `LoginForm.tsx`.
+- `src/app/(workspace)/app/layout.tsx` - protected application layout using `src/components/shell/AppShell.tsx`.
+- `src/app/(workspace)/app/projects/**` - route-addressable project, image, and editor pages.
 - `src/app/api/**/route.ts` - HTTP API route handlers.
 
 ## Public Interfaces / Routes / Functions
@@ -26,8 +25,6 @@ See [routes.md](routes.md) and [api.md](api.md).
 
 ## Known Gaps
 
-- `src/app/app/AppShell.tsx` still contains MVP client-heavy workflow state.
-- Build currently fails on a pre-existing TypeScript issue in `src/app/app/AppShell.tsx`.
 - Some route handlers need stronger validation before production training-data use.
 
 ## Related Tickets / Docs

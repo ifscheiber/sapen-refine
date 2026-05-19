@@ -17,9 +17,10 @@ This is the current primary workflow for SaPen Annotate.
 
 ## Important Files
 
-- `src/app/login/page.tsx`
-- `src/app/app/AppShell.tsx`
-- `src/app/app/projects/[projectId]/images/[imageId]/edit/EditorClient.tsx`
+- `src/app/(public)/login/page.tsx`
+- `src/app/(workspace)/app/layout.tsx`
+- `src/components/shell/AppShell.tsx`
+- `src/features/editor/EditorClient.tsx`
 - `src/app/api/projects/[projectId]/images/*`
 - `src/app/api/images/[imageId]/mask/*`
 

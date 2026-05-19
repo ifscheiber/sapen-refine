@@ -10,7 +10,10 @@ Scratch annotation is the primary product mode. Prediction-assisted correction a
 
 ## System Boundaries
 
-- Application boundary: `src/app` owns Next App Router pages, layouts, and API route handlers.
+- Application boundary: `src/app` owns Next App Router route groups, pages, layouts, and API route handlers. Browser route files are thin composition points.
+- Feature boundary: `src/features` owns workflow-specific project, image, and editor UI/composition.
+- Shell/UI boundary: `src/components/shell` owns reusable workspace layout; `src/components/ui` owns generic primitives.
+- Design boundary: `src/design` owns CSS-variable tokens, themes, and central canvas preview constants.
 - Authentication boundary: `src/server/auth` owns session cookie handling, session persistence, and project-role checks.
 - Database boundary: `prisma/schema.prisma` defines the current MVP persisted model; `src/server/db.ts` owns Prisma client setup.
 - Object storage boundary: `src/server/storage.ts` and `src/server/storage/s3.ts` create presigned S3/MinIO URLs for raw images and mask artifacts.
@@ -24,7 +27,7 @@ Scratch annotation is the primary product mode. Prediction-assisted correction a
 - Prisma 7 with PostgreSQL.
 - S3-compatible object storage, locally MinIO through [docker-compose.yml](docker-compose.yml).
 - Local email/password authentication seeded by [prisma/seed.ts](prisma/seed.ts) and [prisma/seed.mjs](prisma/seed.mjs).
-- ESLint and `next build` as the current validation gates.
+- ESLint, TypeScript, Next build, Vitest, Prisma generation, and the design-hardcoding check as current validation gates.
 
 ## Current Data Model
 
@@ -42,10 +45,11 @@ Known model gaps include acquisition metadata, task queues, review/approval reco
 
 ## Current Flows
 
-- Login/session: `/login` posts to `/api/auth/login`; successful login creates a database session and sets `sapen_annotate_session`.
+- Login/session: `/login` is implemented under `src/app/(public)/login`; it posts to `/api/auth/login`, creates a database session, and sets `sapen_annotate_session`.
 - Project list/create: `/app/projects` and `/api/projects` list memberships and create owner-scoped projects.
 - Image upload: clients request `/api/projects/[projectId]/images/presign`, upload to S3/MinIO, then call `/api/projects/[projectId]/images/commit`.
-- Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders the editor client.
+- Workspace shell: `/app/**` routes live under `src/app/(workspace)/app` and compose feature modules through `src/components/shell`.
+- Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders `src/features/editor/EditorClient.tsx`.
 - Mask save/reload: the editor requests `/api/images/[imageId]/mask/presign`, uploads serialized bytes, commits through `/api/images/[imageId]/mask/commit`, and reloads through `/api/images/[imageId]/mask/latest`.
 
 ## Security And Audit Assumptions
@@ -69,7 +73,7 @@ Known gaps:
 
 - Annotation domain model for tasks, metadata, label schemas, review, approval, and exports.
 - Mask format normalization and backward compatibility.
-- Editor consolidation and iPad/Pencil-focused interaction work.
+- Editor hook cleanup and iPad/Pencil-focused interaction work.
 - Upload/commit validation hardening.
 - Admin export and manifest reproducibility.
 - Prediction-assisted annotation as a separate future refine/correction mode.
@@ -80,6 +84,7 @@ See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.m
 
 - Docs index: [docs/README.md](docs/README.md)
 - App routes and APIs: [docs/src/app/README.md](docs/src/app/README.md)
+- Architecture baseline: [docs/01-architecture/module-boundaries.md](docs/01-architecture/module-boundaries.md)
 - Server/auth/storage: [docs/src/server/README.md](docs/src/server/README.md)
 - Masks: [docs/src/mask/README.md](docs/src/mask/README.md)
 - Components/editor: [docs/src/components/README.md](docs/src/components/README.md)
