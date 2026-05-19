@@ -29,6 +29,7 @@
 - The current mask format is MVP-level and lacks explicit label-schema versioning.
 - Prisma mask kinds still use legacy refinement language.
 - Format compatibility tests are not present yet.
+- Copper is currently a semantic material label only. It is not slice support geometry and must stay separate from future support/instance masks.
 
 ## Related Tickets / Docs
 

@@ -21,7 +21,17 @@ Route files are thin wrappers around `src/features/projects`.
 - `/app/projects/[projectId]` shows the current project overview and links to images.
 - Project membership remains the authorization boundary for image and editor routes.
 
+## Current Ownership And Access
+
+- `POST /api/projects` creates a `Project` and an owner `ProjectMember` for the authenticated user.
+- `ProjectRole.OWNER`, `QA`, `LABELER`, and `VIEWER` exist in `prisma/schema.prisma`.
+- `src/server/auth/rbac.ts` checks project membership for project/image/editor access.
+- Current editable image and mask routes allow `OWNER`, `QA`, and `LABELER`; `VIEWER` can read project/image data where route handlers permit it.
+
 ## MVP Limitations
 
 - Projects do not yet include final trial/customer metadata, dataset export settings, or review workflow state.
 - Project creation is sufficient for the desktop smoke path but not the final annotation-domain model.
+- Projects do not yet select a label schema version.
+- Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
+- Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.

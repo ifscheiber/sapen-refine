@@ -1,10 +1,11 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-045 baseline work.
+This page summarizes known limitations after the RB-040 through RB-047 baseline work and the RB-048 domain-design gate.
 
 ## Current Gaps
 
 - Validation baseline is green: `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding` pass.
+- Desktop browser MVP smoke is automated through `npm run test:e2e`; real iPad Safari smoke remains deferred until deployment/device access is available.
 - RB-045 resolved the previous editor hook dependency warnings.
 - RB-046 migrated the deprecated Next.js `middleware.ts` convention to `src/proxy.ts`; the production build no longer reports that warning.
 - Current Prisma schema is MVP-level and does not yet model final annotation metadata, tasks, review/approval, label schemas, or export batches.
@@ -12,7 +13,8 @@ This page summarizes known limitations after the RB-040 through RB-045 baseline 
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload paths. RB-047 routes normal browser reads through the app as well, but stronger storage/object metadata validation, checksums, image dimension validation, and audit events remain open.
 - Admin export and manifest reproducibility are not implemented.
 - Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
-- Desktop browser MVP smoke has Playwright coverage. Real iPad Safari smoke remains deferred until deployment/device access is available.
+- Copper semantic masks are available as material labels, but physical slice support/instance geometry is not modeled yet.
+- Review/approval state is not modeled; the app cannot yet distinguish draft, submitted, approved, rejected, and superseded annotation artifacts.
 - Prediction-assisted refine/correction mode is planned but not implemented.
 
 ## Intentional Remaining "Refine" References

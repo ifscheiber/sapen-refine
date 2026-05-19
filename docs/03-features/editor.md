@@ -41,6 +41,15 @@ Important files:
 - Manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
 - Latest saved mask metadata is loaded from `/api/images/[imageId]/mask/latest`; the mask bytes are fetched through an app-mediated version asset URL.
 
+## Current Domain Model
+
+- The editor currently edits one semantic byte mask for the image.
+- The active label set comes from `src/mask/labels.ts`; the label schema is not persisted.
+- Current saves create `MaskVersion` rows under a `Mask` with `MaskKind.REFINED`.
+- The editor does not yet distinguish draft, submitted, approved, rejected, or superseded ground-truth state.
+- The editor does not yet manage annotation tasks, slice classifications, support/instance geometry, review comments, or export readiness.
+- Copper is currently available as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
+
 ## Desktop Browser Smoke Scope
 
 - The supported MVP smoke path is: open editor, draw with brush, save, reload, and confirm the latest mask loads.

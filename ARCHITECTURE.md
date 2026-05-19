@@ -48,10 +48,10 @@ Known model gaps include acquisition metadata, task queues, review/approval reco
 
 - Login/session: `/login` is implemented under `src/app/(public)/login`; it posts to `/api/auth/login`, creates a database session, and sets `sapen_annotate_session`.
 - Project list/create: `/app/projects` and `/api/projects` list memberships and create owner-scoped projects.
-- Image upload: clients request `/api/projects/[projectId]/images/presign`, upload to S3/MinIO, then call `/api/projects/[projectId]/images/commit`.
+- Image upload: the customer-trial browser path posts to `/api/projects/[projectId]/images/upload`, and the app server stores the object in S3/MinIO; presign/commit routes remain compatibility paths.
 - Workspace shell: `/app/**` routes live under `src/app/(workspace)/app` and compose feature modules through `src/components/shell`.
 - Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders `src/features/editor/EditorClient.tsx`.
-- Mask save/reload: the editor requests `/api/images/[imageId]/mask/presign`, uploads serialized bytes, commits through `/api/images/[imageId]/mask/commit`, and reloads through `/api/images/[imageId]/mask/latest`.
+- Mask save/reload: the editor posts serialized bytes to `/api/images/[imageId]/mask/upload`; latest mask metadata comes from `/api/images/[imageId]/mask/latest`, and mask bytes are streamed through app-mediated version asset routes.
 
 ## Security And Audit Assumptions
 

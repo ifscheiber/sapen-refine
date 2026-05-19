@@ -2,44 +2,71 @@
 
 ## Purpose
 
-This page records the repository state after RB-041 through RB-043 baseline work and before domain expansion.
+This page records the repository state after RB-047 and before annotation-domain schema implementation.
 
 ## Important Files
 
-- `package.json` - root scripts for install, Prisma generation, lint, typecheck, build, and tests.
-- `vitest.config.ts` - unit test runner configuration.
-- `tests/unit/mask-serialize.test.ts` - first unit test coverage for mask serialization.
+- `package.json` - root scripts for Prisma generation, lint, typecheck, build, Vitest, Playwright E2E, and design-hardcoding checks.
+- `prisma/schema.prisma` - current MVP persisted model.
 - `src/app/(public)/login/page.tsx` and `src/app/(public)/login/LoginForm.tsx` - public login route.
-- `src/app/(workspace)/app/**` - protected route group for authenticated workspace URLs.
+- `src/app/(workspace)/app/**` - protected App Router workspace URLs.
+- `src/app/api/**` - current auth, project, image, mask, health, and readiness route handlers.
 - `src/features/projects`, `src/features/images`, and `src/features/editor` - feature-owned workflow composition.
-- `src/components/shell` - reusable authenticated workspace shell.
-- `src/design` - CSS tokens, themes, and editor canvas preview constants.
+- `src/server/auth`, `src/server/runtime`, `src/server/storage`, and `src/server/uploads` - server-only auth, config, storage, and upload validation helpers.
+- `src/mask` - current label constants, mask buffers, serialization, patching, and overlay rendering.
+- `src/components/shell` and `src/design` - reusable workspace shell, UI primitives, design tokens, and editor canvas constants.
+- `tests/e2e/desktop-browser-smoke.spec.ts` and `tests/e2e/ipad-viewport-prep.spec.ts` - current browser smoke coverage.
 
 ## Current Baseline
 
-The root validation baseline is green:
+The RB-048 pre-edit baseline is green:
 
 - `npm run prisma:generate`
 - `npm run lint`
 - `npm run typecheck`
 - `npm run build`
 - `npm run test`
+- `npm run test:e2e`
 - `npm run check:design-hardcoding`
 
-`npm run lint` currently exits successfully with four hook dependency warnings in `src/features/editor/EditorClient.tsx`. Those warnings are tracked as cleanup debt and do not block the baseline.
+There is no `check:docs-links` script in `package.json` yet.
+
+## Current Application Model
+
+- Local login uses `src/app/api/auth/login/route.ts`, `src/server/auth/session.ts`, and the `User`/`Session` tables.
+- Project membership is the current access boundary through `Project` and `ProjectMember`; `src/server/auth/rbac.ts` enforces project roles for protected project/image workflows.
+- Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes still exist for compatibility.
+- Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
+- The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
+- Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist.
+- Latest mask reload uses `src/app/api/images/[imageId]/mask/latest/route.ts` and app-mediated version assets.
+
+## Current Data Model
+
+- `Project` is the standalone collaboration container, but it does not yet carry label-schema choice, export settings, metadata defaults, or workflow state.
+- `Image` stores a raw object key and basic file metadata, but not checksum, dimensions, acquisition metadata, sample/specimen metadata, or image validation status.
+- `Mask` groups mask versions by `imageId` and `MaskKind`; `MaskKind.REFINED` is legacy MVP terminology for the current human-edited mask.
+- `MaskVersion` is append-only per `Mask` and stores artifact key, size, dimensions, format, creator, and timestamp.
+- `AuditLog` exists but is not yet a complete attribution/audit trail for project, image, mask, review, approval, or export actions.
 
 ## Invariants And Constraints
 
-- Baseline commands should stay green before starting domain-model work.
-- Destructive local database reset is allowed in development, but it is not part of the required root gate.
-- UI and domain refactors should preserve URL-first workflows.
+- URL-first workspace routes must remain stable while domain implementation evolves.
+- Raw image objects should be treated as immutable after commit.
+- Mask saves should append versions instead of overwriting previous versions.
+- Writes must be tied to an authenticated user or an explicit future system actor.
+- Development data may be destroyed during later schema implementation, but RB-048 is documentation only.
 
 ## Known Gaps
 
-- Dependency audit findings are tracked separately for RB-042.
-- The active editor remains prototype-level and needs focused iPad/Pencil UX and hook cleanup before production annotation work.
+- The current schema is MVP-level and does not yet model label schemas, annotation tasks, acquisition/sample metadata, review/approval, slice instances, export batches, or prediction provenance.
+- Copper masks are currently just one semantic label in `src/mask/labels.ts`; there is no separate slice support/instance geometry model yet.
+- Upload hardening still needs checksum, object metadata, dimensions, and stronger audit coverage.
+- Real iPad Safari validation remains deferred until deployment/device access is available.
 
 ## Related Tickets / Docs
 
 - [baseline-checks.md](baseline-checks.md)
+- [../06-data/prisma.md](../06-data/prisma.md)
+- [../06-data/mask-format.md](../06-data/mask-format.md)
 - [../testing/README.md](../testing/README.md)

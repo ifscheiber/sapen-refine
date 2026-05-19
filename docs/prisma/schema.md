@@ -18,6 +18,14 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `Mask`, `MaskVersion` - mask container and append-only version rows.
 - `AuditLog` - audit row structure, not yet consistently used.
 
+## Current MVP Mapping
+
+- `Project` maps to the future standalone annotation project concept, but currently lacks label schema, export, and workflow settings.
+- `Image` maps to the future immutable image asset concept, but currently lacks checksum, dimensions, acquisition metadata, sample metadata, and validation state.
+- `Mask` maps only to a current per-image/per-kind container. It is not yet the final semantic/support/prediction artifact model.
+- `MaskVersion` maps to an append-only artifact version, but currently lacks label schema version, review status, provenance kind, parent/source version, and accepted/exported state.
+- `MaskKind.REFINED` maps to the current human-edited mask save path. It should not become final terminology for standalone scratch annotation.
+
 ## Invariants And Constraints
 
 - `Image.storageKey` and `MaskVersion.storageKey` are unique.
