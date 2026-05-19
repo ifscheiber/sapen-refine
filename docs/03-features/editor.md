@@ -7,6 +7,7 @@ Important files:
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
 - `src/features/editor/EditImagePage.tsx`
 - `src/features/editor/EditorClient.tsx`
+- `src/features/editor/canvasGeometry.ts`
 - `src/design/editorCanvas.ts`
 - `src/mask/*`
 
@@ -25,6 +26,7 @@ Important files:
 - Pointer Events are the only drawing input layer; there is no parallel mouse/touch event system.
 - The overlay canvas uses `touch-none`, so drawing on the canvas is intended not to scroll the page on touch devices.
 - Pointer capture is already used for brush strokes, freehand lasso, and polygon-handle dragging.
+- Coordinate conversion and fit/zoom sizing helpers live in `src/features/editor/canvasGeometry.ts` and are covered by unit tests.
 
 ## Current Save And History Model
 
@@ -37,7 +39,6 @@ Important files:
 ## RB-045 Start Limitations
 
 - `npm run lint` reports hook dependency warnings in `src/features/editor/EditorClient.tsx`.
-- Canvas coordinate conversion is embedded in the component and is not unit-tested yet.
 - Pointer cancellation is routed to pointer-up handling, but pointer-leave and out-of-bounds coordinate behavior need hardening.
 - Touch targets are functional but not yet tuned for iPad use.
 - Advanced iPad gestures such as two-finger zoom/pan are not part of the current editor model.

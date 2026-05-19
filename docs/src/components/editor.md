@@ -8,6 +8,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 
 - `src/features/editor/EditImagePage.tsx` - server-side route composition and RBAC check.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, and export.
+- `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
 - `src/design/editorCanvas.ts` - central preview styling constants for lasso handles and polygon previews.
 - `src/mask/serialize.ts` - mask byte serialization used by saves.
 
@@ -20,7 +21,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 
 - The base image canvas, overlay canvas, and preview canvas share the image's natural pixel dimensions.
 - CSS display size is controlled by the current zoom value and fit-to-container logic.
-- Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions.
+- Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions via `src/features/editor/canvasGeometry.ts`.
 - Brush, freehand lasso, and polygon lasso all use Pointer Events.
 - The drawing canvas is expected to suppress page scroll while drawing; page scroll should remain available outside the canvas container.
 

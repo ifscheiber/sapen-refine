@@ -9,6 +9,10 @@ Current required root gates:
 - `npm run test`
 - `npm run check:design-hardcoding`
 
+Current editor-related unit coverage:
+
+- `tests/unit/editor-canvas-geometry.test.ts` covers coordinate mapping, clamping, fit zoom, and display sizing helpers.
+
 Optional local destructive smoke:
 
 - `npm run db:reset`

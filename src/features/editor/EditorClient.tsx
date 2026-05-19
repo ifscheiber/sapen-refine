@@ -7,6 +7,12 @@ import { applyBrush, applyPolygonFill } from "@/mask/tools";
 import { applyPatch, type Patch } from "@/mask/patch";
 import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
 import { editorCanvasPreviewStyle } from "@/design/editorCanvas";
+import {
+  clampNumber,
+  clientPointToImagePoint,
+  getFitZoom,
+  getZoomedCanvasDisplaySize,
+} from "./canvasGeometry";
 
 type Props = {
   projectId: string;
@@ -22,10 +28,6 @@ const API_MASK_COMMIT = (imageId: string) => `/api/images/${imageId}/mask/commit
 type Stroke = Patch[];
 type Tool = "brush" | "lasso_free" | "lasso_poly";
 type Point = { x: number; y: number };
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
 
 function errorMessage(error: unknown, fallback = "Save failed") {
   return error instanceof Error ? error.message : fallback;
@@ -99,10 +101,10 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     const oimg = overlayImageRef.current;
     if (!oimg) return;
 
-    const x0 = clamp(x, 0, mask.width);
-    const y0 = clamp(y, 0, mask.height);
-    const x1 = clamp(x + w, 0, mask.width);
-    const y1 = clamp(y + h, 0, mask.height);
+    const x0 = clampNumber(x, 0, mask.width);
+    const y0 = clampNumber(y, 0, mask.height);
+    const x1 = clampNumber(x + w, 0, mask.width);
+    const y1 = clampNumber(y + h, 0, mask.height);
 
     // update just that region in the cached ImageData
     const palette = getPalette();
@@ -188,8 +190,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     const iw = base.width;
     const ih = base.height;
 
-    const dispW = Math.max(1, Math.floor(iw * z));
-    const dispH = Math.max(1, Math.floor(ih * z));
+    const { width: dispW, height: dispH } = getZoomedCanvasDisplaySize(iw, ih, z);
 
     base.style.width = `${dispW}px`;
     base.style.height = `${dispH}px`;
@@ -212,7 +213,12 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
     if (!iw || !ih) return;
 
-    const z = Math.min(cw / iw, ch / ih, 1);
+    const z = getFitZoom({
+      containerWidth: cw,
+      containerHeight: ch,
+      imageWidth: iw,
+      imageHeight: ih,
+    });
     setZoom(z);
     applyZoom(z);
   }
@@ -221,12 +227,13 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   function canvasToImageCoords(evt: React.PointerEvent<HTMLCanvasElement>) {
     const over = overlayCanvasRef.current!;
     const rect = over.getBoundingClientRect();
-    const sx = over.width / rect.width;
-    const sy = over.height / rect.height;
-
-    const x = Math.floor((evt.clientX - rect.left) * sx);
-    const y = Math.floor((evt.clientY - rect.top) * sy);
-    return { x, y };
+    return clientPointToImagePoint({
+      clientX: evt.clientX,
+      clientY: evt.clientY,
+      canvasWidth: over.width,
+      canvasHeight: over.height,
+      rect,
+    });
   }
 
   function clearPreview() {
@@ -1003,7 +1010,7 @@ function stamp(x: number, y: number) {
                 min={5}
                 max={300}
                 value={Math.round(zoom * 100)}
-                onChange={(e) => setZoom(clamp(Number(e.target.value) / 100, 0.05, 3))}
+                onChange={(e) => setZoom(clampNumber(Number(e.target.value) / 100, 0.05, 3))}
                 className="w-28"
               />
               <span className="tabular-nums w-10">{Math.round(zoom * 100)}%</span>
