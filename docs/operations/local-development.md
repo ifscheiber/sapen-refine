@@ -10,12 +10,17 @@ This page lists the current local setup path.
 npm install
 cp .env.example .env
 cp .env.example .env.local
-npm run db:up
-npx prisma generate
+npm run db:rebuild
 npm run prisma:generate
-npm run prisma:migrate
-npm run seed
 npm run dev
+```
+
+The default local ports in `.env.example` are intentionally project-specific (`55432` for PostgreSQL, `59000`/`59001` for MinIO) so SaPen Annotate does not accidentally talk to an older SaPen Refine/Core database on the standard ports.
+
+For an already running local database that only needs schema and seed data:
+
+```bash
+npm run db:bootstrap
 ```
 
 ## Important Files
@@ -32,7 +37,7 @@ npm run dev
 
 ## Known Gaps
 
-- Destructive DB reset is allowed during development, but it is intentionally not part of the required root gate.
+- Destructive DB reset is allowed during development. `npm run db:rebuild` removes Docker volumes, recreates local Postgres/MinIO, applies Prisma migrations, and runs the seed.
 - Prototype editor lint warnings remain and are tracked for architecture/UI cleanup.
 
 ## Related Tickets / Docs

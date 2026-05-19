@@ -7,7 +7,7 @@
 ## Important Files
 
 - `prisma/schema.prisma` - current database schema.
-- `prisma/migrations/**/migration.sql` - migration history.
+- `prisma/migrations/20260519090000_init/migration.sql` - current development baseline migration.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `prisma.config.ts` - Prisma config and environment loading.
 
@@ -19,6 +19,7 @@
 ## Invariants And Constraints
 
 - Schema changes require docs and tests.
+- This repository is still in development stage; local data may be destroyed and the migration baseline may be reset when it removes prototype debt.
 - Raw images and mask versions must remain attributable.
 - Future approved mask versions and exports must be append-only and reproducible.
 
