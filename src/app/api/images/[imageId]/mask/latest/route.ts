@@ -52,7 +52,9 @@ export async function GET(
       width: true,
       height: true,
       format: true,
+      reviewState: true,
       createdAt: true,
+      createdBy: { select: { id: true, email: true, name: true } },
     },
   });
 
@@ -71,7 +73,9 @@ export async function GET(
     width: latest.width,
     height: latest.height,
     format: latest.format,
+    reviewState: latest.reviewState,
     createdAt: latest.createdAt,
+    createdBy: latest.createdBy,
     url: `/api/images/${imageId}/mask/versions/${latest.id}/asset`,
   });
 }

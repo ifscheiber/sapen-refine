@@ -454,6 +454,7 @@ model SliceClassificationVersion {
   labelSchemaVersion LabelSchemaVersion @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
   task               AnnotationTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   createdBy          User?              @relation("SliceClassificationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewDecisions    ReviewDecision[]
   exportItems        ExportItem[]
 
   @@unique([sliceInstanceId, version])
@@ -464,23 +465,26 @@ model SliceClassificationVersion {
 }
 
 model ReviewDecision {
-  id                String              @id @default(cuid())
-  projectId         String
-  artifactVersionId String
-  fromState         ArtifactReviewState?
-  toState           ArtifactReviewState
-  reviewedById      String
-  reviewedAt        DateTime            @default(now())
-  comments          String?
-  reason            String?
-  createdAt         DateTime            @default(now())
+  id                           String              @id @default(cuid())
+  projectId                    String
+  artifactVersionId            String?
+  sliceClassificationVersionId String?
+  fromState                    ArtifactReviewState?
+  toState                      ArtifactReviewState
+  reviewedById                 String
+  reviewedAt                   DateTime            @default(now())
+  comments                     String?
+  reason                       String?
+  createdAt                    DateTime            @default(now())
 
-  project         AnnotationProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  artifactVersion AnnotationArtifactVersion @relation(fields: [artifactVersionId], references: [id], onDelete: Cascade)
-  reviewedBy      User                     @relation("ReviewDecisionReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  project                    AnnotationProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifactVersion            AnnotationArtifactVersion?     @relation(fields: [artifactVersionId], references: [id], onDelete: Cascade)
+  sliceClassificationVersion SliceClassificationVersion?    @relation(fields: [sliceClassificationVersionId], references: [id], onDelete: Cascade)
+  reviewedBy                 User                           @relation("ReviewDecisionReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
 
   @@index([projectId, reviewedAt])
   @@index([artifactVersionId])
+  @@index([sliceClassificationVersionId])
   @@index([reviewedById])
   @@index([toState])
 }
