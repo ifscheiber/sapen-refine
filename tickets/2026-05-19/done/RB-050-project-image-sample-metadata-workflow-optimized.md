@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done
 
 ## Priority
 
@@ -405,3 +405,13 @@ git commit -m "chore: finalize metadata workflow ticket"
 - Do not blur image-level sample metadata with future slice-level metadata.
 - Preserve iPad-sized usability but do not run real iPad tests unless available.
 - Keep all validation gates green.
+
+## 11. Completion Notes
+
+- Implemented project metadata edit/display with active label schema visibility.
+- Implemented image metadata detail route with immutable technical metadata, readiness summary, acquisition metadata edit, and image-level/default sample metadata edit.
+- Added app-mediated upload checksum storage; full checksum/object/dimension hardening remains RB-055.
+- Extended image list with T-number/readiness visibility and metadata/editor links without exposing private storage keys.
+- Added unit, DB integration, and desktop browser E2E coverage.
+- Updated docs for features, app routes/APIs, data model, Prisma, testing, manual smoke, known gaps, and remediation backlog.
+- Deferred slice-specific sample metadata to future `SliceInstance` workflow work.
