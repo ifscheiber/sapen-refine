@@ -194,7 +194,7 @@ Impact: Copper semantic masks could be misused as support geometry unless the do
 
 Resolution: Implemented by RB-051 optimized ticket. The app now supports one default `SliceInstance` per image, separate `SLICE_SUPPORT_MASK` artifact versions, editor support-mask mode, and draft `SliceClassificationVersion` writes.
 
-Remaining follow-up: Multi-object/multi-slice editing, true slice-specific sample metadata, review/approval, and export generation remain deferred.
+Remaining follow-up: Multi-object/multi-slice editing, true slice-specific sample metadata, reviewer dashboards, bulk review, and export generation remain deferred.
 
 Affected modules: `src/features/editor`, `src/mask`, `src/app/api/images/[imageId]/slice/*`, `src/app/api/images/[imageId]/support-mask/*`, `src/server/domain/slices.ts`, docs under `docs/03-features` and `docs/06-data`.
 
@@ -204,17 +204,19 @@ Priority: Resolved.
 
 ## RB-052 - Review And Approval Workflow
 
-Context: RB-049 adds review/approval persistence, but the current app has no draft/submitted/approved/rejected/superseded workflow.
+Context: RB-049 adds review/approval persistence, but the app had no draft/submitted/approved/rejected workflow.
 
-Impact: The app cannot identify approved training artifacts or preserve reviewer attribution.
+Impact: Without this workflow, the app could not identify approved training artifacts or preserve reviewer attribution.
 
-Proposed next step: Implement the workflow in `tickets/2026-05-19/RB-052-review-approval-workflow.md`.
+Resolution: Implemented by RB-052 optimized ticket. Semantic mask versions, slice support mask versions, and slice classification versions can now be submitted, approved, or rejected with append-only review decisions. The editor shows minimal review controls and approved-version export readiness.
 
-Affected modules: `src/app/api`, `src/features/editor`, future review UI, `prisma/schema.prisma`, docs under `docs/06-data`.
+Remaining follow-up: Reviewer dashboards, bulk review, notifications, multi-reviewer approval, and export generation remain deferred.
 
-Owner: Unassigned.
+Affected modules: `src/app/api/images/[imageId]/review-state`, `src/app/api/artifact-versions/[versionId]/review`, `src/app/api/slice-classification-versions/[versionId]/review`, `src/server/domain/review.ts`, `src/features/editor`, `prisma/schema.prisma`, docs under `docs/03-features`, `docs/06-data`, and `docs/testing`.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved.
 
 ## RB-053 - Admin Training Export MVP
 

@@ -23,7 +23,8 @@ This page lists current browser routes backed by `src/app`.
 
 ## Known Gaps
 
-- Editor routes are present, but review/approval/export routes are not implemented.
+- Export routes are not implemented.
+- Review/approval is implemented as API/editor controls, not as a separate reviewer dashboard route.
 
 ## Related Tickets / Docs
 

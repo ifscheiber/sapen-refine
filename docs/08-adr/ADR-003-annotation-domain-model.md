@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted for RB-048 design. First persistence baseline implemented by RB-049.
+Accepted for RB-048 design. First persistence baseline implemented by RB-049; metadata, default-slice, and review workflow slices implemented by RB-050 through RB-052.
 
 ## Context
 
 SaPen Annotate now has a green technical baseline, app-mediated browser upload/read paths, desktop browser E2E coverage, and documented iPad validation constraints.
 
-The current MVP schema in `prisma/schema.prisma` is sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload. It is not sufficient for exportable training data because it lacks label schema versions, structured metadata, task state, review/approval, export manifests, and clear separation between semantic material masks and support/instance geometry.
+The original MVP schema was sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload, but not for exportable training data. RB-049 through RB-052 now add label schema versions, structured metadata, default slice support/classification, and minimal review/approval. Export generation and deeper workflow coverage remain separate tickets.
 
 `MaskKind.REFINED` was legacy MVP terminology and does not define the standalone annotation model. RB-049 removed it from the active schema.
 
@@ -35,8 +35,7 @@ Copper semantic masks remain material annotations only. They must not be treated
 
 ## Deferred Work
 
-- API and UI workflow migration.
-- Review/approval UI and route handlers.
+- Full API/UI workflow depth beyond the MVP slices.
 - Training export manifest implementation.
 - Model preprediction/active-learning workflow.
 - Stronger artifact checksum/dimension/object validation.
@@ -47,5 +46,6 @@ Copper semantic masks remain material annotations only. They must not be treated
 - Current editor: `src/features/editor/EditorClient.tsx`
 - Current mask labels: `src/mask/labels.ts`
 - Current mask upload/latest routes: `src/app/api/images/[imageId]/mask/*`
+- Current review routes: `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current image upload/read routes: `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/*`
 - Target docs: `docs/06-data/annotation-domain-model.md`, `docs/06-data/prisma-schema-proposal.md`

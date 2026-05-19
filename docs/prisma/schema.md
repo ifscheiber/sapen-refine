@@ -8,6 +8,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 
 - `prisma/schema.prisma` - model definitions.
 - `prisma/migrations/20260519213000_annotation_domain_baseline/migration.sql` - current development baseline migration.
+- `prisma/migrations/20260519233000_review_classification_decisions/migration.sql` - RB-052 review decision target extension.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `src/server/db.ts` - Prisma client setup.
 
@@ -20,7 +21,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `AnnotationTask`, `AnnotationSession` - assignment/edit context baseline with priority, confidence/uncertainty, and model-source placeholders.
 - `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts.
 - `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline; RB-051 uses one default slice instance per image.
-- `ReviewDecision` - review/approval decision baseline.
+- `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
 - `ExportBatch`, `ExportItem` - export persistence baseline.
 - `AuditLog` - generic audit rows, still not exhaustively used by all mutation routes.
 
@@ -32,12 +33,13 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Every annotation artifact version references exactly one `LabelSchemaVersion`.
 - `AnnotationArtifactKind.SEMANTIC_MASK` is separate from `SLICE_SUPPORT_MASK` and `INSTANCE_MASK`.
 - Copper is a semantic label in the default label schema and is not support geometry.
+- `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
 
 ## Known Gaps
 
 - Slice-specific metadata and multi-slice/multi-object editing remain deferred.
 - One-default-slice support/classification workflows exist after RB-051.
-- Review/approval workflows remain RB-052.
+- Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - Export generation remains RB-053.
 - Checksum/dimension enforcement remains RB-055.
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the planned label-schema rules for SaPen Annotate. Current code labels live in `src/mask/labels.ts`; persisted label schemas are not implemented yet.
+This page defines the label-schema rules for SaPen Annotate. Current browser label constants live in `src/mask/labels.ts`; persisted label schema versions and definitions live in `prisma/schema.prisma` and are seeded by `prisma/seed.mjs`.
 
 ## Source Of Truth
 
@@ -10,9 +10,9 @@ Stable machine-readable label ids and versioned semantic meanings are the source
 
 Display names, colors, ordering, and UI grouping are presentation metadata. They must not define training semantics.
 
-## Planned Label Schema Version
+## Label Schema Version
 
-A label schema version should define:
+A label schema version defines:
 
 - schema id,
 - semantic version or monotonically increasing version,
@@ -89,7 +89,7 @@ Current MVP labels in `src/mask/labels.ts` map to the future schema as follows:
 | `Labels.COPPER` | 3 | `copper` | Copper-stained/penetrated material region, not slice support geometry. |
 | `Labels.SLICE_SUPPORT` | 10 | `slice_support` | Physical slice support geometry for support-mask artifacts only. |
 
-After RB-051, the browser editor has separate semantic and support label sets. The support-mask UI is binary, but the stored support byte value follows the active label schema definition for `slice_support`; it is not inferred from the Copper semantic label.
+After RB-051, the browser editor has separate semantic and support label sets. The support-mask UI is binary, but the stored support byte value follows the active label schema definition for `slice_support`; it is not inferred from the Copper semantic label. RB-052 review state does not change label semantics; approved artifacts remain tied to the exact label schema version stored on their artifact/classification version.
 
 ## Export Requirements
 

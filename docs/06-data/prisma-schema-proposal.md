@@ -241,7 +241,7 @@ Implemented the first default-slice workflow: one default `SliceInstance` per im
 
 ### RB-052 - Review/Approval Workflow
 
-Add submit, approve, reject, and supersede flows with server-side authorization and audit records.
+Implemented minimal submit, approve, and reject flows with server-side authorization and append-only `ReviewDecision` rows for semantic masks, slice support masks, and slice classifications. Supersede policy remains display/latest-approved based in this MVP; explicit supersede actions, reviewer dashboards, and bulk review remain deferred.
 
 ### RB-053 - Admin Training Export MVP
 

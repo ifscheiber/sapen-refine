@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This checklist verifies the current desktop browser MVP workflow after the RB-051 slice-support workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
+This checklist verifies the current desktop browser MVP workflow after the RB-052 review/approval workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
 
 ## Preconditions
 
@@ -30,17 +30,19 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Switch to `Slice support`. | Support mode loads separately from semantic mask mode. |  |  |
 | Draw a support mask and save. | Support-mask status shows a draft version after save. |  |  |
 | Set slice classification. | Classification persists and is visible after save. |  |  |
+| Submit semantic mask, support mask, and slice classification. | Each latest version moves from draft to submitted. |  |  |
+| Approve semantic mask, support mask, and slice classification as `OWNER`/`QA`. | Each reviewable unit shows an approved version and export-ready becomes yes. |  |  |
 | Reload editor. | Latest saved mask reloads without runtime errors. |  |  |
-| Confirm semantic/support distinction. | Semantic latest mask and support latest mask both exist through their separate APIs. |  |  |
+| Confirm semantic/support/review distinction. | Semantic latest mask, support latest mask, slice classification, and review-state APIs report separate approved versions. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
 
 ## Current MVP Limitations
 
-- Review/approval, export, multi-object support geometry, and slice-specific metadata workflows are not implemented.
+- Export, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, and slice classification persistence.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, and the owner review happy path.
 
 ## Result Tracking
 

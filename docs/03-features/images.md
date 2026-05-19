@@ -14,6 +14,7 @@ Important files:
 - `src/app/api/images/[imageId]/metadata/route.ts`
 - `src/app/api/images/[imageId]/slice/*`
 - `src/app/api/images/[imageId]/support-mask/*`
+- `src/app/api/images/[imageId]/review-state/route.ts`
 
 Image UI lives in `src/features/images` while routes stay stable.
 
@@ -39,6 +40,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - RB-051 creates a default `SliceInstance` when support-mask or classification writes need one.
 - Support geometry is stored as separate `SLICE_SUPPORT_MASK` artifact versions; it is not inferred from semantic masks.
 - Slice classification is stored as `SliceClassificationVersion` with actor and label schema version.
+- RB-052 lets the current semantic mask version, support mask version, and slice classification version move from draft to submitted and then approved/rejected.
 
 ## Current API Surface
 
@@ -52,6 +54,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `PATCH /api/images/[imageId]/slice/classification` appends a slice classification version.
 - `GET /api/images/[imageId]/support-mask/latest` returns latest support-mask metadata and an app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` uploads support-mask bytes through the app server and records a `SLICE_SUPPORT_MASK` artifact version.
+- `GET /api/images/[imageId]/review-state` returns latest and latest-approved review state for semantic mask, support mask, and slice classification.
 - `GET /api/images/[imageId]/view` and `GET /api/images/[imageId]/asset` return or stream app-mediated image reads.
 
 ## MVP Limitations
@@ -61,4 +64,4 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - Only one default slice/support geometry per image is implemented.
 - Multi-slice and multi-object workflows remain deferred.
-- Review/export workflows remain deferred.
+- Export generation remains deferred to RB-053; RB-052 provides only approved-version readiness.

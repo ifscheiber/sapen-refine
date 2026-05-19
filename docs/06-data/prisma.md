@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline. The exact schema source is `prisma/schema.prisma`; the current development baseline migration is `prisma/migrations/20260519213000_annotation_domain_baseline/migration.sql`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050/RB-051/RB-052 workflow extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -15,7 +15,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `AnnotationTask` and `AnnotationSession` provide the persistence baseline for assignment, future active-learning/preprediction fields, and edit context.
 - `AnnotationArtifact` and `AnnotationArtifactVersion` replace `Mask`/`MaskVersion` and separate semantic, support/instance, prediction, and derived artifact families.
 - `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
-- `ReviewDecision` and `ArtifactReviewState` provide the persistence baseline for draft/submitted/approved/rejected/superseded ground-truth state.
+- `ReviewDecision` and `ArtifactReviewState` provide the persistence and workflow baseline for draft/submitted/approved/rejected/superseded ground-truth state. RB-052 decisions can target artifact versions or slice classification versions.
 - `ExportBatch` and `ExportItem` provide the persistence baseline for RB-053 export manifests.
 - `AuditLog` remains available for explicit audit events and is not yet a complete audit trail.
 
@@ -29,6 +29,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - current editor mask saves create or append to a `SEMANTIC_MASK` `AnnotationArtifact`,
 - support-mask editor saves create or append to a `SLICE_SUPPORT_MASK` `AnnotationArtifact`,
 - slice classification writes create `SliceClassificationVersion` rows for the default `SliceInstance`,
+- review routes update `reviewState` and append `ReviewDecision` rows for semantic masks, support masks, and slice classifications,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.
@@ -59,7 +60,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 
 - RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.
 - RB-051 implements one-default-slice classification/support-mask user workflow.
-- RB-052 implements review/approval UI/API behavior.
+- RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
 - RB-053 implements export generation.
 - RB-055 strengthens checksum and object metadata validation.
 

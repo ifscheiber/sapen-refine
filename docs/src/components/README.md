@@ -23,8 +23,8 @@ These components are consumed by route layouts under `src/app/(workspace)/app` a
 ## Known Gaps
 
 - Editor state is still heavily client-side in `src/features/editor/EditorClient.tsx`.
-- iPad/Pencil-specific ergonomics are planned but not implemented.
-- Prototype editor warnings remain and are tracked as cleanup debt.
+- Advanced iPad/Pencil-specific ergonomics beyond Pointer Events remain deferred.
+- The editor now has MVP review controls, but reviewer dashboards and bulk review are not reusable components yet.
 
 ## Related Tickets / Docs
 

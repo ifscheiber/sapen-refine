@@ -46,7 +46,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Switch to `Slice support`. | UI clearly indicates support mode, separate from semantic labels. |  |  |
 | Draw and save support mask. | Support-mask status shows a draft version. |  |  |
 | Set slice classification. | Classification persists after save. |  |  |
-| Reload. | Semantic mask, support mask status, and classification reload. |  |  |
+| Submit and approve semantic mask, support mask, and slice classification. | Review state shows approved versions and export-ready becomes yes. |  |  |
+| Reload. | Semantic mask, support mask status, classification, and approved review state reload. |  |  |
 | Inspect browser console. | No unexpected runtime errors. |  |  |
 
 ## iPad Safari Smoke
@@ -86,6 +87,7 @@ Blocking failure criteria:
 | Draw with finger using Brush. | Canvas draws and page does not scroll while drawing. |  |  |
 | Switch to `Slice support`. | Mode switch and support controls fit the iPad viewport. |  |  |
 | Save support mask and set classification. | Support state and classification persist after reload. |  |  |
+| Inspect review controls. | Review state fits the iPad viewport without blocking normal editor controls. |  |  |
 | Draw with Apple Pencil if available. | Pencil input draws through Pointer Events. |  |  |
 | Touch outside the canvas and scroll. | Page/editor container scrolling remains possible outside drawing surface. |  |  |
 | Change labels/tools by touch. | Touch targets are usable and active state is clear. |  |  |
@@ -109,4 +111,4 @@ Blocking failure criteria:
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
-- Review/export workflows remain deferred.
+- Export generation remains deferred; review/approval exists as a minimal per-image/editor workflow.

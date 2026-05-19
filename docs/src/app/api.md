@@ -34,6 +34,9 @@ This page lists the current API route handlers under `src/app/api`.
 - `PATCH /api/images/[imageId]/slice/classification` - appends a draft `SliceClassificationVersion`.
 - `GET /api/images/[imageId]/support-mask/latest` - returns latest support-mask version metadata and app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server and records a draft `SLICE_SUPPORT_MASK` artifact version.
+- `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
+- `POST /api/artifact-versions/[versionId]/review` - submits, approves, or rejects semantic/support artifact versions after membership and transition checks.
+- `POST /api/slice-classification-versions/[versionId]/review` - submits, approves, or rejects slice classification versions after membership and transition checks.
 
 ## Invariants And Constraints
 
@@ -42,13 +45,15 @@ This page lists the current API route handlers under `src/app/api`.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
 - Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
 - Support-mask APIs must not accept semantic mask versions as physical support geometry.
+- Review APIs enforce server-side permissions: `OWNER`/`QA` can approve/reject, `OWNER`/`QA`/`LABELER` can submit, and `VIEWER` cannot mutate review state.
+- Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - API routes should return stable error codes that clients can handle.
 
 ## Known Gaps
 
 - Upload commit validation is still incomplete for checksum enforcement, dimensions, and object metadata, but RB-046 adds server-side size limits and RB-050 stores app-mediated upload checksums.
 - Audit logging is not consistently attached to route mutations.
-- Review, approval, export, and task persistence exists after RB-049, but user-facing APIs/workflows remain planned for RB-052+.
+- Export and task workflows remain deferred; RB-052 implements only the minimal review/approval API and editor controls.
 
 ## Related Tickets / Docs
 

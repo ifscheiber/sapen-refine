@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, editor access, mask commit, and latest-mask reload. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, and reproducible dataset exports.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, metadata capture, editor access, semantic/support mask commits, slice classification, and minimal review/approval. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, and reproducible dataset exports.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction and SaPen Core handoff workflows are future modes and must remain explicit provenance-bearing integrations.
 
@@ -45,7 +45,7 @@ Persisted entities today:
 - `SliceInstance` and `SliceClassificationVersion` for physical slice and classification persistence.
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 
-Known workflow gaps include metadata capture UI, support-mask workflow, review/approval workflow, export generation, stronger upload checksum/dimension validation, and future prediction import. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include export generation, reviewer dashboards/bulk review, stronger upload checksum/dimension validation, multi-slice support, and future prediction import. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -54,7 +54,8 @@ Known workflow gaps include metadata capture UI, support-mask workflow, review/a
 - Image upload: the customer-trial browser path posts to `/api/projects/[projectId]/images/upload`, and the app server stores the object in S3/MinIO; presign/commit routes remain compatibility paths.
 - Workspace shell: `/app/**` routes live under `src/app/(workspace)/app` and compose feature modules through `src/components/shell`.
 - Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders `src/features/editor/EditorClient.tsx`.
-- Mask save/reload: the editor posts serialized bytes to `/api/images/[imageId]/mask/upload`; latest mask metadata comes from `/api/images/[imageId]/mask/latest`, and mask bytes are streamed through app-mediated version asset routes.
+- Mask/classification save/reload: the editor posts semantic bytes to `/api/images/[imageId]/mask/upload`, support bytes to `/api/images/[imageId]/support-mask/upload`, and classifications to `/api/images/[imageId]/slice/classification`; latest artifacts are streamed through app-mediated version asset routes.
+- Review/approval: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, and `/api/slice-classification-versions/[versionId]/review` implement minimal draft/submitted/approved/rejected transitions and export-readiness state.
 
 ## Security And Audit Assumptions
 
@@ -71,11 +72,12 @@ Known gaps:
 - Admin user-management and export authorization are incomplete.
 - Upload commit hardening is incomplete: object existence, content length, checksums, dimensions, and content type need stronger verification.
 - Audit logging is not complete enough for production attribution.
-- Approved ground-truth immutability and review state are not fully modeled yet.
+- Review decisions are append-only for the minimal RB-052 workflow, but full audit logging remains incomplete.
 
 ## Known Follow-Up Areas
 
-- Metadata, support-mask, review, export, and prediction workflows on top of the RB-049 schema baseline.
+- Export and prediction workflows on top of the RB-049/RB-052 schema baseline.
+- Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
 - Upload/commit validation hardening.

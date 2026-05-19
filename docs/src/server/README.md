@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`src/server` owns server-only infrastructure: database access, authentication/session helpers, RBAC, and storage helpers.
+`src/server` owns server-only infrastructure: database access, authentication/session helpers, RBAC, storage helpers, and server-side domain workflow helpers.
 
 ## Important Files
 
@@ -13,6 +13,7 @@
 - `src/server/runtime/config.ts` - server-only runtime config validation.
 - `src/server/runtime/health.ts` and `src/server/runtime/readiness.ts` - operational health/readiness helpers.
 - `src/server/uploads/validation.ts` - upload size validation shared by image and mask routes.
+- `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
 - `src/server/storage.ts` - app-level storage wrapper for presigned URLs.
 - `src/server/storage/s3.ts` - AWS SDK S3/MinIO client setup, presign helpers, object writes, and storage readiness check.
 
@@ -22,6 +23,7 @@
 - `requireProjectRole(projectId, allowed)` enforces project membership roles.
 - `getPresignedGetUrl(key)` and `getPresignedPutUrl(key, contentType)` wrap S3 presigned URLs.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
+- `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 
 ## Invariants And Constraints

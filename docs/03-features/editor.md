@@ -1,6 +1,6 @@
 # Editor Feature
 
-The current editor is prototype-level but useful for drawing and saving masks. RB-045 established the browser/iPad trial baseline before domain expansion.
+The current editor is prototype-level but useful for drawing, saving, submitting, and approving MVP annotation artifacts. RB-045 established the browser/iPad trial baseline before domain expansion; RB-052 adds the first review/approval controls.
 
 Important files:
 
@@ -42,6 +42,7 @@ Important files:
 - In `Semantic mask` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
 - In `Slice support` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/support-mask/upload`.
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
+- Review/export-readiness state is loaded from `/api/images/[imageId]/review-state`.
 - Mask bytes are fetched through app-mediated version asset URLs.
 
 ## Current Domain Model
@@ -54,8 +55,10 @@ Important files:
 - Slice support saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SLICE_SUPPORT_MASK` and link the default `SliceInstance.supportArtifactVersionId`.
 - Slice classification is set from the editor and persisted as `SliceClassificationVersion`.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
-- The editor does not yet distinguish draft, submitted, approved, rejected, or superseded ground-truth state.
-- The editor does not yet manage annotation tasks, multi-object support geometry, review comments, or export readiness.
+- The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
+- `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
+- The editor shows a simple export-readiness summary based on approved versions only.
+- The editor does not yet manage annotation tasks, multi-object support geometry, bulk review, or export generation.
 - Copper is available only as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
 
 ## Default Slice Baseline
@@ -66,7 +69,7 @@ Important files:
 
 ## Desktop Browser Smoke Scope
 
-- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/save a semantic mask, switch to slice support, draw/save a support mask, set slice classification, reload, and confirm both masks and classification persist.
+- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/save a semantic mask, switch to slice support, draw/save a support mask, set slice classification, submit/approve all three reviewable units, reload, and confirm masks, classification, and approved review state persist.
 - RB-047 browser automation should keep this path small and avoid asserting unstable visual details.
 
 ## RB-045 Start Limitations

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, and RB-051 adds the first default-slice support-mask/classification workflow. Review, export, preprediction, and multi-slice workflow depth remains split across later tickets.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, and RB-052 adds the first review/approval workflow. Export, preprediction, and multi-slice workflow depth remains split across later tickets.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -15,6 +15,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current mask routes: `src/app/api/images/[imageId]/mask/*`
 - Current editor: `src/features/editor/EditorClient.tsx`
 - Current mask labels and serialization: `src/mask/labels.ts`, `src/mask/serialize.ts`
+- Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 
 ## Core Concepts
 
@@ -218,14 +219,31 @@ Required artifact states:
 
 Approved artifacts must remain immutable and exportable by exact version id.
 
-RB-049 implements `ReviewDecision` and artifact `reviewState` with:
+RB-052 implements the first server-enforced workflow for:
+
+- `AnnotationArtifactVersion` where `artifact.kind = SEMANTIC_MASK`,
+- `AnnotationArtifactVersion` where `artifact.kind = SLICE_SUPPORT_MASK`,
+- `SliceClassificationVersion`.
+
+Implemented transitions are:
+
+- `DRAFT -> SUBMITTED`,
+- `SUBMITTED -> APPROVED`,
+- `SUBMITTED -> REJECTED`.
+
+`APPROVED`, `REJECTED`, and `SUPERSEDED` are terminal for the current MVP. A newer edit creates a new draft version and does not overwrite approved history. The export-readiness helper uses latest approved versions only.
+
+`ReviewDecision` records:
 
 - reviewed artifact version,
+- reviewed slice classification version where applicable,
 - status decision,
 - reviewedBy,
 - reviewedAt,
 - comments/reason,
-- accepted/rejected/superseded relationships where applicable.
+- previous/new state.
+
+The schema allows a review decision to target either an artifact version or a slice classification version; `src/server/domain/review.ts` enforces the exact-one-target invariant.
 
 ### ExportBatch And ExportManifest
 
@@ -266,6 +284,7 @@ Server-side route handlers must enforce these rules. Hiding UI controls is not s
 - Every mask artifact version references exactly one label schema version.
 - Mask dimensions must match the image or declare an explicit coordinate transform.
 - Reviewed/approved annotations reference immutable artifact versions.
+- Reviewed/approved slice classifications reference immutable `SliceClassificationVersion` rows.
 - Export manifests reference exact immutable artifact versions.
 - Model predictions never overwrite human ground-truth versions.
 - Actor attribution is required for create, edit, review, approval, export, and administrative actions.

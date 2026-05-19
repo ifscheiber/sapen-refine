@@ -48,7 +48,7 @@ Expected classes include:
 - `UNKNOWN`
 - `REVIEW_REQUIRED`
 
-Classification versions reference the relevant image, default slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows and does not implement review/approval.
+Classification versions reference the relevant image, default slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows; RB-052 adds submit/approve/reject state transitions for those versions.
 
 ### Prediction Artifacts
 
@@ -72,7 +72,7 @@ Prediction artifacts must never overwrite human ground-truth versions.
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
 - Versions may reference a parent/source artifact version to explain derivation.
-- Approved versions remain exportable even after a newer version supersedes them.
+- Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
 
 ## Review State
 
@@ -86,7 +86,7 @@ Required states:
 - `rejected` - not accepted; reason/comment required.
 - `superseded` - replaced by a newer version without deleting history.
 
-Review decisions should be separate records so history is attributable and auditable.
+RB-052 implements review decisions as separate records so history is attributable and auditable. Decisions can target either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the review domain service enforces that exactly one target is set.
 
 ## Coordinate Space
 

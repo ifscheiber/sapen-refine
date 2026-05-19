@@ -33,7 +33,7 @@ Route files are thin wrappers around `src/features/projects`.
 
 ## MVP Limitations
 
-- Projects now carry an optional active label schema version and surface missing schema setup in the UI; dataset export settings and review workflow UI remain deferred.
+- Projects now carry an optional active label schema version and surface missing schema setup in the UI; dataset export settings and advanced reviewer administration remain deferred.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.

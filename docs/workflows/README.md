@@ -20,7 +20,8 @@ Workflow pages link to relevant app routes and APIs.
 
 ## Known Gaps
 
-- Review/approval and export workflows are planned but not implemented.
+- Review/approval exists as a minimal RB-052 editor/API workflow.
+- Export workflows are planned but not implemented.
 
 ## Related Tickets / Docs
 

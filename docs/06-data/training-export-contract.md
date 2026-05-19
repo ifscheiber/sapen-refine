@@ -4,7 +4,7 @@
 
 This page defines the planned export contract for reproducible SaPen Annotate training datasets. Admin export is not implemented in the current MVP.
 
-Exports must be reproducible from stored image assets, artifact versions, label schema versions, metadata, attribution, and the manifest.
+Exports must be reproducible from stored image assets, approved artifact/classification versions, label schema versions, metadata, attribution, review decisions, and the manifest.
 
 ## Common Export Metadata
 
@@ -119,7 +119,11 @@ Each artifact entry must include:
 
 ## Export Eligibility
 
-Default MVP export behavior should include approved artifacts only.
+Default MVP export behavior should include approved artifacts/classifications only. RB-052 implements the readiness boundary that RB-053 export generation must consume:
+
+- latest approved semantic mask version,
+- latest approved support/instance mask version,
+- latest approved slice classification version.
 
 Images or artifacts that are draft, submitted, rejected, or missing required metadata should either be excluded or included with explicit warnings depending on the export target and admin selection.
 

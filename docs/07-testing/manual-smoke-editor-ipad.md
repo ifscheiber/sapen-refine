@@ -29,6 +29,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 | Select Polygon and create a polygon. | Handles render; Enter/double-click/closing near first point commits the region. |  |  |
 | Use Undo and Redo. | Mask state changes predictably. |  |  |
 | Draw, then wait for autosave or click Save now. | Dirty state clears after save. |  |  |
+| Submit and approve semantic/support/classification versions if using an `OWNER`/`QA` account. | Review controls remain usable and export-ready state updates. |  |  |
 | Reload the editor route. | Latest saved mask reloads. |  |  |
 | Try leaving the page while dirty. | Browser shows unsaved-change protection. |  |  |
 | Inspect console during normal use. | No unexpected runtime errors. |  |  |
@@ -87,6 +88,7 @@ Blocking: yes/no
 | Try freehand Lasso with finger/Pencil. | Region commits on pointer up; cancellation does not commit partial lasso. |  |  |
 | Try Polygon with touch. | Points and handles are usable enough for a trial. |  |  |
 | Save and reload. | Saved mask persists after reload. |  |  |
+| Inspect review controls. | Submit/approve controls fit and do not block drawing or scrolling. |  |  |
 | Rotate iPad or change viewport. | Fit/zoom remains usable; document any layout issue. |  |  |
 | Inspect Safari console if available. | No unexpected runtime errors. |  |  |
 
@@ -101,5 +103,5 @@ Blocking: yes/no
 ## Known Limitations
 
 - Advanced multi-touch zoom/pan gestures are not implemented in RB-045.
-- Current editor saves draft human semantic and default slice-support artifact versions; review and export workflows remain separate follow-up slices.
+- Current editor review controls are minimal; reviewer dashboards, bulk review, and export generation remain separate follow-up slices.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

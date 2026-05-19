@@ -2,12 +2,12 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw semantic mask overlays, save a serialized mask version, and reload the latest mask. RB-045 established the desktop and iPad browser readiness baseline.
+The current editor lets users view an uploaded image, draw semantic/support mask overlays, save serialized mask versions, set slice classification, and review the MVP ground-truth state. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls.
 
 ## Important Files
 
 - `src/features/editor/EditImagePage.tsx` - server-side route composition and RBAC check.
-- `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, and export.
+- `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
 - `src/design/editorCanvas.ts` - central preview styling constants for lasso handles and polygon previews.
 - `src/mask/serialize.ts` - mask byte serialization used by saves.
@@ -16,6 +16,8 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
+- Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.
+- Review APIs: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, `/api/slice-classification-versions/[versionId]/review`.
 
 ## Current Input And Canvas Behavior
 
@@ -32,6 +34,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 ## Invariants And Constraints
 
 - Saving a mask must create a new version rather than overwrite a historical artifact.
+- Review actions must use server APIs; UI control hiding is not the permission boundary.
 - Canvas scaling and coordinate assumptions must be explicit before production iPad/Pencil work.
 - Editor UX should support desktop and tablet screen sizes.
 - Mask coordinates must remain tied to the source image dimensions until a documented coordinate-space change is made.
@@ -42,7 +45,7 @@ The current editor lets users view an uploaded image, draw semantic mask overlay
 - RB-045 resolved the previous editor hook dependency warnings.
 - iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
 - Advanced multi-touch zoom/pan remains deferred.
-- Review/approval state is not part of the editor workflow yet.
+- Review controls are minimal; reviewer dashboards, bulk review, and multi-reviewer policy are deferred.
 
 ## Related Tickets / Docs
 
