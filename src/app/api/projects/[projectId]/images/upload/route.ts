@@ -55,6 +55,7 @@ export async function POST(
   const filename = decodeFilename(req.headers.get("x-filename"));
   const contentType = req.headers.get("content-type") || "application/octet-stream";
   const key = `projects/${projectId}/images/${crypto.randomUUID()}.${extensionFor(filename)}`;
+  const checksum = `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
 
   await putObject(key, bytes, contentType);
 
@@ -65,9 +66,18 @@ export async function POST(
       filename,
       contentType,
       size: bytes.byteLength,
+      checksum,
       uploadedById: user.id,
     },
-    select: { id: true, filename: true, storageKey: true, createdAt: true },
+    select: {
+      id: true,
+      filename: true,
+      contentType: true,
+      size: true,
+      checksum: true,
+      validationStatus: true,
+      createdAt: true,
+    },
   });
 
   return NextResponse.json({ ok: true, image }, { status: 201 });

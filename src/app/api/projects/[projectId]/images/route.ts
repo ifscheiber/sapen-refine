@@ -17,8 +17,14 @@ export async function GET(
       filename: true,
       contentType: true,
       size: true,
+      checksum: true,
+      width: true,
+      height: true,
+      validationStatus: true,
+      uploadedAt: true,
+      uploadedBy: { select: { email: true, name: true } },
+      sampleMetadata: { select: { tNumber: true } },
       createdAt: true,
-      storageKey: true,
     },
   });
 
