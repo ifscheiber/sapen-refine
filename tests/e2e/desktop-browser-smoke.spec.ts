@@ -33,7 +33,10 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   const projectId = projectMatch?.[1];
   expect(projectId).toBeTruthy();
 
-  await page.getByRole("link", { name: "Images" }).click();
+  await page
+    .getByRole("navigation", { name: "Project navigation" })
+    .getByRole("link", { name: "Images" })
+    .click();
   await expect(page).toHaveURL(/\/images$/);
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
@@ -186,6 +189,14 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
 
   await page.goto(`/app/projects/${projectId}`);
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Project status" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Primary actions" })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Project navigation" })
+    .getByRole("link", { name: "Exports" })
+    .click();
+  await expect(page).toHaveURL(/\/exports$/);
+  await expect(page.getByRole("heading", { name: "Project exports" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Training export" })).toBeVisible();
   await expect(page.getByText("Semantic approved")).toBeVisible();
   await expect(page.getByText("Support approved")).toBeVisible();
@@ -203,6 +214,10 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
     "href",
     /\/api\/exports\/[^/]+\/download\?file=package/,
   );
+
+  await page.goto(`/app/projects/${projectId}/prediction-imports`);
+  await expect(page.getByRole("heading", { name: "Prediction imports" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Prediction batch imports" })).toBeVisible();
 
   const correctionTaskId = await page.evaluate(
     async ({ projectId, imageId }) => {
