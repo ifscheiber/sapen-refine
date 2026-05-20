@@ -369,7 +369,7 @@ export function ProjectCorrectionTaskQueue({ projectId, role }: ProjectCorrectio
                     <Button asChild variant="outline">
                       <Link href={task.editorHref}>
                         <CirclePlay />
-                        Open editor
+                        Open correction
                       </Link>
                     </Button>
                   )}

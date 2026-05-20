@@ -18,6 +18,8 @@ type Props = {
   projectId: string;
   imageId: string;
   canEdit: boolean;
+  correctionTaskId?: string;
+  correctionMode?: MaskMode;
 };
 
 const API_IMAGE_VIEW = (imageId: string) => `/api/images/${imageId}/view`;
@@ -31,6 +33,7 @@ const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-sta
 const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;
 const API_CLASSIFICATION_REVIEW = (versionId: string) =>
   `/api/slice-classification-versions/${versionId}/review`;
+const API_CORRECTION_CONTEXT = (taskId: string) => `/api/correction-tasks/${taskId}/correction-context`;
 
 type Stroke = Patch[];
 type Tool = "brush" | "lasso_free" | "lasso_poly";
@@ -103,6 +106,40 @@ type ImageReviewState = {
   warnings: string[];
 };
 
+type CorrectionContext = {
+  task: {
+    id: string;
+    projectId: string;
+    imageId: string;
+    status: string;
+    priority: number;
+    taskReason: string | null;
+    confidenceScore: number | null;
+    uncertaintyScore: number | null;
+  };
+  mode: MaskMode;
+  targetType: "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK";
+  humanArtifactKind: "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK";
+  predictionRun: {
+    id: string;
+    inferenceRunId: string | null;
+    modelRun: {
+      modelFamily: string;
+      modelName: string;
+      modelVersion: string | null;
+    };
+  } | null;
+  sourcePrediction: {
+    id: string;
+    checksum: string | null;
+    width: number;
+    height: number;
+    format: string;
+  };
+  predictionMaskUrl: string;
+  correctionSaveUrl: string;
+};
+
 const SLICE_CLASS_OPTIONS: Array<{ value: SliceClassValue; label: string }> = [
   { value: "SAP_HEARTWOOD_SLICE", label: "Sap/Heartwood slice" },
   { value: "COPPER_SLICE", label: "Copper slice" },
@@ -152,10 +189,12 @@ function releasePointer(target: HTMLCanvasElement, pointerId: number) {
   }
 }
 
-export default function EditorClient({ imageId, canEdit }: Props) {
+export default function EditorClient({ imageId, canEdit, correctionTaskId, correctionMode }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const predictionCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const predictionCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const overlayCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -168,7 +207,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const [brushRadius, setBrushRadius] = useState<number>(12);
   const [activeLabel, setActiveLabel] = useState<LabelId>(Labels.COPPER);
   const [tool, setTool] = useState<Tool>("brush");
-  const [maskMode, setMaskMode] = useState<MaskMode>("semantic");
+  const [maskMode, setMaskMode] = useState<MaskMode>(correctionMode ?? "semantic");
   const [sliceState, setSliceState] = useState<SliceState | null>(null);
   const [selectedSliceClass, setSelectedSliceClass] = useState<SliceClassValue | "">("");
   const [classificationStatus, setClassificationStatus] = useState<string>("");
@@ -177,8 +216,13 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   const [reviewStatus, setReviewStatus] = useState<string>("");
   const [reviewComment, setReviewComment] = useState<string>("");
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
+  const [correctionContext, setCorrectionContext] = useState<CorrectionContext | null>(null);
+  const [correctionStatus, setCorrectionStatus] = useState<string>("");
+  const [predictionOverlayEnabled, setPredictionOverlayEnabled] = useState(true);
+  const [predictionLoaded, setPredictionLoaded] = useState(false);
 
   const [zoom, setZoom] = useState<number>(1);
+  const isCorrectionMode = Boolean(correctionTaskId);
 
   const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
   const labels = useMemo(
@@ -187,6 +231,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   );
 
   const maskRef = useRef<MaskBuffer | null>(null);
+  const predictionBytesRef = useRef<Uint8Array | null>(null);
 
   // Pointer state
   const draggingRef = useRef(false);
@@ -253,10 +298,35 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     setReviewStatus("");
   }, [imageId]);
 
+  const loadCorrectionContext = useCallback(async (taskId: string) => {
+    setCorrectionStatus("Loading correction task");
+    try {
+      const res = await fetch(API_CORRECTION_CONTEXT(taskId), { method: "GET", cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `CORRECTION_CONTEXT_FAILED_${res.status}`);
+      }
+      const context = data.context as CorrectionContext;
+      setCorrectionContext(context);
+      setMaskMode(context.mode);
+      setActiveLabel(context.mode === "support" ? supportLabelValue : Labels.COPPER);
+      setCorrectionStatus("");
+      return context;
+    } catch (error) {
+      setCorrectionStatus(errorMessage(error, "Correction task failed"));
+      return null;
+    }
+  }, [supportLabelValue]);
+
   useEffect(() => {
     void loadSliceState();
     void loadReviewState();
   }, [loadReviewState, loadSliceState]);
+
+  useEffect(() => {
+    if (!correctionTaskId) return;
+    void loadCorrectionContext(correctionTaskId);
+  }, [correctionTaskId, loadCorrectionContext]);
 
   // ---------- helpers ----------
   const getPalette = useCallback(() => {
@@ -303,6 +373,10 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   }
 
   function switchMaskMode(nextMode: MaskMode) {
+    if (isCorrectionMode) {
+      setStatus("Correction task fixes the mask mode");
+      return;
+    }
     if (nextMode === maskMode) return;
     if (hasUnsavedChanges || dirtyMaskRef.current) {
       setStatus("Save current mask before switching modes");
@@ -382,12 +456,67 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     step();
   }, [getPalette]);
 
+  const renderPredictionOverlayFull = useCallback(() => {
+    const canvas = predictionCanvasRef.current;
+    const ctx = predictionCtxRef.current;
+    const bytes = predictionBytesRef.current;
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!predictionOverlayEnabled || !bytes || bytes.length !== canvas.width * canvas.height) return;
+
+    const imageData = ctx.createImageData(canvas.width, canvas.height);
+    const dst = imageData.data;
+    for (let i = 0; i < bytes.length; i++) {
+      const value = bytes[i] ?? 0;
+      if (value === 0) continue;
+      const offset = i * 4;
+      dst[offset] = 0;
+      dst[offset + 1] = 180;
+      dst[offset + 2] = 255;
+      dst[offset + 3] = 90;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }, [predictionOverlayEnabled]);
+
+  useEffect(() => {
+    if (!correctionContext?.predictionMaskUrl) return;
+    let alive = true;
+    const controller = new AbortController();
+    setPredictionLoaded(false);
+    (async () => {
+      try {
+        const res = await fetch(correctionContext.predictionMaskUrl, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`PREDICTION_MASK_FAILED_${res.status}`);
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (!alive) return;
+        predictionBytesRef.current = bytes;
+        setPredictionLoaded(true);
+        renderPredictionOverlayFull();
+      } catch (error) {
+        if (controller.signal.aborted || isAbortError(error)) return;
+        predictionBytesRef.current = null;
+        setPredictionLoaded(false);
+        setCorrectionStatus(errorMessage(error, "Prediction mask failed"));
+        renderPredictionOverlayFull();
+      }
+    })();
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [correctionContext?.predictionMaskUrl, renderPredictionOverlayFull]);
+
   // ---------- Zoom / Fit ----------
   const applyZoom = useCallback((z: number) => {
     const base = baseCanvasRef.current;
+    const prediction = predictionCanvasRef.current;
     const over = overlayCanvasRef.current;
     const preview = previewCanvasRef.current;
-    if (!base || !over || !preview) return;
+    if (!base || !prediction || !over || !preview) return;
 
     const iw = base.width;
     const ih = base.height;
@@ -396,6 +525,8 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
     base.style.width = `${dispW}px`;
     base.style.height = `${dispH}px`;
+    prediction.style.width = `${dispW}px`;
+    prediction.style.height = `${dispH}px`;
     over.style.width = `${dispW}px`;
     over.style.height = `${dispH}px`;
     preview.style.width = `${dispW}px`;
@@ -539,6 +670,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
   function scheduleAutosave() {
     if (!loadedOnceRef.current) return; // nicht während initial load
     if (!canEdit) return;
+    if (isCorrectionMode) return;
 
     markMaskDirty();
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
@@ -570,10 +702,14 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       const bytes = new Uint8Array(mask.data.length);
       bytes.set(mask.data);
       const blob = new Blob([bytes], { type: "application/octet-stream" });
+      const endpoint = correctionContext?.correctionSaveUrl ??
+        (maskMode === "support" ? API_SUPPORT_MASK_UPLOAD(imageId) : API_MASK_UPLOAD(imageId));
 
-      const upload = await fetch(
-        maskMode === "support" ? API_SUPPORT_MASK_UPLOAD(imageId) : API_MASK_UPLOAD(imageId),
-        {
+      if (isCorrectionMode && !correctionContext) {
+        throw new Error("CORRECTION_CONTEXT_NOT_LOADED");
+      }
+
+      const upload = await fetch(endpoint, {
         method: "POST",
         headers: {
           "content-type": blob.type,
@@ -582,8 +718,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
           "x-mask-format": "u8raw-v1",
         },
         body: blob,
-        },
-      );
+      });
 
       if (!upload.ok) {
         const t = await upload.text().catch(() => "");
@@ -593,10 +728,11 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       if (dirtyRevisionRef.current === saveRevision) {
         dirtyMaskRef.current = false;
         setHasUnsavedChanges(false);
-        setStatus("Saved");
+        setStatus(isCorrectionMode ? "Correction draft saved" : "Saved");
         setTimeout(() => setStatus(""), 800);
         if (maskMode === "support") void loadSliceState();
         void loadReviewState();
+        if (correctionTaskId) void loadCorrectionContext(correctionTaskId);
       } else {
         saveQueuedRef.current = true;
       }
@@ -694,14 +830,18 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       const h = img.naturalHeight;
 
       const base = baseCanvasRef.current!;
+      const prediction = predictionCanvasRef.current!;
       const over = overlayCanvasRef.current!;
       const preview = previewCanvasRef.current!;
       base.width = w;
       base.height = h;
+      prediction.width = w;
+      prediction.height = h;
       over.width = w;
       over.height = h;
       preview.width = w;
       preview.height = h;
+      predictionCtxRef.current = prediction.getContext("2d");
       overlayCtxRef.current = over.getContext("2d");
       previewCtxRef.current = preview.getContext("2d");
 
@@ -728,6 +868,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
         overlayImageRef.current = octx.createImageData(w, h);
         octx.clearRect(0, 0, w, h);
       }
+      renderPredictionOverlayFull();
       clearPreview();
 
       // fit & zoom
@@ -767,7 +908,7 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, maskMode, rerenderOverlayFull]);
+  }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, maskMode, renderPredictionOverlayFull, rerenderOverlayFull]);
 
   async function runReviewAction(reviewable: ReviewableState, action: ReviewAction) {
     const version = reviewable.latestVersion;
@@ -841,6 +982,10 @@ export default function EditorClient({ imageId, canEdit }: Props) {
     paletteRef.current = null;
     rerenderOverlayFull();
   }, [rerenderOverlayFull]);
+
+  useEffect(() => {
+    renderPredictionOverlayFull();
+  }, [renderPredictionOverlayFull]);
 
   // Apply zoom
   useEffect(() => {
@@ -1118,6 +1263,31 @@ function stamp(x: number, y: number) {
     scheduleAutosave();
   }
 
+  function usePredictionAsStartingMask() {
+    const predictionBytes = predictionBytesRef.current;
+    const mask = maskRef.current;
+    if (!predictionBytes || !mask) {
+      setCorrectionStatus("Prediction mask not loaded");
+      return;
+    }
+    if (predictionBytes.length !== mask.width * mask.height) {
+      setCorrectionStatus("Prediction dimensions do not match image");
+      return;
+    }
+    if ((hasUnsavedChanges || dirtyMaskRef.current) && !window.confirm("Replace current editable mask with the prediction proposal?")) {
+      return;
+    }
+
+    mask.data.set(predictionBytes);
+    undoRef.current = [];
+    redoRef.current = [];
+    dirtyMaskRef.current = true;
+    dirtyRevisionRef.current += 1;
+    setHasUnsavedChanges(true);
+    rerenderOverlayFull();
+    setCorrectionStatus("Prediction copied into editable mask");
+  }
+
   keyboardActionsRef.current = {
     canEdit,
     tool,
@@ -1214,15 +1384,66 @@ function stamp(x: number, y: number) {
         reviewState.reviewables.sliceClassification,
       ]
     : [];
+  const correctionModel = correctionContext?.predictionRun?.modelRun;
+  const correctionModelLabel = correctionModel
+    ? [correctionModel.modelFamily, correctionModel.modelName, correctionModel.modelVersion].filter(Boolean).join(" / ")
+    : "Unknown model";
+  const correctionScoreLabel = correctionContext
+    ? [
+        correctionContext.task.taskReason,
+        correctionContext.task.confidenceScore === null
+          ? null
+          : `confidence ${correctionContext.task.confidenceScore.toFixed(2)}`,
+        correctionContext.task.uncertaintyScore === null
+          ? null
+          : `uncertainty ${correctionContext.task.uncertaintyScore.toFixed(2)}`,
+      ].filter(Boolean).join(" · ")
+    : "";
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
       <div className="border-b border-border bg-muted p-3">
+        {isCorrectionMode && (
+          <div className="mb-3 rounded-md border border-border bg-background p-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">
+                  Prediction / model proposal · {correctionContext?.targetType ?? "Loading"}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {correctionModelLabel} {correctionScoreLabel ? `· ${correctionScoreLabel}` : ""}
+                </div>
+                {correctionStatus && (
+                  <div className="mt-1 text-xs text-muted-foreground">{correctionStatus}</div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={predictionOverlayEnabled}
+                    onChange={(event) => setPredictionOverlayEnabled(event.target.checked)}
+                  />
+                  <span>Prediction overlay</span>
+                </label>
+                <button
+                  className={idleButtonClass}
+                  onClick={usePredictionAsStartingMask}
+                  disabled={!canEdit || !predictionLoaded}
+                >
+                  Use prediction as starting mask
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             aria-pressed={maskMode === "semantic"}
             className={maskMode === "semantic" ? activeButtonClass : idleButtonClass}
             onClick={() => switchMaskMode("semantic")}
+            disabled={isCorrectionMode}
           >
             Semantic mask
           </button>
@@ -1230,6 +1451,7 @@ function stamp(x: number, y: number) {
             aria-pressed={maskMode === "support"}
             className={maskMode === "support" ? activeButtonClass : idleButtonClass}
             onClick={() => switchMaskMode("support")}
+            disabled={isCorrectionMode}
           >
             Slice support
           </button>
@@ -1338,7 +1560,7 @@ function stamp(x: number, y: number) {
             onClick={() => void saveMaskNow()}
             disabled={!canEdit || isSaving || !hasUnsavedChanges}
           >
-            {maskMode === "support" ? "Save support mask" : "Save now"}
+            {isCorrectionMode ? "Save correction draft" : maskMode === "support" ? "Save support mask" : "Save now"}
           </button>
           <button
             className={idleButtonClass}
@@ -1472,6 +1694,11 @@ function stamp(x: number, y: number) {
       <div ref={containerRef} className="relative h-[70vh] w-full overflow-auto overscroll-contain bg-background">
         <div className="relative inline-block">
           <canvas ref={baseCanvasRef} className="block" />
+          <canvas
+            ref={predictionCanvasRef}
+            aria-label="Read-only prediction proposal"
+            className="absolute left-0 top-0 pointer-events-none"
+          />
           <canvas
             ref={overlayCanvasRef}
             aria-label="Mask drawing surface"

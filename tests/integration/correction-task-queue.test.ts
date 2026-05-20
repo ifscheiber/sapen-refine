@@ -274,7 +274,7 @@ describe("active-learning correction task queue", () => {
     ]);
     expect(created.tasks[0].sourceArtifactVersionId).toBe(highUncertainty.artifactVersionId);
     expect(created.tasks[2].sourceArtifactVersionId).toBeNull();
-    expect(created.tasks[0].editorHref).toContain("/edit?taskId=");
+    expect(created.tasks[0].editorHref).toContain(`/tasks/${created.tasks[0].id}/correct`);
     expect(JSON.stringify(created)).not.toContain("storageKey");
     expect(JSON.stringify(created)).not.toContain(`tests/correction-tasks/${suffix}`);
 

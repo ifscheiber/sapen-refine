@@ -211,9 +211,7 @@ function modelSourceFromRun(task: {
 
 function serializeTask(task: SelectedCorrectionTask) {
   const editorHref = task.imageId
-    ? `/app/projects/${task.projectId}/images/${task.imageId}/edit?taskId=${task.id}${
-      task.predictionProvenanceId ? `&predictionProvenanceId=${task.predictionProvenanceId}` : ""
-    }`
+    ? `/app/projects/${task.projectId}/tasks/${task.id}/correct`
     : null;
 
   return {

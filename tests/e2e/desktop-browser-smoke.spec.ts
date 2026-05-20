@@ -202,5 +202,95 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
     "href",
     /\/api\/exports\/[^/]+\/download\?file=package/,
   );
+
+  const correctionTaskId = await page.evaluate(
+    async ({ projectId, imageId }) => {
+      async function jsonRequest(path: string, init: RequestInit) {
+        const response = await fetch(path, {
+          ...init,
+          credentials: "include",
+        });
+        const body = await response.json().catch(() => null);
+        if (!response.ok || !body?.ok) {
+          throw new Error(`${path} failed ${response.status}: ${JSON.stringify(body)}`);
+        }
+        return body;
+      }
+
+      const unique = Date.now();
+      const model = await jsonRequest("/api/model-runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          modelFamily: `e2e-assisted-${unique}`,
+          modelName: "desktop-assisted",
+          modelVersion: "0.1.0",
+          taskType: "SEMANTIC_SEGMENTATION",
+          checkpointHash: `sha256:e2e-checkpoint-${unique}`,
+          configHash: `sha256:e2e-config-${unique}`,
+        }),
+      });
+
+      const predictionRun = await jsonRequest(`/api/projects/${projectId}/prediction-runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          modelRunId: model.modelRun.id,
+          inferenceRunId: `e2e-assisted-${unique}`,
+          status: "COMPLETED",
+          inputImageCount: 1,
+          outputPredictionCount: 1,
+        }),
+      });
+
+      const bytes = new Uint8Array(180 * 180);
+      bytes.fill(1);
+      const form = new FormData();
+      form.append("imageId", imageId);
+      form.append("targetType", "SEMANTIC_MASK");
+      form.append("width", "180");
+      form.append("height", "180");
+      form.append("file", new File([bytes], "prediction.u8raw", { type: "application/octet-stream" }));
+
+      await jsonRequest(`/api/prediction-runs/${predictionRun.predictionRun.id}/predictions`, {
+        method: "POST",
+        body: form,
+      });
+
+      const tasks = await jsonRequest(`/api/prediction-runs/${predictionRun.predictionRun.id}/correction-tasks`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      return tasks.tasks[0].id as string;
+    },
+    { projectId: projectId!, imageId: imageId! },
+  );
+
+  await page.goto(`/app/projects/${projectId}/tasks`);
+  await expect(page.getByText("Queue")).toBeVisible();
+  await page.getByRole("link", { name: "Open correction" }).first().click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${correctionTaskId}/correct`));
+  await expect(page.getByText("Prediction / model proposal")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Use prediction as starting mask" })).toBeEnabled();
+  await page.getByRole("button", { name: "Use prediction as starting mask" }).click();
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await page.getByRole("button", { name: "Save correction draft" }).click();
+  await expect(page.getByText("Correction draft saved")).toBeVisible();
+
+  await expect.poll(async () => {
+    return page.evaluate(async ({ id, taskId }) => {
+      const [reviewState, task] = await Promise.all([
+        fetch(`/api/images/${id}/review-state`, { credentials: "include" }).then((response) => response.json()),
+        fetch(`/api/correction-tasks/${taskId}`, { credentials: "include" }).then((response) => response.json()),
+      ]);
+      return {
+        semanticState: reviewState.reviewables?.semanticMask?.latestVersion?.reviewState ?? null,
+        taskStatus: task.task?.status ?? null,
+      };
+    }, { id: imageId, taskId: correctionTaskId });
+  }).toEqual({ semanticState: "DRAFT", taskStatus: "IN_PROGRESS" });
+
   expect(abortErrors()).toEqual([]);
 });
