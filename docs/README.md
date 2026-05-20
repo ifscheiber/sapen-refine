@@ -51,7 +51,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 ## Workflow And Operations Docs
 
 - Scratch annotation workflow: [workflows/annotation-from-scratch.md](workflows/annotation-from-scratch.md)
-- Future prediction-assisted annotation: [workflows/future-prediction-assisted-annotation.md](workflows/future-prediction-assisted-annotation.md)
+- Prediction-assisted annotation/correction: [workflows/future-prediction-assisted-annotation.md](workflows/future-prediction-assisted-annotation.md)
 - Local development: [operations/local-development.md](operations/local-development.md)
 - Environment variables: [operations/environment.md](operations/environment.md)
 - Caddy reverse proxy: [04-server/reverse-proxy-caddy.md](04-server/reverse-proxy-caddy.md)

@@ -134,6 +134,19 @@ This page records validation commands run for baseline tickets and whether failu
 
 - RB-046 replaced `src/middleware.ts` with `src/proxy.ts`. `npm run build` no longer reports the Next.js middleware-to-proxy convention warning.
 
+## RB-062 Repository State Documentation Sweep Start Baseline
+
+- `git status --short`: two untracked inputs, `tickets/2026-05-20/RB-062-repository-state-documentation-consistency-sweep.md` and `tickets/sapen-annotate-deep-review.md`.
+- `npm run db:rebuild`: passed; local Docker volumes were recreated, 6 migrations were applied, and seed data was loaded.
+- `npm run prisma:generate`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed on Next.js 16.2.6.
+- `npm run test`: passed, 20 files and 87 tests.
+- `npm run test:e2e`: passed, 2 Playwright tests.
+- `npm run check:design-hardcoding`: passed.
+- `check:docs-links`: no package script exists yet.
+
 ## Optional Local Smoke
 
 Because the repo is in development, local data may be destroyed when validating the full stack:

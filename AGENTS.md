@@ -364,14 +364,14 @@ Commands:
 Validation expectations:
 - Run the strongest available command for the touched scope.
 - If dependencies, Prisma cache access, network font fetches, Docker, or environment variables block validation, record the exact command and failure.
-- There is no root `typecheck` or `test` script yet.
+- The current green root baseline is `npm run db:rebuild`, `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, `npm run test:e2e`, and `npm run check:design-hardcoding` when local Docker services are available.
 
 Known architectural risks:
 - Current mask terminology and serialization are MVP-level and need normalization.
-- Editor implementation is not yet consolidated for production annotation workflows.
-- Current Prisma domain model is too narrow for final training-data attribution, metadata, review, and export workflows.
-- Admin export is planned but not implemented.
-- Upload/commit endpoints need stronger object validation and audit hardening.
+- Editor implementation is large and should be decomposed incrementally before heavier production annotation workflows.
+- Project overview operations are becoming dense and should be split into route-addressable operations areas before customer/iPad scale-up.
+- RBAC, audit coverage, login hardening, background workers, retention cleanup, and advanced export/history workflows remain incomplete.
+- Trial-sized training export, prediction-analysis export, prediction import, correction tasks, and batch prediction import workflows exist but are not production-scale operations yet.
 
 ---
 

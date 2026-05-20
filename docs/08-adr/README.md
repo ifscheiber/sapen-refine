@@ -1,6 +1,6 @@
 # ADR Index
 
-Canonical ADR/backlog entries currently live in `docs/adr` and `docs/architecture/decisions`.
+The canonical remediation backlog lives in `docs/adr`. ADR files are currently split between `docs/architecture/decisions` and this numbered `docs/08-adr` folder.
 
 This folder exists for the numbered RB-043 documentation structure and links back to:
 

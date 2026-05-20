@@ -21,6 +21,7 @@ This page records the repository state after the RB-049 through RB-061 annotatio
 
 The current validation baseline is green:
 
+- `npm run db:rebuild`
 - `npm run prisma:generate`
 - `npm run lint`
 - `npm run typecheck`

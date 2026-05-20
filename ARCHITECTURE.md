@@ -4,9 +4,9 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and future prediction-assisted correction.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
 
-Scratch annotation is the primary product mode. Prediction-assisted correction and SaPen Core handoff workflows are future modes and must remain explicit provenance-bearing integrations.
+Scratch annotation is the primary product mode. Prediction-assisted correction is a secondary provenance-bearing mode. SaPen Core handoff workflows are future integrations and must remain explicit.
 
 ## System Boundaries
 
@@ -16,7 +16,7 @@ Scratch annotation is the primary product mode. Prediction-assisted correction a
 - Design boundary: `src/design` owns CSS-variable tokens, themes, and central canvas preview constants.
 - Authentication boundary: `src/server/auth` owns session cookie handling, session persistence, and project-role checks.
 - Database boundary: `prisma/schema.prisma` defines the current annotation-domain persisted model; `src/server/db.ts` owns Prisma client setup.
-- Object storage boundary: `src/server/storage.ts` and `src/server/storage/s3.ts` create presigned S3/MinIO URLs for compatibility paths and support app-mediated object writes, reads, stat verification, and best-effort cleanup.
+- Object storage boundary: `src/server/storage/s3.ts` owns the active S3/MinIO helpers for compatibility presign routes plus app-mediated object writes, reads, stat verification, and best-effort cleanup. The older `src/server/storage.ts` file is currently unused and tracked for cleanup.
 - Client helper boundary: `src/lib` wraps current browser-side API calls.
 - Mask boundary: `src/mask` owns label constants, mask buffers, serialization, patching, tools, and overlay rendering helpers.
 - Future SaPen Core/training boundary: integration must use explicit export or handoff contracts, not implicit shared project semantics.
@@ -80,13 +80,13 @@ Known gaps:
 
 ## Known Follow-Up Areas
 
-- Advanced export filtering/history/job handling and prediction workflows on top of the RB-049 through RB-061 baseline.
+- Advanced export filtering/history/job handling on top of the RB-049 through RB-061 baseline.
 - Always-on batch workers, staged-object cleanup, and prediction metrics dashboards.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
 - Broader audit coverage, malware scanning, rate limiting, and background cleanup for orphaned objects.
-- Prediction-assisted annotation as a separate future refine/correction mode.
+- Further prediction-assisted annotation/correction beyond the current semantic/support mask MVP.
 
 See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md) for the working backlog.
 

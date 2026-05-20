@@ -7,7 +7,7 @@ This folder documents user-facing annotation workflows.
 ## Important Files
 
 - [annotation-from-scratch.md](annotation-from-scratch.md) - current primary workflow.
-- [future-prediction-assisted-annotation.md](future-prediction-assisted-annotation.md) - planned future refine/correction workflow.
+- [future-prediction-assisted-annotation.md](future-prediction-assisted-annotation.md) - prediction-assisted correction contract; the filename is historical, while semantic/support correction is partially implemented.
 
 ## Public Interfaces / Routes / Functions
 

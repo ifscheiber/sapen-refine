@@ -63,7 +63,7 @@ The command removes local Docker volumes, recreates PostgreSQL/MinIO, applies `p
 
 The default label schema includes stable ids for `background`, `unknown`, `sapwood`, `heartwood`, `copper`, `slice_support`, `review_required`, and slice classification labels.
 
-## Known Deferred Work
+## Implemented And Deferred Work
 
 - RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.
 - RB-051 implements one-default-slice classification/support-mask user workflow.

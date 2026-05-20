@@ -6,11 +6,11 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 
 ## Important Files
 
-- `src/server/storage/s3.ts` - AWS SDK client setup and low-level presign helpers.
+- `src/server/storage/s3.ts` - active AWS SDK client setup, presign helpers, app-mediated reads/writes, object stat verification, best-effort deletes, and readiness check.
 - `src/server/runtime/config.ts` - validates storage endpoint, credentials, bucket, and upload limits.
 - `src/server/uploads/validation.ts` - validates image and mask upload sizes.
 - `src/server/uploads/integrity.ts` - computes SHA-256 checksums, validates PNG/JPEG dimensions, validates mask byte dimensions, and maps stable integrity errors.
-- `src/server/storage.ts` - app-level wrapper functions.
+- `src/server/storage.ts` - legacy duplicate presign helper using direct `process.env` access; active code does not import it and cleanup is tracked separately.
 - `src/app/api/projects/[projectId]/images/presign/route.ts` - image upload presign.
 - `src/app/api/projects/[projectId]/images/upload/route.ts` - app-mediated raw-image upload.
 - `src/app/api/images/[imageId]/asset/route.ts` - app-mediated raw-image read.
@@ -20,14 +20,7 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 
 ## Public Interfaces / Routes / Functions
 
-- `getPresignedPutUrl(key, contentType)`.
-- `getPresignedGetUrl(key)`.
-- `putObject(key, body, contentType)`.
-- `statObject(key)`.
-- `verifyStoredObject({ key, size, contentType })`.
-- `deleteObjectBestEffort(key)`.
-- `getObjectBytes(key)`.
-- `checkStorageReady()`.
+- Active `src/server/storage/s3.ts` functions include `getPresignedPutUrl`, `getPresignedGetUrl`, `putObject`, `statObject`, `verifyStoredObject`, `deleteObjectBestEffort`, `getObjectBytes`, and `checkStorageReady`.
 - Local storage service: MinIO from `docker-compose.yml`.
 
 ## Invariants And Constraints

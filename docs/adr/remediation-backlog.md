@@ -354,58 +354,114 @@ Owner: Codex.
 
 Priority: Resolved.
 
-## RB-062 - Documentation Consistency Sweep
+## RB-062 - Repository State And Documentation Consistency Sweep
 
-Context: Rapid RB-058 through RB-061 implementation has repeatedly changed current-state and workflow docs.
+Context: Rapid RB-053 through RB-061 implementation changed domain, prediction, export, test, and operations behavior faster than the docs/backlog could stay aligned.
 
-Impact: Stale docs can mislead future agents about implemented vs deferred prediction-assisted workflows.
+Impact: Stale docs can mislead future agents about implemented vs deferred workflows and can hide the next hardening priorities.
 
-Proposed next step: Add a focused docs consistency ticket and, if practical, a lightweight docs link/current-state check.
+Resolution: RB-062 reconciles current-state, architecture, Prisma, workflow, storage, testing, deployment, known-gaps, and backlog documentation after RB-061.
 
-Affected modules: `docs/00-overview`, `docs/workflows`, `docs/03-features`, `docs/04-server`, `docs/06-data`, `docs/src/*`, and `docs/known-gaps.md`.
+Affected modules: `README.md`, `ARCHITECTURE.md`, `AGENTS.md`, `docs/00-overview`, `docs/workflows`, `docs/03-features`, `docs/04-server`, `docs/06-data`, `docs/src/*`, `docs/known-gaps.md`, and tickets under `tickets/2026-05-20`.
+
+Owner: Codex.
+
+Priority: Resolved by RB-062.
+
+## RB-063 - Project Operations UX Split
+
+Context: Project Overview now hosts metadata, prediction batch import, training export, prediction-analysis export, task navigation, and image navigation.
+
+Impact: The overview is becoming too dense for repeated desktop work and smaller iPad screens.
+
+Proposed next step: Split operations into route-addressable project areas for exports and prediction imports while keeping `/app/projects/[projectId]` focused on status and next actions.
+
+Affected modules: `src/app/(workspace)/app/projects/[projectId]`, `src/features/projects`, route docs, and Playwright smoke paths.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-064 - Auth, RBAC, And Audit Hardening
+
+Context: RBAC is functional but scattered, the login page still exposes seed credentials in development shape, and audit coverage is useful but incomplete.
+
+Impact: Customer-facing trials need clearer permission policy, safer login behavior, attribution consistency, and reduced policy drift.
+
+Proposed next step: Add a centralized permission/policy layer, hide shared demo credentials outside explicit dev acceptance, sanitize login redirects, add login/write protection, throttle session last-seen writes, remove token-bearing debug logs, and expand audit coverage.
+
+Affected modules: `src/server/auth`, `src/server/domain/*`, `src/app/api/**`, `src/app/(public)/login`, tests, and auth/security docs.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-065 - Batch Job Runner Hardening
+
+Context: RB-061 batch imports are processed by explicit UI/API/script calls but do not yet have an always-on worker, lease/heartbeat model, stale `PROCESSING` recovery, or clear processor identity.
+
+Impact: A crashed or interrupted trial import can leave work stuck until manual intervention, and operational attribution for processing needs hardening.
+
+Proposed next step: Define and implement the trial worker/cron path, stale-processing reset rules, processor identity, logs, and runbook steps.
+
+Affected modules: `src/server/domain/predictionImportBatches.ts`, `scripts/process-prediction-import-batch.mjs`, `deploy/docker-compose.trial.yml`, operations docs, and integration tests.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-066 - Batch And Staging Storage Retention Cleanup
+
+Context: Batch ZIP imports, staged prediction source files, presigned compatibility uploads, and failed object/database writes can leave private objects behind.
+
+Impact: Local MinIO storage can grow without bounds and operators lack a documented/manual cleanup path for stale staged or orphaned objects.
+
+Proposed next step: Define retention policy, add cleanup/purge tooling or API where appropriate, document manual purge commands, and decide whether presigned compatibility routes remain enabled.
+
+Affected modules: `src/server/storage/s3.ts`, `src/server/domain/predictionImportBatches.ts`, image/mask presign routes, operations docs, and tests.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-067 - Prediction QA Metrics And Evaluation Preparation
+
+Context: RB-060 prediction-analysis exports package predictions and references but do not compute Dice, IoU, confusion matrices, or other QA metrics.
+
+Impact: Model-evaluation workflows still require external scripts and cannot yet provide in-app/offline metrics from exported proposals and approved references.
+
+Proposed next step: Define the metrics contract and add trial-safe offline or export-time metrics preparation without contaminating ground-truth training exports.
+
+Affected modules: `src/server/domain/predictionAnalysisExports.ts`, `docs/06-data/prediction-analysis-export-contract.md`, tests, and future analysis UI/docs.
 
 Owner: Unassigned.
 
 Priority: P2.
 
-## RB-063 - Project Operations UI Consolidation
+## RB-068 - Editor Decomposition
 
-Context: Project Overview now hosts metadata, prediction batch import, training export, and prediction-analysis export panels.
+Context: `src/features/editor/EditorClient.tsx` owns drawing tools, semantic/support modes, review controls, slice classification, assisted correction, save state, overlays, and task context.
 
-Impact: The overview can become too dense for iPad trial use as operations grow.
+Impact: The editor works, but future changes will be risky if the component remains a large multi-concern implementation.
 
-Proposed next step: Design a route-addressable project operations area for imports, exports, and task generation while preserving overview links.
+Proposed next step: Split the editor incrementally into state/hooks, canvas rendering, toolbar/tool controls, review/status controls, correction context, and save/commit helpers while preserving current behavior and E2E coverage.
 
-Affected modules: `src/features/projects`, `src/app/(workspace)/app/projects/[projectId]`, project docs, and E2E smoke paths.
-
-Owner: Unassigned.
-
-Priority: P2.
-
-## RB-064 - Batch Worker And Staging Retention Hardening
-
-Context: RB-061 implements explicit process calls but not an always-on worker, stale processing lease recovery, or staged-object cleanup.
-
-Impact: Trial operators can process batches, but crashed/stale jobs and old staged source files need operational cleanup before larger deployments.
-
-Proposed next step: Add a worker/cron process mode, stale `PROCESSING` reset rules, and a retention/cleanup job for `prediction-import-batches` staging objects.
-
-Affected modules: `src/server/domain/predictionImportBatches.ts`, `scripts`, `deploy/docker-compose.trial.yml`, storage docs, and operations runbooks.
+Affected modules: `src/features/editor`, `src/mask`, editor docs, and E2E/unit tests.
 
 Owner: Unassigned.
 
 Priority: P2.
 
-## RB-065 - Slice Classification Prediction Batch Imports
+## RB-069 - Customer Trial Deployment, Handoff Hygiene, And iPad Safari Gate
 
-Context: RB-061 intentionally supports only mask prediction targets because it reuses the RB-057 mask import service.
+Context: The repo has a Compose trial baseline, but real customer deployment, iPad Safari validation, handoff ZIP hygiene, legacy storage helper cleanup, and defensive download filename handling still need a focused readiness pass.
 
-Impact: Classification prediction proposals cannot yet be batch-imported from model outputs.
+Impact: Customer or contractor handoffs can accidentally include local artifacts, iPad behavior remains unverified until deployment/device access exists, and small storage/header hygiene gaps remain before a trial.
 
-Proposed next step: Define and implement a provenance-only classification batch item path that creates `PredictionArtifactProvenance` rows without mask artifact versions.
+Proposed next step: Create a reproducible handoff/deployment checklist or script, exclude `.git`, build caches, test results, and secrets from handoff archives, run the Strato/customer trial gate when deployable, validate iPad Safari manually, clean up or re-export `src/server/storage.ts`, and harden `Content-Disposition` filename handling.
 
-Affected modules: `src/server/domain/predictionImportBatches.ts`, `src/server/domain/predictionProvenance.ts`, prediction docs, and tests.
+Affected modules: `deploy`, `docs/04-server`, `docs/operations`, `src/server/storage.ts`, asset download routes, trial smoke docs, and ticket/runbook docs.
 
 Owner: Unassigned.
 
-Priority: P3.
+Priority: P2.

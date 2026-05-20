@@ -23,8 +23,8 @@
 - `src/server/domain/correctionTasks.ts` - RB-058 active-learning correction task creation, ordering, assignment/status updates, sanitized serialization, and audit events.
 - `src/server/domain/assistedCorrection.ts` - RB-059 correction context loading, prediction mask streaming authorization, human correction save validation, provenance linking, and audit events.
 - `src/server/domain/predictionAnalysisExports.ts` - RB-060 prediction-analysis export readiness, manifest/package generation, persistence, and owner/QA download authorization.
-- `src/server/storage.ts` - app-level storage wrapper for presigned URLs.
-- `src/server/storage/s3.ts` - AWS SDK S3/MinIO client setup, presign helpers, object writes, object stat verification, best-effort deletes, and storage readiness check.
+- `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helpers, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
+- `src/server/storage.ts` - legacy duplicate presign helper; currently unused and tracked for cleanup.
 
 ## Public Interfaces / Routes / Functions
 

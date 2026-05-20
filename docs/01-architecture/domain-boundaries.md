@@ -18,7 +18,8 @@ SaPen Annotate owns standalone ground-truth annotation workflows:
 - annotation tasks and sessions,
 - review/approval state,
 - export batches and manifests,
-- model-run and prediction-run provenance for future assisted correction,
+- model-run and prediction-run provenance for assisted correction,
+- prediction mask import and trial-sized batch prediction imports,
 - attribution and audit records for annotation actions.
 
 ## SaPen Annotate Does Not Own
@@ -27,9 +28,9 @@ SaPen Annotate does not own SaPen Core experiment semantics or production report
 
 Future integration with SaPen Core must use explicit contracts:
 
-- training-data export,
+- training-data export and import contracts,
 - future Core-to-Annotate handoff,
-- future model prediction import.
+- model prediction import/provenance contracts.
 
 Core integration must not imply that Annotate projects are Core experiments.
 
@@ -39,7 +40,7 @@ Human-reviewed annotation artifacts become ground truth only through explicit re
 
 Model predictions, prefilled masks, active-learning priorities, and imported proposals are inputs. They are not ground truth until a human workflow creates and approves a separate artifact version.
 
-RB-054 documents this as a design contract and RB-056 implements the provenance registry. Prediction artifacts may guide work queues or editor overlays, but approved human artifact/classification versions remain the only default training-export labels.
+RB-054 documents this as a design contract. RB-056 implements the provenance registry, RB-057 imports prediction mask proposals, RB-058/RB-059 implement the first correction queue/editor path, and RB-061 adds trial-sized ZIP batch prediction imports. Prediction artifacts may guide work queues or editor overlays, but approved human artifact/classification versions remain the only default training-export labels.
 
 ## Mask Boundary
 

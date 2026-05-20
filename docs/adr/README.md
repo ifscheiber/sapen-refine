@@ -23,7 +23,7 @@ Not applicable.
 
 ## Known Gaps
 
-The ADR files currently live under `docs/architecture/decisions/`; this folder remains as the shorter index expected by AGENTS.md.
+ADR files currently live in both `docs/architecture/decisions/` and `docs/08-adr/` from earlier documentation slices. This folder is the canonical short index and backlog entry point expected by AGENTS.md.
 
 ## Related Tickets / Docs
 

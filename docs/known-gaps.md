@@ -4,7 +4,7 @@ This page summarizes known limitations after the RB-040 through RB-061 baseline,
 
 ## Current Gaps
 
-- Validation baseline is green: `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding` pass.
+- Validation baseline is green: `npm run db:rebuild`, `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, `npm run test:e2e`, and `npm run check:design-hardcoding` pass.
 - Desktop browser MVP smoke is automated through `npm run test:e2e`; real iPad Safari smoke remains deferred until deployment/device access is available.
 - RB-045 resolved the previous editor hook dependency warnings.
 - RB-046 migrated the deprecated Next.js `middleware.ts` convention to `src/proxy.ts`; the production build no longer reports that warning.
@@ -31,7 +31,10 @@ This page summarizes known limitations after the RB-040 through RB-061 baseline,
 - Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export and RB-061 implements trial-sized batch/background imports.
 - Prediction-analysis export does not compute metrics such as Dice/IoU or confusion matrices; offline evaluation/dashboard work remains deferred.
 - Slice-classification prediction correction remains deferred.
-- Remaining upload/security limits: no malware scanning, no rate limiting, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned/staged objects, no always-on batch worker, and no large async export job handling.
+- Project overview contains metadata, prediction imports, training export, prediction-analysis export, and navigation panels; a route-level operations split is planned before larger iPad/customer trials.
+- RBAC and audit rules are functional but scattered across domain modules/routes; a centralized policy/audit hardening slice is planned.
+- `src/server/storage.ts` is an unused legacy duplicate of the active `src/server/storage/s3.ts` storage helper pattern and should be removed or converted to a re-export in a cleanup ticket.
+- Remaining upload/security limits: no malware scanning, no login/API rate limiting, no CSRF/same-origin mutation guard, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned/staged objects, no always-on batch worker, and no large async export job handling.
 
 ## Intentional Remaining "Refine" References
 

@@ -1,6 +1,6 @@
 # SaPen Annotate
 
-SaPen Annotate is a standalone annotation app for creating attributable, exportable wood-slice ground-truth data for SaPen model training. The current MVP supports local authentication, project creation, image upload through S3-compatible storage, and mask editing/saving. Broader annotation metadata, review, approval, and training export workflows are planned but not implemented yet.
+SaPen Annotate is a standalone annotation app for creating attributable, exportable wood-slice ground-truth data for SaPen model training. The current MVP supports local authentication, project creation, validated image upload through S3-compatible storage, image/sample metadata, semantic and slice-support mask editing, slice classification, minimal review/approval, owner-created training exports, prediction provenance/imports, assisted correction tasks, prediction-analysis exports, and trial-sized ZIP batch prediction imports.
 
 The app is separate from SaPen Core. Future integration should happen through explicit handoff/export contracts rather than shared implicit project state.
 
@@ -22,7 +22,7 @@ npm run prisma:generate
 npm run dev
 ```
 
-Open `http://localhost:3000`. The seed data currently creates a demo login documented on the login page.
+Open `http://localhost:3000`. The seed data currently creates local demo logins for development. Customer-facing trials should use named tester accounts instead of shared seed credentials.
 
 The session cookie was renamed to `sapen_annotate_session` during the repository rename. Existing local browser sessions from earlier builds are expected to be invalidated.
 
@@ -57,7 +57,7 @@ npm run build              # Run production build/typecheck
 npm run test               # Run unit tests
 ```
 
-The required root validation baseline is `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, and `npm run check:design-hardcoding`.
+The required root validation baseline is `npm run db:rebuild`, `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, `npm run test:e2e`, and `npm run check:design-hardcoding` when local Docker services are available.
 
 ## Storage Assumptions
 
@@ -71,9 +71,10 @@ Customer-facing trials should use named user accounts per tester. Do not expose 
 
 ## MVP Limitations
 
-- The Prisma schema still uses MVP names such as `MaskKind.PREDICTION` and `MaskKind.REFINED`; this is legacy terminology, not the final standalone annotation domain.
-- Image metadata, review/approval state, audit events, export batches, and label-schema versioning are incomplete.
-- The editor and mask serialization paths need follow-up hardening before production training-data workflows.
+- Export generation and prediction-analysis export are synchronous and intended for trial-sized datasets.
+- The project overview currently contains several operations panels; a dedicated operations split is planned before larger iPad/customer trials.
+- RBAC, audit coverage, login hardening, background workers, retention cleanup, and advanced iPad/Pencil interactions still need focused hardening.
+- `MaskKind.PREDICTION` and `MaskKind.REFINED` have been removed from the active Prisma schema; remaining "refine" wording is historical or refers to future prediction correction.
 - The validation baseline is green; remaining product and deployment gaps are tracked in [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md).
 
 ## Repository Hygiene
