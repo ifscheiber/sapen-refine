@@ -114,6 +114,10 @@ function errorMessage(error: unknown, fallback = "Save failed") {
   return error instanceof Error ? error.message : fallback;
 }
 
+function isAbortError(error: unknown) {
+  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
+}
+
 function formatReviewState(state: ReviewStateValue | string | null | undefined) {
   if (!state) return "Missing";
   const normalized = state.toLowerCase().replaceAll("_", " ");
@@ -611,26 +615,33 @@ export default function EditorClient({ imageId, canEdit }: Props) {
 
   // ---------- Load latest mask ----------
   const fetchLatestMaskBytes = useCallback(async (signal?: AbortSignal) => {
-    const res = await fetch(
-      maskMode === "support" ? API_SUPPORT_MASK_LATEST(imageId) : API_MASK_LATEST(imageId),
-      { method: "GET", signal },
-    );
-    if (!res.ok) return null;
+    try {
+      const res = await fetch(
+        maskMode === "support" ? API_SUPPORT_MASK_LATEST(imageId) : API_MASK_LATEST(imageId),
+        { method: "GET", signal },
+      );
+      if (!res.ok) return null;
 
-    const json = await res.json().catch(() => null);
-    if (!json?.exists) return null;
+      const json = await res.json().catch(() => null);
+      if (!json?.exists) return null;
 
-    const url = json.url as string | undefined;
-    const format = json.format as string | undefined;
+      const url = json.url as string | undefined;
+      const format = json.format as string | undefined;
 
-    if (!url) return null;
-    if (format && format !== "u8raw-v1") {
-      console.warn("Unknown mask format:", format);
-      return null;
+      if (!url) return null;
+      if (format && format !== "u8raw-v1") {
+        console.warn("Unknown mask format:", format);
+        return null;
+      }
+
+      const ab = await fetch(url, { signal }).then((r) => r.arrayBuffer());
+      return new Uint8Array(ab);
+    } catch (error) {
+      if (signal?.aborted || isAbortError(error)) {
+        return null;
+      }
+      throw error;
     }
-
-    const ab = await fetch(url, { signal }).then((r) => r.arrayBuffer());
-    return new Uint8Array(ab);
   }, [imageId, maskMode]);
 
   // ---------- Image load ----------
@@ -647,7 +658,11 @@ export default function EditorClient({ imageId, canEdit }: Props) {
       if (!alive) return;
       setImgUrl(json.url);
       setStatus("");
-    })();
+    })().catch((error) => {
+      if (!alive) return;
+      console.warn("Failed to load image URL:", error);
+      setStatus("Failed to load image URL");
+    });
 
     // Start mask fetch early so it can download while the image loads.
     if (maskFetchAbortRef.current) {

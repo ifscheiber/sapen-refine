@@ -7,6 +7,15 @@ const fixturePath = path.resolve("public/apple-touch-icon.png");
 test("desktop MVP browser workflow can upload, edit, save, and reload", async ({ page }) => {
   const projectName = `E2E Desktop ${Date.now()}`;
   const tNumber = `T-E2E-${Date.now()}`;
+  const browserErrors: string[] = [];
+
+  page.on("pageerror", (error) => {
+    browserErrors.push(error.message);
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(message.text());
+  });
+  const abortErrors = () => browserErrors.filter((message) => /AbortError|operation was aborted/i.test(message));
 
   await page.goto("/login");
   await page.getByLabel("Email").fill(process.env.E2E_EMAIL ?? "admin@sapen.local");
@@ -27,6 +36,8 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByRole("link", { name: "Images" }).click();
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
+  await expect(page.getByText("T-number: missing")).toBeVisible();
+  await expect(page.getByText("Missing T-number", { exact: true })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Metadata" }).click();
   await expect(page.getByRole("heading", { name: "Sample Metadata" })).toBeVisible();
@@ -48,6 +59,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
 
   await page.getByRole("link", { name: "Open editor" }).click();
   await expect(page.getByRole("button", { name: "Brush" })).toBeVisible();
+  expect(abortErrors()).toEqual([]);
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await expect(drawingSurface).toBeVisible();
@@ -190,4 +202,5 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
     "href",
     /\/api\/exports\/[^/]+\/download\?file=package/,
   );
+  expect(abortErrors()).toEqual([]);
 });

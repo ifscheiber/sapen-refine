@@ -34,7 +34,7 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Current E2E Coverage
 
-- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, PNG image upload with validated technical metadata, image-level metadata edit/reload, editor open, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, and owner training export creation with manifest/package links.
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, PNG image upload with validated technical metadata, single missing T-number list signal before metadata is entered, editor open without aborted-fetch console/page errors, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, and owner training export creation with manifest/package links.
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
 - E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.

@@ -41,10 +41,9 @@ function formatDate(value: string) {
 
 function metadataSummary(image: ImageRow) {
   const warnings = [];
-  if (!image.sampleMetadata?.tNumber) warnings.push("Missing T-number");
   if (!image.width || !image.height) warnings.push("Missing dimensions");
   if (!image.checksum) warnings.push("Missing checksum");
-  return warnings.length > 0 ? warnings.join(" · ") : "Metadata ready";
+  return warnings.length > 0 ? warnings.join(" · ") : "Technical metadata ready";
 }
 
 export function ImagesClient({
