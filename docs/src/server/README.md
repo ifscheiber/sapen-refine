@@ -19,6 +19,7 @@
 - `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
 - `src/server/domain/predictionImport.ts` - RB-057 prediction mask import validation, storage write/stat verification, artifact-version creation, provenance linking, and audit events.
+- `src/server/domain/predictionImportBatches.ts` - RB-061 ZIP batch prediction import manifest validation, private staging, job/item status updates, retry, and processing through the RB-057 import service.
 - `src/server/domain/correctionTasks.ts` - RB-058 active-learning correction task creation, ordering, assignment/status updates, sanitized serialization, and audit events.
 - `src/server/domain/assistedCorrection.ts` - RB-059 correction context loading, prediction mask streaming authorization, human correction save validation, provenance linking, and audit events.
 - `src/server/domain/predictionAnalysisExports.ts` - RB-060 prediction-analysis export readiness, manifest/package generation, persistence, and owner/QA download authorization.
@@ -35,6 +36,7 @@
 - `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the RB-053 owner-only training export workflow.
 - `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
+- `createPredictionImportBatchFromZipForUser`, `processPredictionImportBatchForUser`, `retryPredictionImportBatchForUser`, and batch list/detail helpers implement the RB-061 single-host DB-backed batch import baseline.
 - `createCorrectionTasksForPredictionRunForUser`, `listProjectCorrectionTasksForUser`, `getCorrectionTaskForUser`, and `updateCorrectionTaskForUser` implement the RB-058 correction task queue service layer.
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.
 - `resolveProjectPredictionAnalysisReadiness`, `createPredictionAnalysisExportForUser`, `getPredictionAnalysisExportForUser`, and `readPredictionAnalysisExportFileForUser` implement the RB-060 prediction-analysis export service layer.
@@ -48,6 +50,7 @@
 - Runtime config must not expose secrets to the client bundle.
 - Current artifact integrity checks use `sha256:<hex>` checksums, validated image dimensions, and S3/MinIO object stat checks before database commit where practical.
 - Prediction provenance/import services are proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
+- Prediction batch import services must not expose staging keys, must process items through the RB-057 import service, and must not create correction tasks or approved ground truth automatically.
 - Correction task services rank and route prediction correction work only; they do not create approved human artifacts or mark predictions export-ready.
 - Assisted correction services create draft human correction artifact versions only; review/approval is still required before export.
 - Prediction-analysis export services are QA/debug services only; they mark predictions as proposals, keep prediction/human paths separate, and do not change training export eligibility.
@@ -57,7 +60,7 @@
 - Audit logging is incomplete.
 - There is no rate limiting for login or API writes.
 - Training and prediction-analysis export generation are synchronous and intended for trial-sized datasets; large export job handling remains deferred.
-- Batch/background prediction imports remain deferred after RB-060. Slice-classification prediction correction remains deferred.
+- RB-061 batch prediction import uses explicit process calls rather than an always-on worker. Stale processing recovery and staged-object cleanup remain deferred. Slice-classification prediction correction remains deferred.
 
 ## Related Tickets / Docs
 

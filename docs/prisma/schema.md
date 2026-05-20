@@ -11,6 +11,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260519233000_review_classification_decisions/migration.sql` - RB-052 review decision target extension.
 - `prisma/migrations/20260520134931_prediction_provenance_registry/migration.sql` - RB-056 model/prediction provenance registry extension.
 - `prisma/migrations/20260520213000_prediction_analysis_exports/migration.sql` - RB-060 prediction-analysis export target and `ExportItem.predictionProvenanceId` extension.
+- `prisma/migrations/20260520204932_prediction_import_batches/migration.sql` - RB-061 prediction import batch/job/item extension.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `src/server/db.ts` - Prisma client setup.
 
@@ -28,6 +29,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `ModelRun` - model/training/checkpoint identity with task type, checkpoint, training dataset/export references, config hash, actor, warnings, and metadata.
 - `PredictionRun` - project-scoped inference execution linked to a model run, source dataset/export/selection, inference id, status, counts, aggregate confidence/uncertainty, actor, warnings, and metadata.
 - `PredictionArtifactProvenance` - per-image prediction proposal metadata linked to a prediction run, optional prediction artifact version, optional slice instance, target type, predicted class, confidence/uncertainty, per-class scores, output stats, and output checksum.
+- `PredictionImportBatchJob`, `PredictionImportBatchItem` - RB-061 DB-backed ZIP batch prediction import bookkeeping, item status/error/retry state, and links to created prediction artifact/provenance rows.
 - `AuditLog` - generic audit rows used by RB-055 upload, artifact, and export events; still not exhaustively used by all mutation routes.
 
 ## Invariants And Constraints
@@ -43,6 +45,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
 - `PredictionRun` is project-scoped and references exactly one `ModelRun`.
 - `PredictionArtifactProvenance` references exactly one `PredictionRun`, can link one optional `PREDICTION_MASK` `AnnotationArtifactVersion`, and stores prediction target/classification metadata outside human ground-truth rows.
+- `PredictionImportBatchItem` never stores ground-truth state. Successful items link to `AnnotationArtifactVersion` and `PredictionArtifactProvenance` rows created by the RB-057 prediction import service. Staging keys are private and must not be serialized to browser clients.
 - `ExportTarget.PREDICTION_ANALYSIS` is reserved for RB-060 QA/debug exports and must not be accepted by the RB-053 training export target parser.
 - `ExportItem.predictionProvenanceId` records exact prediction items for prediction-analysis exports without making those predictions ground truth.
 - `AnnotationTask.predictionRunId` and `AnnotationTask.predictionProvenanceId` are nullable links for future model-prediction correction queues; `modelSource` is not the reproducible source of truth.
@@ -52,9 +55,9 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Slice-specific metadata and multi-slice/multi-object editing remain deferred.
 - One-default-slice support/classification workflows exist after RB-051.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
-- RB-053 implements synchronous owner-only training export generation. RB-060 implements separate synchronous owner/QA prediction-analysis exports. Advanced filters, export history UI, metrics dashboards, and job queues remain deferred.
+- RB-053 implements synchronous owner-only training export generation. RB-060 implements separate synchronous owner/QA prediction-analysis exports. RB-061 implements DB-backed prediction import batches only. Advanced filters, export history UI, metrics dashboards, and production-grade workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. Broader audit coverage and background/orphan cleanup remain deferred.
-- RB-056 implements provenance persistence, RB-057 implements one-at-a-time prediction mask import, RB-058/RB-059 implement correction queues and assisted correction, and RB-060 implements prediction-analysis exports. Batch import jobs remain deferred.
+- RB-056 implements provenance persistence, RB-057 implements one-at-a-time prediction mask import, RB-058/RB-059 implement correction queues and assisted correction, RB-060 implements prediction-analysis exports, and RB-061 implements ZIP-based batch prediction import jobs.
 
 ## Related Tickets / Docs
 

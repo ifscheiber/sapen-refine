@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-054 design. RB-056 through RB-060 now implement the first provenance, import, correction queue, assisted correction, and prediction-analysis export slices.
+Accepted for RB-054 design. RB-056 through RB-061 now implement the first provenance, import, correction queue, assisted correction, prediction-analysis export, and batch import slices.
 
 ## Context
 
@@ -34,7 +34,7 @@ The current task fields are sufficient for a first active-learning queue orderin
 - Existing export behavior does not need to change for RB-054.
 - The RB-059 editor supports read-only prediction overlays and editable human correction layers for semantic/support masks.
 - Slice classification predictions need a proposal/task representation before human approval; they should not be inserted as approved classification rows.
-- RB-055 object validation hardening is used by RB-057 for trustworthy one-at-a-time prediction mask imports; batch/background imports remain deferred.
+- RB-055 object validation hardening is used by RB-057 for trustworthy one-at-a-time prediction mask imports; RB-061 reuses the same import service for ZIP-backed batch imports.
 
 ## Deferred Work
 
@@ -43,7 +43,8 @@ The current task fields are sufficient for a first active-learning queue orderin
 - RB-058: Active-learning task queue API/UI. Implemented after this ADR.
 - RB-059: Assisted correction editor workflow. Implemented after this ADR.
 - RB-060: Optional QA/prediction-analysis export mode separate from ground-truth export. Implemented after this ADR.
-- RB-061: Batch prediction import and background job support.
+- RB-061: Batch prediction import and background job support. Implemented after this ADR as a single-host DB-backed baseline.
+- Always-on workers, staging cleanup, classification batch imports, and model metrics dashboards remain deferred.
 
 ## Evidence
 

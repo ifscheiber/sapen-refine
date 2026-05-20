@@ -140,11 +140,13 @@ API responses expose sanitized model/run/provenance summaries and do not expose 
 
 RB-060 prediction-analysis exports can include correction-task context for each prediction item. The task metadata is included for QA comparison only; it does not imply that the model prediction is approved ground truth.
 
+RB-061 batch prediction imports can populate more `PredictionArtifactProvenance` rows for an existing `PredictionRun`. They do not create correction tasks automatically; `POST /api/prediction-runs/[predictionRunId]/correction-tasks` remains the explicit queue-generation step.
+
 ## Deferred Implementation
 
 Follow-up tickets should implement:
 
-- background/batch prediction imports and queue generation;
+- always-on batch worker scheduling, stale processing recovery, and staged-object cleanup;
 - additional task reasons such as model disagreement or stale model version.
 
 ## Related Docs

@@ -26,6 +26,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Runtime config: [04-server/runtime-config.md](04-server/runtime-config.md)
 - Customer trial deployment: [04-server/deployment.md](04-server/deployment.md)
 - Trial backup/restore: [04-server/backup-restore.md](04-server/backup-restore.md)
+- Batch prediction imports: [04-server/batch-prediction-imports.md](04-server/batch-prediction-imports.md)
 - Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
 - Data: [06-data/prisma.md](06-data/prisma.md)
 - Current-to-target schema map: [06-data/current-to-target-schema-map.md](06-data/current-to-target-schema-map.md)

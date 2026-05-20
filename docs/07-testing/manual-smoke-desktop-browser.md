@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This checklist verifies the current desktop browser MVP workflow after the RB-053 training export workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
+This checklist verifies the current desktop browser MVP workflow after the RB-061 batch prediction import workflow. It targets the local or trial-deployed browser app and does not require iPad Safari.
 
 ## Preconditions
 
@@ -40,6 +40,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |
 | If a prediction run fixture exists, inspect the prediction analysis export section. | Candidate counts, target controls, prediction-run selection, and proposal warning render separately from the training export controls. |  |  |
 | Create a prediction analysis export as `OWNER` or `QA`. | Export completes with `/api/prediction-analysis-exports/[exportId]/download` links and clearly labels predictions as proposals, not training labels. |  |  |
+| If a batch prediction ZIP fixture exists, create and process a prediction import batch as `OWNER` or `QA`. | Batch counts update, item failures show stable error codes, successful items become prediction proposals, and no private staging/MinIO URL is exposed. |  |  |
 | If a prediction run/task fixture exists, open `/app/projects/[projectId]/tasks`. | Correction task queue renders and the task has an `Open correction` link. |  |  |
 | Open a correction task. | `/app/projects/[projectId]/tasks/[taskId]/correct` loads image, task context, and prediction proposal panel. |  |  |
 | Toggle prediction overlay and click `Use prediction as starting mask`. | Prediction bytes copy into the editable human layer; no save occurs until explicitly requested. |  |  |
@@ -52,7 +53,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, and a small assisted-correction happy path. RB-060 prediction-analysis exports are covered by DB/domain integration tests rather than E2E.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, and a small assisted-correction happy path. RB-060 prediction-analysis exports and RB-061 batch prediction imports are covered by DB/domain integration tests rather than E2E.
 
 ## Result Tracking
 

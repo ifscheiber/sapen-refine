@@ -122,7 +122,7 @@ Roles used by RB-060 include:
 ## Non-Goals
 
 - RB-060 does not compute Dice, IoU, confusion matrices, or dashboards.
-- RB-060 does not add batch/background jobs; RB-061 covers that follow-up.
+- RB-061 adds batch prediction import jobs. RB-060 prediction-analysis exports remain synchronous and separate from those import jobs.
 - RB-060 does not allow predictions through RB-053 training export targets.
 - RB-060 does not approve predictions or convert them to ground truth.
 

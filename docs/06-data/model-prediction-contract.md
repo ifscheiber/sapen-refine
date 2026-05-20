@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, and RB-058 implements the first active-learning correction task queue. Running inference and assisted editor correction remain deferred.
+This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, RB-058 implements the first active-learning correction task queue, RB-059 implements assisted correction, and RB-061 implements DB-backed batch prediction imports. Running inference remains deferred.
 
 Hard rule:
 
@@ -28,7 +28,8 @@ Prediction artifacts must not become training labels unless a human creates or c
 - Per-image prediction item registry: `PredictionArtifactProvenance`
 - Domain service: `src/server/domain/predictionProvenance.ts`
 - Import service: `src/server/domain/predictionImport.ts`
-- Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts`
+- Batch import service: `src/server/domain/predictionImportBatches.ts`
+- Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts`, `src/app/api/prediction-import-batches/*`, `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts`
 - Export implementation: `src/server/domain/exports.ts`
 
 ## Implemented Registry
@@ -56,6 +57,24 @@ RB-057 adds `POST /api/prediction-runs/[predictionRunId]/predictions` for one pr
 The import route is project-scoped. Project `OWNER` and `QA` can import predictions. `LABELER`, `VIEWER`, and users without membership cannot import predictions. There is no global-admin bypass without project membership.
 
 RB-057 does not accept arbitrary client-supplied storage keys. The app writes imported bytes to private object storage under an internal prediction prefix, verifies the stored object, and returns only sanitized ids/checksum/dimension/provenance metadata.
+
+## Implemented Batch Import API
+
+RB-061 adds `PredictionImportBatchJob` and `PredictionImportBatchItem` persistence plus ZIP-based batch import APIs. The create route is:
+
+- `POST /api/prediction-runs/[predictionRunId]/batch-imports`
+
+Inspect/process/retry routes are:
+
+- `GET /api/projects/[projectId]/prediction-import-batches`
+- `GET /api/prediction-import-batches/[batchId]`
+- `GET /api/prediction-import-batches/[batchId]/items`
+- `POST /api/prediction-import-batches/[batchId]/process`
+- `POST /api/prediction-import-batches/[batchId]/retry`
+
+The batch manifest version is `sapen-annotate-prediction-batch-import-v1`. RB-061 supports batch imports for `SEMANTIC_MASK` and `SLICE_SUPPORT_MASK` prediction masks only. The processor calls `importPredictionMaskForUser`, so checksum, dimension, content-type, coordinate-space, label-value, storage, provenance, and proposal-only rules stay identical to the single prediction import path.
+
+Batch responses expose status/counts, item-level stable error codes, artifact/provenance ids, and reduced prediction-run summaries. They never expose staged object keys. Successful items are not processed again, so repeated process calls do not duplicate prediction artifacts.
 
 ## Implemented Correction Task Queue
 
@@ -174,13 +193,15 @@ RB-055 implements the current upload/artifact validation helpers used by human i
 - avoid public MinIO/S3 URLs in browser responses,
 - record audit events for imported prediction artifacts.
 
-Large batch imports should use a background job design rather than synchronous browser requests.
+Large batch imports now use the RB-061 DB-backed batch item model rather than one long browser request. This is a single-host baseline, not HA queue infrastructure.
 
 RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-## Deferred After RB-060
+## Deferred After RB-061
 
-- RB-061: background jobs for large/batch prediction imports.
+- Always-on worker/scheduler, stale processing lease recovery, and batch staging cleanup.
+- Slice-classification batch prediction imports.
+- Metrics dashboards such as Dice/IoU/confusion matrices.
 
 ## Related Docs
 

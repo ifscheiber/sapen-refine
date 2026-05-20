@@ -11,7 +11,7 @@ This page lists current browser routes backed by `src/app`.
 - `/app` - redirects to `/app/projects` from `src/app/(workspace)/app/page.tsx`.
 - `/app/projects` - authenticated project list from `src/app/(workspace)/app/projects/page.tsx` and `src/features/projects/ProjectsIndex.tsx`.
 - `/app/projects/new` - project creation page from `src/app/(workspace)/app/projects/new/page.tsx` and `src/features/projects/NewProjectPage.tsx`.
-- `/app/projects/[projectId]` - project landing page from `src/app/(workspace)/app/projects/[projectId]/page.tsx` and `src/features/projects/ProjectOverview.tsx`.
+- `/app/projects/[projectId]` - project landing page from `src/app/(workspace)/app/projects/[projectId]/page.tsx` and `src/features/projects/ProjectOverview.tsx`, including metadata, RB-061 batch prediction imports for owner/QA, and export panels.
 - `/app/projects/[projectId]/tasks` - project active-learning correction task queue from `src/app/(workspace)/app/projects/[projectId]/tasks/page.tsx` and `src/features/projects/ProjectCorrectionTasksPage.tsx`.
 - `/app/projects/[projectId]/tasks/[taskId]/correct` - assisted correction editor for prediction-backed tasks from `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx` and `src/features/editor/CorrectionTaskEditorPage.tsx`.
 - `/app/projects/[projectId]/images` - project image list/upload page from `src/app/(workspace)/app/projects/[projectId]/images/page.tsx` and `src/features/images/ProjectImagesPage.tsx`.
@@ -26,7 +26,7 @@ This page lists current browser routes backed by `src/app`.
 
 ## Known Gaps
 
-- Export UI is implemented as a project overview panel; there is no separate export history/dashboard browser route.
+- Export and batch-import UI are implemented as project overview panels; there is no separate operations/history dashboard browser route.
 - Review/approval is implemented as API/editor controls, not as a separate reviewer dashboard route.
 
 ## Related Tickets / Docs

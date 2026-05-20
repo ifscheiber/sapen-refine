@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after the RB-049 through RB-057 annotation-domain, workflow, export, artifact-integrity, provenance, and prediction-import slices.
+This page records the repository state after the RB-049 through RB-061 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, and batch-import slices.
 
 ## Important Files
 
@@ -41,6 +41,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
 - Latest mask reload uses `src/app/api/images/[imageId]/mask/latest/route.ts` and app-mediated version assets.
 - Prediction mask import uses `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` to validate and store private `PREDICTION_MASK` proposal artifacts linked to `PredictionArtifactProvenance`.
+- Batch prediction import uses `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts`, `src/app/api/prediction-import-batches/*`, and `src/server/domain/predictionImportBatches.ts` to create ZIP-backed DB jobs/items and process items through the RB-057 import service.
 
 ## Current Data Model
 
@@ -60,9 +61,9 @@ There is no `check:docs-links` script in `package.json` yet.
 
 ## Known Gaps
 
-- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and RB-056/RB-057 prediction provenance/import records. Active-learning queues and assisted-correction UI remain deferred.
+- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060 prediction-analysis exports, and RB-061 batch prediction import jobs.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
-- Upload hardening now covers the current raw image, semantic mask, support mask, and export paths. Broader audit coverage, malware scanning, async jobs, and orphan cleanup dashboards remain deferred.
+- Upload hardening now covers the current raw image, semantic mask, support mask, prediction import, and export paths. Broader audit coverage, malware scanning, export jobs, always-on batch workers, and orphan/staging cleanup dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

@@ -85,16 +85,29 @@ Default trial limits:
 
 - App image upload: 100 MiB.
 - App mask upload: 50 MiB.
+- App prediction batch ZIP upload: 100 MiB.
+- Prediction batch items per ZIP: 200.
+- Prediction batch process pass: 25 items.
 - Caddy request body: 120 MB.
 
 Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` where the request reaches the app. If Caddy rejects the request first, the tester sees a Caddy `413`.
 
-Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. RB-057 prediction mask imports use the mask upload limit and accept only `application/octet-stream` `u8raw-v1` bytes through the app; they do not expose MinIO/S3 upload URLs. If testers use large camera originals or large prediction masks, check both the app limit and Caddy body limit before the trial.
+Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. RB-057 prediction mask imports use the mask upload limit and accept only `application/octet-stream` `u8raw-v1` bytes through the app; they do not expose MinIO/S3 upload URLs. RB-061 batch imports accept ZIP files through the app, privately stage the contained mask files, and process a limited number of items per pass.
 
 Raise limits in both places:
 
-- `IMAGE_UPLOAD_MAX_BYTES` or `MASK_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
+- `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
 - `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
+
+## Batch Prediction Import Processing
+
+Project `OWNER`/`QA` users can create, inspect, process, and retry RB-061 prediction import batches from the project overview. For operational runs, use the API-based script while the app container is running:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --batch '<batch-id>' --limit 25 --email 'owner@example.com' --password '<owner-password>'
+```
+
+The script logs in through the normal app API and calls one processing pass. It does not run inference and does not expose MinIO.
 
 ## Backup And Restore
 
