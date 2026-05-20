@@ -3,6 +3,10 @@ const DEFAULT_S3_REGION = "us-east-1";
 const DEFAULT_S3_FORCE_PATH_STYLE = true;
 const DEFAULT_IMAGE_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 const DEFAULT_MASK_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
+const DEFAULT_PREDICTION_BATCH_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
+const DEFAULT_PREDICTION_BATCH_MAX_ITEMS = 200;
+const DEFAULT_PREDICTION_BATCH_PROCESS_LIMIT = 25;
+const DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS = 3;
 
 export type RuntimeConfig = {
   nodeEnv: string;
@@ -19,6 +23,10 @@ export type RuntimeConfig = {
   uploads: {
     imageMaxBytes: number;
     maskMaxBytes: number;
+    predictionBatchMaxBytes: number;
+    predictionBatchMaxItems: number;
+    predictionBatchProcessLimit: number;
+    predictionBatchItemMaxAttempts: number;
   };
 };
 
@@ -83,6 +91,26 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
         env,
         "MASK_UPLOAD_MAX_BYTES",
         DEFAULT_MASK_UPLOAD_MAX_BYTES
+      ),
+      predictionBatchMaxBytes: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_UPLOAD_MAX_BYTES",
+        DEFAULT_PREDICTION_BATCH_UPLOAD_MAX_BYTES
+      ),
+      predictionBatchMaxItems: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_MAX_ITEMS",
+        DEFAULT_PREDICTION_BATCH_MAX_ITEMS
+      ),
+      predictionBatchProcessLimit: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_PROCESS_LIMIT",
+        DEFAULT_PREDICTION_BATCH_PROCESS_LIMIT
+      ),
+      predictionBatchItemMaxAttempts: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_ITEM_MAX_ATTEMPTS",
+        DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS
       ),
     },
   };

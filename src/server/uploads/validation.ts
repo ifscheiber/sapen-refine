@@ -1,6 +1,6 @@
 import { getRuntimeConfig } from "@/server/runtime/config";
 
-export type UploadKind = "image" | "mask";
+export type UploadKind = "image" | "mask" | "predictionBatch";
 
 export type UploadSizeValidation =
   | { ok: true; size: number; maxBytes: number }
@@ -8,7 +8,9 @@ export type UploadSizeValidation =
 
 export function getUploadMaxBytes(kind: UploadKind): number {
   const { uploads } = getRuntimeConfig();
-  return kind === "image" ? uploads.imageMaxBytes : uploads.maskMaxBytes;
+  if (kind === "image") return uploads.imageMaxBytes;
+  if (kind === "predictionBatch") return uploads.predictionBatchMaxBytes;
+  return uploads.maskMaxBytes;
 }
 
 export function readContentLength(headers: Headers): number | null {

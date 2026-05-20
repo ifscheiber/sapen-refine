@@ -19,6 +19,10 @@ describe("runtime config", () => {
     expect(config.s3.forcePathStyle).toBe(true);
     expect(config.uploads.imageMaxBytes).toBe(100 * 1024 * 1024);
     expect(config.uploads.maskMaxBytes).toBe(50 * 1024 * 1024);
+    expect(config.uploads.predictionBatchMaxBytes).toBe(100 * 1024 * 1024);
+    expect(config.uploads.predictionBatchMaxItems).toBe(200);
+    expect(config.uploads.predictionBatchProcessLimit).toBe(25);
+    expect(config.uploads.predictionBatchItemMaxAttempts).toBe(3);
   });
 
   it("fails with an actionable message when critical env is missing", () => {
@@ -34,12 +38,20 @@ describe("runtime config", () => {
       S3_FORCE_PATH_STYLE: "false",
       IMAGE_UPLOAD_MAX_BYTES: "209715200",
       MASK_UPLOAD_MAX_BYTES: "104857600",
+      PREDICTION_BATCH_UPLOAD_MAX_BYTES: "157286400",
+      PREDICTION_BATCH_MAX_ITEMS: "500",
+      PREDICTION_BATCH_PROCESS_LIMIT: "50",
+      PREDICTION_BATCH_ITEM_MAX_ATTEMPTS: "5",
     });
 
     expect(config.appBaseUrl).toBe("https://annotate.example.com");
     expect(config.s3.forcePathStyle).toBe(false);
     expect(config.uploads.imageMaxBytes).toBe(209715200);
     expect(config.uploads.maskMaxBytes).toBe(104857600);
+    expect(config.uploads.predictionBatchMaxBytes).toBe(157286400);
+    expect(config.uploads.predictionBatchMaxItems).toBe(500);
+    expect(config.uploads.predictionBatchProcessLimit).toBe(50);
+    expect(config.uploads.predictionBatchItemMaxAttempts).toBe(5);
   });
 
   it("rejects invalid byte limits", () => {
