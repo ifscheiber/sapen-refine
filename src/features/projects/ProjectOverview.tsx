@@ -10,6 +10,7 @@ import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { ProjectExportPanel } from "./ProjectExportPanel";
 import { ProjectMetadataForm } from "./ProjectMetadataForm";
+import { ProjectPredictionImportBatchPanel } from "./ProjectPredictionImportBatchPanel";
 
 export async function ProjectOverview({ projectId }: { projectId: string }) {
   const user = await requireUser();
@@ -83,6 +84,11 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
           </div>
         </div>
       </AppSection>
+      {canEdit && (
+        <AppSection>
+          <ProjectPredictionImportBatchPanel projectId={project.id} canManage={canEdit} />
+        </AppSection>
+      )}
       <AppSection>
         <ProjectExportPanel projectId={project.id} />
       </AppSection>
