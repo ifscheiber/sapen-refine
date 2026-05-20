@@ -47,7 +47,6 @@ export async function GET(
     select: {
       id: true,
       version: true,
-      storageKey: true,
       size: true,
       width: true,
       height: true,
@@ -68,7 +67,6 @@ export async function GET(
     maskId: artifact.id,
     versionId: latest.id,
     version: latest.version,
-    key: latest.storageKey,
     size: latest.size,
     width: latest.width,
     height: latest.height,

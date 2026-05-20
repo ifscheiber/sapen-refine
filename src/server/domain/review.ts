@@ -1,6 +1,9 @@
 import {
   AnnotationArtifactKind,
+  AnnotationTaskStatus,
+  AnnotationTaskType,
   ArtifactReviewState,
+  ArtifactProvenance,
   type AnnotationProjectRole,
   type Prisma,
   PrismaClient,
@@ -287,7 +290,9 @@ export async function transitionArtifactVersionForUser(params: {
       where: { id: params.versionId },
       select: {
         id: true,
+        provenance: true,
         reviewState: true,
+        taskId: true,
         artifact: { select: { id: true, imageId: true, projectId: true, kind: true } },
       },
     });
@@ -321,6 +326,28 @@ export async function transitionArtifactVersionForUser(params: {
       where: { id: version.id },
       data: { reviewState: nextState },
     });
+
+    if (version.taskId && version.provenance === ArtifactProvenance.HUMAN_CORRECTION) {
+      const taskStatus =
+        nextState === ArtifactReviewState.SUBMITTED
+          ? AnnotationTaskStatus.SUBMITTED
+          : nextState === ArtifactReviewState.APPROVED
+            ? AnnotationTaskStatus.DONE
+            : nextState === ArtifactReviewState.REJECTED
+              ? AnnotationTaskStatus.IN_PROGRESS
+              : null;
+
+      if (taskStatus) {
+        await tx.annotationTask.updateMany({
+          where: {
+            id: version.taskId,
+            type: AnnotationTaskType.MODEL_PREDICTION_CORRECTION,
+          },
+          data: { status: taskStatus },
+        });
+      }
+    }
+
     const decision = await tx.reviewDecision.create({
       data: {
         projectId: version.artifact.projectId,
