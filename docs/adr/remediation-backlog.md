@@ -50,13 +50,13 @@ Context: SaPen Annotate is intended to export reviewed datasets, but no export b
 
 Impact: The app cannot yet produce reproducible training datasets.
 
-Proposed next step: RB-053 covers admin export batches and reproducible manifests.
+Resolution: Implemented by RB-053. Project owners can create approved-only training exports with manifest/ZIP downloads and exact input references.
 
 Affected modules: `prisma/schema.prisma`, `src/app/api`, `src/server`, future export docs.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: Tracked by RB-053.
+Priority: Resolved by RB-053.
 
 ## RB-040-E - Editor Consolidation And iPad/Pencil UX
 
@@ -240,13 +240,15 @@ Context: RB-048 reserves task priority, uncertainty/confidence, model source, an
 
 Impact: Prediction-assisted annotation could compromise ground-truth integrity if model proposals are not modeled separately.
 
-Proposed next step: Complete the focused design ticket in `tickets/2026-05-19/RB-054-model-preprediction-active-learning-design.md`.
+Resolution: Implemented by RB-054 optimized ticket. Prediction artifacts are documented as proposals only, not ground truth. Future human corrections must create separate human versions, active-learning queue ordering is documented, and RB-053 export remains approved-human-only.
 
-Affected modules: future prediction import services, annotation tasks, editor workflow, docs under `docs/06-data` and `docs/workflows`.
+Remaining follow-up: RB-056 through RB-061 cover model-run provenance, prediction import, active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
 
-Owner: Unassigned.
+Affected modules: future prediction import services, annotation tasks, editor workflow, export variants, docs under `docs/06-data`, `docs/03-features`, `docs/workflows`, and `docs/08-adr`.
 
-Priority: P2.
+Owner: Codex.
+
+Priority: Resolved.
 
 ## RB-055 - Upload Artifact Validation And Checksum Hardening
 
@@ -261,3 +263,87 @@ Affected modules: `src/app/api/projects/[projectId]/images/*`, `src/app/api/imag
 Owner: Unassigned.
 
 Priority: P1.
+
+## RB-056 - Prediction Provenance And ModelRun Registry
+
+Context: RB-054 concludes that `AnnotationTask.modelSource` is not sufficient for reproducible model provenance.
+
+Impact: Prediction imports would be difficult to audit or reproduce without structured run/checkpoint/config metadata.
+
+Proposed next step: Implement `tickets/2026-05-19/RB-056-prediction-provenance-modelrun-registry.md`.
+
+Affected modules: `prisma/schema.prisma`, future prediction domain services, docs under `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-057 - Prediction Import API And Storage Validation
+
+Context: RB-054 defines prediction artifacts as proposals, and RB-055 is expected to harden object validation.
+
+Impact: The app cannot safely ingest model-generated prediction artifacts yet.
+
+Proposed next step: Implement `tickets/2026-05-19/RB-057-prediction-import-api-storage-validation.md`.
+
+Affected modules: future prediction import routes/services, `src/server/storage`, `src/server/uploads`, `prisma/schema.prisma`, docs under `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-058 - Active-Learning Task Queue API And UI
+
+Context: RB-054 defines task reasons and deterministic queue ordering, but no queue APIs or UI exist.
+
+Impact: Annotators cannot act on model uncertainty or correction-task priority.
+
+Proposed next step: Implement `tickets/2026-05-19/RB-058-active-learning-task-queue-api-ui.md`.
+
+Affected modules: future task APIs, project/task UI, RBAC, docs under `docs/03-features` and `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-059 - Assisted Correction Editor Workflow
+
+Context: RB-054 defines the future editor behavior for prediction overlays and human correction layers.
+
+Impact: Prediction-backed tasks cannot be corrected in the editor without risking mutation of prediction artifacts or confusion with human ground truth.
+
+Proposed next step: Implement `tickets/2026-05-19/RB-059-assisted-correction-editor-workflow.md`.
+
+Affected modules: `src/features/editor`, future task route/API integrations, `src/mask`, docs under `docs/03-features`.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-060 - Prediction Analysis Export Mode
+
+Context: RB-053 ground-truth exports intentionally exclude model predictions. RB-054 allows a future QA/prediction-analysis export only as a separate target.
+
+Impact: Teams may need to inspect model predictions and confidence data without contaminating ground-truth training exports.
+
+Proposed next step: Implement `tickets/2026-05-19/RB-060-prediction-analysis-export-mode.md`.
+
+Affected modules: `src/server/domain/exports.ts`, future prediction provenance services, export docs and tests.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-061 - Batch Prediction Import And Background Jobs
+
+Context: RB-054 identifies large prediction imports as unsuitable for long synchronous route-handler or browser requests.
+
+Impact: Larger customer or model-evaluation datasets need retryable, attributable import bookkeeping.
+
+Proposed next step: Implement `tickets/2026-05-19/RB-061-batch-prediction-import-background-jobs.md`.
+
+Affected modules: future background-job infrastructure, prediction import services, operations docs.
+
+Owner: Unassigned.
+
+Priority: P2.

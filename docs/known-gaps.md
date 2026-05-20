@@ -21,7 +21,7 @@ This page summarizes known limitations after the RB-040 through RB-054 baseline,
 - Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
 - Copper semantic masks are material labels and must not be treated as physical slice support geometry. RB-051 adds the first support-mask workflow, but multi-object/multi-slice support remains deferred.
 - Review/approval is intentionally minimal: no reviewer dashboard, bulk review, notification system, or multi-reviewer approval flow exists yet.
-- Prediction-assisted refine/correction mode is designed but not implemented. Follow-up tickets cover model-run provenance, prediction import, active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
+- Prediction-assisted refine/correction mode is designed but not implemented. Follow-up tickets RB-056 through RB-061 cover model-run provenance, prediction import, active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
 
 ## Intentional Remaining "Refine" References
 

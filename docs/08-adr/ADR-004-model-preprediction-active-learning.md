@@ -38,12 +38,12 @@ The current task fields are sufficient for a first active-learning queue orderin
 
 ## Deferred Work
 
-- Prediction provenance schema and model-run registry.
-- Prediction import API and storage validation.
-- Active-learning task queue API/UI.
-- Assisted correction editor workflow.
-- Optional QA/prediction-analysis export mode separate from ground-truth export.
-- Batch prediction import and background job support.
+- RB-056: Prediction provenance schema and model-run registry.
+- RB-057: Prediction import API and storage validation.
+- RB-058: Active-learning task queue API/UI.
+- RB-059: Assisted correction editor workflow.
+- RB-060: Optional QA/prediction-analysis export mode separate from ground-truth export.
+- RB-061: Batch prediction import and background job support.
 
 ## Evidence
 
