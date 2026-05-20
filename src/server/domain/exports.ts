@@ -948,6 +948,9 @@ async function loadExportForUser(params: {
     },
   });
   if (!batch) throw new TrainingExportError("EXPORT_NOT_FOUND");
+  if (batch.target === ExportTarget.PREDICTION_ANALYSIS) {
+    throw new TrainingExportError("EXPORT_NOT_FOUND");
+  }
 
   const membership = await db.annotationProjectMember.findUnique({
     where: {
