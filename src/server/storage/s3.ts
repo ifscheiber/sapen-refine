@@ -1,5 +1,7 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
@@ -47,6 +49,38 @@ export async function putObject(key: string, body: Uint8Array, contentType: stri
     ContentType: contentType,
   });
   await s3.send(cmd);
+}
+
+export async function statObject(key: string) {
+  const response = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  return {
+    contentLength: response.ContentLength ?? null,
+    contentType: response.ContentType ?? null,
+    etag: response.ETag ?? null,
+  };
+}
+
+export async function verifyStoredObject(params: {
+  key: string;
+  size?: number;
+  contentType?: string | null;
+}) {
+  const stat = await statObject(params.key);
+  if (params.size !== undefined && stat.contentLength !== params.size) {
+    throw new Error("OBJECT_STAT_SIZE_MISMATCH");
+  }
+  if (
+    params.contentType &&
+    stat.contentType &&
+    stat.contentType.split(";")[0]?.toLowerCase() !== params.contentType.split(";")[0]?.toLowerCase()
+  ) {
+    throw new Error("OBJECT_STAT_CONTENT_TYPE_MISMATCH");
+  }
+  return stat;
+}
+
+export async function deleteObjectBestEffort(key: string) {
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined);
 }
 
 export async function getObjectBytes(key: string): Promise<Uint8Array> {
