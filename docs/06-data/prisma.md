@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050/RB-051/RB-052/RB-053 workflow extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-056 workflow and provenance extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -17,6 +17,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
 - `ReviewDecision` and `ArtifactReviewState` provide the persistence and workflow baseline for draft/submitted/approved/rejected/superseded ground-truth state. RB-052 decisions can target artifact versions or slice classification versions.
 - `ExportBatch` and `ExportItem` persist RB-053 training export batches, manifest/package metadata, warnings, actor attribution, and exact exported version references.
+- `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` persist RB-056 model/checkpoint/training provenance, project-scoped inference runs, and per-image prediction proposal metadata.
 - `AuditLog` records explicit RB-055 audit events for upload acceptance/rejection, mask commits/validation failures, export creation, and export downloads. It is not yet a complete audit trail for every mutation route.
 
 ## Current Compatibility Behavior
@@ -31,6 +32,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - slice classification writes create `SliceClassificationVersion` rows for the default `SliceInstance`,
 - review routes update `reviewState` and append `ReviewDecision` rows for semantic masks, support masks, and slice classifications,
 - upload routes persist verified `ImageAsset` checksums/dimensions/status for PNG/JPEG images,
+- prediction provenance routes create/read `ModelRun` and project-scoped `PredictionRun` records without importing prediction bytes,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.
@@ -63,7 +65,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
 - RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, QA export policy, export history UI, and job queues remain deferred.
-- RB-054 documents the future model prediction and active-learning contract; no runtime prediction import or schema migration is implemented yet.
+- RB-054 documents the future model prediction and active-learning contract; RB-056 implements the provenance registry, but runtime prediction import, active-learning queues, assisted correction UI, and prediction-analysis exports remain deferred.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
 
 ## Related Docs

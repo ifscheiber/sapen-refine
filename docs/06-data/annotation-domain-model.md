@@ -116,13 +116,14 @@ Active-learning and preprediction compatibility:
 - task reason,
 - uncertainty score,
 - confidence score,
-- model source,
+- model source as display/compatibility context,
+- prediction run and item provenance links,
 - prediction artifact source,
 - queue/ranking context.
 
-Model predictions must be proposals or inputs. They must not become ground truth without explicit human action and review state. RB-049 persists task priority, task reason, uncertainty/confidence, model source, and source artifact placeholders.
+Model predictions must be proposals or inputs. They must not become ground truth without explicit human action and review state. RB-049 persists task priority, task reason, uncertainty/confidence, model source, and source artifact placeholders; RB-056 adds structured prediction-run and prediction-item provenance links.
 
-RB-054 defines the future queue ordering and task reasons. Runtime task queue APIs, assignment UI, and model-run provenance persistence remain follow-up work.
+RB-054 defines the future queue ordering and task reasons. Runtime task queue APIs and assignment UI remain follow-up work.
 
 ### AnnotationSession
 
@@ -253,15 +254,17 @@ The schema allows a review decision to target either an artifact version or a sl
 
 ### Model Predictions And Human Corrections
 
-Model predictions are future proposal artifacts, not ground-truth artifacts.
+Model predictions are proposal artifacts, not ground-truth artifacts.
 
-RB-054 design decisions:
+RB-054/RB-056 design decisions:
 
 - mask predictions should start as `AnnotationArtifactKind.PREDICTION_MASK`,
-- prediction target type belongs in explicit prediction metadata,
-- `AnnotationTask.sourceArtifactVersionId` is sufficient for first correction-task links to mask predictions,
+- prediction target type belongs in `PredictionArtifactProvenance.targetType`,
+- `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` store reproducible model/checkpoint/inference/item provenance,
+- `AnnotationTask.predictionRunId` and `AnnotationTask.predictionProvenanceId` are the structured links for future correction tasks,
+- `AnnotationTask.sourceArtifactVersionId` remains useful for first correction-task links to mask prediction artifact versions,
 - `AnnotationArtifactVersion.parentVersionId` is sufficient for first human mask correction links to source predictions,
-- `AnnotationTask.modelSource` is not enough for reproducible provenance and needs future `ModelRun`/`PredictionRun` work,
+- `AnnotationTask.modelSource` is not the reproducible source of truth,
 - slice classification predictions should be task/proposal context before a human creates a `SliceClassificationVersion`,
 - default training export excludes predictions.
 

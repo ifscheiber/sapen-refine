@@ -249,11 +249,15 @@ Implemented synchronous owner-only project export creation and manifest/ZIP gene
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
-Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. Runtime import APIs, model-run provenance persistence, task queue UI, and assisted correction editor behavior remain follow-up tickets.
+Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; runtime import APIs, task queue UI, and assisted correction editor behavior remain follow-up tickets.
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
 Implemented checksum enforcement, PNG/JPEG dimensions, mask byte/dimension checks, support-mask value checks, object metadata verification, stable error responses, upload/artifact/export audit events, and export blocking for selected inputs missing integrity metadata.
+
+### RB-056 - Prediction Provenance / ModelRun Registry
+
+Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for future model-prediction correction tasks. The registry stores provenance only; prediction file import, active-learning queues, assisted correction UI, and prediction-analysis exports remain deferred.
 
 ## Open Questions For RB-049
 

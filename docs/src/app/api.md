@@ -41,6 +41,11 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects/[projectId]/exports` - creates a synchronous RB-053 training export for project owners.
 - `GET /api/exports/[exportId]` - returns sanitized export summary and download routes for project owners.
 - `GET /api/exports/[exportId]/download?file=manifest|package` - streams the stored manifest JSON or ZIP package through the app for project owners.
+- `POST /api/model-runs` - creates a model/checkpoint/training provenance record for global admins.
+- `GET /api/model-runs/[modelRunId]` - returns full model-run provenance for global admins.
+- `GET /api/projects/[projectId]/prediction-runs` - lists project-scoped prediction/inference runs for project members.
+- `POST /api/projects/[projectId]/prediction-runs` - creates a project-scoped prediction/inference run for project `OWNER` or `QA`.
+- `GET /api/prediction-runs/[predictionRunId]` - returns a sanitized prediction-run summary for project members.
 
 ## Invariants And Constraints
 
@@ -53,13 +58,15 @@ This page lists the current API route handlers under `src/app/api`.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
+- Prediction provenance APIs do not import prediction bytes, do not approve prediction artifacts, and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
 - API routes should return stable error codes that clients can handle.
 - RB-055 upload/artifact error codes include `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `IMAGE_DIMENSIONS_UNREADABLE`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_KEY_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
+- RB-056 prediction provenance error codes include `FORBIDDEN`, `MODEL_RUN_NOT_FOUND`, `PREDICTION_RUN_NOT_FOUND`, `DUPLICATE_INFERENCE_RUN`, `INVALID_MODEL_TASK_TYPE`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_PREDICTION_RUN_STATUS`, `CONFIDENCE_OUT_OF_RANGE`, `UNCERTAINTY_OUT_OF_RANGE`, `PREDICTED_CLASS_REQUIRED`, `PREDICTED_CLASS_TARGET_INVALID`, `ARTIFACT_NOT_PREDICTION`, and `PROJECT_MISMATCH`.
 
 ## Known Gaps
 
 - Audit logging is not consistently attached to every route mutation; RB-055 covers the current upload/artifact/export paths.
-- Task workflows remain deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
+- Prediction file import, active-learning task APIs/UI, and assisted correction workflows remain deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
 
 ## Related Tickets / Docs
 

@@ -8,6 +8,7 @@
 
 - `prisma/schema.prisma` - current database schema.
 - `prisma/migrations/20260519213000_annotation_domain_baseline/migration.sql` - current development baseline migration.
+- `prisma/migrations/20260520134931_prediction_provenance_registry/migration.sql` - RB-056 prediction provenance registry migration.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `prisma.config.ts` - Prisma config and environment loading.
 
@@ -22,11 +23,12 @@
 - This repository is still in development stage; local data may be destroyed and the migration baseline may be reset when it removes prototype debt.
 - Raw images and mask versions must remain attributable and integrity-checked before database commit where practical.
 - Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, and exact version references.
+- Model predictions remain provenance/proposal records until a human creates and approves separate ground-truth artifact or classification versions.
 
 ## Known Gaps
 
-- Project/image metadata, default slice support/classification, review, export, and upload/artifact validation workflows exist for the MVP path.
-- Slice-specific metadata, multi-slice editing, advanced export policy, and prediction import remain deferred.
+- Project/image metadata, default slice support/classification, review, export, upload/artifact validation, and prediction provenance registry workflows exist for the MVP path.
+- Slice-specific metadata, multi-slice editing, advanced export policy, prediction file import, active-learning queues, and assisted correction UI remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

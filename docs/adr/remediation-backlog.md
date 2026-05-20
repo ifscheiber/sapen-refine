@@ -242,7 +242,7 @@ Impact: Prediction-assisted annotation could compromise ground-truth integrity i
 
 Resolution: Implemented by RB-054 optimized ticket. Prediction artifacts are documented as proposals only, not ground truth. Future human corrections must create separate human versions, active-learning queue ordering is documented, and RB-053 export remains approved-human-only.
 
-Remaining follow-up: RB-056 through RB-061 cover model-run provenance, prediction import, active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
+Remaining follow-up: RB-057 through RB-061 cover prediction import, active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
 
 Affected modules: future prediction import services, annotation tasks, editor workflow, export variants, docs under `docs/06-data`, `docs/03-features`, `docs/workflows`, and `docs/08-adr`.
 
@@ -270,13 +270,15 @@ Context: RB-054 concludes that `AnnotationTask.modelSource` is not sufficient fo
 
 Impact: Prediction imports would be difficult to audit or reproduce without structured run/checkpoint/config metadata.
 
-Proposed next step: Implement `tickets/2026-05-19/RB-056-prediction-provenance-modelrun-registry.md`.
+Resolution: Implemented by RB-056 optimized ticket. The schema now includes `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, prediction task links, model/prediction target/status enums, minimal domain services and APIs, and integration tests for authorization, linkage, classification proposals, and export exclusion.
 
-Affected modules: `prisma/schema.prisma`, future prediction domain services, docs under `docs/06-data`.
+Remaining follow-up: RB-057 through RB-061 cover prediction file import, task queues/UI, assisted correction editor workflow, prediction-analysis export mode, and batch/background import jobs.
 
-Owner: Unassigned.
+Affected modules: `prisma/schema.prisma`, `src/server/domain/predictionProvenance.ts`, `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, tests and docs under `docs/06-data`.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved.
 
 ## RB-057 - Prediction Import API And Storage Validation
 

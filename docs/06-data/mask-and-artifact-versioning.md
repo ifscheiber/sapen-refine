@@ -54,7 +54,7 @@ Classification versions reference the relevant image, default slice instance, ac
 
 Prediction artifacts are model-generated proposals.
 
-RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence placeholders. Future prediction import must record:
+RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence placeholders. RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` so future prediction import can record:
 
 - model source,
 - checkpoint/run/config where available,
@@ -66,7 +66,7 @@ RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence pl
 
 Prediction artifacts must never overwrite human ground-truth versions.
 
-RB-054 decides that the first prediction import should use `PREDICTION_MASK` for mask predictions and store the target type, such as semantic, support, or instance prediction, in explicit prediction metadata. A human correction must create a separate human artifact version with `ArtifactProvenance.HUMAN_CORRECTION` and should link to the prediction through `parentVersionId`.
+RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.targetType` rather than adding separate prediction artifact kinds. RB-057 should create `PREDICTION_MASK` artifact versions for imported prediction mask bytes and link them through `PredictionArtifactProvenance.artifactVersionId`. A human correction must create a separate human artifact version with `ArtifactProvenance.HUMAN_CORRECTION` and should link to the prediction through `parentVersionId`, `AnnotationTask.predictionRunId`, and `AnnotationTask.predictionProvenanceId`.
 
 ## Version Rules
 
@@ -77,7 +77,7 @@ RB-054 decides that the first prediction import should use `PREDICTION_MASK` for
 - Versions may reference a parent/source artifact version to explain derivation.
 - Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
 - RB-053 training exports consume latest approved versions only and record exact artifact version ids in the manifest and `ExportItem` rows.
-- Model prediction versions are not export-ready ground truth. Future exports may reference prediction ids only as provenance of approved human corrections.
+- Model prediction versions and `PredictionArtifactProvenance` rows are not export-ready ground truth. Future exports may reference prediction ids only as provenance of approved human corrections.
 
 ## Review State
 

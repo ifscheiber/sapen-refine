@@ -9,6 +9,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/schema.prisma` - model definitions.
 - `prisma/migrations/20260519213000_annotation_domain_baseline/migration.sql` - current development baseline migration.
 - `prisma/migrations/20260519233000_review_classification_decisions/migration.sql` - RB-052 review decision target extension.
+- `prisma/migrations/20260520134931_prediction_provenance_registry/migration.sql` - RB-056 model/prediction provenance registry extension.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `src/server/db.ts` - Prisma client setup.
 
@@ -23,6 +24,9 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline; RB-051 uses one default slice instance per image.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
 - `ExportBatch`, `ExportItem` - RB-053 export batch persistence, manifest/package metadata, warnings, actor attribution, and exact exported version references.
+- `ModelRun` - model/training/checkpoint identity with task type, checkpoint, training dataset/export references, config hash, actor, warnings, and metadata.
+- `PredictionRun` - project-scoped inference execution linked to a model run, source dataset/export/selection, inference id, status, counts, aggregate confidence/uncertainty, actor, warnings, and metadata.
+- `PredictionArtifactProvenance` - per-image prediction proposal metadata linked to a prediction run, optional prediction artifact version, optional slice instance, target type, predicted class, confidence/uncertainty, per-class scores, output stats, and output checksum.
 - `AuditLog` - generic audit rows used by RB-055 upload, artifact, and export events; still not exhaustively used by all mutation routes.
 
 ## Invariants And Constraints
@@ -36,6 +40,9 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
 - Current image writes persist `ImageValidationStatus.VALIDATED` only after server-side PNG/JPEG validation and object stat verification.
 - Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
+- `PredictionRun` is project-scoped and references exactly one `ModelRun`.
+- `PredictionArtifactProvenance` references exactly one `PredictionRun`, can link one optional `PREDICTION_MASK` `AnnotationArtifactVersion`, and stores prediction target/classification metadata outside human ground-truth rows.
+- `AnnotationTask.predictionRunId` and `AnnotationTask.predictionProvenanceId` are nullable links for future model-prediction correction queues; `modelSource` is not the reproducible source of truth.
 
 ## Known Gaps
 
@@ -44,6 +51,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only export generation; advanced filters, export history UI, QA export policy, and job queues remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. Broader audit coverage and background/orphan cleanup remain deferred.
+- RB-056 implements provenance persistence only; prediction file import, active-learning queues, assisted correction UI, prediction-analysis exports, and batch import jobs remain deferred.
 
 ## Related Tickets / Docs
 

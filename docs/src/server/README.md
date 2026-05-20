@@ -17,6 +17,7 @@
 - `src/server/domain/audit.ts` - small audit writer for append-only `AuditLog` rows.
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
 - `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
+- `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
 - `src/server/storage.ts` - app-level storage wrapper for presigned URLs.
 - `src/server/storage/s3.ts` - AWS SDK S3/MinIO client setup, presign helpers, object writes, object stat verification, best-effort deletes, and storage readiness check.
 
@@ -28,6 +29,7 @@
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
 - `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the RB-053 owner-only training export workflow.
+- `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 
 ## Invariants And Constraints
@@ -37,12 +39,14 @@
 - Session cookies use `sapen_annotate_session`; older local cookies are intentionally ignored.
 - Runtime config must not expose secrets to the client bundle.
 - Current artifact integrity checks use `sha256:<hex>` checksums, validated image dimensions, and S3/MinIO object stat checks before database commit where practical.
+- Prediction provenance services are registry/proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
 
 ## Known Gaps
 
 - Audit logging is incomplete.
 - There is no rate limiting for login or API writes.
 - Export generation is synchronous and intended for trial-sized datasets; large export job handling remains deferred.
+- Prediction import, active-learning queues, assisted correction UI, and prediction-analysis exports remain deferred after RB-056.
 
 ## Related Tickets / Docs
 

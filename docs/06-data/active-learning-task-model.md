@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the RB-054 design contract for future active-learning and model-prediction correction tasks. It is not implemented at runtime yet.
+This page defines the active-learning and model-prediction correction task contract. RB-056 implements the prediction-run/provenance links that future queues can use, but queue APIs and UI remain deferred.
 
 The task model must help annotators decide what to correct next without allowing model output to bypass human review.
 
@@ -18,10 +18,14 @@ Current schema hooks in `prisma/schema.prisma`:
 - `AnnotationTask.confidenceScore`
 - `AnnotationTask.modelSource`
 - `AnnotationTask.sourceArtifactVersionId`
+- `AnnotationTask.predictionRunId`
+- `AnnotationTask.predictionProvenanceId`
 - `AnnotationTask.assigneeId`
 - `AnnotationTask.createdAt`
+- `PredictionRun`
+- `PredictionArtifactProvenance`
 
-These hooks are sufficient to design the first queue behavior and a simple MVP task list. They are not sufficient for full model-run provenance or batch import tracking.
+These hooks are sufficient to design the first queue behavior and a simple MVP task list. `modelSource` remains a display/compatibility hint; reproducible model provenance now comes from `predictionRunId` and `predictionProvenanceId`.
 
 ## Task Reasons
 
@@ -53,7 +57,8 @@ Tasks should reference:
 - image,
 - slice instance when applicable,
 - source prediction artifact version where applicable,
-- model source/run summary,
+- `predictionRunId` and `predictionProvenanceId` when a prediction registry row exists,
+- model source/run summary derived from `PredictionRun.modelRun`, not free text,
 - confidence and uncertainty scores,
 - assignee when assigned,
 - createdBy system actor or importer.
@@ -115,12 +120,13 @@ Editor constraints:
 
 RB-054 does not add queue APIs or UI. Follow-up tickets should implement:
 
-- prediction provenance schema/model-run registry,
 - prediction import API and storage validation,
 - task queue query/update APIs,
 - task list and assignment UI,
 - assisted correction editor route/workflow,
 - optional prediction-analysis export mode.
+
+RB-056 implements the provenance schema/model-run registry. RB-058 should build queue APIs/UI on those links and should not fall back to `AnnotationTask.modelSource` as the source of truth.
 
 ## Related Docs
 

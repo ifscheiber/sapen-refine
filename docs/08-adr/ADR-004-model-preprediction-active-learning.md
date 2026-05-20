@@ -26,7 +26,7 @@ For the first implementation:
 - review/approval applies to the human version, not the prediction,
 - RB-053 training exports stay approved-human-only.
 
-The current task fields are sufficient for a first active-learning queue ordering. They are not sufficient for reproducible model provenance. A follow-up schema/API ticket should add a `ModelRun`/`PredictionRun` concept or equivalent provenance storage before real prediction imports.
+The current task fields are sufficient for a first active-learning queue ordering. They are not sufficient for reproducible model provenance by themselves. RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` before real prediction imports.
 
 ## Consequences
 
@@ -38,7 +38,7 @@ The current task fields are sufficient for a first active-learning queue orderin
 
 ## Deferred Work
 
-- RB-056: Prediction provenance schema and model-run registry.
+- RB-056: Prediction provenance schema and model-run registry. Implemented after this ADR.
 - RB-057: Prediction import API and storage validation.
 - RB-058: Active-learning task queue API/UI.
 - RB-059: Assisted correction editor workflow.

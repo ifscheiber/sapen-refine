@@ -59,7 +59,7 @@ There is no `check:docs-links` script in `package.json` yet.
 
 ## Known Gaps
 
-- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and prediction provenance placeholders. RB-050 adds the first project/image metadata workflow; remaining user-facing workflows start with RB-051.
+- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and RB-056 prediction provenance registry records. Prediction import and assisted-correction UI remain deferred.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - Upload hardening now covers the current raw image, semantic mask, support mask, and export paths. Broader audit coverage, malware scanning, async jobs, and orphan cleanup dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available.
