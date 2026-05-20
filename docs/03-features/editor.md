@@ -1,11 +1,13 @@
 # Editor Feature
 
-The current editor is prototype-level but useful for drawing, saving, submitting, and approving MVP annotation artifacts. RB-045 established the browser/iPad trial baseline before domain expansion; RB-052 adds the first review/approval controls.
+The current editor is prototype-level but useful for drawing, saving, submitting, and approving MVP annotation artifacts. RB-045 established the browser/iPad trial baseline before domain expansion; RB-052 adds the first review/approval controls; RB-059 adds the first prediction-assisted correction entry.
 
 Important files:
 
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx`
 - `src/features/editor/EditImagePage.tsx`
+- `src/features/editor/CorrectionTaskEditorPage.tsx`
 - `src/features/editor/EditorClient.tsx`
 - `src/features/editor/canvasGeometry.ts`
 - `src/design/editorCanvas.ts`
@@ -14,6 +16,7 @@ Important files:
 ## Current Entry Route
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
+- Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
@@ -22,7 +25,8 @@ Important files:
 ## Current Canvas And Input Model
 
 - The editor loads the source image through `/api/images/[imageId]/view`.
-- Three canvases are stacked: base image, mask overlay, and lasso preview.
+- The standard editor stacks base image, editable mask overlay, and lasso preview canvases.
+- The correction editor adds a read-only prediction proposal canvas between the base image and editable human mask.
 - The mask coordinate space currently matches the image pixel dimensions.
 - Pointer Events are the only drawing input layer; there is no parallel mouse/touch event system.
 - The overlay canvas uses `touch-none`, so drawing on the canvas is intended not to scroll the page on touch devices.
@@ -41,6 +45,7 @@ Important files:
 - If edits happen while a save is in flight, the editor tracks dirty revisions and queues another save instead of clearing the newer dirty state.
 - In `Semantic mask` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
 - In `Slice support` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/support-mask/upload`.
+- In correction mode, manual save uploads raw `u8raw-v1` bytes through `/api/correction-tasks/[taskId]/corrections`.
 - RB-055 validates mask byte length, declared width/height, image-pixel coordinate space, checksum hints, and storage object metadata before recording a version.
 - Support-mask saves additionally require binary support values: `0` or the active label schema's `slice_support` byte value. Copper semantic bytes are rejected as support geometry.
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
@@ -61,7 +66,7 @@ Important files:
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
 - The editor shows a simple export-readiness summary based on approved versions only.
-- The editor does not yet manage annotation tasks, imported prediction overlays, multi-object support geometry, bulk review, or export generation.
+- The correction editor opens `MODEL_PREDICTION_CORRECTION` tasks, loads prediction masks read-only, and saves separate human correction versions. It does not run inference, import predictions, manage batch queues, or implement multi-object support geometry.
 - Copper is available only as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
 
 ## Stable Save Errors
@@ -70,9 +75,20 @@ Mask save APIs return stable sanitized error codes for integrity failures, inclu
 
 Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful support saves record `SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
-## Future Prediction-Assisted Correction
+## Prediction-Assisted Correction
 
-RB-057 can import prediction mask proposals as immutable `PREDICTION_MASK` artifacts, but the editor does not load them yet. A future correction task should load a model prediction as a read-only overlay or as an explicit starting mask, keep the editable human layer separate, show model confidence/uncertainty/task reason, and save corrected work as a new human artifact version. Prediction artifacts must remain immutable and visually distinct from human annotation. The future route must remain usable on iPad-sized screens.
+RB-059 implements the first assisted correction path:
+
+- `/app/projects/[projectId]/tasks/[taskId]/correct` is deep-linkable from the task queue.
+- `GET /api/correction-tasks/[taskId]/correction-context` loads sanitized task, model/run, source prediction, and target-mode context.
+- `GET /api/correction-tasks/[taskId]/prediction-mask` streams prediction bytes through the app without exposing object storage keys.
+- The prediction layer is read-only and visually separate from the editable human mask.
+- `Use prediction as starting mask` explicitly copies prediction bytes into the local editable human buffer; opening the task does not create ground truth.
+- `Save correction draft` creates a new `AnnotationArtifactVersion` with `ArtifactProvenance.HUMAN_CORRECTION`, `parentVersionId` pointing to the prediction artifact version, and `taskId` pointing to the correction task.
+- Semantic prediction corrections save to `SEMANTIC_MASK`; support prediction corrections save to `SLICE_SUPPORT_MASK`.
+- Submit/approve/reject uses the existing RB-052 review controls. Prediction artifacts remain immutable and excluded from ground-truth export.
+
+Slice-classification prediction correction is deferred because RB-057 imports mask predictions only.
 
 ## Default Slice Baseline
 

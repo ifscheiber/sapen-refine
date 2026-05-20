@@ -66,7 +66,7 @@ RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence pl
 
 Prediction artifacts must never overwrite human ground-truth versions.
 
-RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.targetType` rather than adding separate prediction artifact kinds. RB-057 creates `PREDICTION_MASK` artifact versions for imported semantic/support prediction mask bytes and links them through `PredictionArtifactProvenance.artifactVersionId`. A human correction must create a separate human artifact version with `ArtifactProvenance.HUMAN_CORRECTION` and should link to the prediction through `parentVersionId`, `AnnotationTask.predictionRunId`, and `AnnotationTask.predictionProvenanceId`.
+RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.targetType` rather than adding separate prediction artifact kinds. RB-057 creates `PREDICTION_MASK` artifact versions for imported semantic/support prediction mask bytes and links them through `PredictionArtifactProvenance.artifactVersionId`. RB-059 creates separate human correction artifact versions with `ArtifactProvenance.HUMAN_CORRECTION`, `parentVersionId` pointing to the prediction version, and `taskId` pointing to the correction task.
 
 ## Version Rules
 
@@ -75,6 +75,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
 - RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
+- Human correction versions from RB-059 use `parentVersionId` for the source prediction and keep prediction bytes immutable.
 - Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
 - RB-053 training exports consume latest approved versions only and record exact artifact version ids in the manifest and `ExportItem` rows.
 - Model prediction versions and `PredictionArtifactProvenance` rows are not export-ready ground truth. Future exports may reference prediction ids only as provenance of approved human corrections.
@@ -117,7 +118,7 @@ RB-051 support-mask values are resolved through the active label schema where pr
 - `0` remains background,
 - `slice_support` comes from the label schema byte value, currently `10` in the seed schema.
 
-RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. Support masks and support predictions are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
+RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. RB-059 applies the same validation to assisted human corrections and additionally validates semantic correction bytes against active semantic label byte values. Support masks, support predictions, and support corrections are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
 
 Future format work should decide:
 

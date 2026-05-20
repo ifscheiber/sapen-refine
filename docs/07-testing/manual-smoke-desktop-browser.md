@@ -38,6 +38,10 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Return to project overview. | Training export panel shows approved semantic, support, and classification counts. |  |  |
 | Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links; integrity warnings block export when selected inputs lack checksum/dimensions. |  |  |
 | Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |
+| If a prediction run/task fixture exists, open `/app/projects/[projectId]/tasks`. | Correction task queue renders and the task has an `Open correction` link. |  |  |
+| Open a correction task. | `/app/projects/[projectId]/tasks/[taskId]/correct` loads image, task context, and prediction proposal panel. |  |  |
+| Toggle prediction overlay and click `Use prediction as starting mask`. | Prediction bytes copy into the editable human layer; no save occurs until explicitly requested. |  |  |
+| Click `Save correction draft`. | A draft human correction version is saved and appears in existing review controls. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
 
 ## Current MVP Limitations
@@ -46,7 +50,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, and creation of an export with manifest/package links.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of an export with manifest/package links, and a small assisted-correction happy path.
 
 ## Result Tracking
 

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This page documents the prediction-assisted workflow contract. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, and RB-058 implements the first correction task queue. Assisted editor behavior is not implemented yet.
+This page documents the prediction-assisted workflow contract. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, RB-058 implements the first correction task queue, and RB-059 implements the first assisted correction editor for semantic/support mask predictions.
 
 ## Planned Flow
 
 A future model may provide prediction masks, slice-classification proposals, or uncertainty-ranked queues. Human users review and correct those predictions, then save separate human artifact/classification versions with explicit provenance.
 
-Planned flow:
+Implemented semantic/support mask flow:
 
 ```text
 prediction imported
@@ -29,10 +29,13 @@ Current provenance and queue implementation files:
 - `src/server/domain/predictionProvenance.ts` - provenance registry service layer.
 - `src/server/domain/predictionImport.ts` - prediction mask import service.
 - `src/server/domain/correctionTasks.ts` - correction task creation, ordering, role checks, and updates.
+- `src/server/domain/assistedCorrection.ts` - assisted correction context, prediction-mask read authorization, and human correction save service.
 - `src/app/api/model-runs/*` and `src/app/api/projects/[projectId]/prediction-runs/route.ts` - minimal provenance APIs.
 - `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` - one-at-a-time prediction mask import API.
 - `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts` - correction task queue APIs.
+- `src/app/api/correction-tasks/[taskId]/correction-context/route.ts`, `src/app/api/correction-tasks/[taskId]/prediction-mask/route.ts`, and `src/app/api/correction-tasks/[taskId]/corrections/route.ts` - assisted correction APIs.
 - `src/app/(workspace)/app/projects/[projectId]/tasks/page.tsx` - project correction task queue route.
+- `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx` - assisted correction editor route.
 
 Current mask MVP files are under `src/mask`; current human mask APIs are under `src/app/api/images/[imageId]/mask`.
 
@@ -53,7 +56,7 @@ Design docs:
 ## Known Gaps
 
 - No Core handoff contract exists.
-- No assisted correction editor workflow exists.
+- Slice-classification prediction correction is deferred.
 
 ## Related Tickets / Docs
 

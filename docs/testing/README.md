@@ -25,6 +25,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/integration/prediction-provenance.test.ts` covers RB-056 model-run admin authorization, project-scoped prediction-run access, duplicate inference ids, prediction artifact provenance, classification prediction proposals, correction-task provenance links, and the rule that predictions are not ground-truth export inputs.
 - `tests/integration/prediction-import.test.ts` covers RB-057 semantic/support prediction imports, `OWNER`/`QA` authorization, project boundaries, checksum/dimension/content-type/coordinate-space/value validation, audit creation, review rejection, and export exclusion for imported predictions.
 - `tests/integration/correction-task-queue.test.ts` covers RB-058 idempotent correction-task creation from prediction provenance, deterministic active-learning ordering, sanitized responses without storage keys, project role rules, task claim/start/dismiss/priority updates, and default active-queue filtering.
+- `tests/integration/assisted-correction.test.ts` covers RB-059 correction context authorization, prediction-mask reads, semantic/support `HUMAN_CORRECTION` saves, parent/task links, task status transitions through review, source prediction immutability, export eligibility for approved human corrections, and unsupported classification correction.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/metadata-validation.test.ts` covers RB-050 metadata parsing, completeness/readiness calculation, and immutable-field validation.
 - `tests/unit/review-domain.test.ts` covers RB-052 review transition helpers, role capability mapping, reject reason requirements, and approved-only export readiness.
@@ -37,7 +38,7 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Current E2E Coverage
 
-- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, PNG image upload with validated technical metadata, single missing T-number list signal before metadata is entered, editor open without aborted-fetch console/page errors, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, and owner training export creation with manifest/package links.
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, PNG image upload with validated technical metadata, single missing T-number list signal before metadata is entered, editor open without aborted-fetch console/page errors, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, owner training export creation with manifest/package links, and a small assisted-correction path from prediction task to saved human correction draft.
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
 - E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.
@@ -75,7 +76,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, and RB-058 correction task queue rules.
+- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, and RB-059 assisted correction boundaries.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

@@ -35,6 +35,7 @@ Route files are thin wrappers around `src/features/projects`.
 - `/app/projects/new` creates a project through `POST /api/projects`.
 - `/app/projects/[projectId]` shows the project overview, editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, links to images and correction tasks, and the training export panel.
 - `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and editor links prepared for RB-059.
+- Task rows link to `/app/projects/[projectId]/tasks/[taskId]/correct` for RB-059 assisted correction.
 - The training export panel shows approved semantic/support/classification readiness counts, target selection, and owner-only export creation with manifest/package download links.
 - Project membership remains the authorization boundary for image and editor routes.
 
@@ -52,12 +53,13 @@ Route files are thin wrappers around `src/features/projects`.
 - `POST /api/prediction-runs/[predictionRunId]/predictions` is restricted to project `OWNER` and `QA`; it imports one prediction mask proposal and does not create correction tasks.
 - `POST /api/prediction-runs/[predictionRunId]/correction-tasks` is restricted to project `OWNER` and `QA`; it creates idempotent correction tasks from prediction provenance rows.
 - Correction-task listing/detail is available to project members. `OWNER`/`QA` can manage assignment and priority; `LABELER` can claim/start/dismiss eligible active tasks; `VIEWER` is read-only.
+- Assisted correction context/read/save is available to `OWNER`, `QA`, and eligible `LABELER` users; `VIEWER` remains read-only and cannot open the mutation editor.
 
 ## MVP Limitations
 
 - Projects now carry an optional active label schema version and surface missing schema setup in the UI.
 - RB-053 adds basic owner-only training export from the project overview. Advanced export filters, export history UI, QA export policy, and advanced reviewer administration remain deferred.
-- RB-056 adds project-scoped prediction-run provenance APIs, RB-057 adds the server-side prediction mask import API, and RB-058 adds the first project correction task queue. Prediction import controls and assisted correction editing remain deferred.
+- RB-056 adds project-scoped prediction-run provenance APIs, RB-057 adds the server-side prediction mask import API, RB-058 adds the first project correction task queue, and RB-059 adds the first assisted correction editor. Prediction import controls remain deferred.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.

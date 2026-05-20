@@ -91,7 +91,7 @@ Slice classification predictions are represented as `PredictionArtifactProvenanc
 
 ## Human Correction Contract
 
-Future correction flow:
+Implemented correction flow after RB-059:
 
 ```text
 prediction imported
@@ -115,6 +115,8 @@ Rules:
 - `AnnotationTask.modelSource` is legacy/display context only. It is not the reproducible source of truth.
 - Approval applies to the human correction, not to the model prediction.
 - A rejected human correction does not delete or rewrite the prediction artifact.
+- RB-059 updates correction task state to `IN_PROGRESS` after draft save, `SUBMITTED` after submit, and `DONE` after approval.
+- Slice-classification correction remains deferred; classification predictions are proposals until a human explicitly saves a classification version through a future workflow.
 
 ## Provenance Requirements
 
@@ -175,9 +177,8 @@ Large batch imports should use a background job design rather than synchronous b
 
 RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-## Deferred After RB-058
+## Deferred After RB-059
 
-- RB-059: assisted correction editor workflow that loads prediction overlays read-only and writes human correction artifacts separately.
 - RB-060: prediction-analysis export mode separate from ground-truth training exports.
 - RB-061: background jobs for large/batch prediction imports.
 

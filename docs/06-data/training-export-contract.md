@@ -145,9 +145,9 @@ The MVP exports approved ground-truth components only:
 
 Draft, submitted, rejected, and superseded versions are not exported as training targets.
 
-Model prediction artifacts are also excluded from default training exports. A future human correction based on a prediction may be exported only after it is saved as a separate human semantic/support/classification version and approved. Prediction ids may be recorded later as provenance, but prediction bytes are not ground-truth labels.
+Model prediction artifacts are also excluded from default training exports. RB-059 human corrections based on predictions may be exported only after they are saved as separate human semantic/support versions and approved. Prediction ids may be recorded later as provenance, but prediction bytes are not ground-truth labels.
 
-RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance`, and RB-057 imports `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance. Those records are proposals only. They do not change export eligibility, do not mark prediction artifact versions as ground truth, and do not create slice-classification labels. Prediction-analysis exports remain a separate future target.
+RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance`, and RB-057 imports `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance. RB-059 correction saves create `HUMAN_CORRECTION` semantic/support artifact versions linked to the source prediction. Prediction records remain proposals only. They do not change export eligibility, do not mark prediction artifact versions as ground truth, and do not create slice-classification labels. Prediction-analysis exports remain a separate future target.
 
 Images with no approved data for the requested targets are skipped with `NO_REQUESTED_APPROVED_DATA`. Images missing a selected component are included only for the approved components they do have and receive warnings such as `MISSING_APPROVED_SEMANTIC_MASK`, `MISSING_APPROVED_SUPPORT_MASK`, or `MISSING_APPROVED_SLICE_CLASSIFICATION`. Missing T-number and acquisition metadata are warning conditions, not hard blockers.
 

@@ -97,19 +97,21 @@ Existing task statuses are usable for the first queue:
 
 Review approval remains artifact/classification state, not task state. A task reaching `DONE` should not imply that a model prediction became approved.
 
-RB-058 task actions:
+RB-058/RB-059 task actions:
 
 - `assign_to_me` sets the current user as assignee.
 - `assign` is owner/QA-only and requires an assignable project member.
 - `start` moves an active task to `IN_PROGRESS`.
 - `dismiss` moves an active task to `CANCELLED`.
 - `set_priority` is owner/QA-only.
+- RB-059 correction draft save moves an active task to `IN_PROGRESS` and assigns it to the saving user if it was unassigned.
+- RB-059 review submit moves a linked human correction task to `SUBMITTED`; approval moves it to `DONE`; rejection moves it back to `IN_PROGRESS`.
 
-RB-058 deliberately does not mark correction tasks `DONE`; completion belongs to the future assisted correction/editor slice after a human correction exists.
+Tasks are not marked complete merely because a prediction was viewed or copied locally.
 
 ## Editor Requirements
 
-RB-058 exposes queue navigation through `/app/projects/[projectId]/tasks` and returns an `editorHref` pointing at the current editor route with task/provenance query parameters. RB-059 must make the editor consume that context.
+RB-058 exposes queue navigation through `/app/projects/[projectId]/tasks`; RB-059 routes correction tasks to `/app/projects/[projectId]/tasks/[taskId]/correct`.
 
 - source image,
 - read-only prediction overlay,
@@ -132,6 +134,7 @@ Editor constraints:
 - `GET /api/correction-tasks/[taskId]` returns one sanitized correction task.
 - `PATCH /api/correction-tasks/[taskId]` supports claim/assign/start/dismiss/priority actions.
 - `/app/projects/[projectId]/tasks` renders the first responsive project task queue.
+- `/app/projects/[projectId]/tasks/[taskId]/correct` renders the first assisted correction editor entry.
 
 API responses expose sanitized model/run/provenance summaries and do not expose artifact storage keys.
 
