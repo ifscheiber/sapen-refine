@@ -31,7 +31,7 @@ This page summarizes known limitations after the RB-040 through RB-061 baseline,
 - Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export and RB-061 implements trial-sized batch/background imports.
 - Prediction-analysis export does not compute metrics such as Dice/IoU or confusion matrices; offline evaluation/dashboard work remains deferred.
 - Slice-classification prediction correction remains deferred.
-- Project overview contains metadata, prediction imports, training export, prediction-analysis export, and navigation panels; a route-level operations split is planned before larger iPad/customer trials.
+- RB-063 splits project operations into route-addressable overview, exports, and prediction-import pages; export history and advanced operations dashboards remain deferred.
 - RBAC and audit rules are functional but scattered across domain modules/routes; a centralized policy/audit hardening slice is planned.
 - `src/server/storage.ts` is an unused legacy duplicate of the active `src/server/storage/s3.ts` storage helper pattern and should be removed or converted to a re-export in a cleanup ticket.
 - Remaining upload/security limits: no malware scanning, no login/API rate limiting, no CSRF/same-origin mutation guard, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned/staged objects, no always-on batch worker, and no large async export job handling.

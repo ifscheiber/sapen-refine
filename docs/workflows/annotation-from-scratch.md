@@ -17,7 +17,7 @@ This is the current primary workflow for SaPen Annotate.
 9. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
 10. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
 11. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest` and `/api/images/[imageId]/support-mask/latest`; review readiness is read through `/api/images/[imageId]/review-state`.
-12. A project `OWNER` can return to the project overview, create a training export from latest approved versions, and download the generated manifest/package through app routes.
+12. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a training export from latest approved versions, and download the generated manifest/package through app routes.
 
 ## Important Files
 

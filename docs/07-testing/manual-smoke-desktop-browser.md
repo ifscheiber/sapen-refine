@@ -35,12 +35,12 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Approve semantic mask, support mask, and slice classification as `OWNER`/`QA`. | Each reviewable unit shows an approved version and export-ready becomes yes. |  |  |
 | Reload editor. | Latest saved mask reloads without runtime errors. |  |  |
 | Confirm semantic/support/review distinction. | Semantic latest mask, support latest mask, slice classification, and review-state APIs report separate approved versions. |  |  |
-| Return to project overview. | Training export panel shows approved semantic, support, and classification counts. |  |  |
+| Open project exports. | `/app/projects/[projectId]/exports` shows approved semantic, support, and classification counts. |  |  |
 | Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links; integrity warnings block export when selected inputs lack checksum/dimensions. |  |  |
 | Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |
 | If a prediction run fixture exists, inspect the prediction analysis export section. | Candidate counts, target controls, prediction-run selection, and proposal warning render separately from the training export controls. |  |  |
 | Create a prediction analysis export as `OWNER` or `QA`. | Export completes with `/api/prediction-analysis-exports/[exportId]/download` links and clearly labels predictions as proposals, not training labels. |  |  |
-| If a batch prediction ZIP fixture exists, create and process a prediction import batch as `OWNER` or `QA`. | Batch counts update, item failures show stable error codes, successful items become prediction proposals, and no private staging/MinIO URL is exposed. |  |  |
+| If a batch prediction ZIP fixture exists, open project prediction imports and create/process a batch as `OWNER` or `QA`. | `/app/projects/[projectId]/prediction-imports` shows batch counts, item failures show stable error codes, successful items become prediction proposals, and no private staging/MinIO URL is exposed. |  |  |
 | If a prediction run/task fixture exists, open `/app/projects/[projectId]/tasks`. | Correction task queue renders and the task has an `Open correction` link. |  |  |
 | Open a correction task. | `/app/projects/[projectId]/tasks/[taskId]/correct` loads image, task context, and prediction proposal panel. |  |  |
 | Toggle prediction overlay and click `Use prediction as starting mask`. | Prediction bytes copy into the editable human layer; no save occurs until explicitly requested. |  |  |

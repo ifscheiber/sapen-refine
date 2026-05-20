@@ -72,7 +72,7 @@ Customer-facing trials should use named user accounts per tester. Do not expose 
 ## MVP Limitations
 
 - Export generation and prediction-analysis export are synchronous and intended for trial-sized datasets.
-- The project overview currently contains several operations panels; a dedicated operations split is planned before larger iPad/customer trials.
+- Project operations are split into route-addressable overview, exports, and prediction-import pages; advanced history dashboards remain deferred.
 - RBAC, audit coverage, login hardening, background workers, retention cleanup, and advanced iPad/Pencil interactions still need focused hardening.
 - `MaskKind.PREDICTION` and `MaskKind.REFINED` have been removed from the active Prisma schema; remaining "refine" wording is historical or refers to future prediction correction.
 - The validation baseline is green; remaining product and deployment gaps are tracked in [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md).

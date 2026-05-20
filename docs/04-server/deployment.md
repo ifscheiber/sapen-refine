@@ -101,7 +101,7 @@ Raise limits in both places:
 
 ## Batch Prediction Import Processing
 
-Project `OWNER`/`QA` users can create, inspect, process, and retry RB-061 prediction import batches from the project overview. For operational runs, use the API-based script while the app container is running:
+Project `OWNER`/`QA` users can create, inspect, process, and retry RB-061 prediction import batches from `/app/projects/[projectId]/prediction-imports`. For operational runs, use the API-based script while the app container is running:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --batch '<batch-id>' --limit 25 --email 'owner@example.com' --password '<owner-password>'

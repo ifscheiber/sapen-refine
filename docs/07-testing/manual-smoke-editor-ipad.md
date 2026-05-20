@@ -103,5 +103,5 @@ Blocking: yes/no
 ## Known Limitations
 
 - Advanced multi-touch zoom/pan gestures are not implemented in RB-045.
-- Current editor review controls are minimal; reviewer dashboards and bulk review remain separate follow-up slices. RB-053 export testing is covered by the desktop/customer browser smoke checklists because export lives on the project overview.
+- Current editor review controls are minimal; reviewer dashboards and bulk review remain separate follow-up slices. RB-053 export testing is covered by the desktop/customer browser smoke checklists through the project exports route.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

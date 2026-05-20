@@ -15,7 +15,7 @@ Important files:
 - `src/app/api/projects/[projectId]/exports/route.ts` - export creation.
 - `src/app/api/exports/[exportId]/route.ts` - export summary.
 - `src/app/api/exports/[exportId]/download/route.ts` - manifest/package download through the app.
-- `src/features/projects/ProjectExportPanel.tsx` - project overview export UI.
+- `src/features/projects/ProjectExportPanel.tsx` - project exports route UI mounted by `src/features/projects/ProjectExportsPage.tsx`.
 
 API target strings:
 
@@ -195,7 +195,7 @@ All export creation records the authenticated actor. Future project policy may a
 - Export generation is synchronous and intended for trial-sized datasets.
 - There is no background job queue, retry dashboard, or large dataset sharding.
 - There is no advanced filtering by T-number, label, date, annotator, reviewer, or metadata completeness.
-- The UI exposes only the most recent created export result in the project overview panel; there is no export history page.
+- The UI exposes only the most recent created export result in the project exports panel; there is no export history page.
 - Only one default support geometry and one default slice classification per image are implemented.
 - Export generation is blocked rather than partially generated when selected approved artifacts are missing checksum or dimension metadata.
 - Prediction-analysis metrics and dashboard UI are not part of RB-060; the separate mode exports comparison references for offline QA only.

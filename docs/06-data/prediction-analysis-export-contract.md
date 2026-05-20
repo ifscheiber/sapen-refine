@@ -15,7 +15,7 @@ Important files:
 - `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts` - export creation.
 - `src/app/api/prediction-analysis-exports/[exportId]/route.ts` - sanitized export summary.
 - `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts` - manifest/package download through the app.
-- `src/features/projects/ProjectExportPanel.tsx` - project overview UI with a separate prediction-analysis section.
+- `src/features/projects/ProjectExportPanel.tsx` - project exports route UI with a separate prediction-analysis section.
 - `tests/integration/prediction-analysis-export.test.ts` - export separation, authorization, manifest, package layout, and regression coverage.
 
 Manifest version:

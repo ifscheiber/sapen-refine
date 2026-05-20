@@ -7,9 +7,14 @@ Important files:
 - `src/app/(workspace)/app/projects/page.tsx`
 - `src/app/(workspace)/app/projects/new/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/page.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/exports/page.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/prediction-imports/page.tsx`
 - `src/features/projects/ProjectsIndex.tsx`
 - `src/features/projects/NewProjectPage.tsx`
 - `src/features/projects/ProjectOverview.tsx`
+- `src/features/projects/ProjectOperationsNav.tsx`
+- `src/features/projects/ProjectExportsPage.tsx`
+- `src/features/projects/ProjectPredictionImportsPage.tsx`
 - `src/features/projects/ProjectMetadataForm.tsx`
 - `src/features/projects/ProjectExportPanel.tsx`
 - `src/features/projects/ProjectPredictionImportBatchPanel.tsx`
@@ -44,7 +49,9 @@ Route files are thin wrappers around `src/features/projects`.
 
 - `/app/projects` lists projects where the authenticated user has membership.
 - `/app/projects/new` creates a project through `POST /api/projects`.
-- `/app/projects/[projectId]` shows the project overview, editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, links to images and correction tasks, the RB-061 prediction batch import panel for `OWNER`/`QA`, the training export panel, and the separated prediction-analysis export panel.
+- `/app/projects/[projectId]` shows the project overview as a status/action hub: editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, readiness counts, and links to images, tasks, exports, and prediction imports.
+- `/app/projects/[projectId]/exports` shows the training export panel and the separated prediction-analysis export panel.
+- `/app/projects/[projectId]/prediction-imports` shows RB-061 prediction batch import operations for project `OWNER`/`QA` and a permission notice for other project members.
 - `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and links to the RB-059 assisted correction editor.
 - Task rows link to `/app/projects/[projectId]/tasks/[taskId]/correct` for RB-059 assisted correction.
 - The training export panel shows approved semantic/support/classification readiness counts, target selection, and owner-only export creation with manifest/package download links.
@@ -74,9 +81,9 @@ Route files are thin wrappers around `src/features/projects`.
 ## MVP Limitations
 
 - Projects now carry an optional active label schema version and surface missing schema setup in the UI.
-- RB-053 adds basic owner-only training export from the project overview. RB-060 adds separate owner/QA prediction-analysis exports from the same panel. Advanced export filters, export history UI, and advanced reviewer administration remain deferred.
+- RB-053 adds basic owner-only training export from `/app/projects/[projectId]/exports`. RB-060 adds separate owner/QA prediction-analysis exports from the same route. Advanced export filters, export history UI, and advanced reviewer administration remain deferred.
 - RB-056 adds project-scoped prediction-run provenance APIs, RB-057 adds the server-side prediction mask import API, RB-058 adds the first project correction task queue, RB-059 adds the first assisted correction editor, RB-060 adds the separate prediction-analysis export, and RB-061 adds ZIP batch prediction import controls for owner/QA users.
-- The project overview now has several operational panels. A dedicated operations route remains a follow-up if the overview becomes too dense for iPad trial use.
+- RB-063 moves heavy export and prediction-import controls out of the overview into dedicated project operations routes.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.

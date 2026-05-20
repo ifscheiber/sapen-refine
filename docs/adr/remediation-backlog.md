@@ -224,7 +224,7 @@ Context: RB-049 adds export batch/item persistence. RB-048 defines semantic segm
 
 Impact: The app cannot produce reproducible training-data bundles.
 
-Resolution: Implemented by RB-053 optimized ticket. Project owners can create synchronous training exports from the project overview. The export workflow records an `ExportBatch`, exact `ExportItem` references, a manifest checksum, package checksum/size metadata, warnings, and actor attribution. Downloads are served through app routes without exposing private MinIO URLs.
+Resolution: Implemented by RB-053 optimized ticket and moved to the dedicated project exports route by RB-063. Project owners can create synchronous training exports; the export workflow records an `ExportBatch`, exact `ExportItem` references, a manifest checksum, package checksum/size metadata, warnings, and actor attribution. Downloads are served through app routes without exposing private MinIO URLs.
 
 Remaining follow-up: Advanced export filters, export history/dashboard UI, QA export policy, and job queue/large dataset handling remain deferred.
 
@@ -370,17 +370,17 @@ Priority: Resolved by RB-062.
 
 ## RB-063 - Project Operations UX Split
 
-Context: Project Overview now hosts metadata, prediction batch import, training export, prediction-analysis export, task navigation, and image navigation.
+Context: Before RB-063, Project Overview hosted metadata, prediction batch import, training export, prediction-analysis export, task navigation, and image navigation.
 
 Impact: The overview is becoming too dense for repeated desktop work and smaller iPad screens.
 
-Proposed next step: Split operations into route-addressable project areas for exports and prediction imports while keeping `/app/projects/[projectId]` focused on status and next actions.
+Resolution: RB-063 splits project operations into route-addressable pages: `/app/projects/[projectId]` for status/actions, `/exports` for training and prediction-analysis exports, and `/prediction-imports` for prediction batch imports.
 
 Affected modules: `src/app/(workspace)/app/projects/[projectId]`, `src/features/projects`, route docs, and Playwright smoke paths.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-063.
 
 ## RB-064 - Auth, RBAC, And Audit Hardening
 

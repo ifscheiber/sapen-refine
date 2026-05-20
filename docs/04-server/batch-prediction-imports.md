@@ -10,7 +10,7 @@ Implemented evidence:
 - `src/server/domain/predictionImportBatches.ts` - ZIP manifest parsing, private staging, item claiming, processing, retry, and sanitized serialization.
 - `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts` - ZIP batch creation.
 - `src/app/api/prediction-import-batches/*` and `src/app/api/projects/[projectId]/prediction-import-batches/route.ts` - inspect/process/retry APIs.
-- `src/features/projects/ProjectPredictionImportBatchPanel.tsx` - minimal project overview UI for owner/QA batch management.
+- `src/features/projects/ProjectPredictionImportBatchPanel.tsx` - minimal prediction-imports route UI for owner/QA batch management.
 - `scripts/process-prediction-import-batch.mjs` - optional API-based processing script.
 
 ## Input Format
@@ -58,7 +58,7 @@ The create request validates the ZIP and manifest, verifies that referenced imag
 
 Processing is explicit:
 
-- UI button in the project overview.
+- UI button on `/app/projects/[projectId]/prediction-imports`.
 - API call to `POST /api/prediction-import-batches/[batchId]/process`.
 - Optional script:
 

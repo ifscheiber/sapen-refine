@@ -49,10 +49,10 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Set slice classification. | Classification persists after save. |  |  |
 | Submit and approve semantic mask, support mask, and slice classification. | Review state shows approved versions and export-ready becomes yes. |  |  |
 | Reload. | Semantic mask, support mask status, classification, and approved review state reload. |  |  |
-| Return to project overview and create a training export as owner. | Export readiness counts include the approved components and export creation returns manifest/package download links. Integrity warnings block export creation if selected inputs lack checksum/dimensions. |  |  |
+| Open project exports and create a training export as owner. | `/app/projects/[projectId]/exports` readiness counts include the approved components and export creation returns manifest/package download links. Integrity warnings block export creation if selected inputs lack checksum/dimensions. |  |  |
 | Download manifest and package. | Files download through app routes; no MinIO console/S3 URL is exposed to the browser. |  |  |
 | If a prediction fixture exists, create a prediction analysis export as owner/QA. | Export completes through `/api/prediction-analysis-exports/*`, warning text says predictions are proposals, and no private storage URL is exposed. |  |  |
-| If a batch prediction ZIP fixture exists, create a prediction import batch as owner/QA. | Batch appears with item counts; process/retry controls work; failed items show stable error codes; no staging or MinIO/S3 URL is exposed. |  |  |
+| If a batch prediction ZIP fixture exists, open project prediction imports and create a prediction import batch as owner/QA. | `/app/projects/[projectId]/prediction-imports` shows item counts; process/retry controls work; failed items show stable error codes; no staging or MinIO/S3 URL is exposed. |  |  |
 | If a prediction fixture exists, open project task queue. | Active-learning correction tasks render without exposing storage keys. |  |  |
 | Open a correction task. | Assisted correction editor loads prediction context and image at `/tasks/[taskId]/correct`. |  |  |
 | Use prediction as starting mask and save correction draft. | Human correction draft is saved separately; prediction remains read-only. |  |  |

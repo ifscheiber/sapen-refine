@@ -369,7 +369,7 @@ Validation expectations:
 Known architectural risks:
 - Current mask terminology and serialization are MVP-level and need normalization.
 - Editor implementation is large and should be decomposed incrementally before heavier production annotation workflows.
-- Project overview operations are becoming dense and should be split into route-addressable operations areas before customer/iPad scale-up.
+- Project operations are route-addressable after RB-063, but advanced export/import history dashboards remain incomplete.
 - RBAC, audit coverage, login hardening, background workers, retention cleanup, and advanced export/history workflows remain incomplete.
 - Trial-sized training export, prediction-analysis export, prediction import, correction tasks, and batch prediction import workflows exist but are not production-scale operations yet.
 
