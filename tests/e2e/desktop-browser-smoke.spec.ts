@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-const fixturePath = path.resolve("tests/e2e/fixtures/wood-slice.svg");
+const fixturePath = path.resolve("public/apple-touch-icon.png");
 
 test("desktop MVP browser workflow can upload, edit, save, and reload", async ({ page }) => {
   const projectName = `E2E Desktop ${Date.now()}`;
@@ -26,10 +26,14 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
 
   await page.getByRole("link", { name: "Images" }).click();
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
-  await expect(page.getByText("wood-slice.svg")).toBeVisible();
+  await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
 
   await page.getByRole("link", { name: "Metadata" }).click();
   await expect(page.getByRole("heading", { name: "Sample Metadata" })).toBeVisible();
+  await expect(page.getByText("image/png")).toBeVisible();
+  await expect(page.getByText("VALIDATED")).toBeVisible();
+  await expect(page.getByText(/sha256:/)).toBeVisible();
+  await expect(page.getByText("180 x 180")).toBeVisible();
   await page.getByLabel("T-number").fill(tNumber);
   await page.getByLabel("Specimen identifier").fill("Desktop browser specimen");
   await page.getByLabel("Slice index").fill("1");

@@ -2,8 +2,13 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 
 import { requireProjectRole } from "@/server/auth/rbac";
+import { recordAuditEvent } from "@/server/domain/audit";
 import { prisma } from "@/server/db";
-import { putObject } from "@/server/storage/s3";
+import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
+import {
+  integrityErrorPayload,
+  validateImageBytes,
+} from "@/server/uploads/integrity";
 import {
   readContentLength,
   uploadErrorPayload,
@@ -22,9 +27,8 @@ function decodeFilename(value: string | null): string {
   }
 }
 
-function extensionFor(filename: string): string {
-  const ext = filename.includes(".") ? filename.split(".").pop() : null;
-  return ext?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16) || "bin";
+function extensionFor(contentType: string): string {
+  return contentType === "image/jpeg" ? "jpg" : "png";
 }
 
 export async function POST(
@@ -38,6 +42,13 @@ export async function POST(
   if (contentLength !== null) {
     const earlyValidation = validateUploadSize(contentLength, "image");
     if (!earlyValidation.ok) {
+      await recordAuditEvent({
+        action: "IMAGE_UPLOAD_REJECTED",
+        entity: "AnnotationProject",
+        entityId: projectId,
+        actorId: user.id,
+        details: { error: earlyValidation.error, size: contentLength },
+      });
       return NextResponse.json(uploadErrorPayload(earlyValidation), {
         status: earlyValidation.status,
       });
@@ -47,38 +58,102 @@ export async function POST(
   const bytes = new Uint8Array(await req.arrayBuffer());
   const sizeValidation = validateUploadSize(bytes.byteLength, "image");
   if (!sizeValidation.ok) {
+    await recordAuditEvent({
+      action: "IMAGE_UPLOAD_REJECTED",
+      entity: "AnnotationProject",
+      entityId: projectId,
+      actorId: user.id,
+      details: { error: sizeValidation.error, size: bytes.byteLength },
+    });
     return NextResponse.json(uploadErrorPayload(sizeValidation), {
       status: sizeValidation.status,
     });
   }
 
   const filename = decodeFilename(req.headers.get("x-filename"));
-  const contentType = req.headers.get("content-type") || "application/octet-stream";
-  const key = `projects/${projectId}/images/${crypto.randomUUID()}.${extensionFor(filename)}`;
-  const checksum = `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
+  let integrity;
+  try {
+    integrity = validateImageBytes({
+      bytes,
+      contentType: req.headers.get("content-type"),
+      expectedChecksum: req.headers.get("x-checksum"),
+    });
+  } catch (error) {
+    const payload = integrityErrorPayload(error);
+    if (!payload) throw error;
+    await recordAuditEvent({
+      action: "IMAGE_UPLOAD_REJECTED",
+      entity: "AnnotationProject",
+      entityId: projectId,
+      actorId: user.id,
+      details: { error: payload.body.error, filename },
+    });
+    return NextResponse.json(payload.body, { status: payload.status });
+  }
 
-  await putObject(key, bytes, contentType);
+  const key = `projects/${projectId}/images/${crypto.randomUUID()}.${extensionFor(integrity.contentType)}`;
 
-  const image = await prisma.imageAsset.create({
-    data: {
-      projectId,
-      storageKey: key,
-      filename,
-      contentType,
-      size: bytes.byteLength,
-      checksum,
-      uploadedById: user.id,
-    },
-    select: {
-      id: true,
-      filename: true,
-      contentType: true,
-      size: true,
-      checksum: true,
-      validationStatus: true,
-      createdAt: true,
-    },
-  });
+  let objectWritten = false;
+  try {
+    await putObject(key, bytes, integrity.contentType);
+    objectWritten = true;
+    await verifyStoredObject({ key, size: integrity.size, contentType: integrity.contentType });
 
-  return NextResponse.json({ ok: true, image }, { status: 201 });
+    const image = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: key,
+        filename,
+        contentType: integrity.contentType,
+        size: integrity.size,
+        checksum: integrity.checksum,
+        width: integrity.width,
+        height: integrity.height,
+        validationStatus: "VALIDATED",
+        uploadedById: user.id,
+      },
+      select: {
+        id: true,
+        filename: true,
+        contentType: true,
+        size: true,
+        checksum: true,
+        width: true,
+        height: true,
+        validationStatus: true,
+        createdAt: true,
+      },
+    });
+
+    await recordAuditEvent({
+      action: "IMAGE_UPLOAD_ACCEPTED",
+      entity: "ImageAsset",
+      entityId: image.id,
+      actorId: user.id,
+      details: {
+        projectId,
+        checksum: integrity.checksum,
+        size: integrity.size,
+        width: integrity.width,
+        height: integrity.height,
+        contentType: integrity.contentType,
+      },
+    });
+
+    return NextResponse.json({ ok: true, image }, { status: 201 });
+  } catch (error) {
+    if (objectWritten) await deleteObjectBestEffort(key);
+    const code =
+      error instanceof Error && error.message.startsWith("OBJECT_STAT")
+        ? "OBJECT_STAT_FAILED"
+        : "OBJECT_WRITE_FAILED";
+    await recordAuditEvent({
+      action: "IMAGE_UPLOAD_REJECTED",
+      entity: "AnnotationProject",
+      entityId: projectId,
+      actorId: user.id,
+      details: { error: code, filename },
+    });
+    return NextResponse.json({ ok: false, error: code }, { status: 500 });
+  }
 }

@@ -8,6 +8,7 @@ import {
   type ArtifactReviewState,
 } from "@prisma/client";
 import type JSZipConstructor from "jszip";
+import { sha256Checksum } from "@/server/uploads/integrity";
 
 loadEnv({ path: ".env.local" });
 
@@ -18,6 +19,17 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 let exportsDomain: typeof import("@/server/domain/exports");
 let storage: typeof import("@/server/storage/s3");
 let JSZip: typeof JSZipConstructor;
+
+function minimalPng(name: string) {
+  const bytes = new Uint8Array(24 + name.length);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  bytes.set([0x00, 0x00, 0x00, 0x0d], 8);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  bytes[19] = 4;
+  bytes[23] = 4;
+  bytes.set(new TextEncoder().encode(name), 24);
+  return bytes;
+}
 
 describe("training export workflow", () => {
   let ownerId: string;
@@ -89,18 +101,18 @@ describe("training export workflow", () => {
   });
 
   async function createImage(name: string, withMetadata = true) {
-    const imageBytes = new TextEncoder().encode(`<svg>${name}</svg>`);
-    const storageKey = `tests/export/${suffix}/${name}.svg`;
-    await storage.putObject(storageKey, imageBytes, "image/svg+xml");
+    const imageBytes = minimalPng(name);
+    const storageKey = `tests/export/${suffix}/${name}.png`;
+    await storage.putObject(storageKey, imageBytes, "image/png");
 
     const image = await prisma.imageAsset.create({
       data: {
         projectId,
         storageKey,
-        filename: `${name}.svg`,
-        contentType: "image/svg+xml",
+        filename: `${name}.png`,
+        contentType: "image/png",
         size: imageBytes.byteLength,
-        checksum: `sha256:${name}`,
+        checksum: sha256Checksum(imageBytes),
         width: 4,
         height: 4,
         validationStatus: "VALIDATED",
@@ -158,7 +170,7 @@ describe("training export workflow", () => {
         storageKey,
         contentType: "application/octet-stream",
         size: bytes.byteLength,
-        checksum: `sha256:${params.name}`,
+        checksum: sha256Checksum(bytes),
         width: 4,
         height: 4,
         labelSchemaVersionId,
@@ -295,9 +307,17 @@ describe("training export workflow", () => {
     );
     const zip = await JSZip.loadAsync(packageFile.bytes);
     expect(zip.file("manifest.json")).toBeTruthy();
-    expect(zip.file(`images/${imageId}.svg`)).toBeTruthy();
+    expect(zip.file(`images/${imageId}.png`)).toBeTruthy();
     expect(zip.file(`masks/semantic/${imageId}.u8raw`)).toBeTruthy();
     expect(zip.file(`masks/support/${imageId}.u8raw`)).toBeTruthy();
+
+    const auditActions = await prisma.auditLog.findMany({
+      where: { entity: "ExportBatch", entityId: exportBatch.id },
+      select: { action: true },
+    });
+    expect(auditActions.map((entry) => entry.action)).toEqual(
+      expect.arrayContaining(["EXPORT_CREATED", "EXPORT_DOWNLOADED"]),
+    );
   });
 
   it("does not use copper semantic masks as support geometry", async () => {
@@ -364,5 +384,25 @@ describe("training export workflow", () => {
         prisma,
       ),
     ).rejects.toBeInstanceOf(exportsDomain.TrainingExportError);
+  });
+
+  it("fails export when selected approved artifacts are missing integrity metadata", async () => {
+    const imageId = await createImage("missing-integrity");
+    await prisma.imageAsset.update({
+      where: { id: imageId },
+      data: { checksum: null },
+    });
+    await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "missing-integrity-semantic",
+    });
+
+    await expect(
+      exportsDomain.createTrainingExportForUser(
+        { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "EXPORT_INTEGRITY_METADATA_MISSING" });
   });
 });

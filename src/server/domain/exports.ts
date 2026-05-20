@@ -11,7 +11,9 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 import { getObjectBytes, putObject } from "@/server/storage/s3";
+import { normalizeChecksum } from "@/server/uploads/integrity";
 
 type ExportDb = PrismaClient | Prisma.TransactionClient;
 
@@ -289,8 +291,16 @@ function candidateWarnings(candidate: Omit<ExportCandidate, "warnings" | "eligib
   const warnings: string[] = [];
   if (!candidate.sampleMetadata?.tNumber) warnings.push("MISSING_T_NUMBER");
   if (!candidate.acquisitionMetadata) warnings.push("MISSING_ACQUISITION_METADATA");
+  if (!hasValidChecksum(candidate.image.checksum)) warnings.push("MISSING_IMAGE_CHECKSUM");
+  if (!hasValidDimensions(candidate.image)) warnings.push("MISSING_IMAGE_DIMENSIONS");
   if (!candidate.semanticMask) warnings.push("MISSING_APPROVED_SEMANTIC_MASK");
+  if (candidate.semanticMask && !hasValidArtifactIntegrity(candidate.semanticMask)) {
+    warnings.push("MISSING_SEMANTIC_MASK_INTEGRITY_METADATA");
+  }
   if (!candidate.supportMask) warnings.push("MISSING_APPROVED_SUPPORT_MASK");
+  if (candidate.supportMask && !hasValidArtifactIntegrity(candidate.supportMask)) {
+    warnings.push("MISSING_SUPPORT_MASK_INTEGRITY_METADATA");
+  }
   if (!candidate.classification) warnings.push("MISSING_APPROVED_SLICE_CLASSIFICATION");
   return warnings;
 }
@@ -311,6 +321,48 @@ function selectedComponentAvailable(candidate: ExportCandidate, target: ApiExpor
   return Boolean(candidate.semanticMask || candidate.supportMask || candidate.classification);
 }
 
+function hasValidChecksum(value: string | null | undefined) {
+  return Boolean(normalizeChecksum(value));
+}
+
+function hasValidDimensions(value: { width: number | null; height: number | null }) {
+  return Number.isInteger(value.width) && Number.isInteger(value.height) && value.width! > 0 && value.height! > 0;
+}
+
+function hasValidArtifactIntegrity(value: ArtifactVersionExport) {
+  return hasValidChecksum(value.checksum) && hasValidDimensions(value);
+}
+
+function selectedIntegrityWarnings(candidate: ExportCandidate, targets: ApiExportTarget[]) {
+  const warnings: string[] = [];
+  if (!targets.some((target) => selectedComponentAvailable(candidate, target))) return warnings;
+
+  if (!hasValidChecksum(candidate.image.checksum)) warnings.push("MISSING_IMAGE_CHECKSUM");
+  if (!hasValidDimensions(candidate.image)) warnings.push("MISSING_IMAGE_DIMENSIONS");
+
+  const needsSemantic = targets.includes("semantic_segmentation") || targets.includes("combined");
+  const needsSupport = targets.includes("support_segmentation") || targets.includes("combined");
+
+  if (needsSemantic && candidate.semanticMask && !hasValidArtifactIntegrity(candidate.semanticMask)) {
+    warnings.push("MISSING_SEMANTIC_MASK_INTEGRITY_METADATA");
+  }
+  if (needsSupport && candidate.supportMask && !hasValidArtifactIntegrity(candidate.supportMask)) {
+    warnings.push("MISSING_SUPPORT_MASK_INTEGRITY_METADATA");
+  }
+  return warnings;
+}
+
+function hasBlockingIntegrityWarnings(manifest: { warnings: Array<{ code: string }> }) {
+  return manifest.warnings.some((warning) =>
+    [
+      "MISSING_IMAGE_CHECKSUM",
+      "MISSING_IMAGE_DIMENSIONS",
+      "MISSING_SEMANTIC_MASK_INTEGRITY_METADATA",
+      "MISSING_SUPPORT_MASK_INTEGRITY_METADATA",
+    ].includes(warning.code),
+  );
+}
+
 function warningsForSelectedTargets(candidate: ExportCandidate, targets: ApiExportTarget[]) {
   const warnings: string[] = [];
   const needsSemantic = targets.includes("semantic_segmentation") || targets.includes("combined");
@@ -324,6 +376,7 @@ function warningsForSelectedTargets(candidate: ExportCandidate, targets: ApiExpo
   }
   if (!candidate.sampleMetadata?.tNumber) warnings.push("MISSING_T_NUMBER");
   if (!candidate.acquisitionMetadata) warnings.push("MISSING_ACQUISITION_METADATA");
+  warnings.push(...selectedIntegrityWarnings(candidate, targets));
   return warnings;
 }
 
@@ -758,6 +811,9 @@ export async function createTrainingExportForUser(params: {
       targets: params.targets,
       candidates: readiness.candidates,
     });
+    if (hasBlockingIntegrityWarnings(manifest)) {
+      throw new TrainingExportError("EXPORT_INTEGRITY_METADATA_MISSING");
+    }
     const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
     const packageBytes = await buildZipPackage({
       manifest,
@@ -839,6 +895,19 @@ export async function createTrainingExportForUser(params: {
       },
     });
 
+    await recordAuditEvent({
+      action: "EXPORT_CREATED",
+      entity: "ExportBatch",
+      entityId: completed.id,
+      actorId: user.id,
+      details: {
+        projectId: completed.projectId,
+        target: completed.target,
+        manifestChecksum: completed.manifestChecksum,
+        packageChecksum: sanitizeExportBatch(completed).packageChecksum,
+      },
+    }, db);
+
     return sanitizeExportBatch(completed);
   } catch (error) {
     await db.exportBatch.update({
@@ -847,7 +916,7 @@ export async function createTrainingExportForUser(params: {
         status: "FAILED",
         warnings: [
           {
-            code: "EXPORT_GENERATION_FAILED",
+            code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
             message: error instanceof Error ? error.message : "Unknown export failure",
           },
         ],
@@ -922,8 +991,17 @@ export async function readTrainingExportFileForUser(params: {
         : null;
   if (!key) throw new TrainingExportError("EXPORT_FILE_NOT_FOUND");
 
+  const bytes = await getObjectBytes(key);
+  await recordAuditEvent({
+    action: "EXPORT_DOWNLOADED",
+    entity: "ExportBatch",
+    entityId: batch.id,
+    actorId: params.userId,
+    details: { projectId: batch.projectId, file: params.file, size: bytes.byteLength },
+  }, db);
+
   return {
-    bytes: await getObjectBytes(key),
+    bytes,
     filename:
       params.file === "manifest"
         ? `sapen-export-${batch.id}-manifest.json`

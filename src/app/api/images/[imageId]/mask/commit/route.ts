@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
 import { AnnotationArtifactKind } from "@prisma/client";
+import { recordAuditEvent } from "@/server/domain/audit";
 import { getProjectLabelSchemaVersionId } from "@/server/domain/labelSchema";
+import { getObjectBytes, statObject } from "@/server/storage/s3";
+import { integrityErrorPayload, normalizeContentType, validateMaskBytes } from "@/server/uploads/integrity";
 import { uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 export async function POST(
@@ -38,7 +41,7 @@ export async function POST(
 
   const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
-    select: { id: true, projectId: true },
+    select: { id: true, projectId: true, width: true, height: true },
   });
   if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
 
@@ -48,6 +51,59 @@ export async function POST(
   });
   if (!membership || membership.role === "VIEWER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+  if (!key.startsWith(`projects/${image.projectId}/masks/${imageId}/`)) {
+    await recordAuditEvent({
+      action: "ARTIFACT_VALIDATION_FAILED",
+      entity: "ImageAsset",
+      entityId: image.id,
+      actorId: user.id,
+      details: { projectId: image.projectId, artifactKind: "SEMANTIC_MASK", error: "OBJECT_KEY_INVALID" },
+    });
+    return NextResponse.json({ ok: false, error: "OBJECT_KEY_INVALID" }, { status: 400 });
+  }
+
+  let bytes;
+  let object;
+  try {
+    object = await statObject(key);
+    bytes = await getObjectBytes(key);
+  } catch {
+    await recordAuditEvent({
+      action: "ARTIFACT_VALIDATION_FAILED",
+      entity: "ImageAsset",
+      entityId: image.id,
+      actorId: user.id,
+      details: { projectId: image.projectId, artifactKind: "SEMANTIC_MASK", error: "OBJECT_STAT_FAILED" },
+    });
+    return NextResponse.json({ ok: false, error: "OBJECT_STAT_FAILED" }, { status: 500 });
+  }
+
+  let integrity;
+  try {
+    integrity = validateMaskBytes({
+      bytes,
+      width,
+      height,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      format,
+      expectedChecksum: body?.checksum,
+    });
+    if (object.contentLength !== null && object.contentLength !== integrity.size) {
+      return NextResponse.json({ ok: false, error: "OBJECT_STAT_FAILED" }, { status: 500 });
+    }
+  } catch (error) {
+    const payload = integrityErrorPayload(error);
+    if (!payload) throw error;
+    await recordAuditEvent({
+      action: "ARTIFACT_VALIDATION_FAILED",
+      entity: "ImageAsset",
+      entityId: image.id,
+      actorId: user.id,
+      details: { projectId: image.projectId, artifactKind: "SEMANTIC_MASK", error: payload.body.error },
+    });
+    return NextResponse.json(payload.body, { status: payload.status });
   }
 
   const labelSchemaVersionId = await getProjectLabelSchemaVersionId(image.projectId);
@@ -73,14 +129,33 @@ export async function POST(
       artifactId: artifact.id,
       version: nextVersion,
       storageKey: key,
-      size,
-      width,
-      height,
-      format: typeof format === "string" && format.length ? format : "u8raw-v1",
+      contentType: normalizeContentType(object.contentType),
+      size: integrity.size,
+      checksum: integrity.checksum,
+      width: integrity.width,
+      height: integrity.height,
+      format: integrity.format,
       labelSchemaVersionId,
       createdById: user.id,
     },
     select: { id: true, createdAt: true, version: true },
+  });
+
+  await recordAuditEvent({
+    action: "SEMANTIC_MASK_COMMITTED",
+    entity: "AnnotationArtifactVersion",
+    entityId: version.id,
+    actorId: user.id,
+    details: {
+      projectId: image.projectId,
+      imageId: image.id,
+      artifactId: artifact.id,
+      checksum: integrity.checksum,
+      size: integrity.size,
+      width: integrity.width,
+      height: integrity.height,
+      source: "presigned-commit",
+    },
   });
 
   return NextResponse.json({

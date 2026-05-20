@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import { requireProjectRole } from "@/server/auth/rbac";
 import { presignPutObject } from "@/server/storage/s3";
+import { assertSupportedImageContentType, integrityErrorPayload } from "@/server/uploads/integrity";
 import { uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 export async function POST(
@@ -14,11 +15,16 @@ export async function POST(
   await requireProjectRole(projectId, ["OWNER", "QA", "LABELER"]);
 
   const body = await req.json().catch(() => null);
-  const filename = typeof body?.filename === "string" ? body.filename : "upload.bin";
-  const contentType =
-    typeof body?.contentType === "string"
-      ? body.contentType
-      : "application/octet-stream";
+  let contentType;
+  try {
+    contentType = assertSupportedImageContentType(
+      typeof body?.contentType === "string" ? body.contentType : null,
+    );
+  } catch (error) {
+    const payload = integrityErrorPayload(error);
+    if (!payload) throw error;
+    return NextResponse.json(payload.body, { status: payload.status });
+  }
 
   if (typeof body?.size === "number") {
     const sizeValidation = validateUploadSize(body.size, "image");
@@ -29,7 +35,7 @@ export async function POST(
     }
   }
 
-  const ext = filename.includes(".") ? filename.split(".").pop() : "bin";
+  const ext = contentType === "image/jpeg" ? "jpg" : "png";
   const key = `projects/${projectId}/images/${crypto.randomUUID()}.${ext}`;
 
   const uploadUrl = await presignPutObject(key, contentType, 60 * 5);
