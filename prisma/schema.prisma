@@ -104,6 +104,30 @@ enum ExportStatus {
   FAILED
 }
 
+enum ModelTaskType {
+  SEMANTIC_SEGMENTATION
+  SUPPORT_SEGMENTATION
+  INSTANCE_SEGMENTATION
+  SLICE_CLASSIFICATION
+  COMBINED
+  OTHER
+}
+
+enum PredictionRunStatus {
+  CREATED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PredictionTargetType {
+  SEMANTIC_MASK
+  SLICE_SUPPORT_MASK
+  INSTANCE_MASK
+  SLICE_CLASSIFICATION
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -128,6 +152,8 @@ model User {
   createdSliceClassifications SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
   reviewDecisions             ReviewDecision[]            @relation("ReviewDecisionReviewedBy")
   exportBatches               ExportBatch[]               @relation("ExportBatchExportedBy")
+  createdModelRuns            ModelRun[]                  @relation("ModelRunCreatedBy")
+  generatedPredictionRuns     PredictionRun[]             @relation("PredictionRunGeneratedBy")
 }
 
 model Role {
@@ -166,6 +192,7 @@ model AnnotationProject {
   classifications     SliceClassificationVersion[]
   reviewDecisions     ReviewDecision[]
   exportBatches       ExportBatch[]
+  predictionRuns      PredictionRun[]
 
   @@index([labelSchemaVersionId])
   @@index([createdById])
@@ -252,6 +279,7 @@ model ImageAsset {
   sliceInstances      SliceInstance[]
   classifications     SliceClassificationVersion[]
   exportItems         ExportItem[]
+  predictionProvenances PredictionArtifactProvenance[]
 
   @@index([projectId])
   @@index([uploadedById])
@@ -307,23 +335,29 @@ model AnnotationTask {
   confidenceScore         Float?
   modelSource             String?
   sourceArtifactVersionId String?
+  predictionRunId         String?
+  predictionProvenanceId  String?
   createdById             String?
   assigneeId              String?
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
 
-  project          AnnotationProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  image            ImageAsset?             @relation(fields: [imageId], references: [id], onDelete: Cascade)
-  sliceInstance    SliceInstance?          @relation(fields: [sliceInstanceId], references: [id], onDelete: SetNull)
-  createdBy        User?                   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  assignee         User?                   @relation("TaskAssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
-  annotationSessions AnnotationSession[]
-  artifactVersions   AnnotationArtifactVersion[]
-  classifications    SliceClassificationVersion[]
+  project              AnnotationProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image                ImageAsset?                    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance        SliceInstance?                 @relation(fields: [sliceInstanceId], references: [id], onDelete: SetNull)
+  predictionRun        PredictionRun?                 @relation(fields: [predictionRunId], references: [id], onDelete: SetNull)
+  predictionProvenance PredictionArtifactProvenance?  @relation(fields: [predictionProvenanceId], references: [id], onDelete: SetNull)
+  createdBy            User?                          @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee             User?                          @relation("TaskAssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
+  annotationSessions   AnnotationSession[]
+  artifactVersions     AnnotationArtifactVersion[]
+  classifications      SliceClassificationVersion[]
 
   @@index([projectId, status])
   @@index([imageId])
   @@index([assigneeId, status])
+  @@index([predictionRunId])
+  @@index([predictionProvenanceId])
   @@index([type])
 }
 
@@ -403,6 +437,7 @@ model AnnotationArtifactVersion {
   supportForSlices   SliceInstance[]             @relation("SliceSupportArtifactVersion")
   reviewDecisions    ReviewDecision[]
   exportItems        ExportItem[]
+  predictionProvenance PredictionArtifactProvenance?
 
   @@unique([artifactId, version])
   @@index([artifactId, createdAt])
@@ -428,6 +463,7 @@ model SliceInstance {
   createdBy              User?                      @relation("SliceInstanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   tasks                  AnnotationTask[]
   classifications        SliceClassificationVersion[]
+  predictionProvenances  PredictionArtifactProvenance[]
 
   @@index([projectId])
   @@index([imageId])
@@ -507,6 +543,8 @@ model ExportBatch {
   project    AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   exportedBy User              @relation("ExportBatchExportedBy", fields: [exportedById], references: [id], onDelete: Restrict)
   items      ExportItem[]
+  trainingModelRuns    ModelRun[]      @relation("ModelRunTrainingExportBatch")
+  sourcePredictionRuns PredictionRun[] @relation("PredictionRunSourceExportBatch")
 
   @@index([projectId, exportedAt])
   @@index([exportedById])
@@ -531,6 +569,103 @@ model ExportItem {
   @@index([imageId])
   @@index([artifactVersionId])
   @@index([sliceClassificationVersionId])
+}
+
+model ModelRun {
+  id                    String        @id @default(cuid())
+  modelFamily           String
+  modelName             String
+  modelVersion          String?
+  taskType              ModelTaskType
+  checkpointId          String?
+  checkpointPath        String?
+  checkpointHash        String?
+  trainingRunId         String?
+  trainingDatasetRef    String?
+  trainingExportBatchId String?
+  trainingCodeVersion   String?
+  trainingGitCommit     String?
+  configHash            String?
+  createdById           String?
+  notes                 String?
+  warnings              Json?
+  metadata              Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  trainingExportBatch ExportBatch?    @relation("ModelRunTrainingExportBatch", fields: [trainingExportBatchId], references: [id], onDelete: SetNull)
+  createdBy           User?           @relation("ModelRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  predictionRuns      PredictionRun[]
+
+  @@index([taskType])
+  @@index([createdById])
+  @@index([trainingExportBatchId])
+  @@index([modelName, modelVersion])
+}
+
+model PredictionRun {
+  id                          String              @id @default(cuid())
+  modelRunId                  String
+  projectId                   String
+  sourceExportBatchId         String?
+  sourceDatasetRef            String?
+  selectionCriteria           Json?
+  inferenceRunId              String?
+  generatedById               String?
+  generatedAt                 DateTime            @default(now())
+  status                      PredictionRunStatus @default(CREATED)
+  inputImageCount             Int?
+  outputPredictionCount       Int?
+  aggregateConfidenceSummary  Json?
+  aggregateUncertaintySummary Json?
+  configHash                  String?
+  notes                       String?
+  warnings                    Json?
+  metadata                    Json?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+
+  modelRun          ModelRun                       @relation(fields: [modelRunId], references: [id], onDelete: Restrict)
+  project           AnnotationProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceExportBatch ExportBatch?                   @relation("PredictionRunSourceExportBatch", fields: [sourceExportBatchId], references: [id], onDelete: SetNull)
+  generatedBy       User?                          @relation("PredictionRunGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  predictions       PredictionArtifactProvenance[]
+  tasks             AnnotationTask[]
+
+  @@unique([projectId, modelRunId, inferenceRunId])
+  @@index([projectId, generatedAt])
+  @@index([modelRunId])
+  @@index([generatedById])
+  @@index([sourceExportBatchId])
+  @@index([status])
+}
+
+model PredictionArtifactProvenance {
+  id                  String               @id @default(cuid())
+  predictionRunId     String
+  artifactVersionId   String?              @unique
+  imageId             String
+  sliceInstanceId     String?
+  targetType          PredictionTargetType
+  predictedClass      SliceClass?
+  confidenceScore     Float?
+  uncertaintyScore    Float?
+  perClassScores      Json?
+  outputStats         Json?
+  modelOutputChecksum String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  predictionRun   PredictionRun              @relation(fields: [predictionRunId], references: [id], onDelete: Cascade)
+  artifactVersion AnnotationArtifactVersion? @relation(fields: [artifactVersionId], references: [id], onDelete: SetNull)
+  image           ImageAsset                 @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance   SliceInstance?             @relation(fields: [sliceInstanceId], references: [id], onDelete: SetNull)
+  tasks           AnnotationTask[]
+
+  @@index([predictionRunId])
+  @@index([imageId])
+  @@index([sliceInstanceId])
+  @@index([targetType])
 }
 
 model AuditLog {
