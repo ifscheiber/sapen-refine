@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, and owner-created training exports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, and reproducible dataset exports.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, and owner-created training exports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and future prediction-assisted correction.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction and SaPen Core handoff workflows are future modes and must remain explicit provenance-bearing integrations.
 
@@ -45,7 +45,7 @@ Persisted entities today:
 - `SliceInstance` and `SliceClassificationVersion` for physical slice and classification persistence.
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 
-Known workflow gaps include advanced export filters/history/job handling, reviewer dashboards/bulk review, stronger upload checksum/dimension validation, multi-slice support, and future prediction import. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include advanced export filters/history/job handling, reviewer dashboards/bulk review, stronger upload checksum/dimension validation, multi-slice support, and runtime prediction import/active-learning workflows. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -78,6 +78,7 @@ Known gaps:
 ## Known Follow-Up Areas
 
 - Advanced export filtering/history/job handling and prediction workflows on top of the RB-049/RB-053 schema baseline.
+- Model-run provenance, prediction import, active-learning queues, and assisted correction editor workflow on top of the RB-054 design contract.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.

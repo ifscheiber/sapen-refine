@@ -38,6 +38,8 @@ Human-reviewed annotation artifacts become ground truth only through explicit re
 
 Model predictions, prefilled masks, active-learning priorities, and imported proposals are inputs. They are not ground truth until a human workflow creates and approves a separate artifact version.
 
+RB-054 documents this as a future design contract. Prediction artifacts may guide work queues or editor overlays, but approved human artifact/classification versions remain the only default training-export labels.
+
 ## Mask Boundary
 
 Semantic material masks and slice support/instance masks are separate domain concepts.
@@ -68,3 +70,5 @@ Server-side authorization must enforce these permissions.
 - [../06-data/annotation-domain-model.md](../06-data/annotation-domain-model.md)
 - [../06-data/prisma-schema-proposal.md](../06-data/prisma-schema-proposal.md)
 - [../06-data/training-export-contract.md](../06-data/training-export-contract.md)
+- [../06-data/model-prediction-contract.md](../06-data/model-prediction-contract.md)
+- [../06-data/active-learning-task-model.md](../06-data/active-learning-task-model.md)

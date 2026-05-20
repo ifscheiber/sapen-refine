@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, and RB-053 adds the first owner-only training export workflow. Preprediction, advanced export policy, and multi-slice workflow depth remain split across later tickets.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, and RB-054 documents the model preprediction/active-learning design contract. Runtime preprediction, advanced export policy, and multi-slice workflow depth remain split across later tickets.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -17,6 +17,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current mask labels and serialization: `src/mask/labels.ts`, `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
+- Prediction/active-learning design: `docs/06-data/model-prediction-contract.md`, `docs/06-data/active-learning-task-model.md`
 
 ## Core Concepts
 
@@ -119,7 +120,9 @@ Active-learning and preprediction compatibility:
 - prediction artifact source,
 - queue/ranking context.
 
-Model predictions must be proposals or inputs. They must not become ground truth without explicit human action and review state. RB-049 persists task priority, task reason, uncertainty/confidence, model source, and source artifact placeholders; model queue behavior remains RB-054.
+Model predictions must be proposals or inputs. They must not become ground truth without explicit human action and review state. RB-049 persists task priority, task reason, uncertainty/confidence, model source, and source artifact placeholders.
+
+RB-054 defines the future queue ordering and task reasons. Runtime task queue APIs, assignment UI, and model-run provenance persistence remain follow-up work.
 
 ### AnnotationSession
 
@@ -246,6 +249,22 @@ Implemented transitions are:
 
 The schema allows a review decision to target either an artifact version or a slice classification version; `src/server/domain/review.ts` enforces the exact-one-target invariant.
 
+### Model Predictions And Human Corrections
+
+Model predictions are future proposal artifacts, not ground-truth artifacts.
+
+RB-054 design decisions:
+
+- mask predictions should start as `AnnotationArtifactKind.PREDICTION_MASK`,
+- prediction target type belongs in explicit prediction metadata,
+- `AnnotationTask.sourceArtifactVersionId` is sufficient for first correction-task links to mask predictions,
+- `AnnotationArtifactVersion.parentVersionId` is sufficient for first human mask correction links to source predictions,
+- `AnnotationTask.modelSource` is not enough for reproducible provenance and needs future `ModelRun`/`PredictionRun` work,
+- slice classification predictions should be task/proposal context before a human creates a `SliceClassificationVersion`,
+- default training export excludes predictions.
+
+See [model-prediction-contract.md](model-prediction-contract.md) and [active-learning-task-model.md](active-learning-task-model.md).
+
 ### ExportBatch And ExportManifest
 
 Owner-created training-data export. RB-053 uses `ExportBatch` and `ExportItem` persistence for a synchronous project-level export workflow with app-mediated manifest and ZIP downloads.
@@ -306,5 +325,7 @@ Server-side route handlers must enforce these rules. Hiding UI controls is not s
 - [annotation-label-schema.md](annotation-label-schema.md)
 - [mask-and-artifact-versioning.md](mask-and-artifact-versioning.md)
 - [training-export-contract.md](training-export-contract.md)
+- [model-prediction-contract.md](model-prediction-contract.md)
+- [active-learning-task-model.md](active-learning-task-model.md)
 - [prisma-schema-proposal.md](prisma-schema-proposal.md)
 - [../01-architecture/domain-boundaries.md](../01-architecture/domain-boundaries.md)

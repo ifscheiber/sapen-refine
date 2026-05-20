@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted for RB-048 design. First persistence baseline implemented by RB-049; metadata, default-slice, and review workflow slices implemented by RB-050 through RB-052.
+Accepted for RB-048 design. First persistence baseline implemented by RB-049; metadata, default-slice, review, export, and prediction-design slices implemented by RB-050 through RB-054.
 
 ## Context
 
 SaPen Annotate now has a green technical baseline, app-mediated browser upload/read paths, desktop browser E2E coverage, and documented iPad validation constraints.
 
-The original MVP schema was sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload, but not for exportable training data. RB-049 through RB-052 now add label schema versions, structured metadata, default slice support/classification, and minimal review/approval. Export generation and deeper workflow coverage remain separate tickets.
+The original MVP schema was sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload, but not for exportable training data. RB-049 through RB-054 now add label schema versions, structured metadata, default slice support/classification, minimal review/approval, owner-only export generation, and a prediction/active-learning design contract. Deeper workflow coverage remains separate tickets.
 
 `MaskKind.REFINED` was legacy MVP terminology and does not define the standalone annotation model. RB-049 removed it from the active schema.
 
@@ -36,8 +36,8 @@ Copper semantic masks remain material annotations only. They must not be treated
 ## Deferred Work
 
 - Full API/UI workflow depth beyond the MVP slices.
-- Training export manifest implementation.
-- Model preprediction/active-learning workflow.
+- Advanced export filters/history/job handling.
+- Runtime model preprediction/active-learning workflow.
 - Stronger artifact checksum/dimension/object validation.
 
 ## Evidence
@@ -48,4 +48,4 @@ Copper semantic masks remain material annotations only. They must not be treated
 - Current mask upload/latest routes: `src/app/api/images/[imageId]/mask/*`
 - Current review routes: `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current image upload/read routes: `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/*`
-- Target docs: `docs/06-data/annotation-domain-model.md`, `docs/06-data/prisma-schema-proposal.md`
+- Target docs: `docs/06-data/annotation-domain-model.md`, `docs/06-data/prisma-schema-proposal.md`, `docs/06-data/model-prediction-contract.md`

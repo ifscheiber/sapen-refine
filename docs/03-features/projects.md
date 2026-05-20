@@ -43,6 +43,7 @@ Route files are thin wrappers around `src/features/projects`.
 
 - Projects now carry an optional active label schema version and surface missing schema setup in the UI.
 - RB-053 adds basic owner-only training export from the project overview. Advanced export filters, export history UI, QA export policy, and advanced reviewer administration remain deferred.
+- RB-054 designs future prediction/active-learning tasks, but project pages do not yet expose task queues, prediction import controls, or correction assignment UI.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.

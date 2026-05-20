@@ -58,8 +58,12 @@ Important files:
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
 - The editor shows a simple export-readiness summary based on approved versions only.
-- The editor does not yet manage annotation tasks, multi-object support geometry, bulk review, or export generation.
+- The editor does not yet manage annotation tasks, prediction overlays, multi-object support geometry, bulk review, or export generation.
 - Copper is available only as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
+
+## Future Prediction-Assisted Correction
+
+RB-054 designs this future workflow only. A correction task should load a model prediction as a read-only overlay or as an explicit starting mask, keep the editable human layer separate, show model confidence/uncertainty/task reason, and save corrected work as a new human artifact version. Prediction artifacts must remain immutable and visually distinct from human annotation. The future route must remain usable on iPad-sized screens.
 
 ## Default Slice Baseline
 

@@ -21,7 +21,8 @@ Workflow pages link to relevant app routes and APIs.
 ## Known Gaps
 
 - Review/approval exists as a minimal RB-052 editor/API workflow.
-- Export workflows are planned but not implemented.
+- Training export exists as an RB-053 project-level MVP; advanced export filters/history remain deferred.
+- Prediction-assisted correction is designed by RB-054 but not implemented at runtime.
 
 ## Related Tickets / Docs
 

@@ -66,6 +66,8 @@ RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence pl
 
 Prediction artifacts must never overwrite human ground-truth versions.
 
+RB-054 decides that the first prediction import should use `PREDICTION_MASK` for mask predictions and store the target type, such as semantic, support, or instance prediction, in explicit prediction metadata. A human correction must create a separate human artifact version with `ArtifactProvenance.HUMAN_CORRECTION` and should link to the prediction through `parentVersionId`.
+
 ## Version Rules
 
 - Every saved artifact version is immutable after commit.
@@ -74,6 +76,7 @@ Prediction artifacts must never overwrite human ground-truth versions.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
 - RB-053 training exports consume latest approved versions only and record exact artifact version ids in the manifest and `ExportItem` rows.
+- Model prediction versions are not export-ready ground truth. Future exports may reference prediction ids only as provenance of approved human corrections.
 
 ## Review State
 
@@ -122,3 +125,4 @@ Future format work should decide:
 - [annotation-label-schema.md](annotation-label-schema.md)
 - [annotation-domain-model.md](annotation-domain-model.md)
 - [training-export-contract.md](training-export-contract.md)
+- [model-prediction-contract.md](model-prediction-contract.md)

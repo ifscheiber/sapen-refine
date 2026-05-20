@@ -249,7 +249,7 @@ Implemented synchronous owner-only project export creation and manifest/ZIP gene
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
-Add prediction artifact and task-queue design details for model source, confidence/uncertainty, priority, and task reason.
+Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. Runtime import APIs, model-run provenance persistence, task queue UI, and assisted correction editor behavior remain follow-up tickets.
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 

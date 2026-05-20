@@ -62,6 +62,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
 - RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, QA export policy, export history UI, and job queues remain deferred.
+- RB-054 documents the future model prediction and active-learning contract; no runtime prediction import or schema migration is implemented yet.
 - RB-055 strengthens checksum and object metadata validation.
 
 ## Related Docs
