@@ -297,6 +297,7 @@ export async function getModelRunForUser(params: {
   modelRunId: string;
   userId: string;
 }, db: ProvenanceDb = prisma) {
+  await requireAdmin(db, params.userId);
   const modelRun = await db.modelRun.findUnique({
     where: { id: params.modelRunId },
     select: MODEL_RUN_SELECT,
@@ -463,6 +464,7 @@ export async function resolveTaskPredictionProvenance(params: {
       sourceArtifactVersionId: true,
       confidenceScore: true,
       uncertaintyScore: true,
+      modelSource: true,
       taskReason: true,
     },
   });
