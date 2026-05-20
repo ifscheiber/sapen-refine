@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type ExportTarget = "semantic_segmentation" | "support_segmentation" | "slice_classification" | "combined";
+type PredictionTarget = "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK" | "SLICE_CLASSIFICATION";
 
 type ExportReadiness = {
   project: { id: string; name: string };
@@ -33,6 +34,37 @@ type CreatedExport = {
   } | null;
 };
 
+type PredictionRunSummary = {
+  id: string;
+  inferenceRunId: string | null;
+  status: string;
+  generatedAt: string;
+  modelRun: {
+    id: string;
+    modelFamily: string;
+    modelName: string;
+    modelVersion: string | null;
+    taskType: string;
+  };
+  _count: { predictions: number; tasks: number };
+};
+
+type PredictionAnalysisReadiness = {
+  project: { id: string; name: string };
+  myRole: string;
+  canExport: boolean;
+  predictionRuns: PredictionRunSummary[];
+  summary: {
+    totalCandidates: number;
+    semanticPredictions: number;
+    supportPredictions: number;
+    classificationPredictions: number;
+    candidatesWithCorrectionTasks: number;
+    candidatesWithHumanReferences: number;
+    candidatesWithWarnings: number;
+  };
+};
+
 type ProjectExportPanelProps = {
   projectId: string;
 };
@@ -44,21 +76,39 @@ const TARGET_OPTIONS: Array<{ value: ExportTarget; label: string }> = [
   { value: "combined", label: "Combined manifest" },
 ];
 
+const PREDICTION_TARGET_OPTIONS: Array<{ value: PredictionTarget; label: string }> = [
+  { value: "SEMANTIC_MASK", label: "Semantic predictions" },
+  { value: "SLICE_SUPPORT_MASK", label: "Support predictions" },
+  { value: "SLICE_CLASSIFICATION", label: "Classification proposals" },
+];
+
 function errorMessage(error: unknown, fallback = "EXPORT_FAILED") {
   return error instanceof Error ? error.message : fallback;
 }
 
 export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
   const [readiness, setReadiness] = useState<ExportReadiness | null>(null);
+  const [predictionReadiness, setPredictionReadiness] = useState<PredictionAnalysisReadiness | null>(null);
   const [selectedTargets, setSelectedTargets] = useState<ExportTarget[]>([
     "semantic_segmentation",
     "support_segmentation",
     "slice_classification",
   ]);
+  const [selectedPredictionTargets, setSelectedPredictionTargets] = useState<PredictionTarget[]>([
+    "SEMANTIC_MASK",
+    "SLICE_SUPPORT_MASK",
+    "SLICE_CLASSIFICATION",
+  ]);
+  const [selectedPredictionRunId, setSelectedPredictionRunId] = useState("");
+  const [includeHumanReferences, setIncludeHumanReferences] = useState(true);
   const [createdExport, setCreatedExport] = useState<CreatedExport | null>(null);
+  const [createdPredictionExport, setCreatedPredictionExport] = useState<CreatedExport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [predictionLoading, setPredictionLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [creatingPredictionExport, setCreatingPredictionExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
 
   const targetSummary = useMemo(() => {
     if (selectedTargets.includes("combined")) return ["combined"];
@@ -87,6 +137,41 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
     void loadReadiness();
   }, [loadReadiness]);
 
+  const loadPredictionReadiness = useCallback(async () => {
+    setPredictionLoading(true);
+    setPredictionError(null);
+    try {
+      if (selectedPredictionTargets.length === 0) {
+        setPredictionReadiness(null);
+        return;
+      }
+      const params = new URLSearchParams();
+      if (selectedPredictionRunId) params.set("predictionRunId", selectedPredictionRunId);
+      params.set("includeHumanReferences", String(includeHumanReferences));
+      selectedPredictionTargets.forEach((target) => params.append("targetType", target));
+      const res = await fetch(
+        `/api/projects/${projectId}/prediction-analysis-export/readiness?${params.toString()}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `PREDICTION_ANALYSIS_READINESS_FAILED_${res.status}`);
+      }
+      setPredictionReadiness(data as PredictionAnalysisReadiness);
+    } catch (e: unknown) {
+      setPredictionError(errorMessage(e, "PREDICTION_ANALYSIS_READINESS_FAILED"));
+    } finally {
+      setPredictionLoading(false);
+    }
+  }, [includeHumanReferences, projectId, selectedPredictionRunId, selectedPredictionTargets]);
+
+  useEffect(() => {
+    void loadPredictionReadiness();
+  }, [loadPredictionReadiness]);
+
   function toggleTarget(target: ExportTarget) {
     setSelectedTargets((current) => {
       if (target === "combined") return current.includes("combined") ? [] : ["combined"];
@@ -95,6 +180,13 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
         return withoutCombined.filter((item) => item !== target);
       }
       return [...withoutCombined, target];
+    });
+  }
+
+  function togglePredictionTarget(target: PredictionTarget) {
+    setSelectedPredictionTargets((current) => {
+      if (current.includes(target)) return current.filter((item) => item !== target);
+      return [...current, target];
     });
   }
 
@@ -116,6 +208,33 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
       setError(errorMessage(e));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function createPredictionAnalysisExport() {
+    setCreatingPredictionExport(true);
+    setPredictionError(null);
+    setCreatedPredictionExport(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/prediction-analysis-exports`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          predictionRunId: selectedPredictionRunId || null,
+          targetTypes: selectedPredictionTargets,
+          includeHumanReferences,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `PREDICTION_ANALYSIS_EXPORT_FAILED_${res.status}`);
+      }
+      setCreatedPredictionExport(data.export as CreatedExport);
+      await loadPredictionReadiness();
+    } catch (e: unknown) {
+      setPredictionError(errorMessage(e, "PREDICTION_ANALYSIS_EXPORT_FAILED"));
+    } finally {
+      setCreatingPredictionExport(false);
     }
   }
 
@@ -202,6 +321,136 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
           )}
         </div>
       )}
+
+      <div className="mt-6 grid gap-4 border-t border-border pt-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Prediction analysis export</h2>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Model proposals for QA only, not ground-truth training labels.
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => void loadPredictionReadiness()}
+            disabled={predictionLoading || creatingPredictionExport}
+          >
+            Refresh
+          </Button>
+        </div>
+
+        {predictionReadiness && (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">Candidates</div>
+              <div className="text-lg font-semibold">{predictionReadiness.summary.totalCandidates}</div>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">Semantic proposals</div>
+              <div className="text-lg font-semibold">{predictionReadiness.summary.semanticPredictions}</div>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">Support proposals</div>
+              <div className="text-lg font-semibold">{predictionReadiness.summary.supportPredictions}</div>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">Human refs</div>
+              <div className="text-lg font-semibold">
+                {predictionReadiness.summary.candidatesWithHumanReferences}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium">Prediction run</span>
+            <select
+              className="min-h-11 rounded-md border border-border bg-background px-3 py-2"
+              value={selectedPredictionRunId}
+              onChange={(event) => setSelectedPredictionRunId(event.target.value)}
+              disabled={predictionLoading || creatingPredictionExport}
+            >
+              <option value="">All prediction runs</option>
+              {predictionReadiness?.predictionRuns.map((run) => (
+                <option key={run.id} value={run.id}>
+                  {run.inferenceRunId ?? run.id} · {run.modelRun.modelName}
+                  {run.modelRun.modelVersion ? ` ${run.modelRun.modelVersion}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-h-11 items-center gap-2 self-end rounded-md border border-border bg-background px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeHumanReferences}
+              onChange={(event) => setIncludeHumanReferences(event.target.checked)}
+              disabled={creatingPredictionExport}
+            />
+            <span>Include human references</span>
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {PREDICTION_TARGET_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={selectedPredictionTargets.includes(option.value)}
+                onChange={() => togglePredictionTarget(option.value)}
+                disabled={creatingPredictionExport}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="rounded-md border border-border bg-background p-3 text-sm text-muted-foreground">
+          Prediction analysis exports contain model proposals and are not ground-truth training labels.
+          Prediction files, human corrections, and approved references are written to separate package paths.
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() => void createPredictionAnalysisExport()}
+            disabled={
+              !predictionReadiness?.canExport ||
+              creatingPredictionExport ||
+              selectedPredictionTargets.length === 0 ||
+              (predictionReadiness?.summary.totalCandidates ?? 0) === 0
+            }
+          >
+            {creatingPredictionExport ? "Creating prediction export..." : "Create prediction analysis export"}
+          </Button>
+          {predictionReadiness && !predictionReadiness.canExport && (
+            <div className="text-sm text-muted-foreground">Prediction analysis export requires owner or QA access.</div>
+          )}
+          {predictionError && <div className="text-sm text-destructive">{predictionError}</div>}
+        </div>
+
+        {createdPredictionExport && (
+          <div className="rounded-md border border-border bg-background p-3 text-sm">
+            <div className="font-medium">Prediction analysis export {createdPredictionExport.status}</div>
+            <div className="mt-1 text-muted-foreground">
+              {createdPredictionExport.id} · {createdPredictionExport.itemCount} item rows ·{" "}
+              {createdPredictionExport.warningCount} warnings
+            </div>
+            {createdPredictionExport.downloads && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button asChild variant="outline">
+                  <a href={createdPredictionExport.downloads.manifest}>Download manifest</a>
+                </Button>
+                <Button asChild variant="outline">
+                  <a href={createdPredictionExport.downloads.package}>Download package</a>
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
