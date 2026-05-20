@@ -359,6 +359,7 @@ model AnnotationTask {
   @@index([predictionRunId])
   @@index([predictionProvenanceId])
   @@index([type])
+  @@unique([predictionProvenanceId, type])
 }
 
 model AnnotationSession {
