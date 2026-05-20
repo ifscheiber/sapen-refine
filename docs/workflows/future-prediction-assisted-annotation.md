@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page documents the RB-054 future workflow contract. RB-056 implements provenance registry storage and RB-057 implements one-at-a-time prediction mask import. Queue UI and assisted editor behavior are not implemented yet.
+This page documents the prediction-assisted workflow contract. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, and RB-058 implements the first correction task queue. Assisted editor behavior is not implemented yet.
 
 ## Planned Flow
 
@@ -23,13 +23,16 @@ prediction imported
 
 ## Important Files
 
-Current provenance implementation files:
+Current provenance and queue implementation files:
 
 - `prisma/schema.prisma` - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, and task links.
 - `src/server/domain/predictionProvenance.ts` - provenance registry service layer.
 - `src/server/domain/predictionImport.ts` - prediction mask import service.
+- `src/server/domain/correctionTasks.ts` - correction task creation, ordering, role checks, and updates.
 - `src/app/api/model-runs/*` and `src/app/api/projects/[projectId]/prediction-runs/route.ts` - minimal provenance APIs.
 - `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` - one-at-a-time prediction mask import API.
+- `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts` - correction task queue APIs.
+- `src/app/(workspace)/app/projects/[projectId]/tasks/page.tsx` - project correction task queue route.
 
 Current mask MVP files are under `src/mask`; current human mask APIs are under `src/app/api/images/[imageId]/mask`.
 
@@ -49,7 +52,6 @@ Design docs:
 
 ## Known Gaps
 
-- No uncertainty/ranking queue exists.
 - No Core handoff contract exists.
 - No assisted correction editor workflow exists.
 

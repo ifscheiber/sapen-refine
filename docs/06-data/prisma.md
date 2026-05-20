@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-056 workflow and provenance extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-058 workflow and provenance extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -12,7 +12,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `AnnotationProject` and `AnnotationProjectMember` are the standalone annotation project and membership boundary.
 - `LabelSchemaVersion` and `LabelDefinition` persist stable machine-readable label ids, semantic meanings, UI metadata, and task applicability.
 - `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` persist immutable image references plus the RB-050 image-level metadata workflow.
-- `AnnotationTask` and `AnnotationSession` provide the persistence baseline for assignment, future active-learning/preprediction fields, and edit context.
+- `AnnotationTask` and `AnnotationSession` provide the persistence baseline for assignment, active-learning/preprediction fields, and edit context. RB-058 adds a unique correction-task link for `predictionProvenanceId + type`.
 - `AnnotationArtifact` and `AnnotationArtifactVersion` replace `Mask`/`MaskVersion` and separate semantic, support/instance, prediction, and derived artifact families.
 - `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
 - `ReviewDecision` and `ArtifactReviewState` provide the persistence and workflow baseline for draft/submitted/approved/rejected/superseded ground-truth state. RB-052 decisions can target artifact versions or slice classification versions.
@@ -33,6 +33,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - review routes update `reviewState` and append `ReviewDecision` rows for semantic masks, support masks, and slice classifications,
 - upload routes persist verified `ImageAsset` checksums/dimensions/status for PNG/JPEG images,
 - prediction provenance routes create/read `ModelRun` and project-scoped `PredictionRun` records without importing prediction bytes,
+- correction-task routes create/read/update `MODEL_PREDICTION_CORRECTION` `AnnotationTask` rows linked to prediction provenance,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.
@@ -65,7 +66,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
 - RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, QA export policy, export history UI, and job queues remain deferred.
-- RB-054 documents the future model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import. Active-learning queues, assisted correction UI, prediction-analysis exports, and batch imports remain deferred.
+- RB-054 documents the future model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import; RB-058 implements the first active-learning correction task queue. Assisted correction UI, prediction-analysis exports, and batch imports remain deferred.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
 
 ## Related Docs

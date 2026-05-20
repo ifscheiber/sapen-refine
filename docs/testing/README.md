@@ -24,6 +24,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/integration/export-workflow.test.ts` covers export readiness, approved-only selection, manifest/package contents, exact image/artifact/classification references, owner-only access, the Copper-not-support invariant, RB-055 export audit events, and blocking missing integrity metadata.
 - `tests/integration/prediction-provenance.test.ts` covers RB-056 model-run admin authorization, project-scoped prediction-run access, duplicate inference ids, prediction artifact provenance, classification prediction proposals, correction-task provenance links, and the rule that predictions are not ground-truth export inputs.
 - `tests/integration/prediction-import.test.ts` covers RB-057 semantic/support prediction imports, `OWNER`/`QA` authorization, project boundaries, checksum/dimension/content-type/coordinate-space/value validation, audit creation, review rejection, and export exclusion for imported predictions.
+- `tests/integration/correction-task-queue.test.ts` covers RB-058 idempotent correction-task creation from prediction provenance, deterministic active-learning ordering, sanitized responses without storage keys, project role rules, task claim/start/dismiss/priority updates, and default active-queue filtering.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/metadata-validation.test.ts` covers RB-050 metadata parsing, completeness/readiness calculation, and immutable-field validation.
 - `tests/unit/review-domain.test.ts` covers RB-052 review transition helpers, role capability mapping, reject reason requirements, and approved-only export readiness.
@@ -74,7 +75,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, and RB-057 prediction import rules.
+- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, and RB-058 correction task queue rules.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

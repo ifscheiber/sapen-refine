@@ -6,3 +6,5 @@ RB-043 kept public URLs stable while moving implementation files into route grou
 
 - public route group: `src/app/(public)`
 - workspace route group: `src/app/(workspace)`
+
+RB-058 adds the project correction task queue route at `/app/projects/[projectId]/tasks`.

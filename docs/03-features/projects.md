@@ -12,13 +12,18 @@ Important files:
 - `src/features/projects/ProjectOverview.tsx`
 - `src/features/projects/ProjectMetadataForm.tsx`
 - `src/features/projects/ProjectExportPanel.tsx`
+- `src/features/projects/ProjectCorrectionTasksPage.tsx`
+- `src/features/projects/ProjectCorrectionTaskQueue.tsx`
 - `src/app/api/projects/route.ts`
 - `src/app/api/projects/[projectId]/route.ts`
 - `src/app/api/projects/[projectId]/export/readiness/route.ts`
 - `src/app/api/projects/[projectId]/exports/route.ts`
 - `src/app/api/projects/[projectId]/prediction-runs/route.ts`
+- `src/app/api/projects/[projectId]/correction-tasks/route.ts`
 - `src/app/api/prediction-runs/[predictionRunId]/route.ts`
 - `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`
+- `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`
+- `src/app/api/correction-tasks/[taskId]/route.ts`
 - `src/app/api/exports/[exportId]/route.ts`
 - `src/app/api/exports/[exportId]/download/route.ts`
 
@@ -28,7 +33,8 @@ Route files are thin wrappers around `src/features/projects`.
 
 - `/app/projects` lists projects where the authenticated user has membership.
 - `/app/projects/new` creates a project through `POST /api/projects`.
-- `/app/projects/[projectId]` shows the project overview, editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, a link to images, and the training export panel.
+- `/app/projects/[projectId]` shows the project overview, editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, links to images and correction tasks, and the training export panel.
+- `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and editor links prepared for RB-059.
 - The training export panel shows approved semantic/support/classification readiness counts, target selection, and owner-only export creation with manifest/package download links.
 - Project membership remains the authorization boundary for image and editor routes.
 
@@ -44,12 +50,14 @@ Route files are thin wrappers around `src/features/projects`.
 - `GET /api/projects/[projectId]/prediction-runs` is available to project members.
 - `POST /api/projects/[projectId]/prediction-runs` is restricted to `OWNER` and `QA`; it creates provenance records only and does not import prediction files.
 - `POST /api/prediction-runs/[predictionRunId]/predictions` is restricted to project `OWNER` and `QA`; it imports one prediction mask proposal and does not create correction tasks.
+- `POST /api/prediction-runs/[predictionRunId]/correction-tasks` is restricted to project `OWNER` and `QA`; it creates idempotent correction tasks from prediction provenance rows.
+- Correction-task listing/detail is available to project members. `OWNER`/`QA` can manage assignment and priority; `LABELER` can claim/start/dismiss eligible active tasks; `VIEWER` is read-only.
 
 ## MVP Limitations
 
 - Projects now carry an optional active label schema version and surface missing schema setup in the UI.
 - RB-053 adds basic owner-only training export from the project overview. Advanced export filters, export history UI, QA export policy, and advanced reviewer administration remain deferred.
-- RB-056 adds project-scoped prediction-run provenance APIs and RB-057 adds the server-side prediction mask import API. Project pages do not yet expose task queues, prediction import controls, or correction assignment UI.
+- RB-056 adds project-scoped prediction-run provenance APIs, RB-057 adds the server-side prediction mask import API, and RB-058 adds the first project correction task queue. Prediction import controls and assisted correction editing remain deferred.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.

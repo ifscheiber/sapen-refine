@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry and RB-057 implements the first server-side prediction mask import path. Running inference, active-learning queues, and assisted editor UI remain deferred.
+This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, and RB-058 implements the first active-learning correction task queue. Running inference and assisted editor correction remain deferred.
 
 Hard rule:
 
@@ -28,7 +28,7 @@ Prediction artifacts must not become training labels unless a human creates or c
 - Per-image prediction item registry: `PredictionArtifactProvenance`
 - Domain service: `src/server/domain/predictionProvenance.ts`
 - Import service: `src/server/domain/predictionImport.ts`
-- Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, and `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`
+- Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts`
 - Export implementation: `src/server/domain/exports.ts`
 
 ## Implemented Registry
@@ -56,6 +56,21 @@ RB-057 adds `POST /api/prediction-runs/[predictionRunId]/predictions` for one pr
 The import route is project-scoped. Project `OWNER` and `QA` can import predictions. `LABELER`, `VIEWER`, and users without membership cannot import predictions. There is no global-admin bypass without project membership.
 
 RB-057 does not accept arbitrary client-supplied storage keys. The app writes imported bytes to private object storage under an internal prediction prefix, verifies the stored object, and returns only sanitized ids/checksum/dimension/provenance metadata.
+
+## Implemented Correction Task Queue
+
+RB-058 adds `src/server/domain/correctionTasks.ts` and the route-addressable project queue at `/app/projects/[projectId]/tasks`.
+
+Implemented APIs:
+
+- `POST /api/prediction-runs/[predictionRunId]/correction-tasks` creates idempotent `MODEL_PREDICTION_CORRECTION` tasks from `PredictionArtifactProvenance` rows for project `OWNER`/`QA`.
+- `GET /api/projects/[projectId]/correction-tasks` lists correction tasks for project members in deterministic active-learning order.
+- `GET /api/correction-tasks/[taskId]` returns one sanitized task with prediction/run/provenance summary.
+- `PATCH /api/correction-tasks/[taskId]` supports claim, assign, start, dismiss, and priority updates with project-role checks.
+
+Task creation links `AnnotationTask.predictionRunId`, `AnnotationTask.predictionProvenanceId`, and `AnnotationTask.sourceArtifactVersionId` where an artifact version exists. The unique constraint `@@unique([predictionProvenanceId, type])` prevents duplicate correction tasks for the same prediction item and task type.
+
+Queue responses intentionally omit `AnnotationArtifactVersion.storageKey` and other private object-storage locations.
 
 ## Artifact Contract
 
@@ -160,9 +175,8 @@ Large batch imports should use a background job design rather than synchronous b
 
 RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-## Deferred After RB-057
+## Deferred After RB-058
 
-- RB-058: active-learning task queue APIs/UI using `predictionRunId`, `predictionProvenanceId`, priority, confidence, uncertainty, and task reason.
 - RB-059: assisted correction editor workflow that loads prediction overlays read-only and writes human correction artifacts separately.
 - RB-060: prediction-analysis export mode separate from ground-truth training exports.
 - RB-061: background jobs for large/batch prediction imports.

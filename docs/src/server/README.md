@@ -19,6 +19,7 @@
 - `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
 - `src/server/domain/predictionImport.ts` - RB-057 prediction mask import validation, storage write/stat verification, artifact-version creation, provenance linking, and audit events.
+- `src/server/domain/correctionTasks.ts` - RB-058 active-learning correction task creation, ordering, assignment/status updates, sanitized serialization, and audit events.
 - `src/server/storage.ts` - app-level storage wrapper for presigned URLs.
 - `src/server/storage/s3.ts` - AWS SDK S3/MinIO client setup, presign helpers, object writes, object stat verification, best-effort deletes, and storage readiness check.
 
@@ -32,6 +33,7 @@
 - `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the RB-053 owner-only training export workflow.
 - `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
+- `createCorrectionTasksForPredictionRunForUser`, `listProjectCorrectionTasksForUser`, `getCorrectionTaskForUser`, and `updateCorrectionTaskForUser` implement the RB-058 correction task queue service layer.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 
 ## Invariants And Constraints
@@ -42,13 +44,14 @@
 - Runtime config must not expose secrets to the client bundle.
 - Current artifact integrity checks use `sha256:<hex>` checksums, validated image dimensions, and S3/MinIO object stat checks before database commit where practical.
 - Prediction provenance/import services are proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
+- Correction task services rank and route prediction correction work only; they do not create approved human artifacts or mark predictions export-ready.
 
 ## Known Gaps
 
 - Audit logging is incomplete.
 - There is no rate limiting for login or API writes.
 - Export generation is synchronous and intended for trial-sized datasets; large export job handling remains deferred.
-- Active-learning queues, assisted correction UI, prediction-analysis exports, and batch/background prediction imports remain deferred after RB-057.
+- Assisted correction UI, prediction-analysis exports, and batch/background prediction imports remain deferred after RB-058.
 
 ## Related Tickets / Docs
 

@@ -47,6 +47,10 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects/[projectId]/prediction-runs` - creates a project-scoped prediction/inference run for project `OWNER` or `QA`.
 - `GET /api/prediction-runs/[predictionRunId]` - returns a sanitized prediction-run summary for project members.
 - `POST /api/prediction-runs/[predictionRunId]/predictions` - imports one multipart `u8raw-v1` prediction mask proposal for project `OWNER`/`QA`, stores it privately as `PREDICTION_MASK`, and links it to `PredictionArtifactProvenance`.
+- `POST /api/prediction-runs/[predictionRunId]/correction-tasks` - creates idempotent model-prediction correction tasks from prediction provenance rows for project `OWNER`/`QA`.
+- `GET /api/projects/[projectId]/correction-tasks` - lists project correction tasks for project members in deterministic priority/uncertainty/confidence order.
+- `GET /api/correction-tasks/[taskId]` - returns one sanitized model-prediction correction task for project members.
+- `PATCH /api/correction-tasks/[taskId]` - claims, assigns, starts, dismisses, or reprioritizes a correction task according to project role.
 
 ## Invariants And Constraints
 
@@ -61,15 +65,17 @@ This page lists the current API route handlers under `src/app/api`.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - Prediction provenance/import APIs do not approve prediction artifacts and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
 - Prediction import accepts only app-mediated multipart upload for RB-057. It does not accept arbitrary client-provided storage keys.
+- Correction-task APIs expose prediction/run/provenance summaries but not private artifact storage keys. `OWNER`/`QA` can create and manage tasks; `LABELER` can claim/start/dismiss own or unassigned active tasks; `VIEWER` is read-only.
 - API routes should return stable error codes that clients can handle.
 - RB-055 upload/artifact error codes include `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `IMAGE_DIMENSIONS_UNREADABLE`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_KEY_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 - RB-056 prediction provenance error codes include `FORBIDDEN`, `MODEL_RUN_NOT_FOUND`, `PREDICTION_RUN_NOT_FOUND`, `DUPLICATE_INFERENCE_RUN`, `INVALID_MODEL_TASK_TYPE`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_PREDICTION_RUN_STATUS`, `CONFIDENCE_OUT_OF_RANGE`, `UNCERTAINTY_OUT_OF_RANGE`, `PREDICTED_CLASS_REQUIRED`, `PREDICTED_CLASS_TARGET_INVALID`, `ARTIFACT_NOT_PREDICTION`, and `PROJECT_MISMATCH`.
 - RB-057 prediction import error codes include `PREDICTION_IMPORT_PAYLOAD_INVALID`, `PREDICTION_IMPORT_FORBIDDEN`, `PREDICTION_TARGET_UNSUPPORTED`, `IMAGE_PROJECT_MISMATCH`, `COORDINATE_SPACE_UNSUPPORTED`, `SEMANTIC_MASK_VALUES_INVALID`, `PREDICTION_IMPORT_FAILED`, plus reused upload/integrity errors such as `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
+- RB-058 correction-task error codes include `FORBIDDEN`, `PREDICTION_RUN_NOT_FOUND`, `CORRECTION_TASK_NOT_FOUND`, `INVALID_TASK_REASON`, `INVALID_TASK_SCOPE`, `INVALID_TASK_STATUS`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_TASK_ACTION`, `INVALID_TASK_PRIORITY`, `INVALID_TASK_STATUS_TRANSITION`, `ASSIGNEE_REQUIRED`, `ASSIGNEE_NOT_PROJECT_MEMBER`, and `CORRECTION_TASK_ALREADY_EXISTS`.
 
 ## Known Gaps
 
 - Audit logging is not consistently attached to every route mutation; RB-055 covers the current upload/artifact/export paths.
-- Active-learning task APIs/UI and assisted correction workflows remain deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
+- Assisted correction workflows remain deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
 
 ## Related Tickets / Docs
 
