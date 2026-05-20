@@ -24,7 +24,7 @@ API target strings:
 - `slice_classification`
 - `combined`
 
-The persisted `ExportBatch.target` maps single-target exports to the existing Prisma enum values and maps multi-target or combined selections to `COMBINED_MANIFEST`.
+The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values and maps multi-target or combined selections to `COMBINED_MANIFEST`. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the RB-053 training export API.
 
 ## Export Targets
 
@@ -145,9 +145,9 @@ The MVP exports approved ground-truth components only:
 
 Draft, submitted, rejected, and superseded versions are not exported as training targets.
 
-Model prediction artifacts are also excluded from default training exports. RB-059 human corrections based on predictions may be exported only after they are saved as separate human semantic/support versions and approved. Prediction ids may be recorded later as provenance, but prediction bytes are not ground-truth labels.
+Model prediction artifacts are also excluded from default training exports. RB-059 human corrections based on predictions may be exported only after they are saved as separate human semantic/support versions and approved. Prediction bytes are not ground-truth labels.
 
-RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance`, and RB-057 imports `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance. RB-059 correction saves create `HUMAN_CORRECTION` semantic/support artifact versions linked to the source prediction. Prediction records remain proposals only. They do not change export eligibility, do not mark prediction artifact versions as ground truth, and do not create slice-classification labels. Prediction-analysis exports remain a separate future target.
+RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance`, and RB-057 imports `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance. RB-059 correction saves create `HUMAN_CORRECTION` semantic/support artifact versions linked to the source prediction. Prediction records remain proposals only. They do not change training export eligibility, do not mark prediction artifact versions as ground truth, and do not create slice-classification labels. RB-060 implements prediction-analysis exports through `src/server/domain/predictionAnalysisExports.ts` and `/api/prediction-analysis-exports/*`; those exports have their own manifest version and package layout.
 
 Images with no approved data for the requested targets are skipped with `NO_REQUESTED_APPROVED_DATA`. Images missing a selected component are included only for the approved components they do have and receive warnings such as `MISSING_APPROVED_SEMANTIC_MASK`, `MISSING_APPROVED_SUPPORT_MASK`, or `MISSING_APPROVED_SLICE_CLASSIFICATION`. Missing T-number and acquisition metadata are warning conditions, not hard blockers.
 
@@ -186,6 +186,8 @@ Current MVP access:
 - `OWNER` can create export batches and download generated export files.
 - `QA`, `LABELER`, and `VIEWER` cannot create or download exports in RB-053.
 
+Prediction-analysis exports are a separate RB-060 mode. Project `OWNER` and `QA` can create/download those QA packages, while `LABELER` and `VIEWER` cannot.
+
 All export creation records the authenticated actor. Future project policy may allow QA export access, but that is deferred.
 
 ## MVP Limits
@@ -196,6 +198,7 @@ All export creation records the authenticated actor. Future project policy may a
 - The UI exposes only the most recent created export result in the project overview panel; there is no export history page.
 - Only one default support geometry and one default slice classification per image are implemented.
 - Export generation is blocked rather than partially generated when selected approved artifacts are missing checksum or dimension metadata.
+- Prediction-analysis metrics and dashboard UI are not part of RB-060; the separate mode exports comparison references for offline QA only.
 
 ## Related Docs
 
@@ -203,3 +206,4 @@ All export creation records the authenticated actor. Future project policy may a
 - [annotation-label-schema.md](annotation-label-schema.md)
 - [mask-and-artifact-versioning.md](mask-and-artifact-versioning.md)
 - [model-prediction-contract.md](model-prediction-contract.md)
+- [prediction-analysis-export-contract.md](prediction-analysis-export-contract.md)

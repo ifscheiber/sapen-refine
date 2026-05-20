@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-059 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, and assisted correction editor work.
+This page summarizes known limitations after the RB-040 through RB-060 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, and prediction-analysis export work.
 
 ## Current Gaps
 
@@ -19,14 +19,16 @@ This page summarizes known limitations after the RB-040 through RB-059 baseline,
 - RB-057 adds a server-side multipart prediction mask import API for project `OWNER`/`QA`, validates image-sized `u8raw-v1` bytes, checksum, content type, coordinate space, semantic/support byte values, stores private `PREDICTION_MASK` artifacts with `MODEL_PREDICTION` provenance, and keeps predictions out of review/export ground truth.
 - RB-058 adds idempotent active-learning correction task creation from prediction provenance, deterministic project task queue APIs, project task queue UI, role-aware claim/start/dismiss/priority actions, sanitized task responses, and integration coverage for the queue rules.
 - RB-059 adds a route-addressable assisted correction editor, read-only prediction overlay, explicit prediction-to-editable-mask copy action, human correction draft saves with `HUMAN_CORRECTION` provenance, parent/task links, review-driven task status updates, and integration/E2E coverage for the core boundaries.
+- RB-060 adds separate prediction-analysis exports for project `OWNER`/`QA`, a distinct manifest version, proposal warnings, model/prediction provenance, confidence/uncertainty metadata, and separated package paths for predictions, human corrections, and approved ground-truth references.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
-- Training export remains an MVP: synchronous, owner-only, project-level, and without advanced filters, export history UI, QA export policy, or large dataset job handling.
+- Training export remains an MVP: synchronous, owner-only, project-level, and without advanced filters, export history UI, or large dataset job handling. Prediction-analysis export is also synchronous and trial-sized, but allows project `QA` in addition to `OWNER`.
 - Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
 - Copper semantic masks are material labels and must not be treated as physical slice support geometry. RB-051 adds the first support-mask workflow, but multi-object/multi-slice support remains deferred.
 - Review/approval is intentionally minimal: no reviewer dashboard, bulk review, notification system, or multi-reviewer approval flow exists yet.
-- Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. Follow-up tickets RB-060 through RB-061 cover prediction-analysis export and batch/background imports.
+- Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export; RB-061 still covers batch/background imports.
+- Prediction-analysis export does not compute metrics such as Dice/IoU or confusion matrices; offline evaluation/dashboard work remains deferred.
 - Slice-classification prediction correction remains deferred.
 - Remaining upload/security limits: no malware scanning, no rate limiting, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned objects, and no large async export/import job handling.
 

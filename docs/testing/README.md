@@ -26,6 +26,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/integration/prediction-import.test.ts` covers RB-057 semantic/support prediction imports, `OWNER`/`QA` authorization, project boundaries, checksum/dimension/content-type/coordinate-space/value validation, audit creation, review rejection, and export exclusion for imported predictions.
 - `tests/integration/correction-task-queue.test.ts` covers RB-058 idempotent correction-task creation from prediction provenance, deterministic active-learning ordering, sanitized responses without storage keys, project role rules, task claim/start/dismiss/priority updates, and default active-queue filtering.
 - `tests/integration/assisted-correction.test.ts` covers RB-059 correction context authorization, prediction-mask reads, semantic/support `HUMAN_CORRECTION` saves, parent/task links, task status transitions through review, source prediction immutability, export eligibility for approved human corrections, and unsupported classification correction.
+- `tests/integration/prediction-analysis-export.test.ts` covers RB-060 prediction-analysis export readiness/creation/download authorization, proposal manifest safety language, model/prediction provenance, confidence/uncertainty metadata, separated prediction/human/ground-truth package paths, training export route separation, and manifest-only classification prediction proposals.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/metadata-validation.test.ts` covers RB-050 metadata parsing, completeness/readiness calculation, and immutable-field validation.
 - `tests/unit/review-domain.test.ts` covers RB-052 review transition helpers, role capability mapping, reject reason requirements, and approved-only export readiness.
@@ -76,7 +77,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, and RB-059 assisted correction boundaries.
+- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, and RB-060 prediction-analysis export separation.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

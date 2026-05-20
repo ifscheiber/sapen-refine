@@ -41,6 +41,10 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects/[projectId]/exports` - creates a synchronous RB-053 training export for project owners.
 - `GET /api/exports/[exportId]` - returns sanitized export summary and download routes for project owners.
 - `GET /api/exports/[exportId]/download?file=manifest|package` - streams the stored manifest JSON or ZIP package through the app for project owners.
+- `GET /api/projects/[projectId]/prediction-analysis-export/readiness` - returns prediction-analysis export candidate counts, prediction-run options, selected target filters, and owner/QA export capability for project members.
+- `POST /api/projects/[projectId]/prediction-analysis-exports` - creates a synchronous RB-060 prediction-analysis export for project `OWNER`/`QA`.
+- `GET /api/prediction-analysis-exports/[exportId]` - returns sanitized prediction-analysis export summary and download routes for project `OWNER`/`QA`.
+- `GET /api/prediction-analysis-exports/[exportId]/download?file=manifest|package` - streams the prediction-analysis manifest JSON or ZIP package through the app for project `OWNER`/`QA`.
 - `POST /api/model-runs` - creates a model/checkpoint/training provenance record for global admins.
 - `GET /api/model-runs/[modelRunId]` - returns full model-run provenance for global admins.
 - `GET /api/projects/[projectId]/prediction-runs` - lists project-scoped prediction/inference runs for project members.
@@ -66,6 +70,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
+- Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
 - Prediction provenance/import APIs do not approve prediction artifacts and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
 - Prediction import accepts only app-mediated multipart upload for RB-057. It does not accept arbitrary client-provided storage keys.
 - Correction-task APIs expose prediction/run/provenance summaries but not private artifact storage keys. `OWNER`/`QA` can create and manage tasks; `LABELER` can claim/start/dismiss own or unassigned active tasks; `VIEWER` is read-only.
@@ -76,11 +81,12 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-057 prediction import error codes include `PREDICTION_IMPORT_PAYLOAD_INVALID`, `PREDICTION_IMPORT_FORBIDDEN`, `PREDICTION_TARGET_UNSUPPORTED`, `IMAGE_PROJECT_MISMATCH`, `COORDINATE_SPACE_UNSUPPORTED`, `SEMANTIC_MASK_VALUES_INVALID`, `PREDICTION_IMPORT_FAILED`, plus reused upload/integrity errors such as `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 - RB-058 correction-task error codes include `FORBIDDEN`, `PREDICTION_RUN_NOT_FOUND`, `CORRECTION_TASK_NOT_FOUND`, `INVALID_TASK_REASON`, `INVALID_TASK_SCOPE`, `INVALID_TASK_STATUS`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_TASK_ACTION`, `INVALID_TASK_PRIORITY`, `INVALID_TASK_STATUS_TRANSITION`, `ASSIGNEE_REQUIRED`, `ASSIGNEE_NOT_PROJECT_MEMBER`, and `CORRECTION_TASK_ALREADY_EXISTS`.
 - RB-059 assisted-correction error codes include `CORRECTION_TASK_NOT_FOUND`, `CORRECTION_TASK_IMAGE_MISSING`, `CORRECTION_TARGET_UNSUPPORTED`, `SOURCE_PREDICTION_MISSING`, `SOURCE_PREDICTION_MISMATCH`, `SOURCE_PREDICTION_NOT_FOUND`, `SOURCE_ARTIFACT_NOT_PREDICTION`, `SEMANTIC_MASK_VALUES_INVALID`, and reused upload/object errors.
+- RB-060 prediction-analysis export error codes include `FORBIDDEN`, `PROJECT_NOT_FOUND`, `USER_NOT_FOUND`, `PREDICTION_TARGET_INVALID`, `NO_PREDICTION_ANALYSIS_CANDIDATES`, `PREDICTION_ANALYSIS_EXPORT_NOT_FOUND`, `EXPORT_NOT_READY`, and `EXPORT_FILE_NOT_FOUND`.
 
 ## Known Gaps
 
 - Audit logging is not consistently attached to every route mutation; RB-055 covers the current upload/artifact/export paths.
-- Prediction-analysis export remains deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
+- RB-053 and RB-060 exports are synchronous and trial-sized. Advanced export filters, export history UI, metrics dashboards, and background job queues remain deferred.
 
 ## Related Tickets / Docs
 

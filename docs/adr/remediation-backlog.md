@@ -242,7 +242,7 @@ Impact: Prediction-assisted annotation could compromise ground-truth integrity i
 
 Resolution: Implemented by RB-054 optimized ticket. Prediction artifacts are documented as proposals only, not ground truth. Future human corrections must create separate human versions, active-learning queue ordering is documented, and RB-053 export remains approved-human-only.
 
-Remaining follow-up: RB-058 through RB-061 cover active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
+Remaining follow-up: RB-061 covers batch/background imports. Advanced model metrics and dashboards remain deferred.
 
 Affected modules: future prediction import services, annotation tasks, editor workflow, export variants, docs under `docs/06-data`, `docs/03-features`, `docs/workflows`, and `docs/08-adr`.
 
@@ -272,7 +272,7 @@ Impact: Prediction imports would be difficult to audit or reproduce without stru
 
 Resolution: Implemented by RB-056 optimized ticket. The schema now includes `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, prediction task links, model/prediction target/status enums, minimal domain services and APIs, and integration tests for authorization, linkage, classification proposals, and export exclusion.
 
-Remaining follow-up: RB-058 through RB-061 cover task queues/UI, assisted correction editor workflow, prediction-analysis export mode, and batch/background import jobs.
+Remaining follow-up: RB-061 covers batch/background import jobs. Advanced model metrics and dashboards remain deferred.
 
 Affected modules: `prisma/schema.prisma`, `src/server/domain/predictionProvenance.ts`, `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, tests and docs under `docs/06-data`.
 
@@ -288,7 +288,7 @@ Impact: The app cannot safely ingest model-generated prediction artifacts yet.
 
 Resolution: Implemented by RB-057 optimized ticket. The app now has a multipart prediction mask import route, validates `u8raw-v1` bytes/checksum/dimensions/content type/coordinate space/target-specific values, stores private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance, links `PredictionArtifactProvenance`, records audit events, and keeps predictions out of review/export ground truth.
 
-Remaining follow-up: RB-058 should create/list correction tasks from `PredictionArtifactProvenance`; RB-059 should load prediction overlays in the editor; RB-060 should add a separate prediction-analysis export if needed; RB-061 should handle batch/background imports.
+Remaining follow-up: RB-061 should handle batch/background imports. Advanced model metrics and dashboards remain deferred.
 
 Affected modules: `src/server/domain/predictionImport.ts`, `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`, `src/server/storage`, `src/server/uploads`, tests, and docs under `docs/06-data`.
 
@@ -302,13 +302,13 @@ Context: RB-054 defines task reasons and deterministic queue ordering, but no qu
 
 Impact: Annotators cannot act on model uncertainty or correction-task priority.
 
-Proposed next step: Implement `tickets/2026-05-19/RB-058-active-learning-task-queue-api-ui.md`.
+Resolution: Implemented by RB-058 optimized ticket. The app creates idempotent correction tasks from prediction provenance, exposes deterministic project task queue APIs/UI, and supports role-aware claim/start/dismiss/priority actions.
 
 Affected modules: future task APIs, project/task UI, RBAC, docs under `docs/03-features` and `docs/06-data`.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved.
 
 ## RB-059 - Assisted Correction Editor Workflow
 
@@ -316,13 +316,13 @@ Context: RB-054 defines the future editor behavior for prediction overlays and h
 
 Impact: Prediction-backed tasks cannot be corrected in the editor without risking mutation of prediction artifacts or confusion with human ground truth.
 
-Proposed next step: Implement `tickets/2026-05-19/RB-059-assisted-correction-editor-workflow.md`.
+Resolution: Implemented by RB-059 optimized ticket. Prediction-backed semantic/support tasks open a route-addressable correction editor, prediction masks remain read-only, and saved corrections create separate `HUMAN_CORRECTION` artifact versions linked to source prediction and task.
 
 Affected modules: `src/features/editor`, future task route/API integrations, `src/mask`, docs under `docs/03-features`.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved.
 
 ## RB-060 - Prediction Analysis Export Mode
 
@@ -330,13 +330,13 @@ Context: RB-053 ground-truth exports intentionally exclude model predictions. RB
 
 Impact: Teams may need to inspect model predictions and confidence data without contaminating ground-truth training exports.
 
-Proposed next step: Implement `tickets/2026-05-19/RB-060-prediction-analysis-export-mode.md`.
+Resolution: Implemented by RB-060 optimized ticket. Prediction-analysis exports use `ExportTarget.PREDICTION_ANALYSIS`, distinct API routes, a distinct manifest version, explicit proposal warnings, `ExportItem.predictionProvenanceId`, owner/QA authorization, and separate prediction/human/ground-truth package paths.
 
-Affected modules: `src/server/domain/exports.ts`, future prediction provenance services, export docs and tests.
+Affected modules: `src/server/domain/predictionAnalysisExports.ts`, `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/prediction-analysis-*`, `src/app/api/prediction-analysis-exports/*`, `src/features/projects/ProjectExportPanel.tsx`, `prisma/schema.prisma`, export docs and tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved.
 
 ## RB-061 - Batch Prediction Import And Background Jobs
 

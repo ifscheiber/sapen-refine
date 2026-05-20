@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-058 workflow and provenance extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-060 workflow and provenance extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -16,7 +16,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `AnnotationArtifact` and `AnnotationArtifactVersion` replace `Mask`/`MaskVersion` and separate semantic, support/instance, prediction, and derived artifact families.
 - `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
 - `ReviewDecision` and `ArtifactReviewState` provide the persistence and workflow baseline for draft/submitted/approved/rejected/superseded ground-truth state. RB-052 decisions can target artifact versions or slice classification versions.
-- `ExportBatch` and `ExportItem` persist RB-053 training export batches, manifest/package metadata, warnings, actor attribution, and exact exported version references.
+- `ExportBatch` and `ExportItem` persist RB-053 training export batches and RB-060 prediction-analysis export batches, manifest/package metadata, warnings, actor attribution, and exact exported version/provenance references.
 - `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` persist RB-056 model/checkpoint/training provenance, project-scoped inference runs, and per-image prediction proposal metadata.
 - `AuditLog` records explicit RB-055 audit events for upload acceptance/rejection, mask commits/validation failures, export creation, and export downloads. It is not yet a complete audit trail for every mutation route.
 
@@ -34,6 +34,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - upload routes persist verified `ImageAsset` checksums/dimensions/status for PNG/JPEG images,
 - prediction provenance routes create/read `ModelRun` and project-scoped `PredictionRun` records without importing prediction bytes,
 - correction-task routes create/read/update `MODEL_PREDICTION_CORRECTION` `AnnotationTask` rows linked to prediction provenance,
+- prediction-analysis export routes create/read/download `ExportBatch.target = PREDICTION_ANALYSIS` packages with `ExportItem.predictionProvenanceId` references,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.
@@ -65,8 +66,8 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.
 - RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
-- RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, QA export policy, export history UI, and job queues remain deferred.
-- RB-054 documents the future model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import; RB-058 implements the first active-learning correction task queue. Assisted correction UI, prediction-analysis exports, and batch imports remain deferred.
+- RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, export history UI, and job queues remain deferred.
+- RB-054 documents the model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import; RB-058 implements the first active-learning correction task queue; RB-059 implements assisted correction; RB-060 implements separate prediction-analysis exports. Batch/background imports remain deferred to RB-061.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
 
 ## Related Docs

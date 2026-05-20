@@ -21,6 +21,7 @@
 - `src/server/domain/predictionImport.ts` - RB-057 prediction mask import validation, storage write/stat verification, artifact-version creation, provenance linking, and audit events.
 - `src/server/domain/correctionTasks.ts` - RB-058 active-learning correction task creation, ordering, assignment/status updates, sanitized serialization, and audit events.
 - `src/server/domain/assistedCorrection.ts` - RB-059 correction context loading, prediction mask streaming authorization, human correction save validation, provenance linking, and audit events.
+- `src/server/domain/predictionAnalysisExports.ts` - RB-060 prediction-analysis export readiness, manifest/package generation, persistence, and owner/QA download authorization.
 - `src/server/storage.ts` - app-level storage wrapper for presigned URLs.
 - `src/server/storage/s3.ts` - AWS SDK S3/MinIO client setup, presign helpers, object writes, object stat verification, best-effort deletes, and storage readiness check.
 
@@ -36,6 +37,7 @@
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
 - `createCorrectionTasksForPredictionRunForUser`, `listProjectCorrectionTasksForUser`, `getCorrectionTaskForUser`, and `updateCorrectionTaskForUser` implement the RB-058 correction task queue service layer.
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.
+- `resolveProjectPredictionAnalysisReadiness`, `createPredictionAnalysisExportForUser`, `getPredictionAnalysisExportForUser`, and `readPredictionAnalysisExportFileForUser` implement the RB-060 prediction-analysis export service layer.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 
 ## Invariants And Constraints
@@ -48,13 +50,14 @@
 - Prediction provenance/import services are proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
 - Correction task services rank and route prediction correction work only; they do not create approved human artifacts or mark predictions export-ready.
 - Assisted correction services create draft human correction artifact versions only; review/approval is still required before export.
+- Prediction-analysis export services are QA/debug services only; they mark predictions as proposals, keep prediction/human paths separate, and do not change training export eligibility.
 
 ## Known Gaps
 
 - Audit logging is incomplete.
 - There is no rate limiting for login or API writes.
-- Export generation is synchronous and intended for trial-sized datasets; large export job handling remains deferred.
-- Prediction-analysis exports and batch/background prediction imports remain deferred after RB-059. Slice-classification prediction correction remains deferred.
+- Training and prediction-analysis export generation are synchronous and intended for trial-sized datasets; large export job handling remains deferred.
+- Batch/background prediction imports remain deferred after RB-060. Slice-classification prediction correction remains deferred.
 
 ## Related Tickets / Docs
 

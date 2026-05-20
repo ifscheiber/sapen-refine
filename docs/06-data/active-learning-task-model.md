@@ -138,17 +138,18 @@ Editor constraints:
 
 API responses expose sanitized model/run/provenance summaries and do not expose artifact storage keys.
 
+RB-060 prediction-analysis exports can include correction-task context for each prediction item. The task metadata is included for QA comparison only; it does not imply that the model prediction is approved ground truth.
+
 ## Deferred Implementation
 
 Follow-up tickets should implement:
 
-- assisted correction editor route/workflow that loads prediction overlays read-only;
-- optional prediction-analysis export mode;
 - background/batch prediction imports and queue generation;
 - additional task reasons such as model disagreement or stale model version.
 
 ## Related Docs
 
 - [model-prediction-contract.md](model-prediction-contract.md)
+- [prediction-analysis-export-contract.md](prediction-analysis-export-contract.md)
 - [../03-features/editor.md](../03-features/editor.md)
 - [../workflows/future-prediction-assisted-annotation.md](../workflows/future-prediction-assisted-annotation.md)

@@ -156,10 +156,11 @@ RB-053 ground-truth training export remains approved-human-only:
 - `MODEL_PREDICTION` versions are excluded from default training exports.
 - `PREDICTION_MASK` artifacts are excluded from semantic/support/classification export targets.
 - Approved human corrections may be exported when they are stored as semantic/support/classification ground-truth artifacts.
-- Prediction artifact ids may appear only as provenance of a human correction in a future manifest extension.
-- Any QA or prediction-analysis export mode must be a separate future target and must not be confused with ground-truth training export.
+- Prediction-analysis exports are a separate RB-060 mode and must not be confused with ground-truth training export.
 
-RB-056 keeps this behavior unchanged. `src/server/domain/exports.ts` still selects latest approved `SEMANTIC_MASK`, `SLICE_SUPPORT_MASK`, and `SliceClassificationVersion` rows only; `PREDICTION_MASK` artifacts and `PredictionArtifactProvenance` rows do not become export-ready merely by existing in the database.
+RB-056 keeps this behavior unchanged. `src/server/domain/exports.ts` still selects latest approved `SEMANTIC_MASK`, `SLICE_SUPPORT_MASK`, and `SliceClassificationVersion` rows only; `PREDICTION_MASK` artifacts and `PredictionArtifactProvenance` rows do not become training-export-ready merely by existing in the database.
+
+RB-060 adds `src/server/domain/predictionAnalysisExports.ts` for QA/debug exports. Those manifests use `sapen-annotate-prediction-analysis-export-v1`, mark each prediction with `artifactRole: "model_prediction_proposal"` and `groundTruth: false`, include `ModelRun`/`PredictionRun` provenance, and keep prediction, human-correction, and approved-ground-truth files in separate package paths.
 
 ## RB-055 Dependency
 
@@ -177,9 +178,8 @@ Large batch imports should use a background job design rather than synchronous b
 
 RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-## Deferred After RB-059
+## Deferred After RB-060
 
-- RB-060: prediction-analysis export mode separate from ground-truth training exports.
 - RB-061: background jobs for large/batch prediction imports.
 
 ## Related Docs
@@ -187,4 +187,5 @@ RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `I
 - [active-learning-task-model.md](active-learning-task-model.md)
 - [mask-and-artifact-versioning.md](mask-and-artifact-versioning.md)
 - [training-export-contract.md](training-export-contract.md)
+- [prediction-analysis-export-contract.md](prediction-analysis-export-contract.md)
 - [../08-adr/ADR-004-model-preprediction-active-learning.md](../08-adr/ADR-004-model-preprediction-active-learning.md)

@@ -32,6 +32,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Annotation domain model: [06-data/annotation-domain-model.md](06-data/annotation-domain-model.md)
 - Prisma schema proposal: [06-data/prisma-schema-proposal.md](06-data/prisma-schema-proposal.md)
 - Training export contract: [06-data/training-export-contract.md](06-data/training-export-contract.md)
+- Prediction analysis export contract: [06-data/prediction-analysis-export-contract.md](06-data/prediction-analysis-export-contract.md)
 - Model prediction contract: [06-data/model-prediction-contract.md](06-data/model-prediction-contract.md)
 - Active-learning task model: [06-data/active-learning-task-model.md](06-data/active-learning-task-model.md)
 - Quality gates: [07-testing/quality-gates.md](07-testing/quality-gates.md)

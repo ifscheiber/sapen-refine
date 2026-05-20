@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page documents the prediction-assisted workflow contract. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, RB-058 implements the first correction task queue, and RB-059 implements the first assisted correction editor for semantic/support mask predictions.
+This page documents the prediction-assisted workflow contract. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, RB-058 implements the first correction task queue, RB-059 implements the first assisted correction editor for semantic/support mask predictions, and RB-060 implements a separate prediction-analysis export for QA.
 
 ## Planned Flow
 
@@ -30,12 +30,14 @@ Current provenance and queue implementation files:
 - `src/server/domain/predictionImport.ts` - prediction mask import service.
 - `src/server/domain/correctionTasks.ts` - correction task creation, ordering, role checks, and updates.
 - `src/server/domain/assistedCorrection.ts` - assisted correction context, prediction-mask read authorization, and human correction save service.
+- `src/server/domain/predictionAnalysisExports.ts` - prediction-analysis export readiness, manifest/package generation, and owner/QA download authorization.
 - `src/app/api/model-runs/*` and `src/app/api/projects/[projectId]/prediction-runs/route.ts` - minimal provenance APIs.
 - `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` - one-at-a-time prediction mask import API.
 - `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts` - correction task queue APIs.
 - `src/app/api/correction-tasks/[taskId]/correction-context/route.ts`, `src/app/api/correction-tasks/[taskId]/prediction-mask/route.ts`, and `src/app/api/correction-tasks/[taskId]/corrections/route.ts` - assisted correction APIs.
 - `src/app/(workspace)/app/projects/[projectId]/tasks/page.tsx` - project correction task queue route.
 - `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx` - assisted correction editor route.
+- `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts` and `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts` - prediction-analysis export APIs.
 
 Current mask MVP files are under `src/mask`; current human mask APIs are under `src/app/api/images/[imageId]/mask`.
 
@@ -50,6 +52,7 @@ Design docs:
 - Predicted masks must never overwrite human ground truth.
 - Prediction provenance should include model/run/checkpoint/config where available.
 - Default training export excludes predictions and includes only approved human ground-truth versions.
+- Prediction-analysis export is QA-only, marks predictions as proposals, and keeps prediction/human/ground-truth files separate.
 - Human corrections should link back to source prediction versions.
 - "Refine" refers to this future correction workflow only, not the product or package name.
 

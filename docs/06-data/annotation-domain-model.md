@@ -16,7 +16,8 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current editor: `src/features/editor/EditorClient.tsx`
 - Current mask labels and serialization: `src/mask/labels.ts`, `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
-- Current export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
+- Current training export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
+- Current prediction-analysis export domain/API: `src/server/domain/predictionAnalysisExports.ts`, `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts`, `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts`, `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts`
 - Prediction/active-learning design: `docs/06-data/model-prediction-contract.md`, `docs/06-data/active-learning-task-model.md`
 
 ## Core Concepts
@@ -287,7 +288,7 @@ Owner-created training-data export. RB-053 uses `ExportBatch` and `ExportItem` p
 
 `ExportItem` records role-specific exact references for included images, semantic mask artifact versions, support mask artifact versions, and slice classification versions.
 
-The RB-053 export generator uses latest approved versions only. It does not export draft, submitted, rejected, or superseded versions as training targets. Semantic segmentation, support segmentation, slice classification, and combined exports remain separate target concepts in the manifest; Copper semantic masks are never used as slice support geometry.
+The RB-053 export generator uses latest approved versions only. It does not export draft, submitted, rejected, superseded, or model-prediction versions as training targets. Semantic segmentation, support segmentation, slice classification, and combined exports remain separate target concepts in the manifest; Copper semantic masks are never used as slice support geometry. RB-060 adds a separate prediction-analysis export for QA. That export references `PredictionArtifactProvenance` and marks predictions as proposals with `groundTruth: false`; it does not change training export eligibility.
 
 RB-055 makes checksum and dimension metadata required for selected export inputs. Readiness exposes missing integrity warnings, and export creation fails with `EXPORT_INTEGRITY_METADATA_MISSING` if selected approved image or mask inputs lack validated checksum/dimensions.
 
