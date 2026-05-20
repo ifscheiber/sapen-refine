@@ -1,14 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ImageIcon, Settings } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { ProjectCorrectionTaskQueue } from "./ProjectCorrectionTaskQueue";
+import { ProjectOperationsNav } from "./ProjectOperationsNav";
 
 export async function ProjectCorrectionTasksPage({ projectId }: { projectId: string }) {
   const user = await requireUser();
@@ -29,23 +27,8 @@ export async function ProjectCorrectionTasksPage({ projectId }: { projectId: str
       <AppPageHeader
         title="Correction tasks"
         description={`${project.name} · Role: ${role}`}
-        actions={
-          <>
-            <Button asChild variant="outline">
-              <Link href={`/app/projects/${project.id}`}>
-                <Settings />
-                Project
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href={`/app/projects/${project.id}/images`}>
-                <ImageIcon />
-                Images
-              </Link>
-            </Button>
-          </>
-        }
       />
+      <ProjectOperationsNav projectId={project.id} current="tasks" />
       <AppSection>
         <ProjectCorrectionTaskQueue projectId={project.id} role={role} />
       </AppSection>

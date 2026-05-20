@@ -1,5 +1,6 @@
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
+import { ProjectOperationsNav } from "@/features/projects/ProjectOperationsNav";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { ImagesClient } from "./ImagesClient";
@@ -21,7 +22,8 @@ export async function ProjectImagesPage({ projectId }: { projectId: string }) {
 
   return (
     <AppMain>
-      <AppPageHeader title={project.name} description={`Images · Role: ${membership.role}`} />
+      <AppPageHeader title="Project images" description={`${project.name} · Role: ${membership.role}`} />
+      <ProjectOperationsNav projectId={project.id} current="images" />
       <ImagesClient projectId={project.id} canUpload={membership.role !== "VIEWER"} />
     </AppMain>
   );
