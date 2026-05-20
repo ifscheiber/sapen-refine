@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ImageIcon, ListTodo } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AppMain } from "@/components/shell/AppMain";
@@ -32,9 +33,20 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
         title={project.name}
         description={`Role: ${role}`}
         actions={
-          <Button asChild>
-            <Link href={`/app/projects/${project.id}/images`}>Images</Link>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <Link href={`/app/projects/${project.id}/tasks`}>
+                <ListTodo />
+                Tasks
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href={`/app/projects/${project.id}/images`}>
+                <ImageIcon />
+                Images
+              </Link>
+            </Button>
+          </>
         }
       />
       <AppSection>
