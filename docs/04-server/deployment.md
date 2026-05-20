@@ -89,7 +89,7 @@ Default trial limits:
 
 Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` where the request reaches the app. If Caddy rejects the request first, the tester sees a Caddy `413`.
 
-Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. If testers use large camera originals, check both the app limit and Caddy body limit before the trial.
+Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. RB-057 prediction mask imports use the mask upload limit and accept only `application/octet-stream` `u8raw-v1` bytes through the app; they do not expose MinIO/S3 upload URLs. If testers use large camera originals or large prediction masks, check both the app limit and Caddy body limit before the trial.
 
 Raise limits in both places:
 

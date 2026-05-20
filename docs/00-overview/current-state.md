@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after the RB-049 through RB-055 annotation-domain, workflow, export, and artifact-integrity slices.
+This page records the repository state after the RB-049 through RB-057 annotation-domain, workflow, export, artifact-integrity, provenance, and prediction-import slices.
 
 ## Important Files
 
@@ -40,6 +40,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
 - Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
 - Latest mask reload uses `src/app/api/images/[imageId]/mask/latest/route.ts` and app-mediated version assets.
+- Prediction mask import uses `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` to validate and store private `PREDICTION_MASK` proposal artifacts linked to `PredictionArtifactProvenance`.
 
 ## Current Data Model
 
@@ -59,7 +60,7 @@ There is no `check:docs-links` script in `package.json` yet.
 
 ## Known Gaps
 
-- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and RB-056 prediction provenance registry records. Prediction import and assisted-correction UI remain deferred.
+- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and RB-056/RB-057 prediction provenance/import records. Active-learning queues and assisted-correction UI remain deferred.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - Upload hardening now covers the current raw image, semantic mask, support mask, and export paths. Broader audit coverage, malware scanning, async jobs, and orphan cleanup dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available.

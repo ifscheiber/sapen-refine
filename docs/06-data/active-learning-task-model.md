@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the active-learning and model-prediction correction task contract. RB-056 implements the prediction-run/provenance links that future queues can use, but queue APIs and UI remain deferred.
+This page defines the active-learning and model-prediction correction task contract. RB-056 implements the prediction-run/provenance links and RB-057 imports prediction mask proposals that future queues can use, but queue APIs and UI remain deferred.
 
 The task model must help annotators decide what to correct next without allowing model output to bypass human review.
 
@@ -43,7 +43,7 @@ Future task reasons should use stable machine-readable values:
 
 ## Task Creation
 
-Future prediction import should create correction tasks when:
+Future RB-058 task creation should create correction tasks when:
 
 - a prediction exists and no approved human ground truth exists,
 - a prediction has high uncertainty or low confidence,
@@ -118,15 +118,14 @@ Editor constraints:
 
 ## Deferred Implementation
 
-RB-054 does not add queue APIs or UI. Follow-up tickets should implement:
+RB-054/RB-057 do not add queue APIs or UI. Follow-up tickets should implement:
 
-- prediction import API and storage validation,
 - task queue query/update APIs,
 - task list and assignment UI,
 - assisted correction editor route/workflow,
 - optional prediction-analysis export mode.
 
-RB-056 implements the provenance schema/model-run registry. RB-058 should build queue APIs/UI on those links and should not fall back to `AnnotationTask.modelSource` as the source of truth.
+RB-056 implements the provenance schema/model-run registry, and RB-057 imports prediction masks without creating tasks. RB-058 should create/list correction tasks from `PredictionArtifactProvenance` and should not fall back to `AnnotationTask.modelSource` as the source of truth.
 
 ## Related Docs
 

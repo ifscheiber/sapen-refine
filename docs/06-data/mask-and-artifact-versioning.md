@@ -54,7 +54,7 @@ Classification versions reference the relevant image, default slice instance, ac
 
 Prediction artifacts are model-generated proposals.
 
-RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence placeholders. RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` so future prediction import can record:
+RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence placeholders. RB-056 adds `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance`; RB-057 imports the first prediction mask proposal artifacts and records:
 
 - model source,
 - checkpoint/run/config where available,
@@ -66,7 +66,7 @@ RB-049 provides `AnnotationArtifactKind.PREDICTION_MASK` and task/persistence pl
 
 Prediction artifacts must never overwrite human ground-truth versions.
 
-RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.targetType` rather than adding separate prediction artifact kinds. RB-057 should create `PREDICTION_MASK` artifact versions for imported prediction mask bytes and link them through `PredictionArtifactProvenance.artifactVersionId`. A human correction must create a separate human artifact version with `ArtifactProvenance.HUMAN_CORRECTION` and should link to the prediction through `parentVersionId`, `AnnotationTask.predictionRunId`, and `AnnotationTask.predictionProvenanceId`.
+RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.targetType` rather than adding separate prediction artifact kinds. RB-057 creates `PREDICTION_MASK` artifact versions for imported semantic/support prediction mask bytes and links them through `PredictionArtifactProvenance.artifactVersionId`. A human correction must create a separate human artifact version with `ArtifactProvenance.HUMAN_CORRECTION` and should link to the prediction through `parentVersionId`, `AnnotationTask.predictionRunId`, and `AnnotationTask.predictionProvenanceId`.
 
 ## Version Rules
 
@@ -117,7 +117,7 @@ RB-051 support-mask values are resolved through the active label schema where pr
 - `0` remains background,
 - `slice_support` comes from the label schema byte value, currently `10` in the seed schema.
 
-RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. Support masks are additionally restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry.
+RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. Support masks and support predictions are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
 
 Future format work should decide:
 

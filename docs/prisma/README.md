@@ -27,8 +27,8 @@
 
 ## Known Gaps
 
-- Project/image metadata, default slice support/classification, review, export, upload/artifact validation, and prediction provenance registry workflows exist for the MVP path.
-- Slice-specific metadata, multi-slice editing, advanced export policy, prediction file import, active-learning queues, and assisted correction UI remain deferred.
+- Project/image metadata, default slice support/classification, review, export, upload/artifact validation, prediction provenance registry, and one-at-a-time prediction mask import workflows exist for the MVP path.
+- Slice-specific metadata, multi-slice editing, advanced export policy, active-learning queues, batch prediction import, and assisted correction UI remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

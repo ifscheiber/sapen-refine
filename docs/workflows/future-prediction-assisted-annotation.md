@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page documents the RB-054 future workflow contract. RB-056 implements provenance registry storage, but prediction import, queue UI, and assisted editor behavior are not implemented yet.
+This page documents the RB-054 future workflow contract. RB-056 implements provenance registry storage and RB-057 implements one-at-a-time prediction mask import. Queue UI and assisted editor behavior are not implemented yet.
 
 ## Planned Flow
 
@@ -27,7 +27,9 @@ Current provenance implementation files:
 
 - `prisma/schema.prisma` - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, and task links.
 - `src/server/domain/predictionProvenance.ts` - provenance registry service layer.
+- `src/server/domain/predictionImport.ts` - prediction mask import service.
 - `src/app/api/model-runs/*` and `src/app/api/projects/[projectId]/prediction-runs/route.ts` - minimal provenance APIs.
+- `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` - one-at-a-time prediction mask import API.
 
 Current mask MVP files are under `src/mask`; current human mask APIs are under `src/app/api/images/[imageId]/mask`.
 
@@ -47,7 +49,6 @@ Design docs:
 
 ## Known Gaps
 
-- No prediction import API exists.
 - No uncertainty/ranking queue exists.
 - No Core handoff contract exists.
 - No assisted correction editor workflow exists.

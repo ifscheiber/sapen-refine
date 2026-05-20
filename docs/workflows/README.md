@@ -22,7 +22,7 @@ Workflow pages link to relevant app routes and APIs.
 
 - Review/approval exists as a minimal RB-052 editor/API workflow.
 - Training export exists as an RB-053 project-level MVP; advanced export filters/history remain deferred.
-- Prediction-assisted correction is designed by RB-054 and has RB-056 provenance storage, but prediction import, queues, and assisted editor UI remain deferred.
+- Prediction-assisted correction is designed by RB-054, has RB-056 provenance storage, and has RB-057 prediction mask import; queues and assisted editor UI remain deferred.
 
 ## Related Tickets / Docs
 

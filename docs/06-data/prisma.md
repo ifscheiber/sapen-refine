@@ -65,7 +65,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-051 implements one-default-slice classification/support-mask user workflow.
 - RB-052 implements minimal review/approval UI/API behavior; bulk review and reviewer dashboards remain deferred.
 - RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, QA export policy, export history UI, and job queues remain deferred.
-- RB-054 documents the future model prediction and active-learning contract; RB-056 implements the provenance registry, but runtime prediction import, active-learning queues, assisted correction UI, and prediction-analysis exports remain deferred.
+- RB-054 documents the future model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import. Active-learning queues, assisted correction UI, prediction-analysis exports, and batch imports remain deferred.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
 
 ## Related Docs

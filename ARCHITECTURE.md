@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, and model/prediction-run provenance persistence. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and future prediction-assisted correction.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, model/prediction-run provenance persistence, and server-side prediction mask import. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and future prediction-assisted correction.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction and SaPen Core handoff workflows are future modes and must remain explicit provenance-bearing integrations.
 
@@ -46,7 +46,7 @@ Persisted entities today:
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 - `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` for future model-assisted correction provenance.
 
-Known workflow gaps include advanced export filters/history/job handling, reviewer dashboards/bulk review, multi-slice support, runtime prediction import, active-learning queues, and assisted correction UI. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include advanced export filters/history/job handling, reviewer dashboards/bulk review, multi-slice support, active-learning queues, batch prediction imports, and assisted correction UI. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -58,7 +58,7 @@ Known workflow gaps include advanced export filters/history/job handling, review
 - Mask/classification save/reload: the editor posts semantic bytes to `/api/images/[imageId]/mask/upload`, support bytes to `/api/images/[imageId]/support-mask/upload`, and classifications to `/api/images/[imageId]/slice/classification`; latest artifacts are streamed through app-mediated version asset routes.
 - Review/approval: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, and `/api/slice-classification-versions/[versionId]/review` implement minimal draft/submitted/approved/rejected transitions and export-readiness state.
 - Training export: the project overview uses `/api/projects/[projectId]/export/readiness` and `/api/projects/[projectId]/exports` to create owner-only approved-version exports; `/api/exports/[exportId]/download` streams manifest and ZIP package downloads through the app.
-- Prediction provenance: `/api/model-runs/*`, `/api/projects/[projectId]/prediction-runs`, and `/api/prediction-runs/[predictionRunId]` persist/read model and inference provenance only; prediction file import and assisted correction remain future workflows.
+- Prediction provenance/import: `/api/model-runs/*`, `/api/projects/[projectId]/prediction-runs`, `/api/prediction-runs/[predictionRunId]`, and `/api/prediction-runs/[predictionRunId]/predictions` persist/read model provenance and import one prediction mask proposal per request; assisted correction remains a future workflow.
 
 ## Security And Audit Assumptions
 
@@ -79,8 +79,8 @@ Known gaps:
 
 ## Known Follow-Up Areas
 
-- Advanced export filtering/history/job handling and prediction workflows on top of the RB-049/RB-053/RB-056 schema baseline.
-- Prediction import, active-learning queues, and assisted correction editor workflow on top of the RB-054/RB-056 design contract.
+- Advanced export filtering/history/job handling and prediction workflows on top of the RB-049/RB-053/RB-056/RB-057 baseline.
+- Active-learning queues and assisted correction editor workflow on top of the RB-054/RB-056/RB-057 design contract.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
 - Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.

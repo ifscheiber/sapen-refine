@@ -249,7 +249,7 @@ Implemented synchronous owner-only project export creation and manifest/ZIP gene
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
-Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; runtime import APIs, task queue UI, and assisted correction editor behavior remain follow-up tickets.
+Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import. Task queue UI and assisted correction editor behavior remain follow-up tickets.
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
@@ -257,7 +257,11 @@ Implemented checksum enforcement, PNG/JPEG dimensions, mask byte/dimension check
 
 ### RB-056 - Prediction Provenance / ModelRun Registry
 
-Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for future model-prediction correction tasks. The registry stores provenance only; prediction file import, active-learning queues, assisted correction UI, and prediction-analysis exports remain deferred.
+Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for future model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, while active-learning queues, assisted correction UI, and prediction-analysis exports remain deferred.
+
+### RB-057 - Prediction Import API / Storage Validation
+
+Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links; correction tasks, editor overlays, prediction-analysis export, and batch imports remain deferred.
 
 ## Open Questions For RB-049
 

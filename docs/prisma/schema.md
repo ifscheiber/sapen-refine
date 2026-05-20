@@ -51,7 +51,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only export generation; advanced filters, export history UI, QA export policy, and job queues remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. Broader audit coverage and background/orphan cleanup remain deferred.
-- RB-056 implements provenance persistence only; prediction file import, active-learning queues, assisted correction UI, prediction-analysis exports, and batch import jobs remain deferred.
+- RB-056 implements provenance persistence and RB-057 implements one-at-a-time prediction mask import without schema changes. Active-learning queues, assisted correction UI, prediction-analysis exports, and batch import jobs remain deferred.
 
 ## Related Tickets / Docs
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry needed by future imports, but it does not import prediction files, run inference, create active-learning queues, or add assisted editor UI.
+This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry and RB-057 implements the first server-side prediction mask import path. Running inference, active-learning queues, and assisted editor UI remain deferred.
 
 Hard rule:
 
@@ -27,7 +27,8 @@ Prediction artifacts must not become training labels unless a human creates or c
 - Project inference registry: `PredictionRun`
 - Per-image prediction item registry: `PredictionArtifactProvenance`
 - Domain service: `src/server/domain/predictionProvenance.ts`
-- Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, and `src/app/api/prediction-runs/[predictionRunId]/route.ts`
+- Import service: `src/server/domain/predictionImport.ts`
+- Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, and `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`
 - Export implementation: `src/server/domain/exports.ts`
 
 ## Implemented Registry
@@ -42,17 +43,34 @@ Related enums are `ModelTaskType`, `PredictionRunStatus`, and `PredictionTargetT
 
 Direct ModelRun reads are admin-only because they may include internal checkpoint paths. Project members read reduced model summaries through project-scoped prediction-run responses.
 
+## Implemented Import API
+
+RB-057 adds `POST /api/prediction-runs/[predictionRunId]/predictions` for one prediction mask per request. The route accepts `multipart/form-data` with:
+
+- `imageId`
+- `targetType` as `SEMANTIC_MASK` or `SLICE_SUPPORT_MASK`
+- `file` containing image-sized raw `u8raw-v1` bytes
+- `width` and `height`
+- optional `format`, `coordinateSpace`, `checksum`, `confidenceScore`, `uncertaintyScore`, `perClassScoresJson`, and `outputStatsJson`
+
+The import route is project-scoped. Project `OWNER` and `QA` can import predictions. `LABELER`, `VIEWER`, and users without membership cannot import predictions. There is no global-admin bypass without project membership.
+
+RB-057 does not accept arbitrary client-supplied storage keys. The app writes imported bytes to private object storage under an internal prediction prefix, verifies the stored object, and returns only sanitized ids/checksum/dimension/provenance metadata.
+
 ## Artifact Contract
 
-Prediction mask imports should use `AnnotationArtifactKind.PREDICTION_MASK` for mask predictions and store the prediction target in explicit prediction metadata.
+Prediction mask imports use `AnnotationArtifactKind.PREDICTION_MASK` for mask predictions and store the prediction target in explicit prediction metadata.
 
-Supported future prediction targets:
+Supported RB-057 import targets:
 
 - semantic material mask prediction,
-- slice support mask prediction,
+- slice support mask prediction.
+
+Deferred prediction targets:
+
 - instance mask prediction.
 
-`PREDICTION_MASK` is sufficient for the first import workflow because the existing artifact version fields already cover image ownership, storage key, dimensions, coordinate space, label schema version, provenance, parent/source version, and actor/system attribution. RB-056 stores the prediction target on `PredictionArtifactProvenance.targetType`; adding separate artifact kinds such as `SEMANTIC_PREDICTION_MASK` and `SUPPORT_PREDICTION_MASK` can wait until a real import implementation proves that the metadata approach is too weak.
+`PREDICTION_MASK` is sufficient for the first import workflow because the existing artifact version fields already cover image ownership, storage key, dimensions, coordinate space, label schema version, provenance, parent/source version, and actor/system attribution. RB-056 stores the prediction target on `PredictionArtifactProvenance.targetType`; RB-057 persists imported mask bytes as `PREDICTION_MASK` versions with `ArtifactProvenance.MODEL_PREDICTION`.
 
 Slice classification predictions are represented as `PredictionArtifactProvenance` rows with `targetType = SLICE_CLASSIFICATION` and `predictedClass`. They do not create `SliceClassificationVersion` rows until a human explicitly saves a classification version.
 
@@ -140,9 +158,10 @@ RB-055 implements the current upload/artifact validation helpers used by human i
 
 Large batch imports should use a background job design rather than synchronous browser requests.
 
-## Deferred After RB-056
+RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-- RB-057: prediction import API that validates prediction objects and creates `PREDICTION_MASK` artifact versions linked to `PredictionArtifactProvenance`.
+## Deferred After RB-057
+
 - RB-058: active-learning task queue APIs/UI using `predictionRunId`, `predictionProvenanceId`, priority, confidence, uncertainty, and task reason.
 - RB-059: assisted correction editor workflow that loads prediction overlays read-only and writes human correction artifacts separately.
 - RB-060: prediction-analysis export mode separate from ground-truth training exports.

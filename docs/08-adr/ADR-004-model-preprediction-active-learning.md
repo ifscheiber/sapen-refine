@@ -34,12 +34,12 @@ The current task fields are sufficient for a first active-learning queue orderin
 - Existing export behavior does not need to change for RB-054.
 - The editor must eventually support read-only prediction overlays and editable human layers.
 - Slice classification predictions need a proposal/task representation before human approval; they should not be inserted as approved classification rows.
-- RB-055 object validation hardening is now available as a prerequisite for trustworthy external prediction imports, but prediction import itself remains deferred.
+- RB-055 object validation hardening is used by RB-057 for trustworthy one-at-a-time prediction mask imports; batch/background imports remain deferred.
 
 ## Deferred Work
 
 - RB-056: Prediction provenance schema and model-run registry. Implemented after this ADR.
-- RB-057: Prediction import API and storage validation.
+- RB-057: Prediction import API and storage validation. Implemented after this ADR.
 - RB-058: Active-learning task queue API/UI.
 - RB-059: Assisted correction editor workflow.
 - RB-060: Optional QA/prediction-analysis export mode separate from ground-truth export.

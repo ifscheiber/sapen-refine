@@ -18,6 +18,7 @@ Important files:
 - `src/app/api/projects/[projectId]/exports/route.ts`
 - `src/app/api/projects/[projectId]/prediction-runs/route.ts`
 - `src/app/api/prediction-runs/[predictionRunId]/route.ts`
+- `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`
 - `src/app/api/exports/[exportId]/route.ts`
 - `src/app/api/exports/[exportId]/download/route.ts`
 
@@ -42,12 +43,13 @@ Route files are thin wrappers around `src/features/projects`.
 - `POST /api/projects/[projectId]/exports` and export downloads are restricted to `OWNER` in RB-053.
 - `GET /api/projects/[projectId]/prediction-runs` is available to project members.
 - `POST /api/projects/[projectId]/prediction-runs` is restricted to `OWNER` and `QA`; it creates provenance records only and does not import prediction files.
+- `POST /api/prediction-runs/[predictionRunId]/predictions` is restricted to project `OWNER` and `QA`; it imports one prediction mask proposal and does not create correction tasks.
 
 ## MVP Limitations
 
 - Projects now carry an optional active label schema version and surface missing schema setup in the UI.
 - RB-053 adds basic owner-only training export from the project overview. Advanced export filters, export history UI, QA export policy, and advanced reviewer administration remain deferred.
-- RB-056 adds project-scoped prediction-run provenance APIs, but project pages do not yet expose task queues, prediction import controls, or correction assignment UI.
+- RB-056 adds project-scoped prediction-run provenance APIs and RB-057 adds the server-side prediction mask import API. Project pages do not yet expose task queues, prediction import controls, or correction assignment UI.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.
 - Projects are standalone annotation projects and must not be treated as SaPen Core experiments without a future explicit handoff contract.
