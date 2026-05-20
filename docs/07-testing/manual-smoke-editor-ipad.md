@@ -10,7 +10,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 - Development server is running with `npm run dev`.
 - Seed login exists: `admin@sapen.local` / `admin1234`.
 - At least one project exists; the seed creates `Demo Project`.
-- A representative wood-slice image is available for upload.
+- A representative PNG/JPEG wood-slice image is available for upload.
 - For customer-facing iPad testing, prefer the deployed HTTPS URL and named tester accounts from [manual-smoke-customer-browser-trial.md](manual-smoke-customer-browser-trial.md).
 
 ## Desktop Browser Smoke
@@ -21,7 +21,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 | Log in as `admin@sapen.local`. | Browser lands in the workspace and receives a session cookie. |  |  |
 | Open `/app/projects`. | Project list renders. |  |  |
 | Open or create a project. | Project page renders with image navigation. |  |  |
-| Upload a representative image. | Image appears in the project image list. |  |  |
+| Upload a representative PNG/JPEG image. | Image appears in the project image list with validated technical metadata. |  |  |
 | Open the editor. | Image loads and editor controls are visible. |  |  |
 | Select each label. | Active label state is visible and touch target remains stable. |  |  |
 | Select Brush and draw with mouse. | Mask overlay follows the pointer and page does not scroll unexpectedly. |  |  |

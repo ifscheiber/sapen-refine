@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after RB-049 annotation-domain schema implementation.
+This page records the repository state after the RB-049 through RB-055 annotation-domain, workflow, export, and artifact-integrity slices.
 
 ## Important Files
 
@@ -19,7 +19,7 @@ This page records the repository state after RB-049 annotation-domain schema imp
 
 ## Current Baseline
 
-The RB-048 pre-edit baseline is green:
+The current validation baseline is green:
 
 - `npm run prisma:generate`
 - `npm run lint`
@@ -35,19 +35,19 @@ There is no `check:docs-links` script in `package.json` yet.
 
 - Local login uses `src/app/api/auth/login/route.ts`, `src/server/auth/session.ts`, and the `User`/`Session` tables.
 - Project membership is the current access boundary through `AnnotationProject` and `AnnotationProjectMember`; `src/server/auth/rbac.ts` enforces project roles for protected project/image workflows.
-- Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes still exist for compatibility.
+- Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes still exist for compatibility. Current raw image writes validate PNG/JPEG bytes, checksum, dimensions, size, and object metadata before persisting `ImageAsset`.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
-- Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist.
+- Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
 - Latest mask reload uses `src/app/api/images/[imageId]/mask/latest/route.ts` and app-mediated version assets.
 
 ## Current Data Model
 
 - `AnnotationProject` is the standalone collaboration container and can reference an active label schema version.
-- `ImageAsset` stores a raw object key, basic file metadata, optional checksum/dimensions, validation status, uploader, and metadata relations.
+- `ImageAsset` stores a raw object key, verified file metadata, checksum/dimensions, validation status, uploader, and metadata relations.
 - `AnnotationArtifact` groups semantic/support/instance/prediction/derived artifacts by image, kind, and scope key.
-- `AnnotationArtifactVersion` is append-only per artifact and stores artifact key, size, dimensions, format, label schema version, review state, provenance, creator, and timestamp.
-- `AuditLog` exists but is not yet a complete attribution/audit trail for project, image, mask, review, approval, or export actions.
+- `AnnotationArtifactVersion` is append-only per artifact and stores artifact key, size, dimensions, checksum, format, label schema version, review state, provenance, creator, and timestamp.
+- `AuditLog` records RB-055 upload, mask/support-mask, export creation, and export download events, but is not yet a complete attribution/audit trail for every route mutation.
 
 ## Invariants And Constraints
 
@@ -61,7 +61,7 @@ There is no `check:docs-links` script in `package.json` yet.
 
 - The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, and prediction provenance placeholders. RB-050 adds the first project/image metadata workflow; remaining user-facing workflows start with RB-051.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
-- Upload hardening still needs checksum, object metadata, dimensions, and stronger audit coverage.
+- Upload hardening now covers the current raw image, semantic mask, support mask, and export paths. Broader audit coverage, malware scanning, async jobs, and orphan cleanup dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

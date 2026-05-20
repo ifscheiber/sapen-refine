@@ -89,6 +89,8 @@ Default trial limits:
 
 Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` where the request reaches the app. If Caddy rejects the request first, the tester sees a Caddy `413`.
 
+Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. If testers use large camera originals, check both the app limit and Caddy body limit before the trial.
+
 Raise limits in both places:
 
 - `IMAGE_UPLOAD_MAX_BYTES` or `MASK_UPLOAD_MAX_BYTES` in `deploy/trial.env`.

@@ -4,7 +4,7 @@
 
 The customer trial is a single-host deployment without HA. Backups are the compensation for local PostgreSQL and MinIO volumes.
 
-PostgreSQL contains users, sessions, projects, image metadata, review decisions, `ExportBatch` rows, and `ExportItem` exact-version references. MinIO contains raw images, mask artifacts, and RB-053 export manifest/ZIP objects.
+PostgreSQL contains users, sessions, projects, image metadata, review decisions, `ExportBatch` rows, `ExportItem` exact-version references, and RB-055 `AuditLog` rows for upload, artifact, and export actions. MinIO contains raw images, mask artifacts, and export manifest/ZIP objects.
 
 Run backups from the repository root on the server.
 
@@ -15,7 +15,7 @@ mkdir -p backups
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/sapen-annotate-postgres-$(date +%F).sql
 ```
 
-This dump includes export audit rows and the exact image/artifact/classification references for generated training exports.
+This dump includes upload/artifact/export audit rows and the exact image/artifact/classification references for generated training exports.
 
 ## PostgreSQL Restore Outline
 

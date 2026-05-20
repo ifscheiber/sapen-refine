@@ -233,7 +233,7 @@ Implemented the database schema baseline for label schemas, metadata, tasks/sess
 
 ### RB-050 - Project/Image/Sample Metadata Workflow
 
-Implemented first project/image/sample metadata workflow: project name/description and label schema display, image metadata detail route, app-mediated upload checksum storage, acquisition metadata edit, image-level/default sample metadata edit, T-number visibility, and readiness summaries. Full dimension extraction and checksum/object enforcement remain RB-055.
+Implemented first project/image/sample metadata workflow: project name/description and label schema display, image metadata detail route, app-mediated upload checksum storage, acquisition metadata edit, image-level/default sample metadata edit, T-number visibility, and readiness summaries. RB-055 later hardened dimension extraction and checksum/object enforcement.
 
 ### RB-051 - Slice Classification And Support-Mask Workflow
 
@@ -253,7 +253,7 @@ Implemented the design contract for prediction artifacts, human correction prove
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
-Add checksum enforcement, dimensions, object metadata verification, and stronger audit events for image and mask artifacts.
+Implemented checksum enforcement, PNG/JPEG dimensions, mask byte/dimension checks, support-mask value checks, object metadata verification, stable error responses, upload/artifact/export audit events, and export blocking for selected inputs missing integrity metadata.
 
 ## Open Questions For RB-049
 

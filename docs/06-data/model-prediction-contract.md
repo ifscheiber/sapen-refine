@@ -104,7 +104,7 @@ RB-053 ground-truth training export remains approved-human-only:
 
 ## RB-055 Dependency
 
-Real prediction import must wait for or include object hardening:
+RB-055 implements the current upload/artifact validation helpers used by human image and mask writes. Real prediction import should reuse or extend those helpers:
 
 - verify object existence,
 - verify size and content type,

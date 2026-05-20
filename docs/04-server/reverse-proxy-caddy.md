@@ -21,7 +21,7 @@ Option A, with Next.js as a host-level systemd service and only DB/MinIO in Comp
 - Do not expose MinIO console or S3 API publicly for the customer trial.
 - If MinIO must be exposed for admin maintenance, protect it separately and document the risk before enabling it.
 
-The current browser upload flow uses app-mediated upload routes, so public MinIO access is not required.
+The current browser upload flow uses app-mediated upload routes with PNG/JPEG validation, checksum/dimension checks, and object stat verification, so public MinIO access is not required.
 
 ## Caddy Body Limit
 

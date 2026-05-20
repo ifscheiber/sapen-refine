@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Completed
 
 ## Priority
 

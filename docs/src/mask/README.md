@@ -19,11 +19,14 @@
 - Semantic mask latest/commit routes live under `src/app/api/images/[imageId]/mask`.
 - Support-mask latest/upload routes live under `src/app/api/images/[imageId]/support-mask`.
 - Both paths persist `AnnotationArtifactVersion` records with explicit artifact kind and label schema version.
+- RB-055 upload helpers validate `u8raw-v1` byte length, checksum, dimensions, and support-mask label values before persisting version rows.
 
 ## Invariants And Constraints
 
 - Mask dimensions must match the target image or an explicitly documented coordinate space.
+- Current runtime mask coordinate space is `IMAGE_PIXEL`; transformed coordinate spaces remain future work.
 - Semantic mask labels and support/instance masks must remain conceptually separate.
+- Support-mask bytes may contain only `0` and the active `slice_support` byte.
 - Approved ground-truth mask versions must be append-only when review/approval exists.
 
 ## Known Gaps

@@ -41,6 +41,8 @@ Important files:
 - If edits happen while a save is in flight, the editor tracks dirty revisions and queues another save instead of clearing the newer dirty state.
 - In `Semantic mask` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
 - In `Slice support` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/support-mask/upload`.
+- RB-055 validates mask byte length, declared width/height, image-pixel coordinate space, checksum hints, and storage object metadata before recording a version.
+- Support-mask saves additionally require binary support values: `0` or the active label schema's `slice_support` byte value. Copper semantic bytes are rejected as support geometry.
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
 - Review/export-readiness state is loaded from `/api/images/[imageId]/review-state`.
 - Mask bytes are fetched through app-mediated version asset URLs.
@@ -53,6 +55,7 @@ Important files:
 - The active browser label sets come from `src/mask/labels.ts`; persisted mask versions still reference the project label schema version.
 - Current saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SEMANTIC_MASK`.
 - Slice support saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SLICE_SUPPORT_MASK` and link the default `SliceInstance.supportArtifactVersionId`.
+- Saved mask versions record canonical SHA-256 checksum, byte size, width, height, `u8raw-v1` format, `IMAGE_PIXEL` coordinate space, creator, and label schema version.
 - Slice classification is set from the editor and persisted as `SliceClassificationVersion`.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
@@ -60,6 +63,12 @@ Important files:
 - The editor shows a simple export-readiness summary based on approved versions only.
 - The editor does not yet manage annotation tasks, prediction overlays, multi-object support geometry, bulk review, or export generation.
 - Copper is available only as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
+
+## Stable Save Errors
+
+Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
+
+Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful support saves record `SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
 ## Future Prediction-Assisted Correction
 

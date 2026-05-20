@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted for RB-048 design. First persistence baseline implemented by RB-049; metadata, default-slice, review, export, and prediction-design slices implemented by RB-050 through RB-054.
+Accepted for RB-048 design. First persistence baseline implemented by RB-049; metadata, default-slice, review, export, prediction-design, and artifact-integrity slices implemented by RB-050 through RB-055.
 
 ## Context
 
 SaPen Annotate now has a green technical baseline, app-mediated browser upload/read paths, desktop browser E2E coverage, and documented iPad validation constraints.
 
-The original MVP schema was sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload, but not for exportable training data. RB-049 through RB-054 now add label schema versions, structured metadata, default slice support/classification, minimal review/approval, owner-only export generation, and a prediction/active-learning design contract. Deeper workflow coverage remains separate tickets.
+The original MVP schema was sufficient for login, projects, image upload, mask drawing, save, and latest-mask reload, but not for exportable training data. RB-049 through RB-055 now add label schema versions, structured metadata, default slice support/classification, minimal review/approval, owner-only export generation, a prediction/active-learning design contract, and checksum/dimension/object validation for the current artifact writes. Deeper workflow coverage remains separate tickets.
 
 `MaskKind.REFINED` was legacy MVP terminology and does not define the standalone annotation model. RB-049 removed it from the active schema.
 
@@ -38,7 +38,7 @@ Copper semantic masks remain material annotations only. They must not be treated
 - Full API/UI workflow depth beyond the MVP slices.
 - Advanced export filters/history/job handling.
 - Runtime model preprediction/active-learning workflow.
-- Stronger artifact checksum/dimension/object validation.
+- Broader audit coverage and security hardening beyond current artifact write paths.
 
 ## Evidence
 

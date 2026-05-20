@@ -9,12 +9,12 @@ This is the current primary workflow for SaPen Annotate.
 1. User signs in through `/login`.
 2. User opens `/app` or `/app/projects`.
 3. User creates or selects a project.
-4. User uploads an image through project image routes.
+4. User uploads a PNG/JPEG image through project image routes; the server validates checksum, dimensions, size, and object metadata before recording the image.
 5. User opens `/app/projects/[projectId]/images/[imageId]/edit`.
 6. User draws semantic mask labels in the editor.
 7. User can switch to slice-support mode and draw the physical slice support mask separately from semantic labels.
 8. User can set the slice classification.
-9. Editor uploads serialized mask bytes to S3/MinIO and appends `AnnotationArtifactVersion` rows.
+9. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
 10. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
 11. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest` and `/api/images/[imageId]/support-mask/latest`; review readiness is read through `/api/images/[imageId]/review-state`.
 12. A project `OWNER` can return to the project overview, create a training export from latest approved versions, and download the generated manifest/package through app routes.
@@ -39,6 +39,7 @@ This is the current primary workflow for SaPen Annotate.
 ## Invariants And Constraints
 
 - Raw images should be immutable after commit.
+- Raw images and masks should have server-verified checksums and dimensions before they are exportable.
 - Mask and classification saves must append versions.
 - Approved versions must not be overwritten by later edits.
 - Writes must be tied to an authenticated user.

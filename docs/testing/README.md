@@ -21,20 +21,20 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/integration/metadata-workflow.test.ts` covers RB-050 image metadata persistence, editable role behavior, viewer rejection, and rejection of immutable upload facts.
 - `tests/integration/slice-workflow.test.ts` covers RB-051 default slice creation, support-mask artifact versions, classification versions, viewer rejection, dimension checks, and semantic-as-support rejection.
 - `tests/integration/review-workflow.test.ts` covers RB-052 semantic/support/classification review transitions, permission checks, reject reason handling, review decisions, and latest-approved export readiness.
-- `tests/integration/export-workflow.test.ts` covers RB-053 export readiness, approved-only selection, manifest/package contents, exact image/artifact/classification references, owner-only access, and the Copper-not-support invariant.
+- `tests/integration/export-workflow.test.ts` covers export readiness, approved-only selection, manifest/package contents, exact image/artifact/classification references, owner-only access, the Copper-not-support invariant, RB-055 export audit events, and blocking missing integrity metadata.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/metadata-validation.test.ts` covers RB-050 metadata parsing, completeness/readiness calculation, and immutable-field validation.
 - `tests/unit/review-domain.test.ts` covers RB-052 review transition helpers, role capability mapping, reject reason requirements, and approved-only export readiness.
 - `tests/unit/slice-domain.test.ts` covers RB-051 support artifact kind helpers and latest classification resolution.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, and upload limit parsing.
-- `tests/unit/upload-validation.test.ts` covers image/mask upload size validation and `413` payloads.
+- `tests/unit/upload-validation.test.ts` covers image/mask upload size validation, `413` payloads, SHA-256 checksum normalization, PNG/JPEG dimension parsing, image content-type rejection, mask dimension checks, and support-mask value validation.
 - `tests/unit/health-readiness.test.ts` covers health payloads and dependency readiness aggregation.
 - `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths and protected workspace paths.
 
 ## Current E2E Coverage
 
-- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, image upload, image-level metadata edit/reload, editor open, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, and owner training export creation with manifest/package links.
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, PNG image upload with validated technical metadata, image-level metadata edit/reload, editor open, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, and owner training export creation with manifest/package links.
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
 - E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.
@@ -72,7 +72,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization and editor canvas geometry utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; RB-049 adds DB/domain integration coverage, RB-050 adds metadata domain integration coverage, RB-051 adds slice/support domain integration coverage, RB-052 adds review workflow domain/API-service integration coverage, and RB-053 adds export workflow integration coverage.
+- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, and RB-055 export integrity behavior.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-054 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, and model preprediction/active-learning design.
+This page summarizes known limitations after the RB-040 through RB-055 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, and upload/artifact validation hardening.
 
 ## Current Gaps
 
@@ -14,14 +14,16 @@ This page summarizes known limitations after the RB-040 through RB-054 baseline,
 - RB-052 adds server-enforced submit/approve/reject transitions for semantic masks, support masks, and slice classifications, plus editor review controls and desktop E2E coverage for the owner approval happy path.
 - RB-053 adds owner-only training export readiness, export batch creation, manifest/ZIP package generation, app-mediated download routes, integration coverage for manifest/package exact references, and E2E coverage for creating an export with manifest/package links.
 - RB-054 documents model prediction and active-learning contracts. It does not implement prediction import, model-run provenance storage, active-learning queues, or assisted correction editor behavior.
+- RB-055 hardens app-mediated and compatibility image/mask write paths: PNG/JPEG image validation, mask dimension/byte validation, support-mask value validation, canonical SHA-256 checksums, object stat verification, sanitized stable errors, upload/artifact/export audit events, and export blocking for missing integrity metadata.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
-- Upload and commit routes have RB-046 size limits and app-mediated trial upload paths. RB-047 routes normal browser reads through the app as well, and RB-050 stores checksums for app-mediated image uploads. Stronger storage/object metadata validation, checksum enforcement, image dimension validation, and audit events remain open in RB-055.
+- Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
 - Training export remains an MVP: synchronous, owner-only, project-level, and without advanced filters, export history UI, QA export policy, or large dataset job handling.
 - Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
 - Copper semantic masks are material labels and must not be treated as physical slice support geometry. RB-051 adds the first support-mask workflow, but multi-object/multi-slice support remains deferred.
 - Review/approval is intentionally minimal: no reviewer dashboard, bulk review, notification system, or multi-reviewer approval flow exists yet.
 - Prediction-assisted refine/correction mode is designed but not implemented. Follow-up tickets RB-056 through RB-061 cover model-run provenance, prediction import, active-learning queues, assisted correction editor workflow, prediction-analysis export, and batch/background imports.
+- Remaining upload/security limits: no malware scanning, no rate limiting, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned objects, and no large async export/import job handling.
 
 ## Intentional Remaining "Refine" References
 

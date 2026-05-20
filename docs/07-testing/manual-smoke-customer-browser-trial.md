@@ -11,7 +11,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 - `/api/health` and `/api/ready` are reachable.
 - Named trial users exist; do not use shared demo credentials unless explicitly accepted.
 - A backup has been taken or the operator accepts the data-loss window described in [../04-server/backup-restore.md](../04-server/backup-restore.md).
-- Representative wood-slice images are available, including one image near the expected upper trial size.
+- Representative PNG/JPEG wood-slice images are available, including one image near the expected upper trial size.
 
 ## Deployment Smoke
 
@@ -36,9 +36,10 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Log in as named tester. | User identity is attributable in the session. |  |  |
 | Open workspace and project list. | Project navigation renders. |  |  |
 | Create or open a project. | Project page and image list render. |  |  |
-| Upload a normal representative image. | Image uploads through the app and appears in the list. |  |  |
+| Upload a normal representative PNG/JPEG image. | Image uploads through the app and appears in the list. |  |  |
 | Upload an intentionally too-large image if available. | Request fails with controlled `UPLOAD_TOO_LARGE` or documented Caddy `413`. |  |  |
-| Open image metadata. | Technical metadata, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
+| Upload an unsupported file type if available. | Request fails with `UNSUPPORTED_CONTENT_TYPE`; no image row or private storage URL is exposed. |  |  |
+| Open image metadata. | Technical metadata, checksum, dimensions, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |
@@ -48,7 +49,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Set slice classification. | Classification persists after save. |  |  |
 | Submit and approve semantic mask, support mask, and slice classification. | Review state shows approved versions and export-ready becomes yes. |  |  |
 | Reload. | Semantic mask, support mask status, classification, and approved review state reload. |  |  |
-| Return to project overview and create a training export as owner. | Export readiness counts include the approved components and export creation returns manifest/package download links. |  |  |
+| Return to project overview and create a training export as owner. | Export readiness counts include the approved components and export creation returns manifest/package download links. Integrity warnings block export creation if selected inputs lack checksum/dimensions. |  |  |
 | Download manifest and package. | Files download through app routes; no MinIO console/S3 URL is exposed to the browser. |  |  |
 | Inspect browser console. | No unexpected runtime errors. |  |  |
 

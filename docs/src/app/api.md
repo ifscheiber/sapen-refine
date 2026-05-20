@@ -15,9 +15,9 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects` - creates a project and owner membership.
 - `PATCH /api/projects/[projectId]` - updates project name/description for `OWNER` and `QA`; attaches the default active label schema when missing.
 - `GET /api/projects/[projectId]/images` - lists images for a project.
-- `POST /api/projects/[projectId]/images/presign` - creates a presigned raw-image upload URL.
-- `POST /api/projects/[projectId]/images/commit` - records an uploaded raw image.
-- `POST /api/projects/[projectId]/images/upload` - uploads a raw image through the app server, stores it in S3/MinIO, and records the image row.
+- `POST /api/projects/[projectId]/images/presign` - creates a presigned PNG/JPEG raw-image upload URL for compatibility.
+- `POST /api/projects/[projectId]/images/commit` - validates a private uploaded PNG/JPEG object and records a validated raw image.
+- `POST /api/projects/[projectId]/images/upload` - uploads a PNG/JPEG raw image through the app server, verifies checksum/dimensions/object metadata, stores it in S3/MinIO, and records the validated image row.
 - `GET /api/projects/[projectId]/images/[imageId]/view` - returns an app-mediated image asset URL after membership check.
 - `GET /api/images/[imageId]` - redirects to the app-mediated image asset route after membership check.
 - `GET /api/images/[imageId]/metadata` - returns immutable technical image metadata, acquisition/sample metadata, membership role, edit capability, and readiness summary.
@@ -27,13 +27,13 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/mask/latest` - returns latest mask version metadata and view URL.
 - `GET /api/images/[imageId]/mask/versions/[versionId]/asset` - streams mask bytes through the app after membership check.
 - `POST /api/images/[imageId]/mask/presign` - creates a presigned mask upload URL.
-- `POST /api/images/[imageId]/mask/commit` - records a new mask version.
-- `POST /api/images/[imageId]/mask/upload` - uploads mask bytes through the app server and records a new draft semantic `AnnotationArtifactVersion`.
+- `POST /api/images/[imageId]/mask/commit` - validates a private uploaded `u8raw-v1` mask object and records a new draft semantic mask version.
+- `POST /api/images/[imageId]/mask/upload` - uploads `u8raw-v1` mask bytes through the app server, verifies byte length/dimensions/checksum/object metadata, and records a new draft semantic `AnnotationArtifactVersion`.
 - `GET /api/images/[imageId]/slice` - returns default-slice state, support label values, latest support mask, and latest classification.
 - `POST /api/images/[imageId]/slice/ensure` - creates or returns the default slice instance for editable project roles.
 - `PATCH /api/images/[imageId]/slice/classification` - appends a draft `SliceClassificationVersion`.
 - `GET /api/images/[imageId]/support-mask/latest` - returns latest support-mask version metadata and app-mediated asset URL.
-- `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server and records a draft `SLICE_SUPPORT_MASK` artifact version.
+- `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server, verifies image-sized `u8raw-v1` bytes and support-only values, and records a draft `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
 - `POST /api/artifact-versions/[versionId]/review` - submits, approves, or rejects semantic/support artifact versions after membership and transition checks.
 - `POST /api/slice-classification-versions/[versionId]/review` - submits, approves, or rejects slice classification versions after membership and transition checks.
@@ -54,11 +54,11 @@ This page lists the current API route handlers under `src/app/api`.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - API routes should return stable error codes that clients can handle.
+- RB-055 upload/artifact error codes include `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `IMAGE_DIMENSIONS_UNREADABLE`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_KEY_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
 ## Known Gaps
 
-- Upload commit validation is still incomplete for checksum enforcement, dimensions, and object metadata, but RB-046 adds server-side size limits and RB-050 stores app-mediated upload checksums.
-- Audit logging is not consistently attached to route mutations.
+- Audit logging is not consistently attached to every route mutation; RB-055 covers the current upload/artifact/export paths.
 - Task workflows remain deferred. RB-053 export is synchronous and owner-only; advanced export filters, history UI, QA export policy, and job queues remain deferred.
 
 ## Related Tickets / Docs

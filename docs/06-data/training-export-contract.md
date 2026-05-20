@@ -103,7 +103,7 @@ Top-level sections:
 
 Each item contains:
 
-- `image` with id, filename, relative package path, content type, size, dimensions, checksum when available, and upload timestamp.
+- `image` with id, filename, relative package path, content type, size, validated dimensions, canonical checksum, and upload timestamp.
 - `acquisitionMetadata` and `sampleMetadata` when available.
 - `semanticMask` with exact artifact version id, version number, relative package path, checksum, size, dimensions, format, coordinate space, label schema version id, createdBy, and createdAt.
 - `supportMask` with the same exact artifact-version fields when selected and approved.
@@ -149,6 +149,13 @@ Model prediction artifacts are also excluded from default training exports. A fu
 
 Images with no approved data for the requested targets are skipped with `NO_REQUESTED_APPROVED_DATA`. Images missing a selected component are included only for the approved components they do have and receive warnings such as `MISSING_APPROVED_SEMANTIC_MASK`, `MISSING_APPROVED_SUPPORT_MASK`, or `MISSING_APPROVED_SLICE_CLASSIFICATION`. Missing T-number and acquisition metadata are warning conditions, not hard blockers.
 
+RB-055 makes integrity metadata blocking for selected/included training inputs. Export creation fails with `EXPORT_INTEGRITY_METADATA_MISSING` when a selected candidate would require an image or approved mask that lacks a normalized checksum or positive dimensions. Readiness still reports these as explicit warnings:
+
+- `MISSING_IMAGE_CHECKSUM`
+- `MISSING_IMAGE_DIMENSIONS`
+- `MISSING_SEMANTIC_MASK_INTEGRITY_METADATA`
+- `MISSING_SUPPORT_MASK_INTEGRITY_METADATA`
+
 ## Persistence And Checksums
 
 `ExportBatch` records:
@@ -165,7 +172,9 @@ Images with no approved data for the requested targets are skipped with `NO_REQU
 
 `ExportItem` rows reference the included image, semantic/support artifact versions, and slice classification versions with role-specific rows. These references are the database audit trail for exact immutable export inputs.
 
-Current checksums use stored image/mask checksums where available and calculate manifest/package checksums at export time. Stronger object metadata, dimension, and checksum enforcement remains RB-055.
+Current checksums use validated stored image/mask checksums and calculate manifest/package checksums at export time. Manifests and ZIP packages never expose private MinIO/S3 storage keys.
+
+RB-055 adds `EXPORT_CREATED` audit events when export generation completes and `EXPORT_DOWNLOADED` audit events when owners download manifest or package files.
 
 ## Access
 
@@ -184,7 +193,7 @@ All export creation records the authenticated actor. Future project policy may a
 - There is no advanced filtering by T-number, label, date, annotator, reviewer, or metadata completeness.
 - The UI exposes only the most recent created export result in the project overview panel; there is no export history page.
 - Only one default support geometry and one default slice classification per image are implemented.
-- RB-055 still needs stronger object validation and checksum/dimension enforcement.
+- Export generation is blocked rather than partially generated when selected approved artifacts are missing checksum or dimension metadata.
 
 ## Related Docs
 

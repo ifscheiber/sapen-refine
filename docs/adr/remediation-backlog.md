@@ -36,13 +36,13 @@ Context: Current upload commit routes record object keys and basic metadata but 
 
 Impact: Training-data reproducibility and raw-image immutability are not strong enough for production.
 
-Proposed next step: RB-055 covers checksum, object metadata, dimensions, stable upload errors, and audit events.
+Resolution: Implemented by RB-055. App-mediated and compatibility image/mask writes now validate PNG/JPEG images, raw mask bytes, checksums, dimensions, support-mask values, object stat metadata, stable errors, and audit events. Export creation blocks selected inputs with missing checksum/dimension integrity metadata.
 
 Affected modules: `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/mask/*`, `src/server/storage/*`, `prisma/schema.prisma`.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: Tracked by RB-055.
+Priority: Resolved by RB-055.
 
 ## RB-040-D - Admin Export And Manifest Workflow Missing
 
@@ -160,7 +160,7 @@ Priority: Resolved.
 
 Context: RB-048 defines the target domain model. RB-049 implements the first persistence baseline in `prisma/schema.prisma`.
 
-Impact: Follow-up feature work can now build on the schema baseline; after RB-051, review, export, prediction, and multi-slice workflows still need later tickets.
+Impact: Follow-up feature work can now build on the schema baseline; review, export, prediction design, and artifact validation have MVP slices, while runtime prediction workflows and multi-slice workflows still need later tickets.
 
 Resolution: Implemented by RB-049 optimized ticket with `AnnotationProject`, `ImageAsset`, label schemas, tasks/sessions, artifact versions, review decisions, slice classifications, and export records.
 
@@ -178,7 +178,7 @@ Impact: Training exports cannot carry enough metadata for reproducible customer/
 
 Resolution: Implemented by RB-050 optimized ticket. Project metadata edit/display, image metadata detail route, acquisition metadata edit, image-level/default sample metadata edit, T-number visibility, metadata readiness summaries, and desktop E2E coverage are in place.
 
-Remaining follow-up: Slice-specific sample metadata remains deferred to RB-051/RB-052 through `SliceInstance` or a later normalized sample entity. Full checksum/object/dimension/audit hardening remains RB-055.
+Remaining follow-up: Slice-specific sample metadata remains deferred to `SliceInstance` or a later normalized sample entity.
 
 Affected modules: `src/features/images`, `src/features/projects`, `src/app/api/projects/[projectId]`, `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/metadata`, `src/server/domain/metadata.ts`, docs under `docs/03-features` and `docs/06-data`.
 
@@ -226,7 +226,7 @@ Impact: The app cannot produce reproducible training-data bundles.
 
 Resolution: Implemented by RB-053 optimized ticket. Project owners can create synchronous training exports from the project overview. The export workflow records an `ExportBatch`, exact `ExportItem` references, a manifest checksum, package checksum/size metadata, warnings, and actor attribution. Downloads are served through app routes without exposing private MinIO URLs.
 
-Remaining follow-up: Advanced export filters, export history/dashboard UI, QA export policy, job queue/large dataset handling, and RB-055 checksum/object validation hardening remain deferred.
+Remaining follow-up: Advanced export filters, export history/dashboard UI, QA export policy, and job queue/large dataset handling remain deferred.
 
 Affected modules: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness`, `src/app/api/projects/[projectId]/exports`, `src/app/api/exports/[exportId]`, `src/features/projects/ProjectExportPanel.tsx`, `tests/integration/export-workflow.test.ts`, `tests/e2e/desktop-browser-smoke.spec.ts`, and docs under `docs/03-features`, `docs/04-server`, `docs/06-data`, and `docs/testing`.
 
@@ -252,17 +252,17 @@ Priority: Resolved.
 
 ## RB-055 - Upload Artifact Validation And Checksum Hardening
 
-Context: RB-049 adds checksum/dimension fields. Upload routes have size limits and app-mediated browser paths, but still need object metadata verification, checksum enforcement, dimensions, and stronger audit events.
+Context: RB-049 added checksum/dimension fields. Before RB-055, upload routes had size limits and app-mediated browser paths, but still needed object metadata verification, checksum enforcement, dimensions, and stronger audit events.
 
-Impact: Raw-image immutability and artifact reproducibility remain weaker than required for customer training data.
+Impact: Before RB-055, raw-image immutability and artifact reproducibility were weaker than required for customer training data.
 
-Proposed next step: Implement hardening in `tickets/2026-05-19/RB-055-upload-artifact-validation-checksum-hardening.md`.
+Resolution: Implemented by RB-055 optimized ticket. Central upload integrity helpers now compute canonical SHA-256 checksums, parse PNG/JPEG dimensions, validate `u8raw-v1` mask size/dimensions, validate support-mask byte values, verify stored object metadata, and normalize stable error responses. Upload, mask, support-mask, and export paths emit audit events. Export creation fails with `EXPORT_INTEGRITY_METADATA_MISSING` when selected approved inputs lack checksum/dimension metadata.
 
 Affected modules: `src/app/api/projects/[projectId]/images/*`, `src/app/api/images/[imageId]/mask/*`, `src/server/storage/*`, `src/server/uploads/*`, `prisma/schema.prisma`, docs under `docs/04-server` and `docs/06-data`.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved.
 
 ## RB-056 - Prediction Provenance And ModelRun Registry
 
@@ -280,7 +280,7 @@ Priority: P1.
 
 ## RB-057 - Prediction Import API And Storage Validation
 
-Context: RB-054 defines prediction artifacts as proposals, and RB-055 is expected to harden object validation.
+Context: RB-054 defines prediction artifacts as proposals, and RB-055 hardens the current object validation helpers.
 
 Impact: The app cannot safely ingest model-generated prediction artifacts yet.
 

@@ -9,7 +9,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 - Local stack is rebuilt or bootstrapped with `npm run db:rebuild` or equivalent trial deployment commands.
 - App is running through `npm run dev`, `npm run start`, or the RB-046 trial Compose deployment.
 - A named tester account or local seeded admin account exists.
-- A small representative image fixture is available for upload.
+- A small representative PNG or JPEG image fixture is available for upload.
 
 ## Desktop Workflow
 
@@ -20,13 +20,14 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Open `/app/projects`. | Project list renders and session persists after reload. |  |  |
 | Create a new project. | App redirects to the project detail route. |  |  |
 | Open project image list. | Image list renders and upload control is visible for editable roles. |  |  |
-| Upload a normal image. | Image uploads through the app and appears in the list. |  |  |
-| Open image metadata. | Technical metadata, T-number state, and readiness summary render without exposing private storage URLs. |  |  |
+| Upload a normal PNG/JPEG image. | Image uploads through the app and appears in the list. |  |  |
+| Try an unsupported image type if practical. | Upload fails with `UNSUPPORTED_CONTENT_TYPE` and no private storage URL is exposed. |  |  |
+| Open image metadata. | Technical metadata includes content type, size, checksum, dimensions, validation status, T-number state, and readiness summary without exposing private storage URLs. |  |  |
 | Enter T-number and basic acquisition metadata. | Metadata saves successfully. |  |  |
 | Reload image metadata. | T-number and acquisition fields persist. |  |  |
 | Open editor. | Image, canvas stack, tools, labels, zoom, and save controls render. |  |  |
 | Draw with Brush. | Overlay changes and dirty state becomes visible. |  |  |
-| Click `Save now`. | Save completes and dirty state clears. |  |  |
+| Click `Save now`. | Semantic mask save completes, dirty state clears, and a draft artifact version exists. |  |  |
 | Switch to `Slice support`. | Support mode loads separately from semantic mask mode. |  |  |
 | Draw a support mask and save. | Support-mask status shows a draft version after save. |  |  |
 | Set slice classification. | Classification persists and is visible after save. |  |  |
@@ -35,7 +36,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-05
 | Reload editor. | Latest saved mask reloads without runtime errors. |  |  |
 | Confirm semantic/support/review distinction. | Semantic latest mask, support latest mask, slice classification, and review-state APIs report separate approved versions. |  |  |
 | Return to project overview. | Training export panel shows approved semantic, support, and classification counts. |  |  |
-| Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links. |  |  |
+| Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links; integrity warnings block export when selected inputs lack checksum/dimensions. |  |  |
 | Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
 

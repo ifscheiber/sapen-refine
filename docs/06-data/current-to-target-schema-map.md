@@ -11,12 +11,12 @@ This page records the RB-049 decisions for replacing the MVP persistence model w
 | `Project` | Replaced after development DB reset. | `AnnotationProject` in `prisma/schema.prisma`. Existing URLs still use `/projects` for browser compatibility. |
 | `ProjectMember` | Replaced after development DB reset. | `AnnotationProjectMember` with `AnnotationProjectRole`. |
 | `ProjectRole` | Replaced after development DB reset. | `AnnotationProjectRole` with `OWNER`, `QA`, `LABELER`, `VIEWER`. RB-052 enforces submit/review permissions; RB-053 makes export creation/download owner-only while QA export policy remains deferred. |
-| `Image` | Replaced after development DB reset. | `ImageAsset` with storage key, size/content type, optional checksum/dimensions, validation state, uploadedBy/uploadedAt, and metadata relations. |
+| `Image` | Replaced after development DB reset. | `ImageAsset` with storage key, size/content type, validated checksum/dimensions, validation state, uploadedBy/uploadedAt, and metadata relations. |
 | `Mask` | Replaced after development DB reset. | `AnnotationArtifact` with `AnnotationArtifactKind` and scoped uniqueness by image/kind/scopeKey. |
-| `MaskVersion` | Replaced after development DB reset. | `AnnotationArtifactVersion` with label schema version, review state, provenance, coordinate space, storage metadata, actor attribution, and source/parent support. |
+| `MaskVersion` | Replaced after development DB reset. | `AnnotationArtifactVersion` with label schema version, review state, provenance, coordinate space, checksum/size/dimension metadata, actor attribution, and source/parent support. |
 | `MaskKind.PREDICTION` | Replaced. | `AnnotationArtifactKind.PREDICTION_MASK` plus future prediction provenance fields. |
 | `MaskKind.REFINED` | Removed. | Current editor saves map to `AnnotationArtifactKind.SEMANTIC_MASK` versions with `ArtifactReviewState.DRAFT` and `ArtifactProvenance.HUMAN_ANNOTATION`. |
-| Current upload/read/commit routes | Kept as compatibility API surface. | Route handlers now persist `ImageAsset`, `AnnotationArtifact`, and `AnnotationArtifactVersion`. |
+| Current upload/read/commit routes | Kept as compatibility API surface. | Route handlers now persist validated `ImageAsset`, `AnnotationArtifact`, and `AnnotationArtifactVersion` records with RB-055 integrity checks. |
 | Current user/session attribution | Kept and extended. | `User`, `Role`, `UserGlobalRole`, `Session`, and `AuditLog` remain; image, artifact, review, and export records now include actor fields. |
 
 ## Compatibility Layer
@@ -33,6 +33,7 @@ Internally, the current editor mask path now writes a semantic annotation artifa
 - `AnnotationArtifact.scopeKey = default`
 - `AnnotationArtifactVersion.reviewState = DRAFT`
 - `AnnotationArtifactVersion.provenance = HUMAN_ANNOTATION`
+- `AnnotationArtifactVersion.checksum`, `size`, `width`, and `height` are server-verified for current upload/commit paths.
 
 This is intentional compatibility, not legacy `MaskKind.REFINED` semantics.
 

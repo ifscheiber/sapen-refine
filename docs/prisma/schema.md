@@ -23,7 +23,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline; RB-051 uses one default slice instance per image.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
 - `ExportBatch`, `ExportItem` - RB-053 export batch persistence, manifest/package metadata, warnings, actor attribution, and exact exported version references.
-- `AuditLog` - generic audit rows, still not exhaustively used by all mutation routes.
+- `AuditLog` - generic audit rows used by RB-055 upload, artifact, and export events; still not exhaustively used by all mutation routes.
 
 ## Invariants And Constraints
 
@@ -34,6 +34,8 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `AnnotationArtifactKind.SEMANTIC_MASK` is separate from `SLICE_SUPPORT_MASK` and `INSTANCE_MASK`.
 - Copper is a semantic label in the default label schema and is not support geometry.
 - `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
+- Current image writes persist `ImageValidationStatus.VALIDATED` only after server-side PNG/JPEG validation and object stat verification.
+- Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
 
 ## Known Gaps
 
@@ -41,7 +43,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - One-default-slice support/classification workflows exist after RB-051.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only export generation; advanced filters, export history UI, QA export policy, and job queues remain deferred.
-- Checksum/dimension enforcement remains RB-055.
+- Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. Broader audit coverage and background/orphan cleanup remain deferred.
 
 ## Related Tickets / Docs
 

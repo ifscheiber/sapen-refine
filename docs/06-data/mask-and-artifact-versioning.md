@@ -73,6 +73,7 @@ RB-054 decides that the first prediction import should use `PREDICTION_MASK` for
 - Every saved artifact version is immutable after commit.
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
+- RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
 - RB-053 training exports consume latest approved versions only and record exact artifact version ids in the manifest and `ExportItem` rows.
@@ -96,10 +97,12 @@ RB-052 implements review decisions as separate records so history is attributabl
 
 The current MVP assumes mask dimensions match the source image dimensions. Future versions must make that assumption explicit.
 
-Each mask artifact should record either:
+Each mask artifact records either:
 
 - image pixel coordinate space with matching width/height, or
 - a declared transform to the image coordinate space.
+
+The current runtime accepts only `IMAGE_PIXEL` mask coordinate space. Semantic and support masks are rejected when declared dimensions do not match the target image dimensions.
 
 Exports must include coordinate-space metadata.
 
@@ -113,6 +116,8 @@ RB-051 support-mask values are resolved through the active label schema where pr
 
 - `0` remains background,
 - `slice_support` comes from the label schema byte value, currently `10` in the seed schema.
+
+RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. Support masks are additionally restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry.
 
 Future format work should decide:
 

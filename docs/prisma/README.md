@@ -20,13 +20,13 @@
 
 - Schema changes require docs and tests.
 - This repository is still in development stage; local data may be destroyed and the migration baseline may be reset when it removes prototype debt.
-- Raw images and mask versions must remain attributable.
-- Future approved mask versions and exports must be append-only and reproducible.
+- Raw images and mask versions must remain attributable and integrity-checked before database commit where practical.
+- Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, and exact version references.
 
 ## Known Gaps
 
-- Project/image metadata workflow exists for image-level acquisition and default sample metadata.
-- Slice-specific metadata, review, slice support, and export workflows remain split across RB-051 through RB-055.
+- Project/image metadata, default slice support/classification, review, export, and upload/artifact validation workflows exist for the MVP path.
+- Slice-specific metadata, multi-slice editing, advanced export policy, and prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

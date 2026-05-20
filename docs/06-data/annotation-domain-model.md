@@ -54,7 +54,7 @@ Required target fields:
 
 Raw image storage objects must not be overwritten after commit. Corrections, transformations, masks, and exports reference the image asset instead.
 
-Implemented in RB-049 as `ImageAsset`. RB-050 displays immutable upload facts in the image metadata UI and stores a SHA-256 checksum for app-mediated uploads. Dimension extraction and stronger object validation remain RB-055.
+Implemented in RB-049 as `ImageAsset`. RB-050 displays immutable upload facts in the image metadata UI. RB-055 validates PNG/JPEG content, computes canonical SHA-256 checksums, extracts dimensions server-side, verifies stored object metadata, and persists successful uploads as `VALIDATED`.
 
 ### ImageAcquisitionMetadata
 
@@ -181,6 +181,8 @@ This is separate from semantic material masks. A support mask identifies the phy
 
 RB-051 implements the first user workflow for `SLICE_SUPPORT_MASK` only. It uses `AnnotationArtifact.scopeKey = "default"` and appends draft human `AnnotationArtifactVersion` rows.
 
+RB-055 validates support-mask bytes against the target image dimensions and allows only `0` plus the active label schema's `slice_support` byte. A semantic Copper mask cannot be committed as support geometry.
+
 Copper-specific rule:
 
 Copper semantic masks annotate copper-stained or penetrated material regions. They may cover only part of a wood slice and must not be used as physical slice support geometry.
@@ -283,6 +285,8 @@ Owner-created training-data export. RB-053 uses `ExportBatch` and `ExportItem` p
 `ExportItem` records role-specific exact references for included images, semantic mask artifact versions, support mask artifact versions, and slice classification versions.
 
 The RB-053 export generator uses latest approved versions only. It does not export draft, submitted, rejected, or superseded versions as training targets. Semantic segmentation, support segmentation, slice classification, and combined exports remain separate target concepts in the manifest; Copper semantic masks are never used as slice support geometry.
+
+RB-055 makes checksum and dimension metadata required for selected export inputs. Readiness exposes missing integrity warnings, and export creation fails with `EXPORT_INTEGRITY_METADATA_MISSING` if selected approved image or mask inputs lack validated checksum/dimensions.
 
 See [training-export-contract.md](training-export-contract.md).
 

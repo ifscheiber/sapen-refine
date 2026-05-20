@@ -34,7 +34,7 @@ The current task fields are sufficient for a first active-learning queue orderin
 - Existing export behavior does not need to change for RB-054.
 - The editor must eventually support read-only prediction overlays and editable human layers.
 - Slice classification predictions need a proposal/task representation before human approval; they should not be inserted as approved classification rows.
-- RB-055 object validation hardening remains a prerequisite for trustworthy external prediction imports.
+- RB-055 object validation hardening is now available as a prerequisite for trustworthy external prediction imports, but prediction import itself remains deferred.
 
 ## Deferred Work
 
