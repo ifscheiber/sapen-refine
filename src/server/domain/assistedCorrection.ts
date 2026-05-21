@@ -18,6 +18,7 @@ import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getObjectBytes, putObject, verifyStoredObject, deleteObjectBestEffort } from "@/server/storage/s3";
 import {
+  maskByteLengthDiagnostics,
   normalizeContentType,
   UploadIntegrityError,
   validateMaskBytes,
@@ -400,6 +401,7 @@ export async function saveCorrectionForTaskForUser(params: {
   contentType?: string | null;
   format?: string | null;
   expectedChecksum?: string | null;
+  declaredClientBytes?: number | null;
 }, db: AssistedCorrectionDb = prisma) {
   const { task, role } = await loadTaskForUser(db, params.taskId, params.userId);
   const sourceVersion = await getSourcePredictionVersion(db, task);
@@ -413,15 +415,42 @@ export async function saveCorrectionForTaskForUser(params: {
   }
 
   const contentType = normalizeContentType(params.contentType);
-  const integrity = validateMaskBytes({
-    bytes: params.bytes,
-    width: params.width,
-    height: params.height,
-    imageWidth: image.width,
-    imageHeight: image.height,
-    format: params.format,
-    expectedChecksum: params.expectedChecksum,
-  });
+  let integrity: ReturnType<typeof validateMaskBytes>;
+  try {
+    integrity = validateMaskBytes({
+      bytes: params.bytes,
+      width: params.width,
+      height: params.height,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      format: params.format,
+      expectedChecksum: params.expectedChecksum,
+    });
+  } catch (error) {
+    if (error instanceof UploadIntegrityError) {
+      await recordAuditEvent({
+        action: "ARTIFACT_VALIDATION_FAILED",
+        entity: "AnnotationTask",
+        entityId: task.id,
+        actorId: params.userId,
+        details: {
+          projectId: task.projectId,
+          imageId: image.id,
+          taskId: task.id,
+          artifactKind: kind,
+          error: error.code,
+          ...maskByteLengthDiagnostics({
+            width: params.width,
+            height: params.height,
+            receivedBytes: params.bytes.byteLength,
+            declaredClientBytes: params.declaredClientBytes,
+            format: params.format,
+          }),
+        },
+      });
+    }
+    throw error;
+  }
 
   const labelSchemaVersionId = await getLabelSchemaVersionId(db, task.projectId);
   if (targetType === PredictionTargetType.SEMANTIC_MASK) {

@@ -5,6 +5,7 @@ import {
   assistedCorrectionErrorResponse,
   saveCorrectionForTaskForUser,
 } from "@/server/domain/assistedCorrection";
+import { readDeclaredMaskByteLength } from "@/server/uploads/integrity";
 import { readContentLength, uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 function readPositiveInteger(headers: Headers, name: string): number | null {
@@ -36,6 +37,7 @@ export async function POST(
   }
 
   const bytes = new Uint8Array(await req.arrayBuffer());
+  const declaredClientBytes = readDeclaredMaskByteLength(req.headers);
 
   try {
     const result = await saveCorrectionForTaskForUser({
@@ -47,6 +49,7 @@ export async function POST(
       contentType: req.headers.get("content-type"),
       format: req.headers.get("x-mask-format"),
       expectedChecksum: req.headers.get("x-checksum"),
+      declaredClientBytes,
     });
     return NextResponse.json({ ok: true, correction: result });
   } catch (error) {

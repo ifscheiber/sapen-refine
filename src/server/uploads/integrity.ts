@@ -191,6 +191,28 @@ export function validateSupportMaskValues(bytes: Uint8Array, supportByte: number
   }
 }
 
+export function readDeclaredMaskByteLength(headers: Headers) {
+  const value = headers.get("x-mask-byte-length");
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function maskByteLengthDiagnostics(params: {
+  width: number;
+  height: number;
+  receivedBytes: number;
+  declaredClientBytes?: number | null;
+  format?: string | null;
+}) {
+  return {
+    expectedBytes: params.width * params.height,
+    receivedBytes: params.receivedBytes,
+    declaredClientBytes: params.declaredClientBytes ?? null,
+    format: params.format?.trim() || "u8raw-v1",
+  };
+}
+
 export function integrityErrorPayload(error: unknown) {
   if (error instanceof UploadIntegrityError) {
     return {

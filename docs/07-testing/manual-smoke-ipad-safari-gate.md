@@ -10,7 +10,7 @@ Do not mark this gate as passed unless it has been executed on a real iPad Safar
 
 - Deployed HTTPS URL from [../04-server/deployment-trial.md](../04-server/deployment-trial.md).
 - Named trial user with project access; do not use shared demo credentials unless explicitly accepted.
-- Representative project with at least one PNG/JPEG wood-slice image.
+- Representative project with at least one PNG/JPEG wood-slice image, including a larger full-resolution image near the expected trial upper size if practical.
 - iPad running Safari on the target iPadOS version.
 - Apple Pencil if Pencil input is part of the pilot.
 - Backup status accepted or completed according to [../04-server/backup-restore.md](../04-server/backup-restore.md).
@@ -55,6 +55,7 @@ Non-blocking issues should still be recorded with screenshots or video when poss
 | Open image metadata. | Technical metadata, readiness, T-number, and acquisition fields are reachable. | Yes |  |  |
 | Save or inspect T-number and metadata. | Save/reload persists values without overlap. | Yes |  |  |
 | Open editor. | Image, canvas, toolbar, semantic labels, support mode, review controls, and save controls render. | Yes |  |  |
+| Open a larger full-resolution image if available. | Editor readiness completes, controls remain usable, and no `MASK_BYTE_LENGTH_MISMATCH` appears during save. | Yes if large images are part of pilot |  |  |
 | Draw semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
 | Select Eraser and erase semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |
 | Draw semantic mask with Apple Pencil if available. | Pencil input draws through Pointer Events. | Yes if Pencil is part of pilot |  |  |

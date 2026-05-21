@@ -21,6 +21,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Create a new project. | App redirects to the project detail route. |  |  |
 | Open project image list. | Image list renders and upload control is visible for editable roles. |  |  |
 | Upload a normal PNG/JPEG image. | Image uploads through the app and appears in the list. |  |  |
+| If practical, upload a full-resolution image near 6000x4000. | Editor opens only after the full-size canvas/mask buffer are ready; saving a tiny semantic stroke completes without `MASK_BYTE_LENGTH_MISMATCH`. |  |  |
 | Try an unsupported image type if practical. | Upload fails with `UNSUPPORTED_CONTENT_TYPE` and no private storage URL is exposed. |  |  |
 | Open image metadata. | Technical metadata includes content type, size, checksum, dimensions, validation status, T-number state, and readiness summary without exposing private storage URLs. |  |  |
 | Enter T-number and basic acquisition metadata. | Metadata saves successfully. |  |  |
@@ -59,6 +60,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
 - RB-070 adds explicit Eraser UX for semantic and support masks; background-label painting remains valid.
+- RB-080 keeps full-resolution editing as the current model and verifies 6000x4000 mask upload payloads in automated desktop Chrome. Tiled/downscaled working masks remain deferred unless real iPad Safari or customer hardware proves full-resolution editing unreliable.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
 - Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, a small assisted-correction happy path, and RB-072 representative API JSON error contracts. Prediction-analysis exports and RB-067 QA metrics, RB-061/RB-065 batch prediction imports, and RB-066 storage cleanup are covered by DB/domain integration tests rather than full browser workflows.
 

@@ -14,6 +14,13 @@ import {
   getPaintLabelForTool,
   isBrushLikeTool,
 } from "@/features/editor/editorTools";
+import {
+  buildEditorMaskUploadRequest,
+  EditorMaskUploadError,
+  expectedMaskUploadByteLength,
+  MASK_UPLOAD_CONTENT_TYPE,
+  MASK_UPLOAD_FORMAT,
+} from "@/features/editor/editorMaskUpload";
 import { Labels } from "@/mask/labels";
 import { MaskBuffer } from "@/mask/maskBuffer";
 import { applyBrush } from "@/mask/tools";
@@ -143,6 +150,60 @@ describe("editor helpers", () => {
     }));
     expect(support.get(2, 2)).toBe(Labels.BG);
     expect(support.get(0, 0)).toBe(Labels.SLICE_SUPPORT);
+  });
+
+  it("builds exact raw mask upload requests for full-resolution masks", () => {
+    const bytes = new Uint8Array(6000 * 4000);
+    bytes[bytes.length - 1] = Labels.COPPER;
+
+    const request = buildEditorMaskUploadRequest({
+      data: bytes,
+      width: 6000,
+      height: 4000,
+    });
+
+    expect(expectedMaskUploadByteLength(6000, 4000)).toBe(24_000_000);
+    expect(request.body).toBeInstanceOf(Uint8Array);
+    expect(request.body.byteLength).toBe(24_000_000);
+    expect(request.body[request.body.byteLength - 1]).toBe(Labels.COPPER);
+    expect(request.headers).toMatchObject({
+      "content-type": MASK_UPLOAD_CONTENT_TYPE,
+      "x-mask-width": "6000",
+      "x-mask-height": "4000",
+      "x-mask-format": MASK_UPLOAD_FORMAT,
+      "x-mask-byte-length": "24000000",
+    });
+  });
+
+  it("copies only the typed-array view bytes into mask upload requests", () => {
+    const backing = new Uint8Array([9, 9, 1, 2, 3, 4, 9, 9]);
+    const view = backing.subarray(2, 6);
+
+    const request = buildEditorMaskUploadRequest({
+      data: view,
+      width: 2,
+      height: 2,
+    });
+
+    expect(Array.from(request.body)).toEqual([1, 2, 3, 4]);
+    expect(request.body.byteLength).toBe(4);
+    expect(request.headers["x-mask-byte-length"]).toBe("4");
+  });
+
+  it("rejects client-side mask byte-length mismatches before upload", () => {
+    expect(() =>
+      buildEditorMaskUploadRequest({
+        data: new Uint8Array(3),
+        width: 2,
+        height: 2,
+      }),
+    ).toThrow(new EditorMaskUploadError("MASK_CLIENT_BYTE_LENGTH_MISMATCH", {
+      width: 2,
+      height: 2,
+      expectedBytes: 4,
+      actualBytes: 3,
+      format: MASK_UPLOAD_FORMAT,
+    }));
   });
 
   it("recognizes abort errors without relying on fetch implementations", () => {

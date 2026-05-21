@@ -8,6 +8,8 @@ import {
 import {
   normalizeChecksum,
   readImageDimensions,
+  readDeclaredMaskByteLength,
+  maskByteLengthDiagnostics,
   sha256Checksum,
   UploadIntegrityError,
   validateImageBytes,
@@ -162,5 +164,33 @@ describe("upload validation", () => {
     expect(() => validateSupportMaskValues(new Uint8Array([0, 3]), 10)).toThrow(
       new UploadIntegrityError("SUPPORT_MASK_VALUES_INVALID"),
     );
+  });
+
+  it("treats declared mask byte length as diagnostics only", () => {
+    expect(readDeclaredMaskByteLength(new Headers({ "x-mask-byte-length": "4" }))).toBe(4);
+    expect(readDeclaredMaskByteLength(new Headers({ "x-mask-byte-length": "NaN" }))).toBeNull();
+
+    const bytes = new Uint8Array([0, 10, 0, 10]);
+    expect(
+      validateMaskBytes({
+        bytes,
+        width: 2,
+        height: 2,
+        format: "u8raw-v1",
+      }),
+    ).toMatchObject({ size: 4 });
+
+    expect(maskByteLengthDiagnostics({
+      width: 2,
+      height: 2,
+      receivedBytes: bytes.byteLength,
+      declaredClientBytes: 999,
+      format: "u8raw-v1",
+    })).toEqual({
+      expectedBytes: 4,
+      receivedBytes: 4,
+      declaredClientBytes: 999,
+      format: "u8raw-v1",
+    });
   });
 });

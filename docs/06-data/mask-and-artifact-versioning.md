@@ -111,14 +111,14 @@ RB-053 includes each exported mask's format, width, height, coordinate space, la
 
 ## Format Compatibility
 
-Current `u8raw-v1` raw byte artifacts remain the browser editor artifact format after RB-051 for both semantic masks and support masks.
+Current `u8raw-v1` raw byte artifacts remain the browser editor artifact format after RB-051 for both semantic masks and support masks. The current editor upload body has no `MSK1` header: it is exactly `width * height` bytes, one byte per image pixel in image-pixel coordinate space. `src/mask/serialize.ts` is a legacy/test helper for the older headered format and is not the current upload/persistence contract.
 
 RB-051 support-mask values are resolved through the active label schema where practical:
 
 - `0` remains background,
 - `slice_support` comes from the label schema byte value, currently `10` in the seed schema.
 
-RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. RB-059 applies the same validation to assisted human corrections and additionally validates semantic correction bytes against active semantic label byte values. Support masks, support predictions, and support corrections are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
+RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-080 adds client-side exact-byte upload construction and diagnostic-only `x-mask-byte-length`; the server still validates the actual received request body length. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. RB-059 applies the same validation to assisted human corrections and additionally validates semantic correction bytes against active semantic label byte values. Support masks, support predictions, and support corrections are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
 
 Future format work should decide:
 

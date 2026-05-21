@@ -8,7 +8,13 @@ import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getProjectLabelSchemaVersionId } from "@/server/domain/labelSchema";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
-import { integrityErrorPayload, normalizeContentType, validateMaskBytes } from "@/server/uploads/integrity";
+import {
+  integrityErrorPayload,
+  maskByteLengthDiagnostics,
+  normalizeContentType,
+  readDeclaredMaskByteLength,
+  validateMaskBytes,
+} from "@/server/uploads/integrity";
 import {
   readContentLength,
   uploadErrorPayload,
@@ -46,6 +52,7 @@ export async function POST(
   }
 
   const bytes = new Uint8Array(await req.arrayBuffer());
+  const declaredClientBytes = readDeclaredMaskByteLength(req.headers);
   const sizeValidation = validateUploadSize(bytes.byteLength, "mask");
   if (!sizeValidation.ok) {
     return NextResponse.json(uploadErrorPayload(sizeValidation), {
@@ -86,7 +93,18 @@ export async function POST(
       entity: "ImageAsset",
       entityId: image.id,
       actorId: user.id,
-      details: { projectId: image.projectId, artifactKind: "SEMANTIC_MASK", error: payload.body.error },
+      details: {
+        projectId: image.projectId,
+        artifactKind: "SEMANTIC_MASK",
+        error: payload.body.error,
+        ...maskByteLengthDiagnostics({
+          width,
+          height,
+          receivedBytes: bytes.byteLength,
+          declaredClientBytes,
+          format: req.headers.get("x-mask-format"),
+        }),
+      },
     });
     return NextResponse.json(payload.body, { status: payload.status });
   }

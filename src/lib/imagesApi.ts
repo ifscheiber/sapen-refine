@@ -77,6 +77,14 @@ export type SupportMaskUploadResponse = {
   latestSupportMask: unknown;
 };
 
+function readMaskBodyByteLength(bytes: BodyInit) {
+  if (typeof bytes === "string") return new TextEncoder().encode(bytes).byteLength;
+  if (bytes instanceof Blob) return bytes.size;
+  if (bytes instanceof ArrayBuffer) return bytes.byteLength;
+  if (ArrayBuffer.isView(bytes)) return bytes.byteLength;
+  return null;
+}
+
 function maskUploadHeaders(args: MaskUploadArgs): HeadersInit {
   const headers: Record<string, string> = {
     "content-type": args.contentType ?? "application/octet-stream",
@@ -85,6 +93,8 @@ function maskUploadHeaders(args: MaskUploadArgs): HeadersInit {
     "x-mask-format": args.format ?? "u8raw-v1",
   };
 
+  const byteLength = readMaskBodyByteLength(args.bytes);
+  if (byteLength !== null) headers["x-mask-byte-length"] = String(byteLength);
   if (args.checksum) headers["x-checksum"] = args.checksum;
   return headers;
 }

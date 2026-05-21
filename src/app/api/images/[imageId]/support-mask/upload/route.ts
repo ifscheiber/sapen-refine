@@ -11,7 +11,9 @@ import { recordAuditEvent } from "@/server/domain/audit";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
+  maskByteLengthDiagnostics,
   normalizeContentType,
+  readDeclaredMaskByteLength,
   validateMaskBytes,
   validateSupportMaskValues,
 } from "@/server/uploads/integrity";
@@ -52,6 +54,7 @@ export async function POST(
   }
 
   const bytes = new Uint8Array(await req.arrayBuffer());
+  const declaredClientBytes = readDeclaredMaskByteLength(req.headers);
   const sizeValidation = validateUploadSize(bytes.byteLength, "mask");
   if (!sizeValidation.ok) {
     return NextResponse.json(uploadErrorPayload(sizeValidation), {
@@ -89,6 +92,13 @@ export async function POST(
           projectId: preflight.image.projectId,
           artifactKind: "SLICE_SUPPORT_MASK",
           error: payload.body.error,
+          ...maskByteLengthDiagnostics({
+            width,
+            height,
+            receivedBytes: bytes.byteLength,
+            declaredClientBytes,
+            format: req.headers.get("x-mask-format"),
+          }),
         },
       });
       return NextResponse.json(payload.body, { status: payload.status });

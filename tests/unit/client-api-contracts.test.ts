@@ -87,6 +87,7 @@ describe("client API helper storage contract", () => {
     expect(headers.get("x-mask-width")).toBe("2");
     expect(headers.get("x-mask-height")).toBe("2");
     expect(headers.get("x-mask-format")).toBe("u8raw-v1");
+    expect(headers.get("x-mask-byte-length")).toBe("4");
     expect(headers.get("x-checksum")).toBe("sha256:test");
   });
 
@@ -115,6 +116,7 @@ describe("client API helper storage contract", () => {
     expect(headers.get("x-mask-width")).toBe("2");
     expect(headers.get("x-mask-height")).toBe("2");
     expect(headers.get("x-mask-format")).toBe("u8raw-v1");
+    expect(headers.get("x-mask-byte-length")).toBe("4");
   });
 
   it("keeps latest-mask responses free of private storage keys", async () => {

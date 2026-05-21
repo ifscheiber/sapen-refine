@@ -32,6 +32,7 @@ import {
   formatSliceClassLabel,
   isAbortError,
 } from "./editorFormatters";
+import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
@@ -65,6 +66,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [editorReady, setEditorReady] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [opacity, setOpacity] = useState<number>(0.45);
@@ -87,6 +89,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
   const [zoom, setZoom] = useState<number>(1);
   const isCorrectionMode = Boolean(correctionTaskId);
+  const editorCanEdit = canEdit && editorReady;
 
   const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
   const supportBackgroundValue = sliceState?.supportLabels.background ?? Labels.BG;
@@ -125,6 +128,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   const saveQueuedRef = useRef(false);
   const dirtyRevisionRef = useRef(0);
   const loadedOnceRef = useRef(false);
+  const saveGenerationRef = useRef(0);
+  const saveContextRef = useRef(0);
   const pendingMaskRef = useRef<{
     imageId: string;
     mode: MaskMode;
@@ -236,6 +241,33 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     dirtyRevisionRef.current += 1;
     setHasUnsavedChanges(true);
   }
+
+  const resetEditorLoadState = useCallback(() => {
+    saveContextRef.current += 1;
+    saveGenerationRef.current += 1;
+    loadedOnceRef.current = false;
+    dirtyMaskRef.current = false;
+    dirtyRevisionRef.current = 0;
+    saveQueuedRef.current = false;
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    maskRef.current = null;
+    undoRef.current = [];
+    redoRef.current = [];
+    currentStrokeRef.current = [];
+    draggingRef.current = false;
+    lastPtRef.current = null;
+    lassoActiveRef.current = false;
+    lassoPointsRef.current = [];
+    lassoDragIndexRef.current = null;
+    const preview = previewCanvasRef.current;
+    const previewCtx = previewCtxRef.current;
+    if (preview && previewCtx) previewCtx.clearRect(0, 0, preview.width, preview.height);
+    setEditorReady(false);
+    setHasUnsavedChanges(false);
+  }, []);
 
   function switchMaskMode(nextMode: MaskMode) {
     if (isCorrectionMode) {
@@ -510,6 +542,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }, [clearPreview]);
 
   function commitLasso(points: Point[]) {
+    if (!editorCanEdit) return;
     if (points.length < 3) {
       resetLasso();
       return;
@@ -533,8 +566,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
   // ---------- Autosave ----------
   function scheduleAutosave() {
-    if (!loadedOnceRef.current) return; // nicht während initial load
-    if (!canEdit) return;
+    if (!loadedOnceRef.current || !editorReady) return;
+    if (!editorCanEdit) return;
     if (isCorrectionMode) return;
 
     markMaskDirty();
@@ -543,14 +576,25 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     // debounce: 1.2s nach letzter Änderung
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
-      void saveMaskNow();
+      void saveMaskNow({ manual: false });
     }, 1200);
   }
 
-  async function saveMaskNow() {
+  async function saveMaskNow(options: { manual?: boolean } = {}) {
+    if (options.manual && saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (options.manual) {
+      saveGenerationRef.current += 1;
+    }
+
     const mask = maskRef.current;
     if (!mask) return;
-    if (!canEdit) return;
+    if (!editorCanEdit) {
+      if (options.manual) setStatus(editorReady ? "Editing not allowed" : "Editor still loading");
+      return;
+    }
     if (!dirtyMaskRef.current) return;
 
     if (savingRef.current) {
@@ -561,12 +605,12 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     savingRef.current = true;
     setIsSaving(true);
     const saveRevision = dirtyRevisionRef.current;
+    const saveContext = saveContextRef.current;
+    const saveGeneration = saveGenerationRef.current + 1;
+    saveGenerationRef.current = saveGeneration;
     try {
       setStatus("Saving…");
 
-      const bytes = new Uint8Array(mask.data.length);
-      bytes.set(mask.data);
-      const blob = new Blob([bytes], { type: "application/octet-stream" });
       const endpoint = correctionContext?.correctionSaveUrl ??
         (maskMode === "support" ? API_SUPPORT_MASK_UPLOAD(imageId) : API_MASK_UPLOAD(imageId));
 
@@ -574,21 +618,13 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
         throw new Error("CORRECTION_CONTEXT_NOT_LOADED");
       }
 
-      const upload = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": blob.type,
-          "x-mask-width": String(mask.width),
-          "x-mask-height": String(mask.height),
-          "x-mask-format": "u8raw-v1",
-        },
-        body: blob,
+      await uploadEditorMask(endpoint, {
+        data: mask.data,
+        width: mask.width,
+        height: mask.height,
       });
 
-      if (!upload.ok) {
-        const t = await upload.text().catch(() => "");
-        throw new Error(`UPLOAD_FAILED ${upload.status}: ${t}`);
-      }
+      if (saveContextRef.current !== saveContext || saveGenerationRef.current !== saveGeneration) return;
 
       if (dirtyRevisionRef.current === saveRevision) {
         dirtyMaskRef.current = false;
@@ -603,13 +639,15 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
       }
     } catch (e: unknown) {
       console.error(e);
-      setStatus(errorMessage(e));
+      if (saveContextRef.current === saveContext && saveGenerationRef.current === saveGeneration) {
+        setStatus(errorMessage(e));
+      }
     } finally {
       savingRef.current = false;
       setIsSaving(false);
-      if (saveQueuedRef.current) {
+      if (saveContextRef.current === saveContext && saveQueuedRef.current) {
         saveQueuedRef.current = false;
-        await saveMaskNow();
+        await saveMaskNow({ manual: false });
       }
     }
   }
@@ -649,6 +687,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   useEffect(() => {
     let alive = true;
     (async () => {
+      resetEditorLoadState();
+      setImgUrl(null);
       setStatus("Loading image…");
       const res = await fetch(API_IMAGE_VIEW(imageId), { method: "GET" });
       if (!res.ok) {
@@ -679,7 +719,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
         maskFetchAbortRef.current = null;
       }
     };
-  }, [fetchLatestMaskBytes, imageId, maskMode]);
+  }, [fetchLatestMaskBytes, imageId, maskMode, resetEditorLoadState]);
 
   useEffect(() => {
     if (!imgUrl) return;
@@ -691,6 +731,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
     img.onload = async () => {
       if (cancelled) return;
+      setEditorReady(false);
+      setStatus("Preparing editor…");
       const w = img.naturalWidth;
       const h = img.naturalHeight;
 
@@ -757,16 +799,24 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
         }
         rerenderOverlayFull();
       } catch (e) {
+        if (cancelled || isAbortError(e)) return;
         console.warn("Failed to load latest mask:", e);
         rerenderOverlayFull();
       }
 
       loadedOnceRef.current = true;
+      if (maskRef.current?.data.byteLength !== w * h) {
+        setEditorReady(false);
+        setStatus("Mask buffer dimensions do not match image");
+        return;
+      }
+      setEditorReady(true);
       setStatus("");
     };
 
     img.onerror = () => {
       if (cancelled) return;
+      setEditorReady(false);
       setStatus("Failed to load image asset");
     };
     img.src = imgUrl;
@@ -885,7 +935,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   // ---------- Painting ----------
   function stamp(x: number, y: number) {
     const mask = maskRef.current;
-    if (!mask) return;
+    if (!mask || !editorCanEdit) return;
 
     const patch = applyBrush(
       mask,
@@ -907,7 +957,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!canEdit) return;
+    if (!editorCanEdit) return;
     if (!maskRef.current) return;
     if (shouldIgnorePointerDown(e)) return;
     e.preventDefault();
@@ -968,7 +1018,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!canEdit) return;
+    if (!editorCanEdit) return;
     if (!maskRef.current) return;
     e.preventDefault();
 
@@ -1104,7 +1154,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
   function undo() {
     const mask = maskRef.current;
-    if (!mask) return;
+    if (!mask || !editorCanEdit) return;
 
     const stroke = undoRef.current.pop();
     if (!stroke) return;
@@ -1122,7 +1172,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
   function redo() {
     const mask = maskRef.current;
-    if (!mask) return;
+    if (!mask || !editorCanEdit) return;
 
     const stroke = redoRef.current.pop();
     if (!stroke) return;
@@ -1139,6 +1189,10 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }
 
   function usePredictionAsStartingMask() {
+    if (!editorCanEdit) {
+      setCorrectionStatus(editorReady ? "Editing not allowed" : "Editor still loading");
+      return;
+    }
     const predictionBytes = predictionBytesRef.current;
     const mask = maskRef.current;
     if (!predictionBytes || !mask) {
@@ -1164,7 +1218,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }
 
   keyboardActionsRef.current = {
-    canEdit,
+    canEdit: editorCanEdit,
     tool,
     undo,
     redo,
@@ -1264,7 +1318,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
             correctionStatus={correctionStatus}
             predictionOverlayEnabled={predictionOverlayEnabled}
             onPredictionOverlayEnabledChange={setPredictionOverlayEnabled}
-            canEdit={canEdit}
+            canEdit={editorCanEdit}
             predictionLoaded={predictionLoaded}
             onUsePredictionAsStartingMask={usePredictionAsStartingMask}
           />
@@ -1283,13 +1337,13 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
           labels={labels}
           activeLabel={activeLabel}
           onActiveLabelChange={setActiveLabel}
-          canEdit={canEdit}
+          canEdit={editorCanEdit}
           opacity={opacity}
           onOpacityChange={setOpacity}
           onUndo={undo}
           onRedo={redo}
           onFit={fitToContainer}
-          onSave={() => void saveMaskNow()}
+          onSave={() => void saveMaskNow({ manual: true })}
           onExportPng={() => void exportMaskPng()}
           isSaving={isSaving}
           hasUnsavedChanges={hasUnsavedChanges}

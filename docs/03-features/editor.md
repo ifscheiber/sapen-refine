@@ -13,6 +13,7 @@ Important files:
 - `src/features/editor/canvasGeometry.ts`
 - `src/features/editor/editorApi.ts`
 - `src/features/editor/editorFormatters.ts`
+- `src/features/editor/editorMaskUpload.ts`
 - `src/features/editor/editorPointer.ts`
 - `src/features/editor/editorTypes.ts`
 - `src/design/editorCanvas.ts`
@@ -92,6 +93,10 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - In correction mode, manual save uploads raw `u8raw-v1` bytes through `/api/correction-tasks/[taskId]/corrections`.
 - Editor saves are app-mediated. The browser editor does not write to MinIO/S3 directly and does not require private storage keys or presigned upload URLs.
 - RB-055 validates mask byte length, declared width/height, image-pixel coordinate space, checksum hints, and storage object metadata before recording a version.
+- RB-080 adds `src/features/editor/editorMaskUpload.ts` as the single editor helper for semantic, support, and assisted-correction mask upload payloads. It validates `mask.data.byteLength === mask.width * mask.height` before `fetch()`, sends raw `Uint8Array` bytes instead of a `Blob`, and avoids sending a larger typed-array backing buffer by copying the exact view bytes.
+- RB-080 also gates drawing, prediction-copy, keyboard edit actions, and saving until the image, canvas backing dimensions, and in-memory `MaskBuffer` are initialized consistently. Fetching the image URL alone is not enough to mark the editor ready.
+- Manual save cancels any pending autosave and uses a save generation guard so stale save responses cannot clear newer dirty state.
+- Editor uploads send `content-type: application/octet-stream`, `x-mask-format: u8raw-v1`, `x-mask-width`, `x-mask-height`, and diagnostic-only `x-mask-byte-length`. The server still validates the actual received request body length as the source of truth.
 - Support-mask saves additionally require binary support values: `0` or the active label schema's `slice_support` byte value. Copper semantic bytes are rejected as support geometry.
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
 - Review/export-readiness state is loaded from `/api/images/[imageId]/review-state`.
@@ -119,6 +124,8 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
 Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful support saves record `SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
+
+For byte-length failures after RB-080, authenticated audit details may include safe diagnostics: expected bytes, received bytes, declared client bytes, width, height, and format. They do not include mask payload bytes, storage keys, private URLs, credentials, or tokens.
 
 ## Prediction-Assisted Correction
 

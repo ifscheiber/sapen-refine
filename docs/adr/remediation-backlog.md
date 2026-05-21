@@ -564,6 +564,22 @@ Owner: Unassigned.
 
 Priority: P2.
 
+## RB-080 - Editor Mask Upload Byte-Length Hotfix
+
+Context: A full-resolution 6000x4000 image exposed a semantic mask save failure with `MASK_BYTE_LENGTH_MISMATCH`. The server-side rejection was correct because raw mask upload bodies must equal `width * height` bytes.
+
+Impact: Large customer images could fail to save from the editor if client payload construction, readiness, or save races produced a body that did not match the target image dimensions.
+
+Resolution: RB-080 adds an exact-byte editor upload helper, client-side byte-length validation, raw `Uint8Array` request bodies, diagnostic-only `x-mask-byte-length`, editor readiness gating, save-generation stale response protection, safe server audit diagnostics, and focused 6000x4000 browser coverage.
+
+Remaining follow-up: If real iPad Safari or customer hardware cannot reliably edit full-resolution masks, create a separate ticket for tiled masks, downscaled working masks, patch/sparse uploads, or memory profiling. Those are intentionally out of scope for RB-080.
+
+Affected modules: `src/features/editor`, `src/server/uploads`, mask upload routes, assisted-correction save domain, mask-format docs, smoke docs, and editor/e2e tests.
+
+Owner: Codex.
+
+Priority: Resolved by RB-080.
+
 ## RB-076 - Customer Trial Deployment Dry Run
 
 Context: RB-069 prepared the trial deployment runbook, but the real Strato/customer deployment process has not been rehearsed end to end.

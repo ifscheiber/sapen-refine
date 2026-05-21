@@ -14,7 +14,8 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current image metadata UI: `src/features/images/ImageMetadataPage.tsx`, `src/features/images/ImageMetadataClient.tsx`
 - Current mask routes: `src/app/api/images/[imageId]/mask/*`
 - Current editor: `src/features/editor/EditorClient.tsx`
-- Current mask labels and serialization: `src/mask/labels.ts`, `src/mask/serialize.ts`
+- Current mask labels and editor raw-byte upload helper: `src/mask/labels.ts`, `src/features/editor/editorMaskUpload.ts`
+- Legacy/test mask serialization helper: `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current training export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
 - Current prediction-analysis export domain/API: `src/server/domain/predictionAnalysisExports.ts`, `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts`, `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts`, `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts`

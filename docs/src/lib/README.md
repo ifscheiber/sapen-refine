@@ -19,7 +19,7 @@ RB-074 aligns these helpers with the customer-trial storage contract: browser cl
 Current helper route targets:
 
 - `apiUploadImage` posts the raw `File` body to `POST /api/projects/[projectId]/images/upload` with `content-type` and `x-filename` headers.
-- `apiUploadSemanticMask` posts raw `u8raw-v1` bytes to `POST /api/images/[imageId]/mask/upload` with `x-mask-width`, `x-mask-height`, and `x-mask-format` headers.
+- `apiUploadSemanticMask` posts raw `u8raw-v1` bytes to `POST /api/images/[imageId]/mask/upload` with `x-mask-width`, `x-mask-height`, `x-mask-format`, and diagnostic `x-mask-byte-length` headers when the body exposes a safe byte length.
 - `apiUploadSupportMask` posts raw `u8raw-v1` bytes to `POST /api/images/[imageId]/support-mask/upload` with the same mask headers.
 - Latest-mask helpers return app-mediated asset URLs and opaque version IDs. They do not expose private object-store keys.
 
