@@ -6,7 +6,6 @@ Key files:
 
 - `src/server/storage/s3.ts` - active storage helper module.
 - `src/server/domain/storageCleanup.ts` - RB-066 temporary-object retention cleanup service.
-- `src/server/storage.ts` - legacy duplicate helper; currently unused by active code and tracked for cleanup.
 - `docker-compose.yml`
 
 Trial browser invariant:

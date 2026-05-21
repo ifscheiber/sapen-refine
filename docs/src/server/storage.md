@@ -11,7 +11,6 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 - `src/server/runtime/config.ts` - validates storage endpoint, credentials, bucket, and upload limits.
 - `src/server/uploads/validation.ts` - validates image and mask upload sizes.
 - `src/server/uploads/integrity.ts` - computes SHA-256 checksums, validates PNG/JPEG dimensions, validates mask byte dimensions, and maps stable integrity errors.
-- `src/server/storage.ts` - legacy duplicate presign helper using direct `process.env` access; active code does not import it and cleanup is tracked separately.
 - `src/app/api/projects/[projectId]/images/presign/route.ts` - image upload presign.
 - `src/app/api/projects/[projectId]/images/upload/route.ts` - app-mediated raw-image upload.
 - `src/app/api/images/[imageId]/asset/route.ts` - app-mediated raw-image read.
@@ -21,7 +20,7 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 
 ## Public Interfaces / Routes / Functions
 
-- Active `src/server/storage/s3.ts` functions include `getPresignedPutUrl`, `getPresignedGetUrl`, `putObject`, `statObject`, `verifyStoredObject`, `listObjectsByPrefix`, `deleteObject`, `deleteObjectBestEffort`, `getObjectBytes`, and `checkStorageReady`.
+- Active `src/server/storage/s3.ts` functions include `presignPutObject`, `presignGetObject`, `putObject`, `statObject`, `verifyStoredObject`, `listObjectsByPrefix`, `deleteObject`, `deleteObjectBestEffort`, `getObjectBytes`, and `checkStorageReady`.
 - `runStorageCleanup` in `src/server/domain/storageCleanup.ts` provides the admin-only dry-run/execute operational cleanup path.
 - Local storage service: MinIO from `docker-compose.yml`.
 

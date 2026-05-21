@@ -29,13 +29,12 @@
 - `src/server/domain/predictionAnalysisExports.ts` - RB-060 prediction-analysis export readiness, manifest/package generation, persistence, and owner/QA download authorization.
 - `src/server/domain/predictionAnalysisMetrics.ts` - RB-067 pure semantic/support prediction QA metric helpers.
 - `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helpers, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
-- `src/server/storage.ts` - legacy duplicate presign helper; currently unused and tracked for cleanup.
 
 ## Public Interfaces / Routes / Functions
 
 - `requireUser()` throws `UNAUTHORIZED` for route/domain callers without a valid session.
 - `requireProjectRole(projectId, allowed)` enforces project membership roles.
-- `getPresignedGetUrl(key)` and `getPresignedPutUrl(key, contentType)` wrap S3 presigned URLs.
+- `presignGetObject(key)` and `presignPutObject(key, contentType)` wrap S3 presigned URLs.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
 - `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the RB-053 owner-only training export workflow.
