@@ -6,8 +6,9 @@ import {
   listProjectPredictionRunsForUser,
   predictionProvenanceErrorResponse,
 } from "@/server/domain/predictionProvenance";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ projectId: string }> },
 ) {
@@ -19,11 +20,11 @@ export async function GET(
     return NextResponse.json({ ok: true, predictionRuns });
   } catch (error) {
     const payload = predictionProvenanceErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ projectId: string }> },
 ) {
@@ -40,6 +41,6 @@ export async function POST(
     return NextResponse.json({ ok: true, predictionRun });
   } catch (error) {
     const payload = predictionProvenanceErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

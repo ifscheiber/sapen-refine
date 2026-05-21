@@ -1,15 +1,14 @@
-import { NextResponse } from "next/server";
-
 import { requireUser } from "@/server/auth/rbac";
 import { toArrayBuffer } from "@/server/bytes";
 import { exportErrorResponse, readTrainingExportFileForUser } from "@/server/domain/exports";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 import { attachmentContentDisposition } from "@/server/http/contentDisposition";
 
 function parseFile(value: string | null): "manifest" | "package" {
   return value === "manifest" ? "manifest" : "package";
 }
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   req: Request,
   props: { params: Promise<{ exportId: string }> },
 ) {
@@ -33,6 +32,6 @@ export async function GET(
     });
   } catch (error) {
     const payload = exportErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

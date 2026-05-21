@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
 import { AnnotationArtifactKind } from "@prisma/client";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> }
 ) {
@@ -11,7 +12,7 @@ export async function GET(
   const user = await requireUser();
 
   if (!imageId) {
-    return NextResponse.json({ error: "IMAGE_ID_REQUIRED" }, { status: 400 });
+    return apiError("IMAGE_ID_REQUIRED", 400);
   }
 
   const image = await prisma.imageAsset.findUnique({
@@ -19,7 +20,7 @@ export async function GET(
     select: { id: true, projectId: true },
   });
   if (!image) {
-    return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
+    return apiError("IMAGE_NOT_FOUND", 404);
   }
 
   const membership = await prisma.annotationProjectMember.findUnique({
@@ -27,7 +28,7 @@ export async function GET(
     select: { role: true },
   });
   if (!membership) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    return apiError("FORBIDDEN", 403);
   }
 
   const kind = AnnotationArtifactKind.SEMANTIC_MASK;
@@ -76,4 +77,4 @@ export async function GET(
     createdBy: latest.createdBy,
     url: `/api/images/${imageId}/mask/versions/${latest.id}/asset`,
   });
-}
+});

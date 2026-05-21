@@ -5,6 +5,7 @@ import { PROJECT_ANNOTATE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { prisma } from "@/server/db";
+import { withApiErrorHandling } from "@/server/http/apiErrors";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -32,7 +33,7 @@ function extensionFor(contentType: string): string {
   return contentType === "image/jpeg" ? "jpg" : "png";
 }
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   ctx: { params: Promise<{ projectId: string }> }
 ) {
@@ -157,4 +158,4 @@ export async function POST(
     });
     return NextResponse.json({ ok: false, error: code }, { status: 500 });
   }
-}
+});

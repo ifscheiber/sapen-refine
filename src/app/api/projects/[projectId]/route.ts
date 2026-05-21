@@ -4,6 +4,7 @@ import { PROJECT_MANAGE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import { withApiErrorHandling } from "@/server/http/apiErrors";
 
 function optionalText(value: unknown, field: string, maxLength: number): string | null | undefined {
   if (value === undefined) return undefined;
@@ -16,7 +17,7 @@ function optionalText(value: unknown, field: string, maxLength: number): string 
   return trimmed;
 }
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
   ctx: { params: Promise<{ projectId: string }> }
 ) {
@@ -97,4 +98,4 @@ export async function PATCH(
   });
 
   return NextResponse.json({ ok: true, project });
-}
+});

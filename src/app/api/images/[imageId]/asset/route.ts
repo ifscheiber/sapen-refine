@@ -1,12 +1,11 @@
-import { NextResponse } from "next/server";
-
 import { requireUser } from "@/server/auth/rbac";
 import { toArrayBuffer } from "@/server/bytes";
 import { prisma } from "@/server/db";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 import { inlineContentDisposition } from "@/server/http/contentDisposition";
 import { getObjectBytes } from "@/server/storage/s3";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> }
 ) {
@@ -23,13 +22,13 @@ export async function GET(
       filename: true,
     },
   });
-  if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
+  if (!image) return apiError("IMAGE_NOT_FOUND", 404);
 
   const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
-  if (!membership) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (!membership) return apiError("FORBIDDEN", 403);
 
   const bytes = await getObjectBytes(image.storageKey);
   const headers = new Headers({
@@ -44,4 +43,4 @@ export async function GET(
     status: 200,
     headers,
   });
-}
+});

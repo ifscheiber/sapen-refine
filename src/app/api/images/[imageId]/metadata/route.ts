@@ -6,8 +6,9 @@ import {
   metadataErrorResponse,
   updateImageMetadataForUser,
 } from "@/server/domain/metadata";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   ctx: { params: Promise<{ imageId: string }> }
 ) {
@@ -20,11 +21,11 @@ export async function GET(
     return NextResponse.json({ ok: true, ...bundle });
   } catch (error) {
     const payload = metadataErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
   ctx: { params: Promise<{ imageId: string }> }
 ) {
@@ -37,6 +38,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true, ...bundle });
   } catch (error) {
     const payload = metadataErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

@@ -5,6 +5,7 @@ import {
   runStorageCleanup,
   storageCleanupErrorResponse,
 } from "@/server/domain/storageCleanup";
+import { apiErrorFromPayload } from "@/server/http/apiErrors";
 
 export async function POST(req: Request) {
   try {
@@ -14,6 +15,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, cleanup });
   } catch (error) {
     const payload = storageCleanupErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
 }

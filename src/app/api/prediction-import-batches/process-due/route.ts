@@ -5,8 +5,9 @@ import {
   predictionImportBatchErrorResponse,
   processDuePredictionImportBatchesForUser,
 } from "@/server/domain/predictionImportBatches";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function POST(req: Request) {
+export const POST = withApiErrorHandling(async function POST(req: Request) {
   const user = await requireUser();
   const body = await req.json().catch(() => null);
 
@@ -18,6 +19,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const payload = predictionImportBatchErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

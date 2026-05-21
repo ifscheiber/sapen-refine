@@ -1,0 +1,42 @@
+import { expect, test, type APIResponse } from "@playwright/test";
+
+async function expectJsonError(response: APIResponse, status: number, error: string) {
+  expect(response.status()).toBe(status);
+  expect(response.headers()["content-type"]).toContain("application/json");
+  await expect(response.json()).resolves.toMatchObject({ ok: false, error });
+}
+
+test("api auth and authorization failures return stable json errors", async ({ request }) => {
+  await expectJsonError(await request.get("/api/projects"), 401, "UNAUTHENTICATED");
+
+  const login = await request.post("/api/auth/login", {
+    data: { email: "labeler@sapen.local", password: "labeler1234" },
+  });
+  expect(login.ok()).toBe(true);
+
+  await expectJsonError(
+    await request.post("/api/projects/demo_project/exports", {
+      data: { targets: ["combined"] },
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.get("/api/images/not-a-real-image/metadata"),
+    404,
+    "IMAGE_NOT_FOUND",
+  );
+
+  await expectJsonError(
+    await request.get("/api/prediction-runs/not-a-real-run"),
+    404,
+    "PREDICTION_RUN_NOT_FOUND",
+  );
+
+  await expectJsonError(
+    await request.post("/api/storage-cleanup", { data: { execute: false } }),
+    403,
+    "CLEANUP_FORBIDDEN",
+  );
+});

@@ -5,8 +5,9 @@ import {
   predictionImportBatchErrorResponse,
   retryPredictionImportBatchForUser,
 } from "@/server/domain/predictionImportBatches";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ batchId: string }> },
 ) {
@@ -23,6 +24,6 @@ export async function POST(
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const payload = predictionImportBatchErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

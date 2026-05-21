@@ -3,8 +3,9 @@ import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { AnnotationProjectRole } from "@prisma/client";
+import { withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET() {
+export const GET = withApiErrorHandling(async function GET() {
   const user = await requireUser();
 
   const projects = await prisma.annotationProject.findMany({
@@ -33,9 +34,9 @@ export async function GET() {
       myRole: p.members[0]?.role ?? null,
     })),
   });
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withApiErrorHandling(async function POST(req: Request) {
   const user = await requireUser();
 
   const body = await req.json().catch(() => null);
@@ -73,4 +74,4 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ ok: true, project });
-}
+});

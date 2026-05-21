@@ -5,6 +5,7 @@ import {
   importPredictionMaskForUser,
   predictionImportErrorResponse,
 } from "@/server/domain/predictionImport";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
 function formText(form: FormData, name: string) {
   const value = form.get(name);
@@ -30,7 +31,7 @@ function payloadInvalid() {
   );
 }
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ predictionRunId: string }> },
 ) {
@@ -82,6 +83,6 @@ export async function POST(
     return NextResponse.json({ ok: true, prediction });
   } catch (error) {
     const payload = predictionImportErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

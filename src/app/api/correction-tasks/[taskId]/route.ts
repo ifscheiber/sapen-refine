@@ -6,8 +6,9 @@ import {
   getCorrectionTaskForUser,
   updateCorrectionTaskForUser,
 } from "@/server/domain/correctionTasks";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ taskId: string }> },
 ) {
@@ -19,11 +20,11 @@ export async function GET(
     return NextResponse.json({ ok: true, task });
   } catch (error) {
     const payload = correctionTaskErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
   props: { params: Promise<{ taskId: string }> },
 ) {
@@ -36,6 +37,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true, task });
   } catch (error) {
     const payload = correctionTaskErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});
