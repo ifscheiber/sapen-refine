@@ -10,7 +10,7 @@ export type EditorProps = {
 };
 
 export type Stroke = Patch[];
-export type Tool = "brush" | "lasso_free" | "lasso_poly";
+export type Tool = "brush" | "eraser" | "lasso_free" | "lasso_poly";
 export type MaskMode = "semantic" | "support";
 export type Point = { x: number; y: number };
 

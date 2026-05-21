@@ -33,6 +33,7 @@ import {
   isAbortError,
 } from "./editorFormatters";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
+import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   type CorrectionContext,
   type EditorProps,
@@ -88,6 +89,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   const isCorrectionMode = Boolean(correctionTaskId);
 
   const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
+  const supportBackgroundValue = sliceState?.supportLabels.background ?? Labels.BG;
   const labels = useMemo(
     () => (maskMode === "support" ? supportMaskLabels(supportLabelValue) : DEFAULT_LABELS),
     [maskMode, supportLabelValue],
@@ -881,17 +883,28 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }, [hasUnsavedChanges]);
 
   // ---------- Painting ----------
-function stamp(x: number, y: number) {
-  const mask = maskRef.current;
-  if (!mask) return;
+  function stamp(x: number, y: number) {
+    const mask = maskRef.current;
+    if (!mask) return;
 
-  const patch = applyBrush(mask, x, y, brushRadius, activeLabel);
-  currentStrokeRef.current.push(patch);
-  queueOverlayUpdate(patch.x, patch.y, patch.w, patch.h);
+    const patch = applyBrush(
+      mask,
+      x,
+      y,
+      brushRadius,
+      getPaintLabelForTool({
+        tool,
+        maskMode,
+        activeLabel,
+        supportBackgroundLabel: supportBackgroundValue,
+      }),
+    );
+    currentStrokeRef.current.push(patch);
+    queueOverlayUpdate(patch.x, patch.y, patch.w, patch.h);
 
-  // Mark immediately so iPad/browser users see unsaved state while drawing.
-  markMaskDirty();
-}
+    // Mark immediately so iPad/browser users see unsaved state while drawing.
+    markMaskDirty();
+  }
 
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!canEdit) return;
@@ -902,7 +915,7 @@ function stamp(x: number, y: number) {
     const target = e.currentTarget;
     const p = canvasToImageCoords(e);
 
-    if (tool === "brush") {
+    if (isBrushLikeTool(tool)) {
       draggingRef.current = true;
       currentStrokeRef.current = [];
       redoRef.current = []; // new action kills redo
@@ -960,7 +973,7 @@ function stamp(x: number, y: number) {
     e.preventDefault();
 
     const p = canvasToImageCoords(e);
-    if (tool === "brush") {
+    if (isBrushLikeTool(tool)) {
       if (!draggingRef.current) return;
       const last = lastPtRef.current;
       lastPtRef.current = p;
@@ -1013,20 +1026,19 @@ function stamp(x: number, y: number) {
   }
 
   function finishStroke() {
-  if (currentStrokeRef.current.length > 0) {
-    undoRef.current.push(currentStrokeRef.current);
-    currentStrokeRef.current = [];
-    redoRef.current = [];
-    scheduleAutosave(); // <-- hier
+    if (currentStrokeRef.current.length > 0) {
+      undoRef.current.push(currentStrokeRef.current);
+      currentStrokeRef.current = [];
+      redoRef.current = [];
+      scheduleAutosave();
+    }
   }
-}
-
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
     e.preventDefault();
     const target = e.currentTarget;
 
-    if (tool === "brush") {
+    if (isBrushLikeTool(tool)) {
       draggingRef.current = false;
       lastPtRef.current = null;
       finishStroke();
@@ -1057,7 +1069,7 @@ function stamp(x: number, y: number) {
     e.preventDefault();
     const target = e.currentTarget;
 
-    if (tool === "brush") {
+    if (isBrushLikeTool(tool)) {
       draggingRef.current = false;
       lastPtRef.current = null;
       finishStroke();
@@ -1083,7 +1095,7 @@ function stamp(x: number, y: number) {
     if (tool === "lasso_poly" && lassoDragIndexRef.current === null) {
       drawLassoPreview(lassoPointsRef.current, null, true);
     }
-    if (tool === "brush" && draggingRef.current && !e.currentTarget.hasPointerCapture(e.pointerId)) {
+    if (isBrushLikeTool(tool) && draggingRef.current && !e.currentTarget.hasPointerCapture(e.pointerId)) {
       draggingRef.current = false;
       lastPtRef.current = null;
       finishStroke();

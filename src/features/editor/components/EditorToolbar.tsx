@@ -2,6 +2,7 @@ import type { LabelId } from "@/mask/labels";
 
 import { clampNumber } from "../canvasGeometry";
 import { activeButtonClass, idleButtonClass } from "../editorStyles";
+import { formatEraserHint } from "../editorTools";
 import type { EditorLabelOption, MaskMode, Tool } from "../editorTypes";
 
 type EditorToolbarProps = {
@@ -95,6 +96,15 @@ export function EditorToolbar({
             Brush
           </button>
           <button
+            aria-pressed={tool === "eraser"}
+            className={tool === "eraser" ? activeButtonClass : idleButtonClass}
+            onClick={() => onToolChange("eraser")}
+            disabled={!canEdit}
+            title={formatEraserHint(maskMode)}
+          >
+            Eraser
+          </button>
+          <button
             aria-pressed={tool === "lasso_free"}
             className={tool === "lasso_free" ? activeButtonClass : idleButtonClass}
             onClick={() => onToolChange("lasso_free")}
@@ -121,6 +131,7 @@ export function EditorToolbar({
               disabled={!canEdit || tool === "lasso_poly"}
               className="w-32"
             />
+            {tool === "eraser" && <span>{formatEraserHint(maskMode)}</span>}
           </div>
         </div>
 
