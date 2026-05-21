@@ -11,8 +11,14 @@ export type ApiImage = {
   filename: string | null;
   contentType: string | null;
   size: number | null;
+  checksum?: string | null;
+  width?: number | null;
+  height?: number | null;
+  validationStatus?: string | null;
+  uploadedAt?: string | null;
+  uploadedBy?: { email: string; name: string | null } | null;
+  sampleMetadata?: { tNumber: string | null } | null;
   createdAt: string;
-  storageKey: string;
 };
 
 export async function apiListProjects(): Promise<ApiProject[]> {
@@ -47,38 +53,7 @@ export async function apiGetImageViewUrl(projectId: string, imageId: string): Pr
   return String(data?.url ?? "");
 }
 
-export async function apiPresignImageUpload(projectId: string, file: File) {
-  const res = await fetch(`/api/projects/${projectId}/images/presign`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      filename: file.name,
-      contentType: file.type || "application/octet-stream",
-      size: file.size,
-    }),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? "PRESIGN_FAILED");
-  return data as { uploadUrl: string; key: string };
-}
-
-export async function apiCommitImage(projectId: string, args: { key: string; file: File }) {
-  const res = await fetch(`/api/projects/${projectId}/images/commit`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      key: args.key,
-      filename: args.file.name,
-      contentType: args.file.type || null,
-      size: args.file.size,
-    }),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? "COMMIT_FAILED");
-  return data.image;
-}
-
-export async function apiUploadImage(projectId: string, file: File) {
+export async function apiUploadImage(projectId: string, file: File): Promise<ApiImage> {
   const res = await fetch(`/api/projects/${projectId}/images/upload`, {
     method: "POST",
     headers: {
