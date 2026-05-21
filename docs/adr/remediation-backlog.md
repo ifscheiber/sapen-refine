@@ -540,13 +540,15 @@ Context: `src/lib` still documents and exposes older presign/commit browser help
 
 Impact: Future code may accidentally reintroduce direct-storage assumptions or depend on stale fields such as browser-visible storage keys.
 
-Proposed next step: Audit/remove/align `src/lib` wrappers and document the compatibility presign route policy.
+Resolution: Implemented by RB-074 optimized ticket. `src/lib/projectsClient.ts` and `src/lib/imagesApi.ts` now expose app-mediated browser helpers only, latest-mask helper types no longer include private keys, stale presign/commit helper exports were removed, and tests lock the client helper storage contract.
+
+Remaining follow-up: Server presign/commit routes remain legacy/internal compatibility endpoints. Removing or feature-flagging them should be a later explicit storage-compatibility ticket if the team no longer needs them.
 
 Affected modules: `src/lib`, compatibility presign routes, API/storage docs, and any wrapper tests retained by the slice.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved by RB-074.
 
 ## RB-075 - Dependency Audit / Prisma Version Policy
 

@@ -43,7 +43,8 @@ There is no `check:docs-links` script in `package.json` yet.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - App-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
-- Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
+- Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist as compatibility endpoints. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
+- Browser-side helpers in `src/lib/projectsClient.ts` and `src/lib/imagesApi.ts` follow the app-mediated upload/read contract and do not expose private storage keys or presigned upload internals.
 - Latest mask reload uses `src/app/api/images/[imageId]/mask/latest/route.ts` and app-mediated version assets.
 - Prediction mask import uses `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` to validate and store private `PREDICTION_MASK` proposal artifacts linked to `PredictionArtifactProvenance`.
 - Project operations use route-addressable pages: `/app/projects/[projectId]` for status/actions, `/images` for image work, `/tasks` for correction queues, `/exports` for training and prediction-analysis exports, and `/prediction-imports` for prediction batch imports.
@@ -74,7 +75,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. RB-067 adds export-time QA metrics without a dashboard. Malware scanning, general API write rate limiting, large async export jobs, production-scale queue infrastructure/system actors, committed-artifact retention, cleanup dashboards, and metrics dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate.
-- The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 covers stale client API wrappers, RB-075 covers Prisma audit/version policy, and RB-076 through RB-078 cover deployment/iPad/post-trial gates.
+- The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, and RB-076 through RB-078 cover deployment/iPad/post-trial gates.
 
 ## Related Tickets / Docs
 

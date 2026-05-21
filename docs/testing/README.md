@@ -46,6 +46,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/content-disposition.test.ts` covers RB-069 safe image/export download filenames, CR/LF injection removal, quote/backslash handling, ASCII fallback, and UTF-8 `filename*`.
 - `tests/unit/handoff-archive.test.ts` covers RB-069 archive exclusion policy, env/example handling, path filtering, and handoff manifest summaries.
 - `tests/unit/deployment-hygiene.test.ts` covers RB-073 Docker build-context exclusions and the Compose MinIO init command/script hygiene.
+- `tests/unit/client-api-contracts.test.ts` covers RB-074 browser helper route targets, removal of stale presign/commit exports, app-mediated image/semantic/support mask upload headers, and latest-mask response sanitization without private storage keys.
 - `tests/unit/health-readiness.test.ts` covers health payloads and dependency readiness aggregation.
 - `tests/unit/api-errors.test.ts` covers RB-072 API error mapping, unauthorized normalization, unknown-error sanitization, and wrapper behavior.
 - `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths, protected workspace paths, RB-072 unauthenticated API JSON `401`, RB-079 workspace path forwarding, page redirects, and same-origin guard precedence.

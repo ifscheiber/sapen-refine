@@ -15,8 +15,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects` - creates a project and owner membership.
 - `PATCH /api/projects/[projectId]` - updates project name/description for `OWNER` and `QA`; attaches the default active label schema when missing.
 - `GET /api/projects/[projectId]/images` - lists images for a project.
-- `POST /api/projects/[projectId]/images/presign` - creates a presigned PNG/JPEG raw-image upload URL for compatibility.
-- `POST /api/projects/[projectId]/images/commit` - validates a private uploaded PNG/JPEG object and records a validated raw image.
+- `POST /api/projects/[projectId]/images/presign` - creates a presigned PNG/JPEG raw-image upload URL for legacy/internal compatibility.
+- `POST /api/projects/[projectId]/images/commit` - validates a private uploaded PNG/JPEG object and records a validated raw image for legacy/internal compatibility.
 - `POST /api/projects/[projectId]/images/upload` - uploads a PNG/JPEG raw image through the app server, verifies checksum/dimensions/object metadata, stores it in S3/MinIO, and records the validated image row.
 - `GET /api/projects/[projectId]/images/[imageId]/view` - returns an app-mediated image asset URL after membership check.
 - `GET /api/images/[imageId]` - redirects to the app-mediated image asset route after membership check.
@@ -26,8 +26,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/asset` - streams image bytes through the app after membership check.
 - `GET /api/images/[imageId]/mask/latest` - returns latest mask version metadata and view URL.
 - `GET /api/images/[imageId]/mask/versions/[versionId]/asset` - streams mask bytes through the app after membership check.
-- `POST /api/images/[imageId]/mask/presign` - creates a presigned mask upload URL.
-- `POST /api/images/[imageId]/mask/commit` - validates a private uploaded `u8raw-v1` mask object and records a new draft semantic mask version.
+- `POST /api/images/[imageId]/mask/presign` - creates a presigned semantic-mask upload URL for legacy/internal compatibility.
+- `POST /api/images/[imageId]/mask/commit` - validates a private uploaded `u8raw-v1` mask object and records a new draft semantic mask version for legacy/internal compatibility.
 - `POST /api/images/[imageId]/mask/upload` - uploads `u8raw-v1` mask bytes through the app server, verifies byte length/dimensions/checksum/object metadata, and records a new draft semantic `AnnotationArtifactVersion`.
 - `GET /api/images/[imageId]/slice` - returns default-slice state, support label values, latest support mask, and latest classification.
 - `POST /api/images/[imageId]/slice/ensure` - creates or returns the default slice instance for editable project roles.
@@ -72,6 +72,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Project and image API routes must enforce authenticated access and project membership.
 - Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
+- New browser helper code should use the app-mediated upload/read routes. Compatibility presign/commit routes remain server-side API surface for now, but `src/lib` no longer exposes them as the supported browser contract.
 - Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
 - Support-mask APIs must not accept semantic mask versions as physical support geometry.
 - Review APIs enforce server-side permissions: `OWNER`/`QA` can approve/reject, `OWNER`/`QA`/`LABELER` can submit, and `VIEWER` cannot mutate review state.

@@ -15,6 +15,7 @@ Important files:
 - `src/app/api/images/[imageId]/slice/*`
 - `src/app/api/images/[imageId]/support-mask/*`
 - `src/app/api/images/[imageId]/review-state/route.ts`
+- `src/lib/projectsClient.ts`
 
 Image UI lives in `src/features/images` while routes stay stable.
 
@@ -23,6 +24,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `/app/projects/[projectId]/images` lists images for the project.
 - Editable project roles can upload an image through `POST /api/projects/[projectId]/images/upload`.
 - Browser image reads use app-mediated asset routes rather than direct MinIO URLs.
+- Browser helper types in `src/lib/projectsClient.ts` mirror that app-mediated route surface and do not expose `ImageAsset.storageKey`.
 - The app-mediated upload path accepts PNG and JPEG images only. SVG and other formats are rejected before an image row is created.
 - Uploaded images appear in the image list with validation/readiness hints, T-number state, and links to metadata and the editor.
 - `/app/projects/[projectId]/images/[imageId]` shows immutable technical image metadata and editable image-level acquisition/sample metadata.
@@ -46,7 +48,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 ## Current API Surface
 
 - `POST /api/projects/[projectId]/images/upload` is the current customer-trial browser path. It checks upload size, content type, checksum hints, PNG/JPEG dimensions, object stat metadata, and then records a validated image row.
-- `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain compatibility paths. Presign accepts PNG/JPEG only, and commit re-reads the private object before persisting verified metadata.
+- `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain legacy/internal compatibility paths. Presign accepts PNG/JPEG only, and commit re-reads the private object before persisting verified metadata. The supported customer-trial browser helper is `apiUploadImage`, not the presign/commit pair.
 - `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI.
 - `GET /api/images/[imageId]/metadata` returns the image metadata bundle, membership role, edit capability, and computed completeness summary.
 - `PATCH /api/images/[imageId]/metadata` updates acquisition/sample metadata for editable project roles and rejects immutable image facts such as checksums or dimensions.
@@ -71,7 +73,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 ## MVP Limitations
 
-- Legacy presigned upload/view routes remain for compatibility, but the trial browser workflow should use app-mediated upload and read paths so MinIO can stay private.
+- Legacy presigned upload/view routes remain for compatibility, but the trial browser workflow and `src/lib` helper contract use app-mediated upload and read paths so MinIO can stay private.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - Only one default slice/support geometry per image is implemented.
 - Multi-slice and multi-object workflows remain deferred.

@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, customer-trial handoff gate, RB-073 trial deployment hygiene work, and RB-070 editor eraser UX.
+This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, customer-trial handoff gate, RB-073 trial deployment hygiene work, RB-070 editor eraser UX, and RB-074 client API cleanup.
 
 ## Current Gaps
 
@@ -29,6 +29,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RB-069 adds reproducible handoff archive creation, safe download filename headers, a dedicated customer-trial readiness summary, a copy-paste trial deployment runbook, a real iPad Safari gate checklist, and removes the unused legacy `src/server/storage.ts` helper.
 - RB-070 adds an explicit brush-sized Eraser tool for semantic and support-mask editing, with mode-specific background values and desktop E2E coverage.
 - RB-073 hardens Docker build-context exclusions, moves MinIO bucket init into a mounted one-shot script, avoids embedding MinIO credentials in the Compose init command, and documents remaining Compose secret-output limitations.
+- RB-074 removes stale browser-side presign/commit helpers from `src/lib`, keeps current helpers on app-mediated upload/read routes, strips private storage keys from browser-facing helper types, adds client helper contract tests, and documents presign/commit routes as compatibility endpoints.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
@@ -50,7 +51,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RB-072 hardens representative route-level API auth/error contracts while leaving broader compatibility-route cleanup incremental.
 - RB-079 fixes stale workspace session cookies so browser workspace routes redirect to login instead of throwing `UNAUTHORIZED`.
 - RB-073 hardens trial Docker build-context and Compose secret handling.
-- RB-074 will clean up stale client API wrappers and document compatibility presign policy.
+- RB-074 cleans up stale client API wrappers and documents compatibility presign policy.
 - RB-075 will resolve or explicitly document the remaining Prisma CLI audit/version policy.
 - RB-076 through RB-078 cover deployment dry run, real iPad Safari gate execution, and post-trial triage.
 

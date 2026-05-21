@@ -2,30 +2,39 @@
 
 ## Purpose
 
-`src/lib` contains browser-side API wrappers and shared client helpers.
+`src/lib` contains small browser-side API wrappers and shared client helpers.
 
-Current product code primarily uses app-mediated upload/read routes directly from feature components. The wrappers below are legacy compatibility helpers and are tracked for cleanup in RB-074.
+RB-074 aligns these helpers with the customer-trial storage contract: browser clients use app-mediated upload/read routes, while private object-store keys and presigned URL internals remain server-side details.
 
 ## Important Files
 
-- `src/lib/projectsClient.ts` - project/image list, project creation, image presign/commit, and image view URL helpers.
-- `src/lib/imagesApi.ts` - direct image view and mask latest/presign/commit helpers.
+- `src/lib/projectsClient.ts` - project/image list, project creation, app-mediated image upload, and image view URL helpers.
+- `src/lib/imagesApi.ts` - app-mediated image view, latest semantic/support mask metadata, and semantic/support mask upload helpers.
 
 ## Public Interfaces / Routes / Functions
 
-- `apiListProjects`, `apiCreateProject`, `apiListImages`, `apiGetImageViewUrl`, `apiPresignImageUpload`, `apiCommitImage`.
-- `fetchImageView`, `apiGetLatestMask`, `apiPresignMask`, `apiCommitMask`.
+- `apiListProjects`, `apiCreateProject`, `apiListImages`, `apiGetImageViewUrl`, `apiUploadImage`.
+- `fetchImageView`, `apiGetLatestMask`, `apiGetLatestSupportMask`, `apiUploadSemanticMask`, `apiUploadSupportMask`.
+
+Current helper route targets:
+
+- `apiUploadImage` posts the raw `File` body to `POST /api/projects/[projectId]/images/upload` with `content-type` and `x-filename` headers.
+- `apiUploadSemanticMask` posts raw `u8raw-v1` bytes to `POST /api/images/[imageId]/mask/upload` with `x-mask-width`, `x-mask-height`, and `x-mask-format` headers.
+- `apiUploadSupportMask` posts raw `u8raw-v1` bytes to `POST /api/images/[imageId]/support-mask/upload` with the same mask headers.
+- Latest-mask helpers return app-mediated asset URLs and opaque version IDs. They do not expose private object-store keys.
 
 ## Invariants And Constraints
 
 - Client wrappers may normalize fetch errors, but backend APIs remain the source of truth.
 - Do not duplicate authorization or domain validation only in client code.
+- Browser-facing `src/lib` types must not expose private storage details such as `storageKey`, bucket names, MinIO/S3 endpoints, or presigned upload internals.
+- Compatibility presign/commit API routes may remain under `src/app/api`, but they are not the supported `src/lib` browser contract.
 
 ## Known Gaps
 
-- Client API contracts are not covered by tests.
 - Error handling is simple and should become more structured as workflows mature.
-- Some helpers still reflect older presign/commit browser flows and fields such as direct storage keys. RB-074 will remove, replace, or explicitly document these wrappers and the compatibility presign route policy.
+- `src/lib` intentionally stays small. Feature-specific editors may still use local route builders where that keeps ownership clearer, but those route builders must follow the same app-mediated storage contract.
+- Presign/commit server routes remain compatibility endpoints and should be removed or feature-flagged only in a later explicit storage-compatibility slice.
 
 ## Related Tickets / Docs
 

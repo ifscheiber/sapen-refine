@@ -90,6 +90,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - In `Semantic mask` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
 - In `Slice support` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/support-mask/upload`.
 - In correction mode, manual save uploads raw `u8raw-v1` bytes through `/api/correction-tasks/[taskId]/corrections`.
+- Editor saves are app-mediated. The browser editor does not write to MinIO/S3 directly and does not require private storage keys or presigned upload URLs.
 - RB-055 validates mask byte length, declared width/height, image-pixel coordinate space, checksum hints, and storage object metadata before recording a version.
 - Support-mask saves additionally require binary support values: `0` or the active label schema's `slice_support` byte value. Copper semantic bytes are rejected as support geometry.
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
