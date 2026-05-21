@@ -6,6 +6,7 @@ import {
   predictionAnalysisExportErrorResponse,
   readPredictionAnalysisExportFileForUser,
 } from "@/server/domain/predictionAnalysisExports";
+import { attachmentContentDisposition } from "@/server/http/contentDisposition";
 
 function parseFile(value: string | null): "manifest" | "package" {
   return value === "manifest" ? "manifest" : "package";
@@ -29,7 +30,7 @@ export async function GET(
       status: 200,
       headers: {
         "content-type": file.contentType,
-        "content-disposition": `attachment; filename="${file.filename}"`,
+        "content-disposition": attachmentContentDisposition(file.filename, "sapen-prediction-analysis-export.bin"),
         "cache-control": "private, no-store",
       },
     });

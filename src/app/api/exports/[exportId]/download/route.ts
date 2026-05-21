@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/server/auth/rbac";
 import { toArrayBuffer } from "@/server/bytes";
 import { exportErrorResponse, readTrainingExportFileForUser } from "@/server/domain/exports";
+import { attachmentContentDisposition } from "@/server/http/contentDisposition";
 
 function parseFile(value: string | null): "manifest" | "package" {
   return value === "manifest" ? "manifest" : "package";
@@ -26,7 +27,7 @@ export async function GET(
       status: 200,
       headers: {
         "content-type": file.contentType,
-        "content-disposition": `attachment; filename="${file.filename}"`,
+        "content-disposition": attachmentContentDisposition(file.filename, "sapen-export.bin"),
         "cache-control": "private, no-store",
       },
     });

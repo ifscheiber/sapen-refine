@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/server/auth/rbac";
 import { toArrayBuffer } from "@/server/bytes";
 import { prisma } from "@/server/db";
+import { inlineContentDisposition } from "@/server/http/contentDisposition";
 import { getObjectBytes } from "@/server/storage/s3";
 
 export async function GET(
@@ -36,7 +37,7 @@ export async function GET(
     "cache-control": "private, no-store",
   });
   if (image.filename) {
-    headers.set("content-disposition", `inline; filename="${image.filename}"`);
+    headers.set("content-disposition", inlineContentDisposition(image.filename, `image-${image.id}`));
   }
 
   return new Response(toArrayBuffer(bytes), {
