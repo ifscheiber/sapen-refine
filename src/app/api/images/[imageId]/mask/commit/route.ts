@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
+import { canAnnotate } from "@/server/auth/policies";
 import { requireUser } from "@/server/auth/rbac";
 import { AnnotationArtifactKind } from "@prisma/client";
 import { recordAuditEvent } from "@/server/domain/audit";
@@ -49,7 +50,7 @@ export async function POST(
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
-  if (!membership || membership.role === "VIEWER") {
+  if (!membership || !canAnnotate(membership.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   if (!key.startsWith(`projects/${image.projectId}/masks/${imageId}/`)) {

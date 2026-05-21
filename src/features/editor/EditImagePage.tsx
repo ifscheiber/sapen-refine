@@ -1,5 +1,6 @@
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
+import { canAnnotate, PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import EditorClient from "./EditorClient";
@@ -11,7 +12,7 @@ export async function EditImagePage({
   projectId: string;
   imageId: string;
 }) {
-  const { membership } = await requireProjectRole(projectId, ["OWNER", "QA", "LABELER", "VIEWER"]);
+  const { membership } = await requireProjectRole(projectId, PROJECT_READ_ROLES);
 
   const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
@@ -28,7 +29,7 @@ export async function EditImagePage({
         title={`Edit: ${image.filename ?? image.id}`}
         description={`${image.contentType ?? "unknown type"} · ${image.size ?? 0} bytes · Role: ${membership.role}`}
       />
-      <EditorClient projectId={projectId} imageId={image.id} canEdit={membership.role !== "VIEWER"} />
+      <EditorClient projectId={projectId} imageId={image.id} canEdit={canAnnotate(membership.role)} />
     </AppMain>
   );
 }

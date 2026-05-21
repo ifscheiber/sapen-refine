@@ -10,7 +10,9 @@ import {
   type AnnotationProjectRole,
 } from "@prisma/client";
 
+import * as policies from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 
 type ProvenanceDb = PrismaClient | Prisma.TransactionClient;
 
@@ -18,7 +20,6 @@ const MODEL_TASK_TYPES = new Set<ModelTaskType>(Object.values(ModelTaskType));
 const PREDICTION_RUN_STATUSES = new Set<PredictionRunStatus>(Object.values(PredictionRunStatus));
 const PREDICTION_TARGET_TYPES = new Set<PredictionTargetType>(Object.values(PredictionTargetType));
 const SLICE_CLASSES = new Set<SliceClass>(Object.values(SliceClass));
-const PREDICTION_RUN_CREATE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
 
 export class PredictionProvenanceError extends Error {
   constructor(
@@ -98,16 +99,14 @@ function parseSliceClass(value: unknown) {
   return value as SliceClass;
 }
 
-async function hasGlobalRole(db: ProvenanceDb, userId: string, roleName: "ADMIN" | "USER") {
-  const role = await db.userGlobalRole.findFirst({
-    where: { userId, role: { name: roleName } },
-    select: { userId: true },
-  });
-  return Boolean(role);
-}
-
 async function requireAdmin(db: ProvenanceDb, userId: string) {
-  if (!(await hasGlobalRole(db, userId, "ADMIN"))) throw new PredictionProvenanceError("FORBIDDEN");
+  const globalRoles = await db.userGlobalRole.findMany({
+    where: { userId },
+    select: { role: { select: { name: true } } },
+  });
+  if (!policies.canCreateModelRun(globalRoles.map((entry) => entry.role.name))) {
+    throw new PredictionProvenanceError("FORBIDDEN");
+  }
 }
 
 async function getProjectMembership(db: ProvenanceDb, projectId: string, userId: string) {
@@ -120,7 +119,7 @@ async function getProjectMembership(db: ProvenanceDb, projectId: string, userId:
 }
 
 function canCreatePredictionRun(role: AnnotationProjectRole) {
-  return PREDICTION_RUN_CREATE_ROLES.has(role);
+  return policies.canCreatePredictionRun(role);
 }
 
 export function parseCreateModelRunInput(input: unknown): Prisma.ModelRunCreateInput {
@@ -290,6 +289,18 @@ export async function createModelRunForUser(params: {
     },
     select: MODEL_RUN_SELECT,
   });
+  await recordAuditEvent({
+    action: "MODEL_RUN_CREATED",
+    entity: "ModelRun",
+    entityId: modelRun.id,
+    actorId: params.userId,
+    details: {
+      modelFamily: modelRun.modelFamily,
+      modelName: modelRun.modelName,
+      modelVersion: modelRun.modelVersion,
+      taskType: modelRun.taskType,
+    },
+  }, db);
   return modelRun;
 }
 
@@ -328,7 +339,7 @@ export async function createPredictionRunForUser(params: {
   }
 
   try {
-    return await db.predictionRun.create({
+    const predictionRun = await db.predictionRun.create({
       data: {
         modelRun: { connect: { id: input.modelRunId } },
         project: { connect: { id: params.projectId } },
@@ -352,6 +363,20 @@ export async function createPredictionRunForUser(params: {
       },
       select: PREDICTION_RUN_SELECT,
     });
+    await recordAuditEvent({
+      action: "PREDICTION_RUN_CREATED",
+      entity: "PredictionRun",
+      entityId: predictionRun.id,
+      actorId: params.userId,
+      details: {
+        projectId: params.projectId,
+        modelRunId: input.modelRunId,
+        sourceExportBatchId: input.sourceExportBatchId,
+        inferenceRunId: predictionRun.inferenceRunId,
+        status: predictionRun.status,
+      },
+    }, db);
+    return predictionRun;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       throw new PredictionProvenanceError("DUPLICATE_INFERENCE_RUN");

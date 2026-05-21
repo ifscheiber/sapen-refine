@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
+import { PROJECT_ANNOTATE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { presignPutObject } from "@/server/storage/s3";
 import { assertSupportedImageContentType, integrityErrorPayload } from "@/server/uploads/integrity";
@@ -12,7 +13,7 @@ export async function POST(
 ) {
   const { projectId } = await ctx.params; // <— wichtig
 
-  await requireProjectRole(projectId, ["OWNER", "QA", "LABELER"]);
+  await requireProjectRole(projectId, PROJECT_ANNOTATE_ROLES);
 
   const body = await req.json().catch(() => null);
   let contentType;

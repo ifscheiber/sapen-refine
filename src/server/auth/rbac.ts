@@ -8,7 +8,10 @@ export async function requireUser() {
   return user;
 }
 
-export async function requireProjectRole(projectId: string, allowed: AnnotationProjectRole[]) {
+export async function requireProjectRole(
+  projectId: string,
+  allowed: readonly AnnotationProjectRole[],
+) {
   if (!projectId) throw new Error("PROJECT_ID_MISSING");
 
   const user = await requireUser();

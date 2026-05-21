@@ -8,7 +8,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 
 ## Current Persisted Model
 
-- `User`, `Role`, `UserGlobalRole`, and `Session` support local authentication and global roles.
+- `User`, `Role`, `UserGlobalRole`, `Session`, and `AuthLoginThrottle` support local authentication, global roles, session persistence, and hashed login failure buckets.
 - `AnnotationProject` and `AnnotationProjectMember` are the standalone annotation project and membership boundary.
 - `LabelSchemaVersion` and `LabelDefinition` persist stable machine-readable label ids, semantic meanings, UI metadata, and task applicability.
 - `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` persist immutable image references plus the RB-050 image-level metadata workflow.
@@ -19,7 +19,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `ExportBatch` and `ExportItem` persist RB-053 training export batches and RB-060 prediction-analysis export batches, manifest/package metadata, warnings, actor attribution, and exact exported version/provenance references.
 - `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` persist RB-056 model/checkpoint/training provenance, project-scoped inference runs, and per-image prediction proposal metadata.
 - `PredictionImportBatchJob` and `PredictionImportBatchItem` persist RB-061 batch prediction import source, status/counts, item retry/error state, and created prediction artifact/provenance links.
-- `AuditLog` records explicit RB-055 audit events for upload acceptance/rejection, mask commits/validation failures, export creation, and export downloads. It is not yet a complete audit trail for every mutation route.
+- `AuditLog` records explicit audit events for upload acceptance/rejection, mask commits/validation failures, login success/failure/lockout, project/image metadata changes, slice classifications, review decisions, export creation/download, prediction provenance/import, correction tasks, assisted corrections, and batch import processing. It is append-only but no admin audit UI exists yet.
 
 ## Current Compatibility Behavior
 
@@ -37,6 +37,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - correction-task routes create/read/update `MODEL_PREDICTION_CORRECTION` `AnnotationTask` rows linked to prediction provenance,
 - prediction batch routes create/read/process/retry `PredictionImportBatchJob` and `PredictionImportBatchItem` rows, with processing delegated to the RB-057 import service,
 - prediction-analysis export routes create/read/download `ExportBatch.target = PREDICTION_ANALYSIS` packages with `ExportItem.predictionProvenanceId` references,
+- login throttling writes hashed failure buckets to `AuthLoginThrottle` and never stores raw email/IP values in that table,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.
@@ -71,6 +72,7 @@ The default label schema includes stable ids for `background`, `unknown`, `sapwo
 - RB-053 implements synchronous owner-only training export generation for trial-sized datasets; advanced filters, export history UI, and job queues remain deferred.
 - RB-054 documents the model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import; RB-058 implements the first active-learning correction task queue; RB-059 implements assisted correction; RB-060 implements separate prediction-analysis exports; RB-061 implements ZIP-based batch prediction import jobs. Always-on worker orchestration and staging cleanup remain deferred.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
+- RB-064 adds central role-policy helpers, DB-backed login throttling, same-origin mutation guards, throttled session `lastSeenAt` updates, and broader auth/project/review/provenance audit coverage.
 
 ## Related Docs
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
+import { canAnnotate } from "@/server/auth/policies";
 import { requireUser } from "@/server/auth/rbac";
 import { presignPutObject } from "@/server/storage/s3";
 import { randomUUID } from "crypto";
@@ -24,12 +25,11 @@ export async function POST(req: Request, props: { params: Promise<{ imageId: str
   });
   if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
 
-  // optional: membership check (recommended)
   const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
-  if (!membership || membership.role === "VIEWER") {
+  if (!membership || !canAnnotate(membership.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

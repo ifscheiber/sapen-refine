@@ -159,3 +159,18 @@ npm run dev
 ```
 
 The current development reset path is `npm run db:rebuild`; this destructive smoke path is optional and intentionally separate from the root green baseline.
+
+## RB-064 Auth/RBAC/Audit Hardening Baseline
+
+- `git status --short` before editing: one untracked optimized ticket file, `tickets/2026-05-20/RB-064-auth-rbac-audit-hardening-optimized.md`.
+- `npm run test -- tests/unit/proxy-public-paths.test.ts tests/unit/runtime-config.test.ts tests/unit/review-domain.test.ts`: passed, 3 files and 12 tests.
+- `npx prisma generate`: passed after adding `AuthLoginThrottle`.
+- `npx prisma migrate deploy`: passed and applied `20260521072000_auth_rbac_audit_hardening`.
+- `npm run test -- tests/unit/auth-hardening.test.ts tests/unit/runtime-config.test.ts tests/unit/proxy-public-paths.test.ts tests/unit/review-domain.test.ts`: passed, 4 files and 21 tests.
+- `npm run test -- tests/integration/auth-hardening.test.ts tests/integration/metadata-workflow.test.ts tests/integration/review-workflow.test.ts tests/integration/prediction-provenance.test.ts`: passed, 4 files and 14 tests.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run test`: passed, 22 files and 97 tests.
+- `npm run build`: passed on Next.js 16.2.6.
+- `npm run check:design-hardcoding`: passed.
+- `npm run test:e2e`: passed, 2 Playwright tests.

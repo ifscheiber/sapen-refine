@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { AnnotationArtifactKind } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+import { canAnnotate } from "@/server/auth/policies";
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
@@ -62,7 +63,7 @@ export async function POST(
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
-  if (!membership || membership.role === "VIEWER") {
+  if (!membership || !canAnnotate(membership.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

@@ -10,6 +10,7 @@ import {
   PrismaClient,
 } from "@prisma/client";
 
+import { canExportTraining } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getObjectBytes, putObject } from "@/server/storage/s3";
@@ -159,7 +160,7 @@ export function parseExportTargets(value: unknown): ApiExportTarget[] {
 }
 
 function canExport(role: AnnotationProjectRole) {
-  return role === "OWNER";
+  return canExportTraining(role);
 }
 
 function sha256(bytes: Uint8Array | string) {

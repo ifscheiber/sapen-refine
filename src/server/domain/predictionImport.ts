@@ -6,9 +6,9 @@ import {
   PredictionTargetType,
   Prisma,
   PrismaClient,
-  type AnnotationProjectRole,
 } from "@prisma/client";
 
+import { canImportPrediction } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
@@ -26,7 +26,6 @@ import { validateUploadSize } from "@/server/uploads/validation";
 
 type PredictionImportDb = PrismaClient;
 
-const IMPORT_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
 const MASK_TARGET_TYPES = new Set<PredictionTargetType>([
   PredictionTargetType.SEMANTIC_MASK,
   PredictionTargetType.SLICE_SUPPORT_MASK,
@@ -197,7 +196,7 @@ export async function importPredictionMaskForUser(
     where: { projectId_userId: { projectId: predictionRun.projectId, userId: input.userId } },
     select: { role: true },
   });
-  if (!membership || !IMPORT_ROLES.has(membership.role)) {
+  if (!membership || !canImportPrediction(membership.role)) {
     throw new PredictionImportError("PREDICTION_IMPORT_FORBIDDEN", 403);
   }
 

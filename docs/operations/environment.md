@@ -12,6 +12,7 @@ This page documents environment variables required by the current app and local 
 - `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT` - Docker Compose MinIO settings.
 - `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_FORCE_PATH_STYLE` - S3/MinIO settings used by `src/server/storage/s3.ts`.
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES` - app-side upload size caps used by image and mask upload routes. RB-055 image content types are fixed in code to PNG/JPEG.
+- `SHOW_DEMO_CREDENTIALS`, `LOGIN_RATE_LIMIT_MAX_FAILURES`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS`, `LOGIN_RATE_LIMIT_LOCK_SECONDS`, `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - RB-064 auth/session hardening settings.
 
 Local defaults in `.env.example` use project-specific ports:
 
@@ -27,6 +28,8 @@ These avoid accidentally connecting to older SaPen Refine/Core services on stand
 - `docker-compose.yml`
 - `src/server/storage/s3.ts`
 - `src/server/runtime/config.ts`
+- `src/server/auth/loginThrottle.ts`
+- `src/server/auth/sessionActivity.ts`
 - `src/server/uploads/validation.ts`
 - `src/server/uploads/integrity.ts`
 - `src/server/db.ts`

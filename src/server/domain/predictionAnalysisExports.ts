@@ -12,6 +12,7 @@ import {
   type AnnotationProjectRole,
 } from "@prisma/client";
 
+import { canExportPredictionAnalysis } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getObjectBytes, putObject } from "@/server/storage/s3";
@@ -20,7 +21,6 @@ import { normalizeChecksum } from "@/server/uploads/integrity";
 type PredictionAnalysisDb = PrismaClient | Prisma.TransactionClient;
 
 const MANIFEST_VERSION = "sapen-annotate-prediction-analysis-export-v1";
-const EXPORT_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
 const DEFAULT_TARGET_TYPES: PredictionTargetType[] = [
   PredictionTargetType.SEMANTIC_MASK,
   PredictionTargetType.SLICE_SUPPORT_MASK,
@@ -276,7 +276,7 @@ export function parsePredictionAnalysisSelection(input: unknown): PredictionAnal
 }
 
 function canExport(role: AnnotationProjectRole) {
-  return EXPORT_ROLES.has(role);
+  return canExportPredictionAnalysis(role);
 }
 
 function sha256(bytes: Uint8Array | string) {

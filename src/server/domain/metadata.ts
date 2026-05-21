@@ -1,4 +1,6 @@
+import { canEditMetadata } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 
 type MetadataDb = typeof prisma;
 
@@ -314,7 +316,7 @@ export async function loadImageMetadataBundle(imageId: string, userId: string, d
     image,
     project: image.project,
     myRole: membership.role,
-    canEditMetadata: membership.role !== "VIEWER",
+    canEditMetadata: canEditMetadata(membership.role),
     completeness: computeMetadataCompleteness(image),
   };
 }
@@ -334,7 +336,7 @@ export async function updateImageMetadataForUser(params: {
     where: { projectId_userId: { projectId: image.projectId, userId: params.userId } },
     select: { role: true },
   });
-  if (!membership || membership.role === "VIEWER") {
+  if (!membership || !canEditMetadata(membership.role)) {
     throw new MetadataValidationError("FORBIDDEN");
   }
 
@@ -355,6 +357,20 @@ export async function updateImageMetadataForUser(params: {
       create: { imageId: image.id, ...parsed.sample },
     });
   }
+
+  await recordAuditEvent({
+    action: "IMAGE_METADATA_UPDATED",
+    entity: "ImageAsset",
+    entityId: image.id,
+    actorId: params.userId,
+    details: {
+      projectId: image.projectId,
+      sections: {
+        acquisition: Boolean(parsed.acquisition),
+        sample: Boolean(parsed.sample),
+      },
+    },
+  }, db);
 
   return loadImageMetadataBundle(image.id, params.userId, db);
 }

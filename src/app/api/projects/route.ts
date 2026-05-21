@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { requireUser } from "@/server/auth/rbac"; // Pfad ggf. anpassen
+import { requireUser } from "@/server/auth/rbac";
+import { recordAuditEvent } from "@/server/domain/audit";
 import { AnnotationProjectRole } from "@prisma/client";
 
 export async function GET() {
@@ -61,6 +62,14 @@ export async function POST(req: Request) {
       },
     },
     select: { id: true, name: true, createdAt: true, updatedAt: true },
+  });
+
+  await recordAuditEvent({
+    action: "PROJECT_CREATED",
+    entity: "AnnotationProject",
+    entityId: project.id,
+    actorId: user.id,
+    details: { name: project.name },
   });
 
   return NextResponse.json({ ok: true, project });

@@ -11,6 +11,7 @@
 - `prisma/migrations/20260520134931_prediction_provenance_registry/migration.sql` - RB-056 prediction provenance registry migration.
 - `prisma/migrations/20260520204932_prediction_import_batches/migration.sql` - RB-061 prediction import batch/job/item migration.
 - `prisma/migrations/20260520213000_prediction_analysis_exports/migration.sql` - RB-060 prediction-analysis export target and provenance item references.
+- `prisma/migrations/20260521072000_auth_rbac_audit_hardening/migration.sql` - RB-064 login throttle persistence migration.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `prisma.config.ts` - Prisma config and environment loading.
 
@@ -26,10 +27,11 @@
 - Raw images and mask versions must remain attributable and integrity-checked before database commit where practical.
 - Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, and exact version references.
 - Model predictions remain provenance/proposal records until a human creates and approves separate ground-truth artifact or classification versions.
+- `AuthLoginThrottle` stores hashed login failure buckets only; it must not store raw email or IP values.
 
 ## Known Gaps
 
-- Project/image metadata, default slice support/classification, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export, and ZIP batch prediction import workflows exist for the MVP path.
+- Project/image metadata, default slice support/classification, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export, ZIP batch prediction import, and auth/RBAC/audit hardening workflows exist for the MVP path.
 - Slice-specific metadata, multi-slice editing, advanced export policy/history, metrics dashboards, always-on batch workers, staging cleanup, and slice-classification batch prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 

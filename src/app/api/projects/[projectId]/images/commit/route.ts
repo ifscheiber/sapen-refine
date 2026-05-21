@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { PROJECT_ANNOTATE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { prisma } from "@/server/db";
@@ -17,7 +18,7 @@ export async function POST(
 ) {
   const { projectId } = await ctx.params;
 
-  const { user } = await requireProjectRole(projectId, ["OWNER", "QA", "LABELER"]);
+  const { user } = await requireProjectRole(projectId, PROJECT_ANNOTATE_ROLES);
 
   const body = await req.json().catch(() => null);
 

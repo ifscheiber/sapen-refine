@@ -4,19 +4,18 @@ import {
   PredictionTargetType,
   Prisma,
   PrismaClient,
-  type AnnotationProjectRole,
 } from "@prisma/client";
 
+import {
+  canManageCorrectionTasks,
+  canReadProject,
+  canWorkOnCorrectionTask,
+} from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 
 type CorrectionTaskDb = PrismaClient;
 
-const CREATE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
-const MANAGE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
-const ASSIGNABLE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA", "LABELER"]);
-const READ_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA", "LABELER", "VIEWER"]);
-const MUTATE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA", "LABELER"]);
 const ACTIVE_STATUSES = new Set<AnnotationTaskStatus>([
   AnnotationTaskStatus.OPEN,
   AnnotationTaskStatus.IN_PROGRESS,
@@ -179,7 +178,7 @@ async function getProjectMembership(db: CorrectionTaskDb, projectId: string, use
     where: { projectId_userId: { projectId, userId } },
     select: { role: true },
   });
-  if (!membership || !READ_ROLES.has(membership.role)) {
+  if (!membership || !canReadProject(membership.role)) {
     throw new CorrectionTaskError("FORBIDDEN", 403);
   }
   return membership;
@@ -190,7 +189,7 @@ async function requireAssignableMember(db: CorrectionTaskDb, projectId: string, 
     where: { projectId_userId: { projectId, userId } },
     select: { role: true },
   });
-  if (!membership || !ASSIGNABLE_ROLES.has(membership.role)) {
+  if (!membership || !canWorkOnCorrectionTask(membership.role)) {
     throw new CorrectionTaskError("ASSIGNEE_NOT_PROJECT_MEMBER");
   }
 }
@@ -312,7 +311,7 @@ export async function createCorrectionTasksForPredictionRunForUser(params: {
   if (!predictionRun) throw new CorrectionTaskError("PREDICTION_RUN_NOT_FOUND", 404);
 
   const membership = await getProjectMembership(db, predictionRun.projectId, params.userId);
-  if (!CREATE_ROLES.has(membership.role)) throw new CorrectionTaskError("FORBIDDEN", 403);
+  if (!canManageCorrectionTasks(membership.role)) throw new CorrectionTaskError("FORBIDDEN", 403);
   if (input.assigneeId) {
     await requireAssignableMember(db, predictionRun.projectId, input.assigneeId);
   }
@@ -474,10 +473,10 @@ export async function updateCorrectionTaskForUser(params: {
   }
 
   const membership = await getProjectMembership(db, task.projectId, params.userId);
-  if (!MUTATE_ROLES.has(membership.role)) throw new CorrectionTaskError("FORBIDDEN", 403);
+  if (!canWorkOnCorrectionTask(membership.role)) throw new CorrectionTaskError("FORBIDDEN", 403);
   assertActiveTask(task);
 
-  const canManage = MANAGE_ROLES.has(membership.role);
+  const canManage = canManageCorrectionTasks(membership.role);
   const data: Prisma.AnnotationTaskUpdateInput = {};
 
   if (input.action === "assign_to_me") {

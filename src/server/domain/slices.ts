@@ -5,7 +5,9 @@ import {
   type AnnotationProjectRole,
 } from "@prisma/client";
 
+import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 import { isSupportMaskArtifactKind } from "./artifacts";
 
 type SliceDb = typeof prisma;
@@ -24,7 +26,7 @@ export class SliceWorkflowError extends Error {
 }
 
 function canEdit(role: AnnotationProjectRole) {
-  return role !== "VIEWER";
+  return canAnnotate(role);
 }
 
 function isSliceClass(value: unknown): value is SliceClass {
@@ -356,7 +358,7 @@ export async function setSliceClassificationForUser(params: {
     select: { version: true },
   });
 
-  await db.sliceClassificationVersion.create({
+  const classification = await db.sliceClassificationVersion.create({
     data: {
       projectId: image.projectId,
       imageId: image.id,
@@ -366,7 +368,22 @@ export async function setSliceClassificationForUser(params: {
       labelSchemaVersionId,
       createdById: params.userId,
     },
+    select: { id: true, version: true, class: true },
   });
+
+  await recordAuditEvent({
+    action: "SLICE_CLASSIFICATION_COMMITTED",
+    entity: "SliceClassificationVersion",
+    entityId: classification.id,
+    actorId: params.userId,
+    details: {
+      projectId: image.projectId,
+      imageId: image.id,
+      sliceInstanceId: sliceInstance.id,
+      version: classification.version,
+      class: classification.class,
+    },
+  }, db);
 
   return loadSliceStateForUser({ imageId: image.id, userId: params.userId }, db);
 }

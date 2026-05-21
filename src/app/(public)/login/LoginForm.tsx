@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-export function LoginForm() {
+export function LoginForm({ showDemoCredentials }: { showDemoCredentials: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -23,7 +23,7 @@ export function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, next: nextUrl }),
       });
 
       const data = await res.json().catch(() => null);
@@ -34,7 +34,7 @@ export function LoginForm() {
         return;
       }
 
-      router.replace(nextUrl);
+      router.replace(typeof data?.redirectTo === "string" ? data.redirectTo : "/app");
       router.refresh();
     } catch {
       setError("Network error");
@@ -87,9 +87,11 @@ export function LoginForm() {
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
 
-          <p className="text-xs opacity-60">
-            Demo: admin@sapen.local / admin1234
-          </p>
+          {showDemoCredentials && (
+            <p className="text-xs opacity-60">
+              Demo: admin@sapen.local / admin1234
+            </p>
+          )}
         </form>
       </div>
     </main>

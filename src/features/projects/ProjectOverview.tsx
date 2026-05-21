@@ -13,6 +13,7 @@ import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
 import { requireUser } from "@/server/auth/rbac";
+import { canManageProject } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { resolveProjectExportReadiness } from "@/server/domain/exports";
 import { ProjectMetadataForm } from "./ProjectMetadataForm";
@@ -77,7 +78,7 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
   if (!project || project.members.length === 0) return notFound();
 
   const role = project.members[0].role;
-  const canEdit = role === "OWNER" || role === "QA";
+  const canEdit = canManageProject(role);
   const [
     exportReadiness,
     activeTaskCount,

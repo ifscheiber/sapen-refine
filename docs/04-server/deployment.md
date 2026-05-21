@@ -22,6 +22,7 @@ Required public values:
 ```text
 TRIAL_HOSTNAME=annotate.example.com
 APP_BASE_URL=https://annotate.example.com
+SHOW_DEMO_CREDENTIALS=false
 ```
 
 ## Build And Start
@@ -59,6 +60,8 @@ curl -fsS https://annotate.example.com/api/ready
 
 Do not expose shared demo credentials for customer-facing access unless that risk is explicitly accepted. Use named accounts per tester so image uploads, mask versions, and future annotation history remain attributable.
 
+RB-064 hides shared seed credentials in production/trial unless `SHOW_DEMO_CREDENTIALS=true`. Keep that value `false` for customer-facing trials and create named tester accounts instead.
+
 Create the first named tester:
 
 ```bash
@@ -78,6 +81,19 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ex
 ```
 
 Do not delete users to disable access unless you intentionally accept losing direct user-row attribution for historical rows that use `onDelete: SetNull`.
+
+## Login And Mutation Guard
+
+Default trial auth hardening values are in `deploy/trial.env.example`:
+
+```text
+LOGIN_RATE_LIMIT_MAX_FAILURES=5
+LOGIN_RATE_LIMIT_WINDOW_SECONDS=900
+LOGIN_RATE_LIMIT_LOCK_SECONDS=900
+SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS=900
+```
+
+Login failures are persisted as hashed email/IP buckets in PostgreSQL and return `AUTH_RATE_LIMITED` while locked. Unsafe cross-site browser mutations are rejected before route handlers run; API calls from the app UI and documented server-side scripts continue to work.
 
 ## Upload Limits
 

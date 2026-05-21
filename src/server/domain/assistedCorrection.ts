@@ -10,6 +10,10 @@ import {
   type AnnotationProjectRole,
 } from "@prisma/client";
 
+import {
+  canManageCorrectionTasks,
+  canWorkOnCorrectionTask,
+} from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getObjectBytes, putObject, verifyStoredObject, deleteObjectBestEffort } from "@/server/storage/s3";
@@ -23,8 +27,6 @@ import { validateUploadSize } from "@/server/uploads/validation";
 
 type AssistedCorrectionDb = PrismaClient;
 
-const WORK_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA", "LABELER"]);
-const MANAGE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
 const SUPPORTED_TARGETS = new Set<PredictionTargetType>([
   PredictionTargetType.SEMANTIC_MASK,
   PredictionTargetType.SLICE_SUPPORT_MASK,
@@ -123,7 +125,7 @@ export class AssistedCorrectionError extends Error {
 }
 
 function isManageRole(role: AnnotationProjectRole) {
-  return MANAGE_ROLES.has(role);
+  return canManageCorrectionTasks(role);
 }
 
 function artifactKindForTarget(targetType: PredictionTargetType) {
@@ -143,7 +145,7 @@ async function getMembership(db: AssistedCorrectionDb, projectId: string, userId
     where: { projectId_userId: { projectId, userId } },
     select: { role: true },
   });
-  if (!membership || !WORK_ROLES.has(membership.role)) {
+  if (!membership || !canWorkOnCorrectionTask(membership.role)) {
     throw new AssistedCorrectionError("FORBIDDEN", 403);
   }
   return membership;

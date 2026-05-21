@@ -384,17 +384,17 @@ Priority: Resolved by RB-063.
 
 ## RB-064 - Auth, RBAC, And Audit Hardening
 
-Context: RBAC is functional but scattered, the login page still exposes seed credentials in development shape, and audit coverage is useful but incomplete.
+Context: Before RB-064, RBAC was functional but scattered, the login page exposed seed credentials in development shape, and audit coverage was useful but incomplete.
 
 Impact: Customer-facing trials need clearer permission policy, safer login behavior, attribution consistency, and reduced policy drift.
 
-Proposed next step: Add a centralized permission/policy layer, hide shared demo credentials outside explicit dev acceptance, sanitize login redirects, add login/write protection, throttle session last-seen writes, remove token-bearing debug logs, and expand audit coverage.
+Resolution: RB-064 adds central server/domain permission helpers, hides shared demo credentials outside dev/explicit opt-in, sanitizes login redirects, persists hashed login throttling, adds same-origin mutation protection, throttles session last-seen writes, removes token-bearing session logs, and expands auth/project/metadata/review/provenance audit coverage.
 
 Affected modules: `src/server/auth`, `src/server/domain/*`, `src/app/api/**`, `src/app/(public)/login`, tests, and auth/security docs.
 
 Owner: Unassigned.
 
-Priority: P1.
+Priority: Resolved by RB-064.
 
 ## RB-065 - Batch Job Runner Hardening
 

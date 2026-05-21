@@ -796,6 +796,21 @@ model AuditLog {
   @@index([actorId, createdAt])
 }
 
+model AuthLoginThrottle {
+  id              String    @id @default(cuid())
+  scope           String
+  identifierHash  String
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  lastFailedAt    DateTime?
+  lockedUntil     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([scope, identifierHash])
+  @@index([lockedUntil])
+}
+
 model Session {
   id        String @id @default(cuid())
   userId    String

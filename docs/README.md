@@ -23,6 +23,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - App routes/API: [02-app/routes.md](02-app/routes.md)
 - Features: [03-features/README.md](03-features/README.md)
 - Server: [04-server/db.md](04-server/db.md)
+- Auth/RBAC/audit hardening: [04-server/auth-rbac-audit.md](04-server/auth-rbac-audit.md)
 - Runtime config: [04-server/runtime-config.md](04-server/runtime-config.md)
 - Customer trial deployment: [04-server/deployment.md](04-server/deployment.md)
 - Trial backup/restore: [04-server/backup-restore.md](04-server/backup-restore.md)

@@ -119,7 +119,12 @@ async function main() {
         action: "TRIAL_USER_UPSERT",
         entity: "User",
         entityId: user.id,
-        details: { email: user.email, projectId: projectId ?? null, projectRole },
+        details: {
+          actorKind: "TRIAL_USER_CLI",
+          email: user.email,
+          projectId: projectId ?? null,
+          projectRole,
+        },
       },
     });
 

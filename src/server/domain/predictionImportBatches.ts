@@ -11,6 +11,7 @@ import {
   type AnnotationProjectRole,
 } from "@prisma/client";
 
+import { canImportPrediction, canProcessPredictionBatch } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
@@ -26,8 +27,6 @@ type BatchDb = PrismaClient;
 
 export const PREDICTION_BATCH_MANIFEST_VERSION = "sapen-annotate-prediction-batch-import-v1";
 
-const MANAGE_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
-const READ_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
 const SUPPORTED_TARGET_TYPES = new Set<PredictionTargetType>([
   PredictionTargetType.SEMANTIC_MASK,
   PredictionTargetType.SLICE_SUPPORT_MASK,
@@ -335,13 +334,17 @@ function serializeItem(item: SelectedItem) {
 
 async function requireBatchMembership(
   db: BatchDb,
-  params: { projectId: string; userId: string; roles: Set<AnnotationProjectRole> },
+  params: {
+    projectId: string;
+    userId: string;
+    canAccess: (role: AnnotationProjectRole) => boolean;
+  },
 ) {
   const membership = await db.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: params.projectId, userId: params.userId } },
     select: { role: true },
   });
-  if (!membership || !params.roles.has(membership.role)) {
+  if (!membership || !params.canAccess(membership.role)) {
     throw new PredictionImportBatchError("FORBIDDEN", 403);
   }
   return membership;
@@ -532,7 +535,7 @@ export async function createPredictionImportBatchFromZipForUser(params: {
   await requireBatchMembership(db, {
     projectId: predictionRun.projectId,
     userId: params.userId,
-    roles: MANAGE_ROLES,
+    canAccess: canProcessPredictionBatch,
   });
 
   let parsed;
@@ -631,7 +634,7 @@ export async function listProjectPredictionImportBatchesForUser(params: {
   await requireBatchMembership(db, {
     projectId: params.projectId,
     userId: params.userId,
-    roles: READ_ROLES,
+    canAccess: canImportPrediction,
   });
   const limit = Math.min(parseLimit(params.limit), 50);
   const batches = await db.predictionImportBatchJob.findMany({
@@ -651,7 +654,7 @@ export async function getPredictionImportBatchForUser(params: {
   await requireBatchMembership(db, {
     projectId: batch.projectId,
     userId: params.userId,
-    roles: READ_ROLES,
+    canAccess: canImportPrediction,
   });
   return batch;
 }
@@ -664,7 +667,7 @@ export async function listPredictionImportBatchItemsForUser(params: {
   await requireBatchMembership(db, {
     projectId: batch.projectId,
     userId: params.userId,
-    roles: READ_ROLES,
+    canAccess: canImportPrediction,
   });
   const items = await db.predictionImportBatchItem.findMany({
     where: { batchJobId: params.batchId },
@@ -809,7 +812,7 @@ export async function processPredictionImportBatchForUser(params: {
   await requireBatchMembership(db, {
     projectId: batch.projectId,
     userId: params.userId,
-    roles: MANAGE_ROLES,
+    canAccess: canProcessPredictionBatch,
   });
   if (batch.status === PredictionImportBatchStatus.CANCELLED) {
     throw new PredictionImportBatchError("BATCH_CANCELLED", 409);
@@ -876,7 +879,7 @@ export async function retryPredictionImportBatchForUser(params: {
   await requireBatchMembership(db, {
     projectId: batch.projectId,
     userId: params.userId,
-    roles: MANAGE_ROLES,
+    canAccess: canProcessPredictionBatch,
   });
   const itemIds = parseRetryItemIds(params.input);
   const result = await db.predictionImportBatchItem.updateMany({

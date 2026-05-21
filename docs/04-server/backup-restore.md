@@ -4,7 +4,7 @@
 
 The customer trial is a single-host deployment without HA. Backups are the compensation for local PostgreSQL and MinIO volumes.
 
-PostgreSQL contains users, sessions, projects, image metadata, review decisions, `ExportBatch` rows, `ExportItem` exact-version references, RB-061 prediction import batch/job/item rows, and RB-055 `AuditLog` rows for upload, artifact, import, and export actions. MinIO contains raw images, mask artifacts, RB-061 staged prediction batch source objects, and export manifest/ZIP objects.
+PostgreSQL contains users, sessions, RB-064 login throttle buckets, projects, image metadata, review decisions, `ExportBatch` rows, `ExportItem` exact-version references, RB-061 prediction import batch/job/item rows, and `AuditLog` rows for upload, artifact, auth, review, import, and export actions. MinIO contains raw images, mask artifacts, RB-061 staged prediction batch source objects, and export manifest/ZIP objects.
 
 Run backups from the repository root on the server.
 
@@ -15,7 +15,7 @@ mkdir -p backups
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/sapen-annotate-postgres-$(date +%F).sql
 ```
 
-This dump includes upload/artifact/import/export audit rows, prediction import batch statuses, and the exact image/artifact/classification references for generated training exports.
+This dump includes login throttle state, upload/artifact/auth/review/import/export audit rows, prediction import batch statuses, and the exact image/artifact/classification references for generated training exports.
 
 ## PostgreSQL Restore Outline
 
@@ -81,4 +81,4 @@ Restore uses the same volume-tar pattern as MinIO. Caddy can usually reacquire c
 
 ## Failure Window
 
-If the host disk fails before a backup finishes, all database rows, raw images, masks, staged prediction batch sources, imported prediction artifacts, export manifests/packages, sessions, Caddy state, and trial-account changes since the latest successful backup are lost. This runbook is not HA and does not provide point-in-time recovery.
+If the host disk fails before a backup finishes, all database rows, login throttle/audit state, raw images, masks, staged prediction batch sources, imported prediction artifacts, export manifests/packages, sessions, Caddy state, and trial-account changes since the latest successful backup are lost. This runbook is not HA and does not provide point-in-time recovery.

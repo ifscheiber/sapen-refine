@@ -8,7 +8,7 @@ This page lists the current API route handlers under `src/app/api`.
 
 - `GET /api/health` - cheap unauthenticated liveness endpoint; returns status, service, and timestamp without DB access.
 - `GET /api/ready` - unauthenticated readiness endpoint; checks database and storage connectivity and returns `503` when a dependency is unavailable.
-- `POST /api/auth/login` - validates local credentials and creates a session.
+- `POST /api/auth/login` - validates local credentials, applies login throttling, creates a session, and returns a sanitized `redirectTo`.
 - `POST /api/auth/logout` - revokes the current session and clears the cookie.
 - `GET /api/auth/me` - returns the current authenticated user.
 - `GET /api/projects` - lists projects visible to the current user.
@@ -93,7 +93,7 @@ This page lists the current API route handlers under `src/app/api`.
 
 ## Known Gaps
 
-- Audit logging is not consistently attached to every route mutation; RB-055 covers the current upload/artifact/export paths.
+- Audit logging now covers the main auth/project/upload/artifact/metadata/review/export/prediction/correction paths, but no admin audit UI exists yet.
 - RB-053 and RB-060 exports are synchronous and trial-sized. RB-061 covers batch prediction import jobs only; advanced export filters, export history UI, metrics dashboards, and production-grade queue workers remain deferred.
 
 ## Related Tickets / Docs

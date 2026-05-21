@@ -9,14 +9,14 @@ import {
   PrismaClient,
 } from "@prisma/client";
 
+import * as policies from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 
 type ReviewDb = PrismaClient | Prisma.TransactionClient;
 
 export type ReviewAction = "submit" | "approve" | "reject";
 
-const SUBMIT_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA", "LABELER"]);
-const REVIEW_ROLES = new Set<AnnotationProjectRole>(["OWNER", "QA"]);
 const REVIEWABLE_ARTIFACT_KINDS = new Set<AnnotationArtifactKind>([
   AnnotationArtifactKind.SEMANTIC_MASK,
   AnnotationArtifactKind.SLICE_SUPPORT_MASK,
@@ -74,11 +74,11 @@ const CLASSIFICATION_SELECT = {
 } satisfies Prisma.SliceClassificationVersionSelect;
 
 export function canSubmitReview(role: AnnotationProjectRole) {
-  return SUBMIT_ROLES.has(role);
+  return policies.canSubmitReview(role);
 }
 
 export function canReview(role: AnnotationProjectRole) {
-  return REVIEW_ROLES.has(role);
+  return policies.canReview(role);
 }
 
 export function isExportReadyState(state: ArtifactReviewState | null | undefined) {
@@ -361,6 +361,22 @@ export async function transitionArtifactVersionForUser(params: {
       select: { id: true, reviewedAt: true },
     });
 
+    await recordAuditEvent({
+      action: "REVIEW_DECISION_RECORDED",
+      entity: "ReviewDecision",
+      entityId: decision.id,
+      actorId: params.userId,
+      details: {
+        projectId: version.artifact.projectId,
+        imageId: version.artifact.imageId,
+        artifactVersionId: version.id,
+        targetType: version.artifact.kind,
+        action: params.action,
+        fromState: version.reviewState,
+        toState: nextState,
+      },
+    }, tx);
+
     return {
       targetType: version.artifact.kind,
       versionId: version.id,
@@ -430,6 +446,22 @@ export async function transitionSliceClassificationVersionForUser(params: {
       },
       select: { id: true, reviewedAt: true },
     });
+
+    await recordAuditEvent({
+      action: "REVIEW_DECISION_RECORDED",
+      entity: "ReviewDecision",
+      entityId: decision.id,
+      actorId: params.userId,
+      details: {
+        projectId: version.projectId,
+        imageId: version.imageId,
+        sliceClassificationVersionId: version.id,
+        targetType: "SLICE_CLASSIFICATION",
+        action: params.action,
+        fromState: version.reviewState,
+        toState: nextState,
+      },
+    }, tx);
 
     return {
       targetType: "SLICE_CLASSIFICATION" as const,

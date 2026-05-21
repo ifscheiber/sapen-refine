@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { PROJECT_MANAGE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 
 function optionalText(value: unknown, field: string, maxLength: number): string | null | undefined {
   if (value === undefined) return undefined;
@@ -19,7 +21,7 @@ export async function PATCH(
   ctx: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await ctx.params;
-  await requireProjectRole(projectId, ["OWNER", "QA"]);
+  const { user } = await requireProjectRole(projectId, PROJECT_MANAGE_ROLES);
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -77,6 +79,20 @@ export async function PATCH(
       description: true,
       updatedAt: true,
       labelSchemaVersion: { select: { id: true, name: true, version: true, status: true } },
+    },
+  });
+
+  await recordAuditEvent({
+    action: "PROJECT_METADATA_UPDATED",
+    entity: "AnnotationProject",
+    entityId: project.id,
+    actorId: user.id,
+    details: {
+      fields: {
+        name: name !== undefined,
+        description: description !== undefined,
+        labelSchemaVersionId: Boolean(defaultSchema),
+      },
     },
   });
 

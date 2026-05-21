@@ -7,6 +7,10 @@ const DEFAULT_PREDICTION_BATCH_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 const DEFAULT_PREDICTION_BATCH_MAX_ITEMS = 200;
 const DEFAULT_PREDICTION_BATCH_PROCESS_LIMIT = 25;
 const DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS = 3;
+const DEFAULT_LOGIN_RATE_LIMIT_MAX_FAILURES = 5;
+const DEFAULT_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
+const DEFAULT_LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60;
+const DEFAULT_SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS = 15 * 60;
 
 export type RuntimeConfig = {
   nodeEnv: string;
@@ -27,6 +31,13 @@ export type RuntimeConfig = {
     predictionBatchMaxItems: number;
     predictionBatchProcessLimit: number;
     predictionBatchItemMaxAttempts: number;
+  };
+  auth: {
+    showDemoCredentials: boolean;
+    loginRateLimitMaxFailures: number;
+    loginRateLimitWindowSeconds: number;
+    loginRateLimitLockSeconds: number;
+    sessionLastSeenUpdateIntervalSeconds: number;
   };
 };
 
@@ -56,21 +67,24 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
 function parsePositiveInteger(
   env: Env,
   name: string,
-  fallback: number
+  fallback: number,
+  description = "positive integer number of bytes"
 ): number {
   const raw = env[name];
   if (raw === undefined || raw.trim() === "") return fallback;
 
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer number of bytes`);
+    throw new Error(`${name} must be a ${description}`);
   }
   return parsed;
 }
 
 export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
+  const nodeEnv = optionalEnv(env, "NODE_ENV", "development");
+
   return {
-    nodeEnv: optionalEnv(env, "NODE_ENV", "development"),
+    nodeEnv,
     appBaseUrl: optionalEnv(env, "APP_BASE_URL", DEFAULT_APP_BASE_URL),
     databaseUrl: requireEnv(env, "DATABASE_URL"),
     s3: {
@@ -100,17 +114,48 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
       predictionBatchMaxItems: parsePositiveInteger(
         env,
         "PREDICTION_BATCH_MAX_ITEMS",
-        DEFAULT_PREDICTION_BATCH_MAX_ITEMS
+        DEFAULT_PREDICTION_BATCH_MAX_ITEMS,
+        "positive integer count"
       ),
       predictionBatchProcessLimit: parsePositiveInteger(
         env,
         "PREDICTION_BATCH_PROCESS_LIMIT",
-        DEFAULT_PREDICTION_BATCH_PROCESS_LIMIT
+        DEFAULT_PREDICTION_BATCH_PROCESS_LIMIT,
+        "positive integer count"
       ),
       predictionBatchItemMaxAttempts: parsePositiveInteger(
         env,
         "PREDICTION_BATCH_ITEM_MAX_ATTEMPTS",
-        DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS
+        DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS,
+        "positive integer count"
+      ),
+    },
+    auth: {
+      showDemoCredentials:
+        nodeEnv === "development" || parseBoolean(env.SHOW_DEMO_CREDENTIALS, false),
+      loginRateLimitMaxFailures: parsePositiveInteger(
+        env,
+        "LOGIN_RATE_LIMIT_MAX_FAILURES",
+        DEFAULT_LOGIN_RATE_LIMIT_MAX_FAILURES,
+        "positive integer count"
+      ),
+      loginRateLimitWindowSeconds: parsePositiveInteger(
+        env,
+        "LOGIN_RATE_LIMIT_WINDOW_SECONDS",
+        DEFAULT_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+        "positive integer number of seconds"
+      ),
+      loginRateLimitLockSeconds: parsePositiveInteger(
+        env,
+        "LOGIN_RATE_LIMIT_LOCK_SECONDS",
+        DEFAULT_LOGIN_RATE_LIMIT_LOCK_SECONDS,
+        "positive integer number of seconds"
+      ),
+      sessionLastSeenUpdateIntervalSeconds: parsePositiveInteger(
+        env,
+        "SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS",
+        DEFAULT_SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS,
+        "positive integer number of seconds"
       ),
     },
   };

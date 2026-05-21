@@ -15,6 +15,9 @@
 - `src/server/uploads/validation.ts` - upload size validation shared by image and mask routes.
 - `src/server/uploads/integrity.ts` - RB-055 checksum, content-type, image-dimension, mask-dimension, and support-mask value validation helpers.
 - `src/server/domain/audit.ts` - small audit writer for append-only `AuditLog` rows.
+- `src/server/auth/policies.ts` - central project/global role policy used by API/domain code.
+- `src/server/auth/loginThrottle.ts` - hashed DB-backed login throttling.
+- `src/server/auth/requestGuards.ts` - same-origin mutation guard helpers.
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
 - `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
@@ -28,7 +31,7 @@
 
 ## Public Interfaces / Routes / Functions
 
-- `requireUser()` redirects unauthenticated requests to `/login`.
+- `requireUser()` throws `UNAUTHORIZED` for route/domain callers without a valid session.
 - `requireProjectRole(projectId, allowed)` enforces project membership roles.
 - `getPresignedGetUrl(key)` and `getPresignedPutUrl(key, contentType)` wrap S3 presigned URLs.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
@@ -57,8 +60,8 @@
 
 ## Known Gaps
 
-- Audit logging is incomplete.
-- There is no rate limiting for login or API writes.
+- Audit logging is still not exposed through an admin UI.
+- Login has DB-backed throttling; general API write rate limiting remains deferred.
 - Training and prediction-analysis export generation are synchronous and intended for trial-sized datasets; large export job handling remains deferred.
 - RB-061 batch prediction import uses explicit process calls rather than an always-on worker. Stale processing recovery and staged-object cleanup remain deferred. Slice-classification prediction correction remains deferred.
 

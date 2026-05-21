@@ -1,7 +1,9 @@
 import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/server/db";
+import { getRuntimeConfig } from "@/server/runtime/config";
 import { SESSION_COOKIE_NAME, SESSION_TTL_DAYS } from "./constants";
+import { shouldUpdateLastSeenAt } from "./sessionActivity";
 
 function sha256Base64Url(input: string): string {
   return crypto.createHash("sha256").update(input).digest("base64url");
@@ -18,7 +20,7 @@ export async function getSessionCookie(): Promise<string | undefined> {
 
 export async function setSessionCookie(token: string) {
   const maxAge = SESSION_TTL_DAYS * 24 * 60 * 60;
-  const c =  await cookies();
+  const c = await cookies();
 
   c.set({
     name: SESSION_COOKIE_NAME,
@@ -45,6 +47,10 @@ export async function clearSessionCookie() {
 }
 
 export async function createDbSession(userId: string, token: string) {
+  if (typeof token !== "string" || token.length === 0) {
+    throw new Error("SESSION_TOKEN_INVALID");
+  }
+
   const tokenHash = sha256Base64Url(token);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -56,13 +62,7 @@ export async function createDbSession(userId: string, token: string) {
     h.get("x-real-ip") ??
     undefined;
 
-  if (typeof token !== "string" || token.length === 0) {
-    console.error("createDbSession: token invalid", { token, type: typeof token });
-    throw new Error("SESSION_TOKEN_INVALID");
-  }
-
   if (typeof tokenHash !== "string" || tokenHash.length === 0) {
-    console.error("createDbSession: tokenHash invalid", { tokenHash, type: typeof tokenHash, token });
     throw new Error("SESSION_TOKENHASH_INVALID");
   }
 
@@ -78,7 +78,6 @@ export async function createDbSession(userId: string, token: string) {
     },
   });
 }
-
 
 export async function getUserFromSessionCookie() {
   const token = await getSessionCookie();
@@ -98,11 +97,18 @@ export async function getUserFromSessionCookie() {
 
   if (!session) return null;
 
-  // lastSeenAt updaten (leicht throttlen wäre möglich, aber erstmal simple)
-  await prisma.session.update({
-    where: { id: session.id },
-    data: { lastSeenAt: now },
-  });
+  if (
+    shouldUpdateLastSeenAt({
+      lastSeenAt: session.lastSeenAt,
+      now,
+      intervalSeconds: getRuntimeConfig().auth.sessionLastSeenUpdateIntervalSeconds,
+    })
+  ) {
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { lastSeenAt: now },
+    });
+  }
 
   return session.user;
 }

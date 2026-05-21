@@ -34,8 +34,8 @@ There is no `check:docs-links` script in `package.json` yet.
 
 ## Current Application Model
 
-- Local login uses `src/app/api/auth/login/route.ts`, `src/server/auth/session.ts`, and the `User`/`Session` tables.
-- Project membership is the current access boundary through `AnnotationProject` and `AnnotationProjectMember`; `src/server/auth/rbac.ts` enforces project roles for protected project/image workflows.
+- Local login uses `src/app/api/auth/login/route.ts`, `src/server/auth/session.ts`, and the `User`/`Session` tables. RB-064 adds sanitized app-relative redirects, hidden demo credentials outside dev/explicit opt-in, hashed `AuthLoginThrottle` buckets, and throttled session `lastSeenAt` writes.
+- Project membership is the current access boundary through `AnnotationProject` and `AnnotationProjectMember`; `src/server/auth/policies.ts` defines the central project/global role policy used by protected project/image/domain workflows.
 - Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes still exist for compatibility. Current raw image writes validate PNG/JPEG bytes, checksum, dimensions, size, and object metadata before persisting `ImageAsset`.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
@@ -51,7 +51,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - `ImageAsset` stores a raw object key, verified file metadata, checksum/dimensions, validation status, uploader, and metadata relations.
 - `AnnotationArtifact` groups semantic/support/instance/prediction/derived artifacts by image, kind, and scope key.
 - `AnnotationArtifactVersion` is append-only per artifact and stores artifact key, size, dimensions, checksum, format, label schema version, review state, provenance, creator, and timestamp.
-- `AuditLog` records RB-055 upload, mask/support-mask, export creation, and export download events, but is not yet a complete attribution/audit trail for every route mutation.
+- `AuditLog` records upload, mask/support-mask, auth, project/metadata, review, export, prediction, correction, and batch-processing events. There is no admin audit UI yet.
 
 ## Invariants And Constraints
 
@@ -65,7 +65,7 @@ There is no `check:docs-links` script in `package.json` yet.
 
 - The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060 prediction-analysis exports, and RB-061 batch prediction import jobs. RB-063 adds route-addressable project operations pages without schema changes.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
-- Upload hardening now covers the current raw image, semantic mask, support mask, prediction import, and export paths. Broader audit coverage, malware scanning, export jobs, always-on batch workers, and orphan/staging cleanup dashboards remain deferred.
+- Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. Malware scanning, general API write rate limiting, export jobs, always-on batch workers/system actor, and orphan/staging cleanup dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

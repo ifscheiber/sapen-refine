@@ -23,6 +23,11 @@ describe("runtime config", () => {
     expect(config.uploads.predictionBatchMaxItems).toBe(200);
     expect(config.uploads.predictionBatchProcessLimit).toBe(25);
     expect(config.uploads.predictionBatchItemMaxAttempts).toBe(3);
+    expect(config.auth.showDemoCredentials).toBe(true);
+    expect(config.auth.loginRateLimitMaxFailures).toBe(5);
+    expect(config.auth.loginRateLimitWindowSeconds).toBe(15 * 60);
+    expect(config.auth.loginRateLimitLockSeconds).toBe(15 * 60);
+    expect(config.auth.sessionLastSeenUpdateIntervalSeconds).toBe(15 * 60);
   });
 
   it("fails with an actionable message when critical env is missing", () => {
@@ -42,6 +47,12 @@ describe("runtime config", () => {
       PREDICTION_BATCH_MAX_ITEMS: "500",
       PREDICTION_BATCH_PROCESS_LIMIT: "50",
       PREDICTION_BATCH_ITEM_MAX_ATTEMPTS: "5",
+      NODE_ENV: "production",
+      SHOW_DEMO_CREDENTIALS: "true",
+      LOGIN_RATE_LIMIT_MAX_FAILURES: "7",
+      LOGIN_RATE_LIMIT_WINDOW_SECONDS: "600",
+      LOGIN_RATE_LIMIT_LOCK_SECONDS: "1200",
+      SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS: "300",
     });
 
     expect(config.appBaseUrl).toBe("https://annotate.example.com");
@@ -52,11 +63,22 @@ describe("runtime config", () => {
     expect(config.uploads.predictionBatchMaxItems).toBe(500);
     expect(config.uploads.predictionBatchProcessLimit).toBe(50);
     expect(config.uploads.predictionBatchItemMaxAttempts).toBe(5);
+    expect(config.auth.showDemoCredentials).toBe(true);
+    expect(config.auth.loginRateLimitMaxFailures).toBe(7);
+    expect(config.auth.loginRateLimitWindowSeconds).toBe(600);
+    expect(config.auth.loginRateLimitLockSeconds).toBe(1200);
+    expect(config.auth.sessionLastSeenUpdateIntervalSeconds).toBe(300);
   });
 
   it("rejects invalid byte limits", () => {
     expect(() =>
       readRuntimeConfig({ ...baseEnv, IMAGE_UPLOAD_MAX_BYTES: "0" })
     ).toThrow("IMAGE_UPLOAD_MAX_BYTES must be a positive integer number of bytes");
+  });
+
+  it("rejects invalid auth limits", () => {
+    expect(() =>
+      readRuntimeConfig({ ...baseEnv, LOGIN_RATE_LIMIT_MAX_FAILURES: "0" })
+    ).toThrow("LOGIN_RATE_LIMIT_MAX_FAILURES must be a positive integer count");
   });
 });

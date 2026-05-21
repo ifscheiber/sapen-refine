@@ -5,6 +5,7 @@ import { ArrowLeftIcon, PencilLineIcon } from "lucide-react";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { Button } from "@/components/ui/button";
+import { PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { ImageMetadataClient } from "./ImageMetadataClient";
@@ -16,7 +17,7 @@ export async function ImageMetadataPage({
   projectId: string;
   imageId: string;
 }) {
-  const { membership } = await requireProjectRole(projectId, ["OWNER", "QA", "LABELER", "VIEWER"]);
+  const { membership } = await requireProjectRole(projectId, PROJECT_READ_ROLES);
 
   const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },

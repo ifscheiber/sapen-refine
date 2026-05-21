@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
+import { PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 
 export async function GET(
@@ -7,7 +8,7 @@ export async function GET(
   ctx: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await ctx.params;
-  await requireProjectRole(projectId, ["OWNER", "QA", "LABELER", "VIEWER"]);
+  await requireProjectRole(projectId, PROJECT_READ_ROLES);
 
   const images = await prisma.imageAsset.findMany({
     where: { projectId },

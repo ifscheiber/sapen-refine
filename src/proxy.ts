@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { SESSION_COOKIE_NAME } from "@/server/auth/constants";
+import {
+  CROSS_SITE_MUTATION_ERROR,
+  isApiMutationPath,
+  isSameOriginMutationAllowed,
+} from "@/server/auth/requestGuards";
 
 const PUBLIC_PATHS = new Set<string>([
   "/login",
@@ -24,6 +29,21 @@ export function isPublicPath(pathname: string) {
 
 export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  if (
+    isApiMutationPath(pathname, req.method) &&
+    !isSameOriginMutationAllowed({
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      appBaseUrl: process.env.APP_BASE_URL,
+    })
+  ) {
+    return NextResponse.json(
+      { ok: false, error: CROSS_SITE_MUTATION_ERROR },
+      { status: 403 },
+    );
+  }
 
   if (isPublicPath(pathname)) {
     return NextResponse.next();

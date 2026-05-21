@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-061 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, and batch prediction import work.
+This page summarizes known limitations after the RB-040 through RB-064 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, and auth/RBAC/audit hardening.
 
 ## Current Gaps
 
@@ -21,6 +21,7 @@ This page summarizes known limitations after the RB-040 through RB-061 baseline,
 - RB-059 adds a route-addressable assisted correction editor, read-only prediction overlay, explicit prediction-to-editable-mask copy action, human correction draft saves with `HUMAN_CORRECTION` provenance, parent/task links, review-driven task status updates, and integration/E2E coverage for the core boundaries.
 - RB-060 adds separate prediction-analysis exports for project `OWNER`/`QA`, a distinct manifest version, proposal warnings, model/prediction provenance, confidence/uncertainty metadata, and separated package paths for predictions, human corrections, and approved ground-truth references.
 - RB-061 adds DB-backed ZIP batch prediction imports for semantic/support mask predictions, item-level status/error/retry bookkeeping, owner/QA project UI, optional API-based process script, and integration coverage for partial failure, idempotency, authorization, and staging-key sanitization.
+- RB-064 adds central project/global permission helpers, hides shared demo credentials in production/trial by default, sanitizes login redirects, persists hashed login throttle buckets, rejects cross-site browser mutations, throttles session `lastSeenAt` writes, and expands audit coverage for auth/project/metadata/review/provenance actions.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
@@ -32,9 +33,9 @@ This page summarizes known limitations after the RB-040 through RB-061 baseline,
 - Prediction-analysis export does not compute metrics such as Dice/IoU or confusion matrices; offline evaluation/dashboard work remains deferred.
 - Slice-classification prediction correction remains deferred.
 - RB-063 splits project operations into route-addressable overview, exports, and prediction-import pages; export history and advanced operations dashboards remain deferred.
-- RBAC and audit rules are functional but scattered across domain modules/routes; a centralized policy/audit hardening slice is planned.
+- RBAC policy is centralized for server/domain enforcement. Client action visibility may still duplicate role checks for ergonomics; backend policies remain authoritative.
 - `src/server/storage.ts` is an unused legacy duplicate of the active `src/server/storage/s3.ts` storage helper pattern and should be removed or converted to a re-export in a cleanup ticket.
-- Remaining upload/security limits: no malware scanning, no login/API rate limiting, no CSRF/same-origin mutation guard, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned/staged objects, no always-on batch worker, and no large async export job handling.
+- Remaining upload/security limits: no malware scanning, no general API write rate limiting beyond login throttling and same-origin mutation protection, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned/staged objects, no always-on batch worker/system actor, no audit UI, and no large async export job handling.
 
 ## Intentional Remaining "Refine" References
 
