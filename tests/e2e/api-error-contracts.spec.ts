@@ -13,29 +13,36 @@ test("api auth and authorization failures return stable json errors", async ({ r
     data: { email: "labeler@sapen.local", password: "labeler1234" },
   });
   expect(login.ok()).toBe(true);
+  const sessionCookie = login.headers()["set-cookie"]?.split(";")[0];
+  expect(sessionCookie).toBeTruthy();
+  const authHeaders = { cookie: sessionCookie! };
 
   await expectJsonError(
     await request.post("/api/projects/demo_project/exports", {
       data: { targets: ["combined"] },
+      headers: authHeaders,
     }),
     403,
     "FORBIDDEN",
   );
 
   await expectJsonError(
-    await request.get("/api/images/not-a-real-image/metadata"),
+    await request.get("/api/images/not-a-real-image/metadata", { headers: authHeaders }),
     404,
     "IMAGE_NOT_FOUND",
   );
 
   await expectJsonError(
-    await request.get("/api/prediction-runs/not-a-real-run"),
+    await request.get("/api/prediction-runs/not-a-real-run", { headers: authHeaders }),
     404,
     "PREDICTION_RUN_NOT_FOUND",
   );
 
   await expectJsonError(
-    await request.post("/api/storage-cleanup", { data: { execute: false } }),
+    await request.post("/api/storage-cleanup", {
+      data: { execute: false },
+      headers: authHeaders,
+    }),
     403,
     "CLEANUP_FORBIDDEN",
   );
