@@ -1,15 +1,62 @@
+# Source control and local agent state
+.git
+.codex
+
+# Dependencies and package-manager caches
+node_modules
+.pnp
+.pnp.*
+.yarn
+
+# Next/build output and generated caches
 .next
+out
+build
+dist
+.turbo
+.cache
+cache
+*.tsbuildinfo
+
+# Local secrets. Example templates must remain available for handoff/deploy docs.
 .env
 .env.*
 !.env.example
-.git
-.codex
-node_modules
-npm-debug.log*
+!.env*.example
+deploy/*.env
+deploy/*.env.*
+!deploy/*.env.example
+!deploy/*.env*.example
+
+# Test reports, traces, screenshots, and logs
 coverage
+test-results
+playwright-report
+screenshots
+traces
+videos
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Archives and backup output
+*.zip
+*.tar
+*.tgz
+*.tar.gz
+backups
+backup
+
+# Local storage/database artifacts
 tmp
 temp
 pgdata
 miniodata
+redis-data
 storage
 uploads
+minio
+postgres
+.caddy
