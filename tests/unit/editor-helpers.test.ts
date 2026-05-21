@@ -9,6 +9,15 @@ import {
   API_SUPPORT_MASK_UPLOAD,
 } from "@/features/editor/editorApi";
 import {
+  formatEraserHint,
+  getEraseLabelForMaskMode,
+  getPaintLabelForTool,
+  isBrushLikeTool,
+} from "@/features/editor/editorTools";
+import { Labels } from "@/mask/labels";
+import { MaskBuffer } from "@/mask/maskBuffer";
+import { applyBrush } from "@/mask/tools";
+import {
   formatCorrectionModel,
   formatCorrectionScore,
   formatReviewState,
@@ -91,6 +100,49 @@ describe("editor helpers", () => {
     expect(shouldIgnorePointerDown({ pointerType: "mouse", button: 0, isPrimary: true } as React.PointerEvent<HTMLCanvasElement>)).toBe(false);
     expect(shouldIgnorePointerDown({ pointerType: "touch", button: 0, isPrimary: false } as React.PointerEvent<HTMLCanvasElement>)).toBe(true);
     expect(shouldIgnorePointerDown({ pointerType: "pen", button: 0, isPrimary: true } as React.PointerEvent<HTMLCanvasElement>)).toBe(false);
+  });
+
+  it("maps eraser to the current mask-mode background value", () => {
+    expect(isBrushLikeTool("brush")).toBe(true);
+    expect(isBrushLikeTool("eraser")).toBe(true);
+    expect(isBrushLikeTool("lasso_free")).toBe(false);
+    expect(getEraseLabelForMaskMode("semantic", 99)).toBe(Labels.BG);
+    expect(getEraseLabelForMaskMode("support", 99)).toBe(99);
+    expect(getPaintLabelForTool({
+      tool: "brush",
+      maskMode: "semantic",
+      activeLabel: Labels.COPPER,
+      supportBackgroundLabel: 99,
+    })).toBe(Labels.COPPER);
+    expect(getPaintLabelForTool({
+      tool: "eraser",
+      maskMode: "support",
+      activeLabel: Labels.SLICE_SUPPORT,
+      supportBackgroundLabel: 99,
+    })).toBe(99);
+    expect(formatEraserHint("semantic")).toBe("Eraser: semantic background");
+    expect(formatEraserHint("support")).toBe("Eraser: support background");
+  });
+
+  it("erases through the same brush mutation path", () => {
+    const semantic = new MaskBuffer(5, 5, Labels.COPPER);
+    applyBrush(semantic, 2, 2, 1, getPaintLabelForTool({
+      tool: "eraser",
+      maskMode: "semantic",
+      activeLabel: Labels.COPPER,
+    }));
+    expect(semantic.get(2, 2)).toBe(Labels.BG);
+    expect(semantic.get(0, 0)).toBe(Labels.COPPER);
+
+    const support = new MaskBuffer(5, 5, Labels.SLICE_SUPPORT);
+    applyBrush(support, 2, 2, 1, getPaintLabelForTool({
+      tool: "eraser",
+      maskMode: "support",
+      activeLabel: Labels.SLICE_SUPPORT,
+      supportBackgroundLabel: Labels.BG,
+    }));
+    expect(support.get(2, 2)).toBe(Labels.BG);
+    expect(support.get(0, 0)).toBe(Labels.SLICE_SUPPORT);
   });
 
   it("recognizes abort errors without relying on fetch implementations", () => {

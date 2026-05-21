@@ -77,6 +77,14 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5, { steps: 8 });
   await page.mouse.up();
 
+  await page.getByRole("button", { name: "Eraser" }).click();
+  await expect(page.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Eraser: semantic background")).toBeVisible();
+  await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.5, { steps: 4 });
+  await page.mouse.up();
+
   await expect(page.getByText("Unsaved changes")).toBeVisible();
   await page.getByRole("button", { name: "Save now" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
@@ -92,6 +100,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
     "true",
   );
 
+  await page.getByRole("button", { name: "Brush" }).click();
   await drawingSurface.scrollIntoViewIfNeeded();
   const supportBox = await drawingSurface.boundingBox();
   expect(supportBox).not.toBeNull();
@@ -100,6 +109,14 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.move(supportBox.x + supportBox.width * 0.3, supportBox.y + supportBox.height * 0.35);
   await page.mouse.down();
   await page.mouse.move(supportBox.x + supportBox.width * 0.7, supportBox.y + supportBox.height * 0.65, { steps: 8 });
+  await page.mouse.up();
+
+  await page.getByRole("button", { name: "Eraser" }).click();
+  await expect(page.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Eraser: support background")).toBeVisible();
+  await page.mouse.move(supportBox.x + supportBox.width * 0.45, supportBox.y + supportBox.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(supportBox.x + supportBox.width * 0.55, supportBox.y + supportBox.height * 0.5, { steps: 4 });
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
