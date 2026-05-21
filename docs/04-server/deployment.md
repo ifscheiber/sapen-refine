@@ -142,6 +142,40 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml lo
 
 Before enabling the worker, set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` in `deploy/trial.env` to a named project `OWNER` or `QA` account. Keep `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_LEASE_SECONDS`, and `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` bounded. The default trial path is one worker process; do not scale multiple worker replicas unless the lease assumptions are reviewed.
 
+## Storage Retention Cleanup
+
+RB-066 adds admin-only cleanup for temporary storage objects. It covers completed/failed prediction batch staging objects and identifiable abandoned presigned image/mask uploads. It does not delete committed raw images, committed mask/prediction artifacts, training export packages, prediction-analysis export packages, backup files, or Docker volume data.
+
+Set a named global `ADMIN` cleanup account in `deploy/trial.env` if you want to use env-based credentials:
+
+```text
+SAPEN_CLEANUP_EMAIL=admin@example.com
+SAPEN_CLEANUP_PASSWORD=<admin-password>
+```
+
+Dry-run is the default:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --dry-run
+```
+
+Execute requires an explicit flag:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --execute --category all --limit 100
+```
+
+Cleanup retention variables are:
+
+```text
+BATCH_STAGING_COMPLETED_RETENTION_DAYS=7
+BATCH_STAGING_FAILED_RETENTION_DAYS=14
+PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS=24
+STORAGE_CLEANUP_MAX_DELETE_PER_RUN=500
+```
+
+See [storage-retention-cleanup.md](storage-retention-cleanup.md) for protected-object rules, presigned route inventory, audit events, and project/batch-scoped commands.
+
 ## Backup And Restore
 
 Before customer data collection, set a backup cadence. At minimum, run the PostgreSQL, MinIO, and Caddy backup commands in [backup-restore.md](backup-restore.md).

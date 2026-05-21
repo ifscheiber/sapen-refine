@@ -10,6 +10,7 @@
     "db:rebuild": "docker compose down -v && docker compose up -d --wait postgres minio && docker compose up -d minio-init && prisma migrate deploy && prisma db seed",
     "trial:user:create": "node scripts/create-trial-user.mjs",
     "jobs:prediction-import": "node scripts/process-prediction-import-batch.mjs",
+    "storage:cleanup": "node scripts/storage-cleanup.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

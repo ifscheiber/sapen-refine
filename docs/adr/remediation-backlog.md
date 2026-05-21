@@ -346,7 +346,7 @@ Impact: Larger customer or model-evaluation datasets need retryable, attributabl
 
 Resolution: Implemented by RB-061 optimized ticket. The schema now includes `PredictionImportBatchJob` and `PredictionImportBatchItem`; ZIP batch creation validates a versioned manifest and privately stages files; processing calls the RB-057 import service; item errors/retry state are persisted; owner/QA APIs and a project UI expose sanitized status without storage keys.
 
-Remaining follow-up: RB-065 now covers the single-host worker/lease/stale-recovery path. Staging-object retention cleanup, slice-classification batch imports, prediction metrics dashboards, production-scale queue infrastructure, and project operations UI consolidation remain deferred.
+Remaining follow-up: RB-065 now covers the single-host worker/lease/stale-recovery path, RB-066 covers temporary staging/orphan cleanup, and RB-063 covers project operations route consolidation. Slice-classification batch imports, prediction metrics dashboards, cleanup UI, and production-scale queue infrastructure remain deferred.
 
 Affected modules: `prisma/schema.prisma`, `src/server/domain/predictionImportBatches.ts`, `src/app/api/prediction-runs/[predictionRunId]/batch-imports`, `src/app/api/prediction-import-batches/*`, `src/features/projects/ProjectPredictionImportBatchPanel.tsx`, deployment/runtime docs, and tests.
 
@@ -416,13 +416,15 @@ Context: Batch ZIP imports, staged prediction source files, presigned compatibil
 
 Impact: Local MinIO storage can grow without bounds and operators lack a documented/manual cleanup path for stale staged or orphaned objects.
 
-Proposed next step: Define retention policy, add cleanup/purge tooling or API where appropriate, document manual purge commands, and decide whether presigned compatibility routes remain enabled.
+Resolution: Implemented by RB-066 optimized ticket. The app now has admin-only dry-run/execute storage cleanup via `POST /api/storage-cleanup` and `npm run storage:cleanup`, retention configuration, batch item staging purge markers, S3 prefix listing/deletion helpers, protected-object checks for raw images/artifact versions/exports, presigned orphan handling for image/mask compatibility prefixes, and cleanup audit events.
 
-Affected modules: `src/server/storage/s3.ts`, `src/server/domain/predictionImportBatches.ts`, image/mask presign routes, operations docs, and tests.
+Remaining follow-up: Cleanup UI/dashboard, committed-artifact retention governance, object replication/HA, and provider lifecycle rules remain deferred.
 
-Owner: Unassigned.
+Affected modules: `src/server/domain/storageCleanup.ts`, `src/app/api/storage-cleanup`, `scripts/storage-cleanup.mjs`, `src/server/storage/s3.ts`, `src/server/domain/predictionImportBatches.ts`, image/mask presign route docs, operations docs, and tests.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved by RB-066.
 
 ## RB-067 - Prediction QA Metrics And Evaluation Preparation
 

@@ -6,7 +6,8 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 
 ## Important Files
 
-- `src/server/storage/s3.ts` - active AWS SDK client setup, presign helpers, app-mediated reads/writes, object stat verification, best-effort deletes, and readiness check.
+- `src/server/storage/s3.ts` - active AWS SDK client setup, presign helpers, app-mediated reads/writes, object stat verification, object listing/deletion, best-effort deletes, and readiness check.
+- `src/server/domain/storageCleanup.ts` - RB-066 retention cleanup for temporary batch staging and abandoned presigned-upload objects.
 - `src/server/runtime/config.ts` - validates storage endpoint, credentials, bucket, and upload limits.
 - `src/server/uploads/validation.ts` - validates image and mask upload sizes.
 - `src/server/uploads/integrity.ts` - computes SHA-256 checksums, validates PNG/JPEG dimensions, validates mask byte dimensions, and maps stable integrity errors.
@@ -20,7 +21,8 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 
 ## Public Interfaces / Routes / Functions
 
-- Active `src/server/storage/s3.ts` functions include `getPresignedPutUrl`, `getPresignedGetUrl`, `putObject`, `statObject`, `verifyStoredObject`, `deleteObjectBestEffort`, `getObjectBytes`, and `checkStorageReady`.
+- Active `src/server/storage/s3.ts` functions include `getPresignedPutUrl`, `getPresignedGetUrl`, `putObject`, `statObject`, `verifyStoredObject`, `listObjectsByPrefix`, `deleteObject`, `deleteObjectBestEffort`, `getObjectBytes`, and `checkStorageReady`.
+- `runStorageCleanup` in `src/server/domain/storageCleanup.ts` provides the admin-only dry-run/execute operational cleanup path.
 - Local storage service: MinIO from `docker-compose.yml`.
 
 ## Invariants And Constraints
@@ -32,13 +34,15 @@ Server storage helpers create presigned S3/MinIO URLs for compatibility paths an
 - Current image writes support only PNG/JPEG and persist server-verified `sha256:<hex>`, width, height, size, content type, and `VALIDATED` status.
 - Current mask writes support `u8raw-v1` in image-pixel coordinates and reject dimension or byte-length mismatches.
 - Support masks allow only `0` and the active `slice_support` label byte.
+- Cleanup may delete only temporary/staged objects under allowed prefixes after retention. It must protect DB-referenced `ImageAsset` and `AnnotationArtifactVersion` objects and must not classify export prefixes as cleanup candidates.
 
 ## Known Gaps
 
-- Production bucket policy and lifecycle rules are not documented yet.
-- There is no background orphan-object cleanup dashboard if a later database write fails after an object write outside the current best-effort cleanup paths.
+- Production bucket policy, provider lifecycle rules, and replication are not documented yet.
+- There is no cleanup dashboard UI. RB-066 provides API/CLI cleanup for identifiable batch staging and presigned-upload orphans only.
 
 ## Related Tickets / Docs
 
 - [../../operations/environment.md](../../operations/environment.md)
+- [../../04-server/storage-retention-cleanup.md](../../04-server/storage-retention-cleanup.md)
 - [../../adr/remediation-backlog.md](../../adr/remediation-backlog.md)

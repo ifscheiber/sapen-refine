@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-065 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, and batch-runner hardening.
+This page summarizes known limitations after the RB-040 through RB-066 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, and storage cleanup work.
 
 ## Current Gaps
 
@@ -23,6 +23,7 @@ This page summarizes known limitations after the RB-040 through RB-065 baseline,
 - RB-061 adds DB-backed ZIP batch prediction imports for semantic/support mask predictions, item-level status/error/retry bookkeeping, owner/QA project UI, optional API-based process script, and integration coverage for partial failure, idempotency, authorization, and staging-key sanitization.
 - RB-064 adds central project/global permission helpers, hides shared demo credentials in production/trial by default, sanitizes login redirects, persists hashed login throttle buckets, rejects cross-site browser mutations, throttles session `lastSeenAt` writes, and expands audit coverage for auth/project/metadata/review/provenance actions.
 - RB-065 adds a trial-sized single-host PostgreSQL lease model for prediction-import batch items, `process-due` API processing, optional Docker Compose `worker` profile, stale `PROCESSING` recovery, processor identity fields, and coverage for bounded due passes and stale recovery.
+- RB-066 adds admin-only dry-run/execute storage cleanup for temporary batch staging objects and identifiable abandoned presigned image/mask uploads, retention configuration, staging purge markers on batch items, cleanup audit events, and integration coverage for protected durable objects.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
@@ -30,13 +31,13 @@ This page summarizes known limitations after the RB-040 through RB-065 baseline,
 - Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
 - Copper semantic masks are material labels and must not be treated as physical slice support geometry. RB-051 adds the first support-mask workflow, but multi-object/multi-slice support remains deferred.
 - Review/approval is intentionally minimal: no reviewer dashboard, bulk review, notification system, or multi-reviewer approval flow exists yet.
-- Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export and RB-061/RB-065 implement trial-sized batch/background imports.
+- Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export, RB-061/RB-065 implement trial-sized batch/background imports, and RB-066 implements temporary storage cleanup for staging/orphan objects.
 - Prediction-analysis export does not compute metrics such as Dice/IoU or confusion matrices; offline evaluation/dashboard work remains deferred.
 - Slice-classification prediction correction remains deferred.
 - RB-063 splits project operations into route-addressable overview, exports, and prediction-import pages; export history and advanced operations dashboards remain deferred.
 - RBAC policy is centralized for server/domain enforcement. Client action visibility may still duplicate role checks for ergonomics; backend policies remain authoritative.
 - `src/server/storage.ts` is an unused legacy duplicate of the active `src/server/storage/s3.ts` storage helper pattern and should be removed or converted to a re-export in a cleanup ticket.
-- Remaining upload/security limits: no malware scanning, no general API write rate limiting beyond login throttling and same-origin mutation protection, no HA/object replication, no WebP/TIFF/SVG upload support, no background cleanup dashboard for orphaned/staged objects, no production-scale queue infrastructure, no dedicated system-actor login model, no audit UI, and no large async export job handling.
+- Remaining upload/security limits: no malware scanning, no general API write rate limiting beyond login throttling and same-origin mutation protection, no HA/object replication, no WebP/TIFF/SVG upload support, no cleanup dashboard UI, no committed-artifact retention governance, no production-scale queue infrastructure, no dedicated system-actor login model, no audit UI, and no large async export job handling.
 
 ## Intentional Remaining "Refine" References
 

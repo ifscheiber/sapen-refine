@@ -40,7 +40,7 @@ Human-reviewed annotation artifacts become ground truth only through explicit re
 
 Model predictions, prefilled masks, active-learning priorities, and imported proposals are inputs. They are not ground truth until a human workflow creates and approves a separate artifact version.
 
-RB-054 documents this as a design contract. RB-056 implements the provenance registry, RB-057 imports prediction mask proposals, RB-058/RB-059 implement the first correction queue/editor path, RB-061 adds trial-sized ZIP batch prediction imports, and RB-065 adds single-host batch runner leases/recovery. Prediction artifacts may guide work queues or editor overlays, but approved human artifact/classification versions remain the only default training-export labels.
+RB-054 documents this as a design contract. RB-056 implements the provenance registry, RB-057 imports prediction mask proposals, RB-058/RB-059 implement the first correction queue/editor path, RB-061 adds trial-sized ZIP batch prediction imports, RB-065 adds single-host batch runner leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Prediction artifacts may guide work queues or editor overlays, but approved human artifact/classification versions remain the only default training-export labels.
 
 ## Mask Boundary
 

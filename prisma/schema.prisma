@@ -767,6 +767,8 @@ model PredictionImportBatchItem {
   processorRunId              String?
   leaseExpiresAt              DateTime?
   lastHeartbeatAt             DateTime?
+  stagingPurgedAt             DateTime?
+  stagingPurgeReason          String?
   errorCode                   String?
   errorMessage                String?
   createdAt                   DateTime                        @default(now())
@@ -784,6 +786,7 @@ model PredictionImportBatchItem {
   @@index([batchJobId, status, leaseExpiresAt])
   @@index([status, nextRetryAt])
   @@index([status, leaseExpiresAt])
+  @@index([stagingPurgedAt])
   @@index([processorRunId])
   @@index([imageId])
   @@index([targetType])

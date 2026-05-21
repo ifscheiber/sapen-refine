@@ -58,6 +58,7 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/prediction-import-batches/[batchId]/process` - processes a limited number of pending/retryable/stale-recovered batch items through the existing RB-057 prediction import service using RB-065 processor lease metadata.
 - `POST /api/prediction-import-batches/process-due` - worker-oriented endpoint that processes a bounded number of due pending/retry/stale batches for projects where the authenticated account is `OWNER`/`QA`.
 - `POST /api/prediction-import-batches/[batchId]/retry` - resets failed/retryable batch items for manual retry without resetting succeeded items.
+- `POST /api/storage-cleanup` - admin-only RB-066 operational endpoint for dry-run or execute cleanup of temporary batch staging objects and identifiable abandoned presigned upload objects.
 - `POST /api/prediction-runs/[predictionRunId]/correction-tasks` - creates idempotent model-prediction correction tasks from prediction provenance rows for project `OWNER`/`QA`.
 - `GET /api/projects/[projectId]/correction-tasks` - lists project correction tasks for project members in deterministic priority/uncertainty/confidence order.
 - `GET /api/correction-tasks/[taskId]` - returns one sanitized model-prediction correction task for project members.
@@ -82,6 +83,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Prediction batch processing APIs are bounded and DB-lease backed for prediction-import items only; normal browser annotation concurrency does not use this worker path.
 - Prediction import accepts only app-mediated multipart upload for RB-057. It does not accept arbitrary client-provided storage keys.
 - Prediction batch import accepts only app-mediated RB-061 ZIP uploads. It stages item files under internal private keys, processes items through the RB-057 service, never returns staging keys, and does not create correction tasks automatically.
+- Storage cleanup APIs default to dry-run, require global `ADMIN`, use DB references as the deletion safety boundary, never return private URLs, and must not delete raw images, committed artifact versions, imported prediction artifacts, or export packages.
 - Correction-task APIs expose prediction/run/provenance summaries but not private artifact storage keys. `OWNER`/`QA` can create and manage tasks; `LABELER` can claim/start/dismiss own or unassigned active tasks; `VIEWER` is read-only.
 - Assisted correction APIs are mutation-oriented and therefore allow `OWNER`, `QA`, and eligible `LABELER` users only. Prediction bytes are streamed through the app; storage keys are not returned.
 - API routes should return stable error codes that clients can handle.
@@ -89,6 +91,7 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-056 prediction provenance error codes include `FORBIDDEN`, `MODEL_RUN_NOT_FOUND`, `PREDICTION_RUN_NOT_FOUND`, `DUPLICATE_INFERENCE_RUN`, `INVALID_MODEL_TASK_TYPE`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_PREDICTION_RUN_STATUS`, `CONFIDENCE_OUT_OF_RANGE`, `UNCERTAINTY_OUT_OF_RANGE`, `PREDICTED_CLASS_REQUIRED`, `PREDICTED_CLASS_TARGET_INVALID`, `ARTIFACT_NOT_PREDICTION`, and `PROJECT_MISMATCH`.
 - RB-057 prediction import error codes include `PREDICTION_IMPORT_PAYLOAD_INVALID`, `PREDICTION_IMPORT_FORBIDDEN`, `PREDICTION_TARGET_UNSUPPORTED`, `IMAGE_PROJECT_MISMATCH`, `COORDINATE_SPACE_UNSUPPORTED`, `SEMANTIC_MASK_VALUES_INVALID`, `PREDICTION_IMPORT_FAILED`, plus reused upload/integrity errors such as `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 - RB-061 prediction batch error codes include `PREDICTION_IMPORT_BATCH_PAYLOAD_INVALID`, `BATCH_ZIP_INVALID`, `BATCH_MANIFEST_MISSING`, `BATCH_MANIFEST_INVALID_JSON`, `BATCH_MANIFEST_VERSION_UNSUPPORTED`, `BATCH_PREDICTION_RUN_MISMATCH`, `BATCH_TOO_MANY_ITEMS`, `BATCH_ITEM_TARGET_UNSUPPORTED`, `BATCH_ITEM_FILE_MISSING`, `BATCH_ITEM_IMAGE_NOT_FOUND`, `BATCH_STAGING_READ_FAILED`, `BATCH_NOT_FOUND`, and reused RB-057/upload errors recorded at item level.
+- RB-066 storage cleanup error codes include `CLEANUP_FORBIDDEN`, `CLEANUP_FLAG_INVALID`, `CLEANUP_CATEGORY_INVALID`, `CLEANUP_LIMIT_INVALID`, `CLEANUP_COMPLETED_RETENTION_INVALID`, `CLEANUP_FAILED_RETENTION_INVALID`, `CLEANUP_PRESIGNED_RETENTION_INVALID`, `CLEANUP_NOW_INVALID`, and `STORAGE_CLEANUP_FAILED`.
 - RB-058 correction-task error codes include `FORBIDDEN`, `PREDICTION_RUN_NOT_FOUND`, `CORRECTION_TASK_NOT_FOUND`, `INVALID_TASK_REASON`, `INVALID_TASK_SCOPE`, `INVALID_TASK_STATUS`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_TASK_ACTION`, `INVALID_TASK_PRIORITY`, `INVALID_TASK_STATUS_TRANSITION`, `ASSIGNEE_REQUIRED`, `ASSIGNEE_NOT_PROJECT_MEMBER`, and `CORRECTION_TASK_ALREADY_EXISTS`.
 - RB-059 assisted-correction error codes include `CORRECTION_TASK_NOT_FOUND`, `CORRECTION_TASK_IMAGE_MISSING`, `CORRECTION_TARGET_UNSUPPORTED`, `SOURCE_PREDICTION_MISSING`, `SOURCE_PREDICTION_MISMATCH`, `SOURCE_PREDICTION_NOT_FOUND`, `SOURCE_ARTIFACT_NOT_PREDICTION`, `SEMANTIC_MASK_VALUES_INVALID`, and reused upload/object errors.
 - RB-060 prediction-analysis export error codes include `FORBIDDEN`, `PROJECT_NOT_FOUND`, `USER_NOT_FOUND`, `PREDICTION_TARGET_INVALID`, `NO_PREDICTION_ANALYSIS_CANDIDATES`, `PREDICTION_ANALYSIS_EXPORT_NOT_FOUND`, `EXPORT_NOT_READY`, and `EXPORT_FILE_NOT_FOUND`.
@@ -96,7 +99,7 @@ This page lists the current API route handlers under `src/app/api`.
 ## Known Gaps
 
 - Audit logging now covers the main auth/project/upload/artifact/metadata/review/export/prediction/correction paths, but no admin audit UI exists yet.
-- RB-053 and RB-060 exports are synchronous and trial-sized. RB-061 covers batch prediction import jobs only; advanced export filters, export history UI, metrics dashboards, and production-grade queue workers remain deferred.
+- RB-053 and RB-060 exports are synchronous and trial-sized. RB-061/RB-065 cover batch prediction import jobs only; RB-066 covers temporary storage cleanup without adding a cleanup UI. Advanced export filters, export history UI, metrics dashboards, and production-grade queue workers remain deferred.
 
 ## Related Tickets / Docs
 

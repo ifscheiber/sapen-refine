@@ -28,6 +28,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Customer trial deployment: [04-server/deployment.md](04-server/deployment.md)
 - Trial backup/restore: [04-server/backup-restore.md](04-server/backup-restore.md)
 - Batch prediction imports: [04-server/batch-prediction-imports.md](04-server/batch-prediction-imports.md)
+- Storage retention cleanup: [04-server/storage-retention-cleanup.md](04-server/storage-retention-cleanup.md)
 - Design system: [05-design-system/tokens.md](05-design-system/tokens.md)
 - Data: [06-data/prisma.md](06-data/prisma.md)
 - Current-to-target schema map: [06-data/current-to-target-schema-map.md](06-data/current-to-target-schema-map.md)
@@ -56,6 +57,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Local development: [operations/local-development.md](operations/local-development.md)
 - Environment variables: [operations/environment.md](operations/environment.md)
 - Caddy reverse proxy: [04-server/reverse-proxy-caddy.md](04-server/reverse-proxy-caddy.md)
+- Storage retention cleanup: [04-server/storage-retention-cleanup.md](04-server/storage-retention-cleanup.md)
 - Handoff ZIP checklist: [operations/handoff-zip-checklist.md](operations/handoff-zip-checklist.md)
 
 ## Structure Note

@@ -223,7 +223,8 @@ Domain policy for the app:
 - approved artifact versions should not be deleted,
 - rejected/draft artifacts may be archived but should retain attribution while referenced,
 - exports are immutable audit records,
-- destructive admin cleanup needs a separate policy ticket before customer data is used.
+- committed raw images, approved artifact versions, and exports are not storage-cleanup targets.
+- RB-066 implements temporary staging/presigned-orphan cleanup only; committed-artifact retention still needs a separate governance ticket if it is ever required.
 
 ## Implementation Phasing For RB-049+
 
@@ -249,7 +250,7 @@ Implemented synchronous owner-only project export creation and manifest/ZIP gene
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
-Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import; RB-058 through RB-061 implement the first queue, assisted correction, prediction-analysis export, and batch import slices; RB-065 hardens the single-host batch runner.
+Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import; RB-058 through RB-061 implement the first queue, assisted correction, prediction-analysis export, and batch import slices; RB-065 hardens the single-host batch runner; RB-066 adds temporary staging/orphan cleanup.
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
@@ -257,11 +258,11 @@ Implemented checksum enforcement, PNG/JPEG dimensions, mask byte/dimension check
 
 ### RB-056 - Prediction Provenance / ModelRun Registry
 
-Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, RB-058/RB-059 add correction tasks and assisted correction, RB-060 adds the separate prediction-analysis export, RB-061 adds batch import jobs, and RB-065 adds batch-item idempotency keys for retry-safe imports.
+Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, RB-058/RB-059 add correction tasks and assisted correction, RB-060 adds the separate prediction-analysis export, RB-061 adds batch import jobs, RB-065 adds batch-item idempotency keys for retry-safe imports, and RB-066 adds temporary staging purge markers.
 
 ### RB-057 - Prediction Import API / Storage Validation
 
-Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links. RB-058/RB-059 add correction tasks and editor overlays; RB-060 adds prediction-analysis export; RB-061 adds ZIP batch imports that reuse the same import service; RB-065 reuses existing provenance by batch item id after interrupted worker passes.
+Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links. RB-058/RB-059 add correction tasks and editor overlays; RB-060 adds prediction-analysis export; RB-061 adds ZIP batch imports that reuse the same import service; RB-065 reuses existing provenance by batch item id after interrupted worker passes; RB-066 may purge only temporary source staging objects after retention.
 
 ### RB-058 - Active-Learning Task Queue
 
@@ -282,6 +283,10 @@ Implemented `PredictionImportBatchJob` and `PredictionImportBatchItem` for ZIP-b
 ### RB-065 - Batch Job Runner Hardening
 
 Implemented processor identity, item leases, stale processing recovery, a process-due API, retry-safe batch item idempotency, and an optional Docker Compose worker profile for the single-host customer trial.
+
+### RB-066 - Batch And Staging Storage Retention Cleanup
+
+Implemented admin-only dry-run/execute cleanup for temporary batch staging objects and identifiable abandoned presigned image/mask uploads. Cleanup records audit events, protects DB-referenced durable storage objects, and marks purged batch item sources through `PredictionImportBatchItem.stagingPurgedAt`/`stagingPurgeReason`.
 
 ## Open Questions For RB-049
 

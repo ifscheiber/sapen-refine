@@ -3,6 +3,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -81,6 +82,42 @@ export async function verifyStoredObject(params: {
 
 export async function deleteObjectBestEffort(key: string) {
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined);
+}
+
+export async function deleteObject(key: string) {
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+export async function listObjectsByPrefix(prefix: string, maxKeys = 1000) {
+  const objects: Array<{
+    key: string;
+    lastModified: Date | null;
+    size: number | null;
+    etag: string | null;
+  }> = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await s3.send(new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+      MaxKeys: Math.min(1000, Math.max(1, maxKeys - objects.length)),
+    }));
+    for (const object of response.Contents ?? []) {
+      if (!object.Key) continue;
+      objects.push({
+        key: object.Key,
+        lastModified: object.LastModified ?? null,
+        size: object.Size ?? null,
+        etag: object.ETag ?? null,
+      });
+      if (objects.length >= maxKeys) return objects;
+    }
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken && objects.length < maxKeys);
+
+  return objects;
 }
 
 export async function getObjectBytes(key: string): Promise<Uint8Array> {

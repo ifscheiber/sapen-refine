@@ -9,6 +9,7 @@ Implemented evidence:
 - `prisma/schema.prisma` - `PredictionImportBatchJob`, `PredictionImportBatchItem`, and batch status/source enums.
 - `src/server/domain/predictionImportBatches.ts` - ZIP manifest parsing, private staging, item claiming, lease/stale recovery, processing, retry, and sanitized serialization.
 - `src/server/domain/predictionImportBatchLeases.ts` - RB-065 lease expiry and stale-recovery helpers.
+- `src/server/domain/storageCleanup.ts` - RB-066 retention cleanup for completed/failed staging objects and presigned-upload orphans.
 - `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts` - ZIP batch creation.
 - `src/app/api/prediction-import-batches/*` and `src/app/api/projects/[projectId]/prediction-import-batches/route.ts` - inspect/process/process-due/retry APIs.
 - `src/features/projects/ProjectPredictionImportBatchPanel.tsx` - minimal prediction-imports route UI for owner/QA batch management.
@@ -124,6 +125,8 @@ curl -X POST https://annotate.example.com/api/prediction-import-batches/<batch-i
 
 Manual retry resets failed/retry-pending items to `PENDING`; successful items are never reset by the batch retry endpoint.
 
+RB-066 adds staging retention tracking. After a terminal failed/skipped item source object is purged, the item keeps its failed/skipped status and `stagingPurgedAt`/`stagingPurgeReason` explain why the staged source is no longer retryable. Re-upload the batch if that item still needs processing.
+
 Stale `PROCESSING` recovery:
 
 - `leaseExpiresAt <= now` marks the item stale.
@@ -157,6 +160,10 @@ Runtime variables:
 - `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` - loop sleep interval for the optional worker, default `30`.
 - `PREDICTION_IMPORT_PROCESSOR_ID` - non-secret processor label stored on claimed items/audit details, default `sapen-annotate-worker`.
 - `MASK_UPLOAD_MAX_BYTES` - per-item staged mask cap, default `52428800`.
+- `BATCH_STAGING_COMPLETED_RETENTION_DAYS` - completed batch staging retention, default `7`.
+- `BATCH_STAGING_FAILED_RETENTION_DAYS` - failed/cancelled/error batch staging retention, default `14`.
+- `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS` - abandoned presigned image/mask upload retention, default `24`.
+- `STORAGE_CLEANUP_MAX_DELETE_PER_RUN` - maximum cleanup deletes per execute run, default `500`.
 
 For customer trials, keep `CADDY_MAX_BODY_SIZE` above `PREDICTION_BATCH_UPLOAD_MAX_BYTES`; otherwise Caddy can reject the request before the app returns JSON.
 
@@ -166,9 +173,26 @@ Project `OWNER` and `QA` can create, inspect, process, process due batches, and 
 
 Direct `ModelRun` details remain admin-only elsewhere. Batch responses include reduced prediction-run/model summaries and never expose private storage keys.
 
+Storage cleanup is a separate operational path. `POST /api/storage-cleanup` and `npm run storage:cleanup` require a named global `ADMIN` account, default to dry-run, and never expose presigned URLs.
+
+## Retention Cleanup
+
+Run dry-run first:
+
+```bash
+npm run storage:cleanup -- --category batch-staging --batch '<batch-id>' --email admin@example.com --password '<admin-password>'
+```
+
+Execute with an explicit limit:
+
+```bash
+npm run storage:cleanup -- --execute --category batch-staging --batch '<batch-id>' --limit 100 --email admin@example.com --password '<admin-password>'
+```
+
+The cleanup service deletes only eligible temporary staging objects after the configured retention period. It never deletes committed raw images, committed artifact versions, imported prediction artifact versions, export manifests/packages, or active/retryable batch item sources. Full runbook: [storage-retention-cleanup.md](storage-retention-cleanup.md).
+
 ## Deferred
 
-- Retention cleanup for staged batch source objects.
 - Slice-classification batch prediction imports.
 - Metrics dashboards such as Dice/IoU/confusion matrices.
 - Production-scale queue infrastructure. RB-065 intentionally keeps the trial path to one default single-host worker and PostgreSQL leases; revisit Redis/BullMQ/RabbitMQ only if real usage outgrows this model.

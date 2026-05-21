@@ -14,6 +14,7 @@
 - `prisma/migrations/20260521072000_auth_rbac_audit_hardening/migration.sql` - RB-064 login throttle persistence migration.
 - `prisma/migrations/20260521084500_batch_runner_hardening/migration.sql` - RB-065 prediction import batch processor/lease fields and indexes.
 - `prisma/migrations/20260521090500_prediction_import_idempotency/migration.sql` - RB-065 batch-item source idempotency key for prediction provenance rows.
+- `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 batch staging purge markers.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `prisma.config.ts` - Prisma config and environment loading.
 
@@ -31,11 +32,12 @@
 - Model predictions remain provenance/proposal records until a human creates and approves separate ground-truth artifact or classification versions.
 - `AuthLoginThrottle` stores hashed login failure buckets only; it must not store raw email or IP values.
 - `PredictionImportBatchItem` leases are for single-host trial background import processing only. `SUCCEEDED` items are terminal and must not be reprocessed into duplicate prediction artifacts.
+- `PredictionImportBatchItem.stagingPurgedAt` marks temporary source objects deleted by cleanup. Purged failed/skipped items cannot be reset for retry without re-uploading source data.
 
 ## Known Gaps
 
-- Project/image metadata, default slice support/classification, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export, ZIP batch prediction import, single-host batch worker leases, and auth/RBAC/audit hardening workflows exist for the MVP path.
-- Slice-specific metadata, multi-slice editing, advanced export policy/history, metrics dashboards, staging cleanup, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
+- Project/image metadata, default slice support/classification, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export, ZIP batch prediction import, single-host batch worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
+- Slice-specific metadata, multi-slice editing, advanced export policy/history, metrics dashboards, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

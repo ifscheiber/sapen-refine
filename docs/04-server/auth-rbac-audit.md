@@ -23,7 +23,7 @@ Project permissions are intentionally role-based for the trial:
 - Review/approve/reject: `OWNER`, `QA`.
 - Create training exports: `OWNER`.
 - Create prediction-analysis exports, prediction imports, prediction runs, correction-task management, and batch processing: `OWNER`, `QA`.
-- Create model runs and view full audit data: global `ADMIN`.
+- Create model runs, view full audit data, and run storage cleanup: global `ADMIN`.
 
 The UI may hide unavailable actions, but backend/domain services remain the source of truth.
 
@@ -61,6 +61,8 @@ RB-064 adds audit coverage for:
 
 Existing RB-055 through RB-061 coverage remains in place for image upload acceptance/rejection, semantic/support mask commits, export creation/download, prediction imports, correction-task updates, assisted corrections, and prediction batch processing. RB-065 extends prediction batch processing audit details with `processorId`, `processorRunId`, item claim/success/failure/retry events, stale recovery events, and due-batch worker pass summaries.
 
+RB-066 adds storage-cleanup audit events for dry-run summaries, execute summaries, per-object deletion, skipped objects, and deletion failures. Cleanup requires a named global `ADMIN` account so temporary-object purge actions remain attributable.
+
 ## Deferred
 
-Audit UI, general API write rate limiting, full user-management workflows, and dedicated system-actor login semantics remain deferred. RB-065 uses a named owner/QA job account plus non-secret processor metadata for the single-host trial worker path.
+Audit UI, general API write rate limiting, full user-management workflows, cleanup UI, and dedicated system-actor login semantics remain deferred. RB-065 uses a named owner/QA job account plus non-secret processor metadata for the single-host trial worker path; RB-066 uses a named admin account for cleanup.

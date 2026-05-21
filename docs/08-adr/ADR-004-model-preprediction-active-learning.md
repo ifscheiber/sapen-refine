@@ -45,7 +45,8 @@ The current task fields are sufficient for a first active-learning queue orderin
 - RB-060: Optional QA/prediction-analysis export mode separate from ground-truth export. Implemented after this ADR.
 - RB-061: Batch prediction import and background job support. Implemented after this ADR as a single-host DB-backed baseline.
 - RB-065: Single-host batch runner leases, stale recovery, and optional Compose worker. Implemented after this ADR.
-- Staging cleanup, production-scale workers, classification batch imports, and model metrics dashboards remain deferred.
+- RB-066: Temporary staging/orphan storage cleanup. Implemented after this ADR.
+- Cleanup UI, production-scale workers, classification batch imports, and model metrics dashboards remain deferred.
 
 ## Evidence
 

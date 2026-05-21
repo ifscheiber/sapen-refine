@@ -27,6 +27,10 @@ describe("runtime config", () => {
     expect(config.batchRunner.maxJobsPerTick).toBe(5);
     expect(config.batchRunner.workerIntervalSeconds).toBe(30);
     expect(config.batchRunner.processorId).toBe("sapen-annotate-worker");
+    expect(config.storageCleanup.batchStagingCompletedRetentionDays).toBe(7);
+    expect(config.storageCleanup.batchStagingFailedRetentionDays).toBe(14);
+    expect(config.storageCleanup.presignedUploadStagingRetentionHours).toBe(24);
+    expect(config.storageCleanup.maxDeletePerRun).toBe(500);
     expect(config.auth.showDemoCredentials).toBe(true);
     expect(config.auth.loginRateLimitMaxFailures).toBe(5);
     expect(config.auth.loginRateLimitWindowSeconds).toBe(15 * 60);
@@ -55,6 +59,10 @@ describe("runtime config", () => {
       PREDICTION_BATCH_MAX_JOBS_PER_TICK: "9",
       PREDICTION_BATCH_WORKER_INTERVAL_SECONDS: "10",
       PREDICTION_IMPORT_PROCESSOR_ID: "trial-worker-a",
+      BATCH_STAGING_COMPLETED_RETENTION_DAYS: "8",
+      BATCH_STAGING_FAILED_RETENTION_DAYS: "15",
+      PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS: "36",
+      STORAGE_CLEANUP_MAX_DELETE_PER_RUN: "250",
       NODE_ENV: "production",
       SHOW_DEMO_CREDENTIALS: "true",
       LOGIN_RATE_LIMIT_MAX_FAILURES: "7",
@@ -75,6 +83,10 @@ describe("runtime config", () => {
     expect(config.batchRunner.maxJobsPerTick).toBe(9);
     expect(config.batchRunner.workerIntervalSeconds).toBe(10);
     expect(config.batchRunner.processorId).toBe("trial-worker-a");
+    expect(config.storageCleanup.batchStagingCompletedRetentionDays).toBe(8);
+    expect(config.storageCleanup.batchStagingFailedRetentionDays).toBe(15);
+    expect(config.storageCleanup.presignedUploadStagingRetentionHours).toBe(36);
+    expect(config.storageCleanup.maxDeletePerRun).toBe(250);
     expect(config.auth.showDemoCredentials).toBe(true);
     expect(config.auth.loginRateLimitMaxFailures).toBe(7);
     expect(config.auth.loginRateLimitWindowSeconds).toBe(600);

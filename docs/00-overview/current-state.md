@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after the RB-049 through RB-065 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, and batch-runner hardening slices.
+This page records the repository state after the RB-049 through RB-066 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, and storage-cleanup slices.
 
 ## Important Files
 
@@ -12,7 +12,7 @@ This page records the repository state after the RB-049 through RB-065 annotatio
 - `src/app/(workspace)/app/**` - protected App Router workspace URLs.
 - `src/app/api/**` - current auth, project, image, mask, health, and readiness route handlers.
 - `src/features/projects`, `src/features/images`, and `src/features/editor` - feature-owned workflow composition.
-- `src/server/auth`, `src/server/runtime`, `src/server/storage`, and `src/server/uploads` - server-only auth, config, storage, and upload validation helpers.
+- `src/server/auth`, `src/server/runtime`, `src/server/storage`, `src/server/uploads`, and `src/server/domain/storageCleanup.ts` - server-only auth, config, storage, upload validation, and temporary cleanup helpers.
 - `src/mask` - current label constants, mask buffers, serialization, patching, and overlay rendering.
 - `src/components/shell` and `src/design` - reusable workspace shell, UI primitives, design tokens, and editor canvas constants.
 - `tests/e2e/desktop-browser-smoke.spec.ts` and `tests/e2e/ipad-viewport-prep.spec.ts` - current browser smoke coverage.
@@ -44,6 +44,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - Prediction mask import uses `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` to validate and store private `PREDICTION_MASK` proposal artifacts linked to `PredictionArtifactProvenance`.
 - Project operations use route-addressable pages: `/app/projects/[projectId]` for status/actions, `/images` for image work, `/tasks` for correction queues, `/exports` for training and prediction-analysis exports, and `/prediction-imports` for prediction batch imports.
 - Batch prediction import uses `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts`, `src/app/api/prediction-import-batches/*`, `src/server/domain/predictionImportBatches.ts`, `src/server/domain/predictionImportBatchLeases.ts`, and `/app/projects/[projectId]/prediction-imports` to create ZIP-backed DB jobs/items and process items through the RB-057 import service. RB-065 adds bounded process-due worker processing, processor identity, and stale `PROCESSING` lease recovery for prediction-import items only.
+- Storage cleanup uses `src/app/api/storage-cleanup/route.ts`, `src/server/domain/storageCleanup.ts`, and `scripts/storage-cleanup.mjs` to dry-run or execute deletion of temporary batch staging objects and identifiable abandoned presigned uploads. It requires global `ADMIN` and protects committed raw images, artifact versions, prediction artifacts, and export packages.
 
 ## Current Data Model
 
@@ -51,7 +52,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - `ImageAsset` stores a raw object key, verified file metadata, checksum/dimensions, validation status, uploader, and metadata relations.
 - `AnnotationArtifact` groups semantic/support/instance/prediction/derived artifacts by image, kind, and scope key.
 - `AnnotationArtifactVersion` is append-only per artifact and stores artifact key, size, dimensions, checksum, format, label schema version, review state, provenance, creator, and timestamp.
-- `AuditLog` records upload, mask/support-mask, auth, project/metadata, review, export, prediction, correction, and batch-processing events. There is no admin audit UI yet.
+- `AuditLog` records upload, mask/support-mask, auth, project/metadata, review, export, prediction, correction, batch-processing, and storage-cleanup events. There is no admin audit UI yet.
 
 ## Invariants And Constraints
 
@@ -63,9 +64,9 @@ There is no `check:docs-links` script in `package.json` yet.
 
 ## Known Gaps
 
-- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060 prediction-analysis exports, RB-061 batch prediction import jobs, and RB-065 batch item processor/lease fields. RB-063 adds route-addressable project operations pages without schema changes.
+- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060 prediction-analysis exports, RB-061 batch prediction import jobs, RB-065 batch item processor/lease fields, and RB-066 batch staging purge markers. RB-063 adds route-addressable project operations pages without schema changes.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
-- Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. Malware scanning, general API write rate limiting, large async export jobs, production-scale queue infrastructure/system actors, and orphan/staging cleanup dashboards remain deferred.
+- Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. Malware scanning, general API write rate limiting, large async export jobs, production-scale queue infrastructure/system actors, committed-artifact retention, and cleanup dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

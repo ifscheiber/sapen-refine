@@ -14,7 +14,9 @@ This page documents environment variables required by the current app and local 
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES` - app-side upload size caps used by image and mask upload routes. RB-055 image content types are fixed in code to PNG/JPEG.
 - `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_MAX_ITEMS`, `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS` - batch prediction import ZIP, item, pass, and retry caps.
 - `PREDICTION_BATCH_LEASE_SECONDS`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS`, `PREDICTION_IMPORT_PROCESSOR_ID` - RB-065 prediction-import worker lease/loop controls.
+- `BATCH_STAGING_COMPLETED_RETENTION_DAYS`, `BATCH_STAGING_FAILED_RETENTION_DAYS`, `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS`, `STORAGE_CLEANUP_MAX_DELETE_PER_RUN` - RB-066 storage cleanup retention and execute limits.
 - `SAPEN_JOB_BASE_URL`, `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD` - optional API script/worker settings; use a named owner/QA account for customer trials.
+- `SAPEN_CLEANUP_BASE_URL`, `SAPEN_CLEANUP_EMAIL`, `SAPEN_CLEANUP_PASSWORD` - optional API cleanup script settings; use a named global admin account and dry-run first.
 - `SHOW_DEMO_CREDENTIALS`, `LOGIN_RATE_LIMIT_MAX_FAILURES`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS`, `LOGIN_RATE_LIMIT_LOCK_SECONDS`, `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - RB-064 auth/session hardening settings.
 
 Local defaults in `.env.example` use project-specific ports:
@@ -45,6 +47,7 @@ These avoid accidentally connecting to older SaPen Refine/Core services on stand
 - Runtime config validation is server-only; secrets must not use `NEXT_PUBLIC_` names.
 - If local login fails with Prisma `P2021` for `public.User`, rebuild local development data with `npm run db:rebuild` and restart the Next dev server if it was already running.
 - Upload limits do not control accepted image formats. PNG/JPEG support is currently code-level policy and must be changed with tests/docs if expanded.
+- Storage cleanup limits apply only to temporary/staged objects. They must not be used as a committed-artifact retention policy.
 
 ## Known Gaps
 
@@ -54,4 +57,5 @@ These avoid accidentally connecting to older SaPen Refine/Core services on stand
 
 - [local-development.md](local-development.md)
 - [../04-server/runtime-config.md](../04-server/runtime-config.md)
+- [../04-server/storage-retention-cleanup.md](../04-server/storage-retention-cleanup.md)
 - [../04-server/deployment.md](../04-server/deployment.md)

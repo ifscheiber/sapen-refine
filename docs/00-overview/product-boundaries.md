@@ -18,14 +18,15 @@ Current product scope:
 - active-learning correction tasks,
 - assisted correction for semantic/support mask predictions,
 - prediction-analysis exports,
-- trial-sized ZIP batch prediction imports.
+- trial-sized ZIP batch prediction imports,
+- temporary staging/presigned-upload cleanup for the single-host trial.
 
 Deferred product scope:
 
 - multi-slice/multi-object editing and slice-specific sample metadata,
 - reviewer dashboards, bulk review, and multi-reviewer policy,
 - advanced export filters/history/background jobs,
-- always-on prediction batch workers and staging cleanup,
+- production-scale prediction batch workers and cleanup dashboards,
 - prediction metrics dashboards,
 - slice-classification prediction correction,
 - explicit SaPen Core handoff contracts.

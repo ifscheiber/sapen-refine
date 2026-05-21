@@ -880,6 +880,7 @@ async function claimItems(
   const candidates = await db.predictionImportBatchItem.findMany({
     where: {
       batchJobId: params.batch.id,
+      stagingPurgedAt: null,
       OR: [
         { status: PredictionImportBatchItemStatus.PENDING },
         {
@@ -1254,6 +1255,7 @@ export async function retryPredictionImportBatchForUser(params: {
   const result = await db.predictionImportBatchItem.updateMany({
     where: {
       batchJobId: params.batchId,
+      stagingPurgedAt: null,
       status: {
         in: [
           PredictionImportBatchItemStatus.FAILED,

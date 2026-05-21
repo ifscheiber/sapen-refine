@@ -11,6 +11,10 @@ const DEFAULT_PREDICTION_BATCH_LEASE_SECONDS = 15 * 60;
 const DEFAULT_PREDICTION_BATCH_MAX_JOBS_PER_TICK = 5;
 const DEFAULT_PREDICTION_BATCH_WORKER_INTERVAL_SECONDS = 30;
 const DEFAULT_PREDICTION_IMPORT_PROCESSOR_ID = "sapen-annotate-worker";
+const DEFAULT_BATCH_STAGING_COMPLETED_RETENTION_DAYS = 7;
+const DEFAULT_BATCH_STAGING_FAILED_RETENTION_DAYS = 14;
+const DEFAULT_PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS = 24;
+const DEFAULT_STORAGE_CLEANUP_MAX_DELETE_PER_RUN = 500;
 const DEFAULT_LOGIN_RATE_LIMIT_MAX_FAILURES = 5;
 const DEFAULT_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 const DEFAULT_LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60;
@@ -41,6 +45,12 @@ export type RuntimeConfig = {
     maxJobsPerTick: number;
     workerIntervalSeconds: number;
     processorId: string;
+  };
+  storageCleanup: {
+    batchStagingCompletedRetentionDays: number;
+    batchStagingFailedRetentionDays: number;
+    presignedUploadStagingRetentionHours: number;
+    maxDeletePerRun: number;
   };
   auth: {
     showDemoCredentials: boolean;
@@ -163,6 +173,32 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
         env,
         "PREDICTION_IMPORT_PROCESSOR_ID",
         DEFAULT_PREDICTION_IMPORT_PROCESSOR_ID
+      ),
+    },
+    storageCleanup: {
+      batchStagingCompletedRetentionDays: parsePositiveInteger(
+        env,
+        "BATCH_STAGING_COMPLETED_RETENTION_DAYS",
+        DEFAULT_BATCH_STAGING_COMPLETED_RETENTION_DAYS,
+        "positive integer count"
+      ),
+      batchStagingFailedRetentionDays: parsePositiveInteger(
+        env,
+        "BATCH_STAGING_FAILED_RETENTION_DAYS",
+        DEFAULT_BATCH_STAGING_FAILED_RETENTION_DAYS,
+        "positive integer count"
+      ),
+      presignedUploadStagingRetentionHours: parsePositiveInteger(
+        env,
+        "PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS",
+        DEFAULT_PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS,
+        "positive integer count"
+      ),
+      maxDeletePerRun: parsePositiveInteger(
+        env,
+        "STORAGE_CLEANUP_MAX_DELETE_PER_RUN",
+        DEFAULT_STORAGE_CLEANUP_MAX_DELETE_PER_RUN,
+        "positive integer count"
       ),
     },
     auth: {
