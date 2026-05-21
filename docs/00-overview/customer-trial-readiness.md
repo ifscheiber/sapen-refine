@@ -2,7 +2,7 @@
 
 ## Status
 
-RB-069 prepares the repository for a real single-host customer trial handoff. The app is ready to package and deploy for a small browser trial, but real server deployment and real iPad Safari validation remain pending until a deployed URL and device access exist.
+RB-069 and RB-073 prepare the repository for a real single-host customer trial handoff. The app is ready to package and deploy for a small browser trial, but real server deployment and real iPad Safari validation remain pending until a deployed URL and device access exist.
 
 ## Ready
 
@@ -11,6 +11,7 @@ RB-069 prepares the repository for a real single-host customer trial handoff. Th
 - Prediction workflow: prediction provenance, single prediction imports, correction tasks, assisted correction, prediction-analysis exports, QA metrics, and bounded batch prediction imports.
 - Trial operations: Compose deployment shape, private MinIO, Caddy-only public exposure, named user creation, upload limits, optional single-host prediction-import worker, backup/restore, and storage cleanup runbooks.
 - Handoff hygiene: `npm run handoff:archive` creates a clean ZIP with a generated `handoff-manifest.json`, excludes private/local artifacts, and refuses dirty worktrees unless `--allow-dirty` is explicit.
+- Docker/Compose hygiene: Docker build context excludes local/private/generated artifacts, and `minio-init` no longer embeds MinIO credentials in the Compose command string.
 - Header hygiene: app-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 
 ## Pending Before Customer Pilot

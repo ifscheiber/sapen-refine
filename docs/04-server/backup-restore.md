@@ -8,6 +8,8 @@ PostgreSQL contains users, sessions, RB-064 login throttle buckets, projects, im
 
 Run backups from the repository root on the server after following [deployment-trial.md](deployment-trial.md).
 
+Store backup output under `backups/` for the commands below. That folder is excluded from Docker build context and handoff archives, but it is not a durable backup location by itself; copy completed backups off the trial host according to the accepted trial operations process.
+
 ## PostgreSQL Dump
 
 ```bash

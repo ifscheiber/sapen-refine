@@ -524,13 +524,15 @@ Context: The trial Docker build context can include generated artifacts, and the
 
 Impact: Customer-trial handoff/deployment could expose unnecessary local artifacts or operational secrets.
 
-Proposed next step: Align `.dockerignore` with handoff hygiene, harden Compose secret handling, and update the trial runbook.
+Resolution: Implemented by RB-073 optimized ticket. `.dockerignore` now excludes generated/private/local artifacts, `deploy/minio-init.sh` initializes the private MinIO bucket without embedding credentials in the Compose command string, trial docs explain real-env/config-output handling, and static tests cover the deployment hygiene contract.
 
-Affected modules: `.dockerignore`, `deploy/docker-compose.trial.yml`, deployment docs, and Compose config validation.
+Remaining follow-up: External secret management, HA, production monitoring, and real Strato deployment rehearsal remain deferred to later trial/deployment tickets.
 
-Owner: Unassigned.
+Affected modules: `.dockerignore`, `deploy/docker-compose.trial.yml`, `deploy/minio-init.sh`, deployment docs, and Compose config validation.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved by RB-073.
 
 ## RB-074 - Client API Wrapper / Presign Compatibility Cleanup
 

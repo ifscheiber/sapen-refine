@@ -26,7 +26,7 @@ cp deploy/trial.env.example deploy/trial.env
 chmod 600 deploy/trial.env
 ```
 
-Edit `deploy/trial.env` and replace every placeholder. Use long random values for `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY`.
+Edit `deploy/trial.env` and replace every placeholder. Use long random values for `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY`. Keep `S3_ACCESS_KEY` and `S3_SECRET_KEY` free of double quotes and backslashes because `deploy/minio-init.sh` writes a temporary MinIO client JSON config inside the one-shot init container.
 
 Required public values:
 
@@ -37,6 +37,29 @@ SHOW_DEMO_CREDENTIALS=false
 ```
 
 Keep shared demo credentials hidden for customer trials. Create named tester accounts so annotation, review, export, and operations remain attributable.
+
+## Build Context And Secret Hygiene
+
+Docker builds use the repository root as context. [.dockerignore](../../.dockerignore) excludes local secrets, generated build output, dependency folders, caches, test artifacts, reports, traces, archives, backup output, and local PostgreSQL/MinIO/storage volumes. It intentionally keeps source, Prisma schema/migrations, public assets, package lockfiles, deployment templates, and example env files available to the image build and handoff docs.
+
+Real trial secrets belong only in `deploy/trial.env` on the server. `deploy/trial.env.example` is a placeholder template and may be committed.
+
+`minio-init` uses [../../deploy/minio-init.sh](../../deploy/minio-init.sh) instead of embedding `mc alias set ... <secret>` in the Compose entrypoint. The rendered Compose command should show only:
+
+```text
+/bin/sh /scripts/minio-init.sh
+```
+
+Do not share `docker compose config` output generated with a real `deploy/trial.env`: Compose still expands secret values in service `environment` blocks even though the MinIO init command no longer embeds them.
+
+Safe config checks with placeholder values:
+
+```bash
+docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.trial.yml config
+docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.trial.yml --profile worker config
+```
+
+MinIO S3 and console endpoints remain private on the Compose network. Do not add public MinIO ports for the customer trial.
 
 ## Build, Migrate, Start
 

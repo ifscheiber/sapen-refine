@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, and customer-trial handoff gate.
+This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, customer-trial handoff gate, and RB-073 trial deployment hygiene work.
 
 ## Current Gaps
 
@@ -27,6 +27,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RB-067 adds deterministic prediction-analysis QA metrics for semantic/support prediction-vs-approved-reference comparisons, manifest-level not-computed reasons, metric summary metadata, UI metric availability counts, and coverage for training-export separation plus Copper-not-support behavior.
 - RB-068 decomposes editor client structure into shared contracts/helpers and extracted toolbar, canvas stack, review, slice-classification, and assisted-correction panels without changing editor behavior.
 - RB-069 adds reproducible handoff archive creation, safe download filename headers, a dedicated customer-trial readiness summary, a copy-paste trial deployment runbook, a real iPad Safari gate checklist, and removes the unused legacy `src/server/storage.ts` helper.
+- RB-073 hardens Docker build-context exclusions, moves MinIO bucket init into a mounted one-shot script, avoids embedding MinIO credentials in the Compose init command, and documents remaining Compose secret-output limitations.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
@@ -47,7 +48,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RB-071 covers this architecture/docs/backlog consistency hotfix.
 - RB-072 hardens representative route-level API auth/error contracts while leaving broader compatibility-route cleanup incremental.
 - RB-079 fixes stale workspace session cookies so browser workspace routes redirect to login instead of throwing `UNAUTHORIZED`.
-- RB-073 will harden trial Docker build-context and Compose secret handling.
+- RB-073 hardens trial Docker build-context and Compose secret handling.
 - RB-074 will clean up stale client API wrappers and document compatibility presign policy.
 - RB-075 will resolve or explicitly document the remaining Prisma CLI audit/version policy.
 - RB-076 through RB-078 cover deployment dry run, real iPad Safari gate execution, and post-trial triage.

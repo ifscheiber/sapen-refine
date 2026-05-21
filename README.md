@@ -72,6 +72,8 @@ Customer-facing trials should use named user accounts per tester. Do not expose 
 
 Before external handoff, run `npm run handoff:archive` from a clean worktree. The generated archive includes `handoff-manifest.json` and excludes local secrets, `.git`, build output, caches, test artifacts, backups, and local data volumes.
 
+Docker trial builds use [.dockerignore](.dockerignore) to exclude the same classes of local/private/generated artifacts from build context. `deploy/minio-init.sh` initializes the private MinIO bucket without embedding MinIO credentials in the Compose command string; do not share `docker compose config` output produced with real trial secrets because service `environment` blocks still expand values.
+
 ## MVP Limitations
 
 - Export generation and prediction-analysis export are synchronous and intended for trial-sized datasets.
@@ -82,4 +84,4 @@ Before external handoff, run `npm run handoff:archive` from a clean worktree. Th
 
 ## Repository Hygiene
 
-Local secrets, build output, dependency folders, generated caches, and local storage data are ignored by [.gitignore](.gitignore). The stale nested `src/app/package.json` and `src/app/docker-compose.yml` files from an earlier monorepo layout were removed; root [package.json](package.json) and [docker-compose.yml](docker-compose.yml) are the intended entry points.
+Local secrets, build output, dependency folders, generated caches, and local storage data are ignored by [.gitignore](.gitignore) and excluded from Docker build context by [.dockerignore](.dockerignore). The stale nested `src/app/package.json` and `src/app/docker-compose.yml` files from an earlier monorepo layout were removed; root [package.json](package.json) and [docker-compose.yml](docker-compose.yml) are the intended entry points.
