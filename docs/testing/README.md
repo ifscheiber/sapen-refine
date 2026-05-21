@@ -46,11 +46,13 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/content-disposition.test.ts` covers RB-069 safe image/export download filenames, CR/LF injection removal, quote/backslash handling, ASCII fallback, and UTF-8 `filename*`.
 - `tests/unit/handoff-archive.test.ts` covers RB-069 archive exclusion policy, env/example handling, path filtering, and handoff manifest summaries.
 - `tests/unit/health-readiness.test.ts` covers health payloads and dependency readiness aggregation.
-- `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths and protected workspace paths.
+- `tests/unit/api-errors.test.ts` covers RB-072 API error mapping, unauthorized normalization, unknown-error sanitization, and wrapper behavior.
+- `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths, protected workspace paths, RB-072 unauthenticated API JSON `401`, page redirects, and same-origin guard precedence.
 
 ## Current E2E Coverage
 
 - `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, project operations navigation, PNG image upload with validated technical metadata, single missing T-number list signal before metadata is entered, editor open without aborted-fetch console/page errors, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, owner training export creation through `/app/projects/[projectId]/exports` with manifest/package links, prediction-import route reachability, and a small assisted-correction path from prediction task to saved human correction draft.
+- `tests/e2e/api-error-contracts.spec.ts` covers RB-072 browser/API-level JSON errors for unauthenticated project access plus authenticated forbidden/not-found cases across export, image metadata, prediction run, and storage cleanup routes.
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
 - E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.
@@ -89,7 +91,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization, editor canvas geometry utilities, and extracted editor helper utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules. RB-069 adds unit coverage for handoff and filename-header hygiene.
+- API route-handler tests remain selective; RB-072 adds unit/proxy/E2E coverage for representative API error contracts. DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules. RB-069 adds unit coverage for handoff and filename-header hygiene.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

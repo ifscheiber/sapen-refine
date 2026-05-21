@@ -508,13 +508,15 @@ Context: Several protected API routes call authentication or project-role helper
 
 Impact: Customer-facing XHR failures may become inconsistent generic errors or redirects instead of stable JSON `401`/`403`/project-access responses.
 
-Proposed next step: Standardize representative route-level API error handling and add route/integration coverage for unauthenticated and forbidden cases.
+Resolution: RB-072 adds shared flat JSON API error helpers, returns JSON `401 UNAUTHENTICATED` for unauthenticated `/api/**` requests, applies route-level handling to representative project/image/review/export/prediction/batch/correction/cleanup routes, and adds unit plus browser/API contract coverage.
 
-Affected modules: `src/app/api`, `src/server/auth`, route-handler tests, and API docs.
+Remaining follow-up: Some lower-risk compatibility routes still return older direct JSON error payloads; broader cleanup can be handled incrementally when those routes are touched.
 
-Owner: Unassigned.
+Affected modules: `src/app/api`, `src/proxy.ts`, `src/server/http/apiErrors.ts`, route/API tests, and API docs.
 
-Priority: P1.
+Owner: Codex.
+
+Priority: Resolved by RB-072.
 
 ## RB-073 - Trial Deployment Secret & Build-Context Hygiene
 

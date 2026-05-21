@@ -47,6 +47,8 @@ Shared demo credentials are displayed only in `NODE_ENV=development` or when `SH
 - If `Origin` is present, it must match the request origin or configured `APP_BASE_URL`.
 - Requests without browser Origin/Fetch metadata are allowed so server-side CLI scripts can still call the API.
 
+For unauthenticated requests, `/api/**` now returns JSON `401` with `{ ok: false, error: "UNAUTHENTICATED" }`. Browser workspace pages still redirect to `/login` with a sanitized `next` target.
+
 ## Audit Coverage
 
 RB-064 adds audit coverage for:

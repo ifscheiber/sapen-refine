@@ -48,6 +48,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Toggle prediction overlay and click `Use prediction as starting mask`. | Prediction bytes copy into the editable human layer; no save occurs until explicitly requested. |  |  |
 | Click `Save correction draft`. | A draft human correction version is saved and appears in existing review controls. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
+| Open `/api/projects` in a fresh unauthenticated browser/session. | Response is JSON `401` with `UNAUTHENTICATED`, not an HTML login page. |  |  |
 
 ## Current MVP Limitations
 
@@ -56,7 +57,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - RB-051 supports one default slice/support geometry per image.
 - RB-068 decomposes editor internals only; manual smoke expectations and visible editor behavior are unchanged.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, and a small assisted-correction happy path. Prediction-analysis exports and RB-067 QA metrics, RB-061/RB-065 batch prediction imports, and RB-066 storage cleanup are covered by DB/domain integration tests rather than E2E.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, a small assisted-correction happy path, and RB-072 representative API JSON error contracts. Prediction-analysis exports and RB-067 QA metrics, RB-061/RB-065 batch prediction imports, and RB-066 storage cleanup are covered by DB/domain integration tests rather than full browser workflows.
 
 ## Result Tracking
 

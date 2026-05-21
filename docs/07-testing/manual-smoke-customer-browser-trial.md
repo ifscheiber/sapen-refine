@@ -25,6 +25,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open HTTPS app URL. | Redirects to login without TLS warnings. |  |  |
 | Log in with a named tester. | Workspace opens and session persists after reload. |  |  |
 | Log out if testing logout. | Session is cleared and protected routes redirect to login. |  |  |
+| Open `/api/projects` without a session. | Returns JSON `401 UNAUTHENTICATED`; browser pages still redirect to `/login`. |  |  |
 | Confirm public exposure. | Only Caddy is reachable publicly; MinIO console/S3 are not exposed. |  |  |
 | Run backup command or confirm backup schedule. | PostgreSQL, MinIO, and Caddy backup procedure is documented for this trial. |  |  |
 | If enabling batch prediction imports, set named worker credentials and start optional worker. | `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` belong to a named owner/QA account; `prediction-import-worker` runs only when the `worker` profile is enabled. |  |  |
