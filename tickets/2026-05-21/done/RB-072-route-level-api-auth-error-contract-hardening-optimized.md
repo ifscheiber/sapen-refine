@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Completed
 
 ## Priority
 
@@ -400,3 +400,29 @@ git commit -m "chore: finalize route api error hardening ticket"
 - Do not rewrite every route if representative coverage is sufficient.
 - Prefer stable JSON errors over raw thrown exceptions.
 - Keep all existing success paths green.
+
+---
+
+## 12. Implementation Notes
+
+- Replaced the original RB-072 draft with this optimized ticket.
+- Added shared flat JSON API error helpers in `src/server/http/apiErrors.ts`.
+- Changed unauthenticated `/api/**` proxy behavior to JSON `401 UNAUTHENTICATED` while preserving `/app/**` login redirects.
+- Applied route-level error handling to representative project, image, review, export, prediction, batch, correction-task, and storage-cleanup routes.
+- Added unit/proxy and Playwright API-contract coverage.
+- Documented the RB-072 API error contract and remaining incremental compatibility-route cleanup.
+
+## 13. Validation
+
+- `git status --short` - clean before final validation
+- `npm run db:rebuild` - passed
+- `npm run prisma:generate` - passed
+- `npm run lint` - passed
+- `npm run typecheck` - passed
+- `npm run build` - passed
+- `npm run test` - passed
+- `npm run test:e2e` - passed after test cookie handling fix
+- `npm run check:design-hardcoding` - passed
+- `npm run handoff:archive -- --dry-run` - passed
+- `docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.trial.yml config` - passed
+- `docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.trial.yml --profile worker config` - passed
