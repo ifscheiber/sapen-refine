@@ -27,9 +27,11 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Reload image metadata. | T-number and acquisition fields persist. |  |  |
 | Open editor. | Image, canvas stack, tools, labels, zoom, and save controls render. |  |  |
 | Draw with Brush. | Overlay changes and dirty state becomes visible. |  |  |
+| Select Eraser and erase part of the semantic mask. | Eraser uses the brush size, writes background, and dirty state remains visible. |  |  |
 | Click `Save now`. | Semantic mask save completes, dirty state clears, and a draft artifact version exists. |  |  |
 | Switch to `Slice support`. | Support mode loads separately from semantic mask mode. |  |  |
 | Draw a support mask and save. | Support-mask status shows a draft version after save. |  |  |
+| Select Eraser in support mode and erase part of the support mask. | Eraser writes support background rather than a semantic label. |  |  |
 | Set slice classification. | Classification persists and is visible after save. |  |  |
 | Submit semantic mask, support mask, and slice classification. | Each latest version moves from draft to submitted. |  |  |
 | Approve semantic mask, support mask, and slice classification as `OWNER`/`QA`. | Each reviewable unit shows an approved version and export-ready becomes yes. |  |  |
@@ -56,7 +58,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - Advanced export filters/history, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
-- RB-068 decomposes editor internals only; manual smoke expectations and visible editor behavior are unchanged.
+- RB-070 adds explicit Eraser UX for semantic and support masks; background-label painting remains valid.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
 - Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, a small assisted-correction happy path, and RB-072 representative API JSON error contracts. Prediction-analysis exports and RB-067 QA metrics, RB-061/RB-065 batch prediction imports, and RB-066 storage cleanup are covered by DB/domain integration tests rather than full browser workflows.
 

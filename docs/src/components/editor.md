@@ -2,13 +2,14 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw semantic/support mask overlays, save serialized mask versions, set slice classification, and review the MVP ground-truth state. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls.
+The current editor lets users view an uploaded image, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, and review the MVP ground-truth state. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls.
 
 ## Important Files
 
 - `src/features/editor/EditImagePage.tsx` - server-side route composition and RBAC check.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
+- `src/features/editor/editorTools.ts` - editor tool helpers, including eraser mode/value mapping.
 - `src/design/editorCanvas.ts` - central preview styling constants for lasso handles and polygon previews.
 - `src/mask/serialize.ts` - mask byte serialization used by saves.
 
@@ -24,7 +25,9 @@ The current editor lets users view an uploaded image, draw semantic/support mask
 - The base image canvas, overlay canvas, and preview canvas share the image's natural pixel dimensions.
 - CSS display size is controlled by the current zoom value and fit-to-container logic.
 - Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions via `src/features/editor/canvasGeometry.ts`.
-- Brush, freehand lasso, and polygon lasso all use Pointer Events.
+- Brush, Eraser, freehand lasso, and polygon lasso all use Pointer Events.
+- Eraser is a brush-shaped tool. It uses the same size control as Brush, writes semantic background in `Semantic mask` mode, and writes support background in `Slice support` mode.
+- The `Background` label remains selectable; explicit Eraser is a discoverability and repeated-workflow improvement.
 - The drawing canvas is expected to suppress page scroll while drawing; page scroll should remain available outside the canvas container.
 - `pointercancel` is handled as an interruption, not as a normal lasso completion.
 - Non-primary touch/stylus pointers and non-left mouse buttons are ignored for drawing.

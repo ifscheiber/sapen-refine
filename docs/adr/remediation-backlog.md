@@ -64,7 +64,7 @@ Context: The current editor is MVP-oriented and not yet designed for reliable iP
 
 Impact: Annotation ergonomics and data quality may suffer on tablet devices.
 
-Proposed next step: RB-070 tracks explicit eraser UX as the next focused editor usability slice. Advanced iPad/Pencil viewport interactions remain a later follow-up.
+Resolution: RB-070 adds explicit eraser UX for semantic and support-mask editing. Advanced iPad/Pencil viewport interactions remain a later follow-up.
 
 Affected modules: `src/features/editor/EditorClient.tsx`, `src/features/editor/EditImagePage.tsx`, `src/mask/*`, `src/design/editorCanvas.ts`.
 
@@ -450,7 +450,7 @@ Impact: The editor works, but future changes will be risky if the component rema
 
 Resolution: Implemented by RB-068 optimized ticket. Editor shared types/API path builders/formatters/pointer helpers were extracted, and toolbar, canvas stack, review, slice-classification, and assisted-correction panels were split out of `EditorClient.tsx` while preserving behavior and E2E coverage.
 
-Remaining follow-up: Deeper canvas interaction hooks, save-state hooks, eraser UX, advanced iPad gestures, multi-slice/multi-object editing, and performance tuning remain deferred.
+Remaining follow-up: Deeper canvas interaction hooks, save-state hooks, advanced iPad gestures, multi-slice/multi-object editing, and performance tuning remain deferred.
 
 Affected modules: `src/features/editor`, editor docs, and E2E/unit tests.
 
@@ -480,13 +480,13 @@ Context: The editor supports brush and lasso drawing, and users can erase only i
 
 Impact: The workflow is discoverable enough for developers but weak for repeated customer annotation work, especially on iPad-sized layouts.
 
-Proposed next step: Implement an explicit eraser tool that writes the current mask-mode background value and preserves undo/redo, dirty state, save/reload, and pointer/touch behavior.
+Resolution: Implemented by RB-070 optimized ticket. The editor now has an explicit Eraser tool that writes semantic/support background values through the existing brush-sized pointer path and preserves undo/redo, dirty state, save/reload, and assisted-correction prediction overlay boundaries.
 
 Affected modules: `src/features/editor`, `src/mask`, editor smoke docs, and editor tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-070.
 
 ## RB-071 - Architecture / Docs / Backlog Consistency Hotfix
 

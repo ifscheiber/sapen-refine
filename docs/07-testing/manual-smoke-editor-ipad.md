@@ -25,6 +25,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 | Open the editor. | Image loads and editor controls are visible. |  |  |
 | Select each label. | Active label state is visible and touch target remains stable. |  |  |
 | Select Brush and draw with mouse. | Mask overlay follows the pointer and page does not scroll unexpectedly. |  |  |
+| Select Eraser and erase part of the mask. | Eraser uses the brush size, writes background, and participates in dirty/save state. |  |  |
 | Select Lasso and draw a freehand region. | Region commits as a mask change after pointer up. |  |  |
 | Select Polygon and create a polygon. | Handles render; Enter/double-click/closing near first point commits the region. |  |  |
 | Use Undo and Redo. | Mask state changes predictably. |  |  |
@@ -82,6 +83,7 @@ Blocking: yes/no
 | Log in. | Workspace opens and session persists. |  |  |
 | Open an uploaded image in the editor. | Image and controls render. |  |  |
 | Draw with finger using Brush. | Mask draws; canvas does not scroll the page while drawing. |  |  |
+| Select Eraser by touch and erase part of the mask. | Eraser touch target is usable and erasing does not scroll the page. |  |  |
 | Draw with Apple Pencil if available. | Pencil draws through Pointer Events. |  |  |
 | Touch outside the canvas and scroll. | Page/editor container scrolling remains possible outside drawing surface. |  |  |
 | Change labels and tools by touch. | Controls are large enough and active state is clear. |  |  |
@@ -102,6 +104,7 @@ Blocking: yes/no
 
 ## Known Limitations
 
-- Advanced multi-touch zoom/pan gestures are not implemented in RB-045.
+- Advanced multi-touch zoom/pan gestures are not implemented.
+- RB-070 adds explicit eraser UX; real iPad Safari/Pencil behavior still needs the manual gate.
 - Current editor review controls are minimal; reviewer dashboards and bulk review remain separate follow-up slices. RB-053 export testing is covered by the desktop/customer browser smoke checklists through the project exports route.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

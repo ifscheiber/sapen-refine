@@ -37,7 +37,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/review-domain.test.ts` covers RB-052 review transition helpers, role capability mapping, reject reason requirements, and approved-only export readiness.
 - `tests/unit/slice-domain.test.ts` covers RB-051 support artifact kind helpers and latest classification resolution.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
-- `tests/unit/editor-helpers.test.ts` covers RB-068 extracted editor API path builders, review/classification/correction display helpers, abort detection, and pointer ignore decisions.
+- `tests/unit/editor-helpers.test.ts` covers RB-068 extracted editor API path builders, review/classification/correction display helpers, abort detection, pointer ignore decisions, and RB-070 eraser tool/value behavior.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, and upload limit parsing.
 - `tests/unit/storage-cleanup.test.ts` covers RB-066 temporary-object key classification, retention cutoffs, and age calculations.
 - `tests/unit/prediction-import-batch-leases.test.ts` covers RB-065 lease expiry, stale legacy processing detection, and retry/fail recovery state selection.
@@ -53,7 +53,7 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Current E2E Coverage
 
-- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, project operations navigation, PNG image upload with validated technical metadata, single missing T-number list signal before metadata is entered, editor open without aborted-fetch console/page errors, semantic mask save, support mask save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, owner training export creation through `/app/projects/[projectId]/exports` with manifest/package links, prediction-import route reachability, and a small assisted-correction path from prediction task to saved human correction draft.
+- `tests/e2e/desktop-browser-smoke.spec.ts` covers the desktop MVP browser path: login, project creation, project operations navigation, PNG image upload with validated technical metadata, single missing T-number list signal before metadata is entered, editor open without aborted-fetch console/page errors, semantic mask draw/erase/save, support mask draw/erase/save, slice classification save, submit/approve for all three reviewable units, reload, latest-artifact/review API checks, owner training export creation through `/app/projects/[projectId]/exports` with manifest/package links, prediction-import route reachability, and a small assisted-correction path from prediction task to saved human correction draft.
 - `tests/e2e/api-error-contracts.spec.ts` covers RB-072 browser/API-level JSON errors for unauthenticated project access plus authenticated forbidden/not-found cases across export, image metadata, prediction run, and storage cleanup routes. It also covers RB-079 stale workspace session redirect behavior.
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.

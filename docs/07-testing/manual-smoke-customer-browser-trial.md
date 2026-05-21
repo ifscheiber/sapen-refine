@@ -46,9 +46,11 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |
+| Select Eraser and erase part of the semantic mask. | Eraser is discoverable, uses brush size, writes background, and can be saved. |  |  |
 | Save semantic mask. | Semantic mask save completes and persists. |  |  |
 | Switch to `Slice support`. | UI clearly indicates support mode, separate from semantic labels. |  |  |
 | Draw and save support mask. | Support-mask status shows a draft version. |  |  |
+| Select Eraser in support mode and erase part of the support mask. | Eraser writes support background and remains separate from semantic Copper labels. |  |  |
 | Set slice classification. | Classification persists after save. |  |  |
 | Submit and approve semantic mask, support mask, and slice classification. | Review state shows approved versions and export-ready becomes yes. |  |  |
 | Reload. | Semantic mask, support mask status, classification, and approved review state reload. |  |  |
@@ -100,6 +102,7 @@ Blocking failure criteria:
 | Enter or inspect T-number and acquisition metadata. | Metadata fields fit the viewport and save/reload works. |  |  |
 | Open editor. | Editor controls remain reachable without overlap. |  |  |
 | Draw with finger using Brush. | Canvas draws and page does not scroll while drawing. |  |  |
+| Select Eraser by touch and erase. | Eraser control is reachable and erasing uses the same brush-size workflow. |  |  |
 | Switch to `Slice support`. | Mode switch and support controls fit the iPad viewport. |  |  |
 | Save support mask and set classification. | Support state and classification persist after reload. |  |  |
 | Inspect review controls. | Review state fits the iPad viewport without blocking normal editor controls. |  |  |
@@ -127,6 +130,7 @@ Blocking failure criteria:
 ## Known Limitations
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
+- Explicit eraser UX exists after RB-070; real iPad Safari/Pencil behavior remains a manual gate.
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - RB-068 is an internal editor decomposition; visible customer-trial editor behavior should remain unchanged.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.

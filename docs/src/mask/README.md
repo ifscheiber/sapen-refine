@@ -27,6 +27,7 @@
 - Current runtime mask coordinate space is `IMAGE_PIXEL`; transformed coordinate spaces remain future work.
 - Semantic mask labels and support/instance masks must remain conceptually separate.
 - Support-mask bytes may contain only `0` and the active `slice_support` byte.
+- RB-070 editor erasing uses existing mask tool mutation paths: semantic erasing writes `Labels.BG`, and support-mask erasing writes the current support background value.
 - Approved ground-truth mask versions must be append-only when review/approval exists.
 
 ## Known Gaps

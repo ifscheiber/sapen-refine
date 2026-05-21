@@ -46,13 +46,14 @@ Extracted ownership:
 - `src/features/editor/editorFormatters.ts` owns review/classification/correction display formatting.
 - `src/features/editor/editorPointer.ts` owns pointer ignore/capture/release helpers.
 - `src/features/editor/editorStyles.ts` owns shared editor button class constants based on existing design tokens.
+- `src/features/editor/editorTools.ts` owns editor tool helpers such as brush-like tool detection and mode-specific eraser values.
 - `src/features/editor/components/EditorToolbar.tsx` owns mode, tool, label, opacity, undo/redo, save, export, and zoom controls.
 - `src/features/editor/components/EditorCanvasStack.tsx` owns the stacked canvas DOM and pointer-handler wiring.
 - `src/features/editor/components/EditorReviewPanel.tsx` owns review/export-readiness display and submit/approve/reject controls.
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
 - `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
 
-This is a behavior-preserving decomposition. It does not add eraser UX, change tool algorithms, change mask serialization, or change server API semantics.
+RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit eraser tool without changing mask serialization, server API semantics, review/export behavior, or prediction provenance.
 
 ## Current Entry Route
 
@@ -79,7 +80,9 @@ This is a behavior-preserving decomposition. It does not add eraser UX, change t
 
 ## Current Save And History Model
 
-- Brush and lasso operations write to a `MaskBuffer` in memory.
+- Brush, eraser, and lasso operations write to a `MaskBuffer` in memory.
+- The eraser uses the same brush radius and pointer path as Brush. In semantic mode it writes `Labels.BG`; in slice-support mode it writes the current support background value.
+- Painting the explicit `Background` label remains valid. The eraser is a discoverable shortcut for repeated annotation work.
 - Undo/redo stores patch arrays in refs and applies patches back into the mask buffer.
 - Autosave debounces dirty mask writes after edits.
 - RB-045 exposes dirty/saving state in the editor toolbar and guards browser unload while unsaved edits exist.
@@ -139,7 +142,7 @@ Slice-classification prediction correction is deferred because RB-057 imports ma
 
 ## Desktop Browser Smoke Scope
 
-- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/save a semantic mask, switch to slice support, draw/save a support mask, set slice classification, submit/approve all three reviewable units, reload, and confirm masks, classification, and approved review state persist.
+- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/erase/save a semantic mask, switch to slice support, draw/erase/save a support mask, set slice classification, submit/approve all three reviewable units, reload, and confirm masks, classification, and approved review state persist.
 - RB-047 browser automation should keep this path small and avoid asserting unstable visual details.
 
 ## RB-045 Start Limitations
@@ -149,4 +152,4 @@ Slice-classification prediction correction is deferred because RB-057 imports ma
 - Advanced iPad gestures such as two-finger zoom/pan are not part of the current editor model.
 - Real iPad Safari validation is deferred in RB-047 until deployment/device access is available.
 
-Editor ownership remains under `src/features/editor` without a full editor rewrite. Future tool work such as eraser UX should extend the extracted toolbar/canvas structure rather than adding more panel markup back into `EditorClient.tsx`.
+Editor ownership remains under `src/features/editor` without a full editor rewrite. Future tool work should extend the extracted toolbar/canvas/tool-helper structure rather than adding more panel markup back into `EditorClient.tsx`.

@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, customer-trial handoff gate, and RB-073 trial deployment hygiene work.
+This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, customer-trial handoff gate, RB-073 trial deployment hygiene work, and RB-070 editor eraser UX.
 
 ## Current Gaps
 
@@ -27,12 +27,13 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RB-067 adds deterministic prediction-analysis QA metrics for semantic/support prediction-vs-approved-reference comparisons, manifest-level not-computed reasons, metric summary metadata, UI metric availability counts, and coverage for training-export separation plus Copper-not-support behavior.
 - RB-068 decomposes editor client structure into shared contracts/helpers and extracted toolbar, canvas stack, review, slice-classification, and assisted-correction panels without changing editor behavior.
 - RB-069 adds reproducible handoff archive creation, safe download filename headers, a dedicated customer-trial readiness summary, a copy-paste trial deployment runbook, a real iPad Safari gate checklist, and removes the unused legacy `src/server/storage.ts` helper.
+- RB-070 adds an explicit brush-sized Eraser tool for semantic and support-mask editing, with mode-specific background values and desktop E2E coverage.
 - RB-073 hardens Docker build-context exclusions, moves MinIO bucket init into a mounted one-shot script, avoids embedding MinIO credentials in the Compose init command, and documents remaining Compose secret-output limitations.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
 - Training export remains an MVP: synchronous, owner-only, project-level, and without advanced filters, export history UI, or large dataset job handling. Prediction-analysis export is also synchronous and trial-sized, but allows project `QA` in addition to `OWNER`.
-- Editor UX is consolidated under `src/features/editor`; RB-068 splits the previous monolithic client into smaller modules, while eraser UX, advanced iPad zoom/pan gestures, and deeper drawing/state hook decomposition remain deferred.
+- Editor UX is consolidated under `src/features/editor`; RB-068 splits the previous monolithic client into smaller modules and RB-070 adds explicit eraser UX, while advanced iPad zoom/pan gestures and deeper drawing/state hook decomposition remain deferred.
 - Copper semantic masks are material labels and must not be treated as physical slice support geometry. RB-051 adds the first support-mask workflow, but multi-object/multi-slice support remains deferred.
 - Review/approval is intentionally minimal: no reviewer dashboard, bulk review, notification system, or multi-reviewer approval flow exists yet.
 - Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export, RB-061/RB-065 implement trial-sized batch/background imports, RB-066 implements temporary storage cleanup for staging/orphan objects, and RB-067 computes prediction-analysis QA metrics where approved references exist.
@@ -44,7 +45,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 
 ## Current 2026-05-21 Follow-Up Sequence
 
-- RB-070 tracks explicit editor eraser UX for desktop and iPad-sized annotation work.
+- RB-070 adds explicit editor eraser UX for desktop and iPad-sized annotation work.
 - RB-071 covers this architecture/docs/backlog consistency hotfix.
 - RB-072 hardens representative route-level API auth/error contracts while leaving broader compatibility-route cleanup incremental.
 - RB-079 fixes stale workspace session cookies so browser workspace routes redirect to login instead of throwing `UNAUTHORIZED`.
