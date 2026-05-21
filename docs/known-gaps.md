@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-067 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, and prediction QA metrics baseline.
+This page summarizes known limitations after the RB-040 through RB-068 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, and editor decomposition work.
 
 ## Current Gaps
 
@@ -25,11 +25,12 @@ This page summarizes known limitations after the RB-040 through RB-067 baseline,
 - RB-065 adds a trial-sized single-host PostgreSQL lease model for prediction-import batch items, `process-due` API processing, optional Docker Compose `worker` profile, stale `PROCESSING` recovery, processor identity fields, and coverage for bounded due passes and stale recovery.
 - RB-066 adds admin-only dry-run/execute storage cleanup for temporary batch staging objects and identifiable abandoned presigned image/mask uploads, retention configuration, staging purge markers on batch items, cleanup audit events, and integration coverage for protected durable objects.
 - RB-067 adds deterministic prediction-analysis QA metrics for semantic/support prediction-vs-approved-reference comparisons, manifest-level not-computed reasons, metric summary metadata, UI metric availability counts, and coverage for training-export separation plus Copper-not-support behavior.
+- RB-068 decomposes editor client structure into shared contracts/helpers and extracted toolbar, canvas stack, review, slice-classification, and assisted-correction panels without changing editor behavior.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
 - Training export remains an MVP: synchronous, owner-only, project-level, and without advanced filters, export history UI, or large dataset job handling. Prediction-analysis export is also synchronous and trial-sized, but allows project `QA` in addition to `OWNER`.
-- Editor UX is consolidated under `src/features/editor`; RB-045 added the browser/iPad trial baseline, while advanced iPad zoom/pan gestures remain deferred.
+- Editor UX is consolidated under `src/features/editor`; RB-068 splits the previous monolithic client into smaller modules, while eraser UX, advanced iPad zoom/pan gestures, and deeper drawing/state hook decomposition remain deferred.
 - Copper semantic masks are material labels and must not be treated as physical slice support geometry. RB-051 adds the first support-mask workflow, but multi-object/multi-slice support remains deferred.
 - Review/approval is intentionally minimal: no reviewer dashboard, bulk review, notification system, or multi-reviewer approval flow exists yet.
 - Prediction-assisted refine/correction mode is implemented for semantic/support mask predictions. RB-060 implements prediction-analysis export, RB-061/RB-065 implement trial-sized batch/background imports, RB-066 implements temporary storage cleanup for staging/orphan objects, and RB-067 computes prediction-analysis QA metrics where approved references exist.

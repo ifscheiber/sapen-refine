@@ -36,6 +36,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/review-domain.test.ts` covers RB-052 review transition helpers, role capability mapping, reject reason requirements, and approved-only export readiness.
 - `tests/unit/slice-domain.test.ts` covers RB-051 support artifact kind helpers and latest classification resolution.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, and display sizing helpers.
+- `tests/unit/editor-helpers.test.ts` covers RB-068 extracted editor API path builders, review/classification/correction display helpers, abort detection, and pointer ignore decisions.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, and upload limit parsing.
 - `tests/unit/storage-cleanup.test.ts` covers RB-066 temporary-object key classification, retention cutoffs, and age calculations.
 - `tests/unit/prediction-import-batch-leases.test.ts` covers RB-065 lease expiry, stale legacy processing detection, and retry/fail recovery state selection.
@@ -82,7 +83,7 @@ This page defines the current validation baseline and the intended testing direc
 
 ## Known Gaps
 
-- Current tests cover stable mask serialization and editor canvas geometry utilities.
+- Current tests cover stable mask serialization, editor canvas geometry utilities, and extracted editor helper utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
 - API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.

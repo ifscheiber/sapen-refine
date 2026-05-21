@@ -448,13 +448,15 @@ Context: `src/features/editor/EditorClient.tsx` owns drawing tools, semantic/sup
 
 Impact: The editor works, but future changes will be risky if the component remains a large multi-concern implementation.
 
-Proposed next step: Split the editor incrementally into state/hooks, canvas rendering, toolbar/tool controls, review/status controls, correction context, and save/commit helpers while preserving current behavior and E2E coverage.
+Resolution: Implemented by RB-068 optimized ticket. Editor shared types/API path builders/formatters/pointer helpers were extracted, and toolbar, canvas stack, review, slice-classification, and assisted-correction panels were split out of `EditorClient.tsx` while preserving behavior and E2E coverage.
 
-Affected modules: `src/features/editor`, `src/mask`, editor docs, and E2E/unit tests.
+Remaining follow-up: Deeper canvas interaction hooks, save-state hooks, eraser UX, advanced iPad gestures, multi-slice/multi-object editing, and performance tuning remain deferred.
 
-Owner: Unassigned.
+Affected modules: `src/features/editor`, editor docs, and E2E/unit tests.
 
-Priority: P2.
+Owner: Codex.
+
+Priority: Resolved by RB-068.
 
 ## RB-069 - Customer Trial Deployment, Handoff Hygiene, And iPad Safari Gate
 

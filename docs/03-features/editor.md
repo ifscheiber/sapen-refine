@@ -9,7 +9,12 @@ Important files:
 - `src/features/editor/EditImagePage.tsx`
 - `src/features/editor/CorrectionTaskEditorPage.tsx`
 - `src/features/editor/EditorClient.tsx`
+- `src/features/editor/components/*`
 - `src/features/editor/canvasGeometry.ts`
+- `src/features/editor/editorApi.ts`
+- `src/features/editor/editorFormatters.ts`
+- `src/features/editor/editorPointer.ts`
+- `src/features/editor/editorTypes.ts`
 - `src/design/editorCanvas.ts`
 - `src/mask/*`
 
@@ -29,6 +34,25 @@ Before decomposition, `src/features/editor/EditorClient.tsx` owns all client-sid
 - assisted correction panel, prediction overlay toggle, prediction-mask loading, and explicit prediction-to-editable-mask copy behavior.
 
 RB-068 decomposes these concerns without changing editor routes, APIs, mask bytes, review semantics, assisted-correction semantics, or iPad pointer assumptions.
+
+## RB-068 Module Structure
+
+After RB-068, `EditorClient.tsx` remains the orchestration component for the current editor workflow. It still coordinates mask refs, drawing algorithms, autosave, undo/redo, image/mask loading, and review/correction side effects.
+
+Extracted ownership:
+
+- `src/features/editor/editorTypes.ts` owns editor-specific TypeScript contracts and slice-classification options.
+- `src/features/editor/editorApi.ts` owns existing editor API route builders. Route contracts are unchanged.
+- `src/features/editor/editorFormatters.ts` owns review/classification/correction display formatting.
+- `src/features/editor/editorPointer.ts` owns pointer ignore/capture/release helpers.
+- `src/features/editor/editorStyles.ts` owns shared editor button class constants based on existing design tokens.
+- `src/features/editor/components/EditorToolbar.tsx` owns mode, tool, label, opacity, undo/redo, save, export, and zoom controls.
+- `src/features/editor/components/EditorCanvasStack.tsx` owns the stacked canvas DOM and pointer-handler wiring.
+- `src/features/editor/components/EditorReviewPanel.tsx` owns review/export-readiness display and submit/approve/reject controls.
+- `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
+- `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
+
+This is a behavior-preserving decomposition. It does not add eraser UX, change tool algorithms, change mask serialization, or change server API semantics.
 
 ## Current Entry Route
 
@@ -125,4 +149,4 @@ Slice-classification prediction correction is deferred because RB-057 imports ma
 - Advanced iPad gestures such as two-finger zoom/pan are not part of the current editor model.
 - Real iPad Safari validation is deferred in RB-047 until deployment/device access is available.
 
-Editor ownership remains under `src/features/editor` without a full editor rewrite.
+Editor ownership remains under `src/features/editor` without a full editor rewrite. Future tool work such as eraser UX should extend the extracted toolbar/canvas structure rather than adding more panel markup back into `EditorClient.tsx`.

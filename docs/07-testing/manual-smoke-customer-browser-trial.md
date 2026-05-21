@@ -125,6 +125,7 @@ Blocking failure criteria:
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
+- RB-068 is an internal editor decomposition; visible customer-trial editor behavior should remain unchanged.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
 - RB-053 training export and RB-060/RB-067 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. RB-066 storage cleanup is admin-only and dry-run first. Cleanup UI, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
