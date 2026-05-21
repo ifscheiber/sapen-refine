@@ -6,6 +6,7 @@ import {
   isApiMutationPath,
   isSameOriginMutationAllowed,
 } from "@/server/auth/requestGuards";
+import { WORKSPACE_REQUEST_PATH_HEADER } from "@/server/auth/workspaceRedirect";
 import { apiError } from "@/server/http/apiErrors";
 
 const PUBLIC_PATHS = new Set<string>([
@@ -61,6 +62,12 @@ export function proxy(req: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname + search);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (pathname.startsWith("/app")) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set(WORKSPACE_REQUEST_PATH_HEADER, pathname + search);
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   return NextResponse.next();

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
 import { isPublicPath, proxy } from "@/proxy";
+import { SESSION_COOKIE_NAME } from "@/server/auth/constants";
+import { WORKSPACE_REQUEST_PATH_HEADER } from "@/server/auth/workspaceRedirect";
 
 describe("proxy public paths", () => {
   it("allows operational endpoints without a session", () => {
@@ -33,6 +35,19 @@ describe("proxy public paths", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost/login?next=%2Fapp");
+  });
+
+  it("forwards the requested workspace path when a session cookie exists", () => {
+    const response = proxy(
+      new NextRequest("http://localhost/app/projects/demo_project/images/image-1/edit?tool=brush", {
+        headers: { cookie: `${SESSION_COOKIE_NAME}=stale-session` },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      response.headers.get(`x-middleware-request-${WORKSPACE_REQUEST_PATH_HEADER}`),
+    ).toBe("/app/projects/demo_project/images/image-1/edit?tool=brush");
   });
 
   it("keeps same-origin mutation guard ahead of api authentication", async () => {

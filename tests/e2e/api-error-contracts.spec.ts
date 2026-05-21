@@ -1,5 +1,7 @@
 import { expect, test, type APIResponse } from "@playwright/test";
 
+const SESSION_COOKIE_NAME = "sapen_annotate_session";
+
 async function expectJsonError(response: APIResponse, status: number, error: string) {
   expect(response.status()).toBe(status);
   expect(response.headers()["content-type"]).toContain("application/json");
@@ -46,4 +48,27 @@ test("api auth and authorization failures return stable json errors", async ({ r
     403,
     "CLEANUP_FORBIDDEN",
   );
+});
+
+test("workspace routes with stale sessions redirect to login", async ({ page }) => {
+  await page.goto("/login");
+  const origin = new URL(page.url()).origin;
+  await page.context().addCookies([
+    {
+      name: SESSION_COOKIE_NAME,
+      value: "stale-invalid-session",
+      url: origin,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  const requestedPath = "/app/projects/demo_project/images/stale-session-image/edit";
+  await page.goto(requestedPath);
+
+  await expect(page).toHaveURL(/\/login\?next=/);
+  const redirected = new URL(page.url());
+  expect(redirected.pathname).toBe("/login");
+  expect(redirected.searchParams.get("next")).toBe(requestedPath);
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
