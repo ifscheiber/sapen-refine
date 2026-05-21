@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MaskBuffer } from "@/mask/maskBuffer";
 import { DEFAULT_LABELS, Labels, supportMaskLabels, type LabelId } from "@/mask/labels";
 import { applyBrush, applyPolygonFill } from "@/mask/tools";
-import { applyPatch, type Patch } from "@/mask/patch";
+import { applyPatch } from "@/mask/patch";
 import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
 import { editorCanvasPreviewStyle } from "@/design/editorCanvas";
 import {
@@ -13,183 +13,45 @@ import {
   getFitZoom,
   getZoomedCanvasDisplaySize,
 } from "./canvasGeometry";
+import {
+  API_ARTIFACT_REVIEW,
+  API_CLASSIFICATION_REVIEW,
+  API_CORRECTION_CONTEXT,
+  API_IMAGE_VIEW,
+  API_MASK_LATEST,
+  API_MASK_UPLOAD,
+  API_REVIEW_STATE,
+  API_SLICE_CLASSIFICATION,
+  API_SLICE_STATE,
+  API_SUPPORT_MASK_LATEST,
+  API_SUPPORT_MASK_UPLOAD,
+} from "./editorApi";
+import {
+  errorMessage,
+  formatCorrectionModel,
+  formatCorrectionScore,
+  formatReviewState,
+  formatSliceClassLabel,
+  formatVersion,
+  isAbortError,
+} from "./editorFormatters";
+import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
+import {
+  SLICE_CLASS_OPTIONS,
+  type CorrectionContext,
+  type EditorProps,
+  type ImageReviewState,
+  type MaskMode,
+  type Point,
+  type ReviewAction,
+  type ReviewableState,
+  type SliceClassValue,
+  type SliceState,
+  type Stroke,
+  type Tool,
+} from "./editorTypes";
 
-type Props = {
-  projectId: string;
-  imageId: string;
-  canEdit: boolean;
-  correctionTaskId?: string;
-  correctionMode?: MaskMode;
-};
-
-const API_IMAGE_VIEW = (imageId: string) => `/api/images/${imageId}/view`;
-const API_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/mask/latest`;
-const API_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/mask/upload`;
-const API_SUPPORT_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/support-mask/latest`;
-const API_SUPPORT_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/support-mask/upload`;
-const API_SLICE_STATE = (imageId: string) => `/api/images/${imageId}/slice`;
-const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imageId}/slice/classification`;
-const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-state`;
-const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;
-const API_CLASSIFICATION_REVIEW = (versionId: string) =>
-  `/api/slice-classification-versions/${versionId}/review`;
-const API_CORRECTION_CONTEXT = (taskId: string) => `/api/correction-tasks/${taskId}/correction-context`;
-
-type Stroke = Patch[];
-type Tool = "brush" | "lasso_free" | "lasso_poly";
-type MaskMode = "semantic" | "support";
-type Point = { x: number; y: number };
-
-type SliceClassValue =
-  | "SAP_HEARTWOOD_SLICE"
-  | "COPPER_SLICE"
-  | "UNKNOWN"
-  | "REVIEW_REQUIRED";
-type ReviewStateValue = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "SUPERSEDED";
-type ReviewAction = "submit" | "approve" | "reject";
-
-type SliceState = {
-  canEdit: boolean;
-  supportLabels: { background: number; sliceSupport: number };
-  sliceInstance: { id: string; supportArtifactVersionId: string | null } | null;
-  latestSupportMask: {
-    id: string;
-    version: number;
-    reviewState: string;
-    createdAt: string;
-    createdBy: { email: string; name: string | null } | null;
-  } | null;
-  latestClassification: {
-    id: string;
-    version: number;
-    class: SliceClassValue;
-    reviewState: string;
-    createdAt: string;
-    createdBy: { email: string; name: string | null } | null;
-  } | null;
-};
-
-type ReviewVersion = {
-  id: string;
-  version: number;
-  reviewState: ReviewStateValue;
-  createdAt: string;
-  createdBy: { email: string; name: string | null } | null;
-};
-
-type ClassificationReviewVersion = ReviewVersion & {
-  class: SliceClassValue;
-};
-
-type ReviewableState = {
-  type: "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK" | "SLICE_CLASSIFICATION";
-  label: string;
-  latestVersion: ReviewVersion | ClassificationReviewVersion | null;
-  latestApprovedVersion: ReviewVersion | ClassificationReviewVersion | null;
-  exportReady: boolean;
-  actions: {
-    canSubmit: boolean;
-    canApprove: boolean;
-    canReject: boolean;
-  };
-};
-
-type ImageReviewState = {
-  myRole: string;
-  permissions: { canSubmit: boolean; canReview: boolean };
-  reviewables: {
-    semanticMask: ReviewableState;
-    supportMask: ReviewableState;
-    sliceClassification: ReviewableState;
-  };
-  exportReady: boolean;
-  warnings: string[];
-};
-
-type CorrectionContext = {
-  task: {
-    id: string;
-    projectId: string;
-    imageId: string;
-    status: string;
-    priority: number;
-    taskReason: string | null;
-    confidenceScore: number | null;
-    uncertaintyScore: number | null;
-  };
-  mode: MaskMode;
-  targetType: "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK";
-  humanArtifactKind: "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK";
-  predictionRun: {
-    id: string;
-    inferenceRunId: string | null;
-    modelRun: {
-      modelFamily: string;
-      modelName: string;
-      modelVersion: string | null;
-    };
-  } | null;
-  sourcePrediction: {
-    id: string;
-    checksum: string | null;
-    width: number;
-    height: number;
-    format: string;
-  };
-  predictionMaskUrl: string;
-  correctionSaveUrl: string;
-};
-
-const SLICE_CLASS_OPTIONS: Array<{ value: SliceClassValue; label: string }> = [
-  { value: "SAP_HEARTWOOD_SLICE", label: "Sap/Heartwood slice" },
-  { value: "COPPER_SLICE", label: "Copper slice" },
-  { value: "UNKNOWN", label: "Unknown" },
-  { value: "REVIEW_REQUIRED", label: "Review required" },
-];
-
-function errorMessage(error: unknown, fallback = "Save failed") {
-  return error instanceof Error ? error.message : fallback;
-}
-
-function isAbortError(error: unknown) {
-  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
-}
-
-function formatReviewState(state: ReviewStateValue | string | null | undefined) {
-  if (!state) return "Missing";
-  const normalized = state.toLowerCase().replaceAll("_", " ");
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
-function formatVersion(version: ReviewVersion | ClassificationReviewVersion | null) {
-  return version ? `${formatReviewState(version.reviewState)} v${version.version}` : "Missing";
-}
-
-function shouldIgnorePointerDown(evt: React.PointerEvent<HTMLCanvasElement>) {
-  if (evt.pointerType === "mouse" && evt.button !== 0) return true;
-  if (evt.pointerType !== "mouse" && !evt.isPrimary) return true;
-  return false;
-}
-
-function capturePointer(target: HTMLCanvasElement, pointerId: number) {
-  try {
-    target.setPointerCapture(pointerId);
-  } catch {
-    // Pointer capture can fail if the browser already cancelled the pointer.
-  }
-}
-
-function releasePointer(target: HTMLCanvasElement, pointerId: number) {
-  try {
-    if (target.hasPointerCapture(pointerId)) {
-      target.releasePointerCapture(pointerId);
-    }
-  } catch {
-    // Releasing a cancelled pointer is best-effort across browsers.
-  }
-}
-
-export default function EditorClient({ imageId, canEdit, correctionTaskId, correctionMode }: Props) {
+export default function EditorClient({ imageId, canEdit, correctionTaskId, correctionMode }: EditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1371,9 +1233,7 @@ function stamp(x: number, y: number) {
   const activeButtonClass = "min-h-11 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90";
   const idleButtonClass =
     "min-h-11 rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground hover:bg-accent";
-  const latestClassificationLabel =
-    SLICE_CLASS_OPTIONS.find((option) => option.value === sliceState?.latestClassification?.class)?.label ??
-    "Missing";
+  const latestClassificationLabel = formatSliceClassLabel(sliceState?.latestClassification?.class);
   const latestSupportStatus = sliceState?.latestSupportMask
     ? `${formatReviewState(sliceState.latestSupportMask.reviewState)} v${sliceState.latestSupportMask.version} saved`
     : "Missing";
@@ -1384,21 +1244,8 @@ function stamp(x: number, y: number) {
         reviewState.reviewables.sliceClassification,
       ]
     : [];
-  const correctionModel = correctionContext?.predictionRun?.modelRun;
-  const correctionModelLabel = correctionModel
-    ? [correctionModel.modelFamily, correctionModel.modelName, correctionModel.modelVersion].filter(Boolean).join(" / ")
-    : "Unknown model";
-  const correctionScoreLabel = correctionContext
-    ? [
-        correctionContext.task.taskReason,
-        correctionContext.task.confidenceScore === null
-          ? null
-          : `confidence ${correctionContext.task.confidenceScore.toFixed(2)}`,
-        correctionContext.task.uncertaintyScore === null
-          ? null
-          : `uncertainty ${correctionContext.task.uncertaintyScore.toFixed(2)}`,
-      ].filter(Boolean).join(" · ")
-    : "";
+  const correctionModelLabel = formatCorrectionModel(correctionContext);
+  const correctionScoreLabel = formatCorrectionScore(correctionContext);
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">

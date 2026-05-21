@@ -13,6 +13,23 @@ Important files:
 - `src/design/editorCanvas.ts`
 - `src/mask/*`
 
+## RB-068 Responsibility Inventory
+
+Before decomposition, `src/features/editor/EditorClient.tsx` owns all client-side editor concerns:
+
+- data loading for image URLs, latest semantic/support mask bytes, slice state, review state, and correction context;
+- in-memory mask state, dirty flags, save revisions, autosave debounce, in-flight save queueing, and before-unload protection;
+- canvas refs and rendering for base image, read-only prediction overlay, editable mask overlay, and lasso preview;
+- pointer-event handling for brush, freehand lasso, polygon lasso, polygon-handle dragging, pointer capture, cancel behavior, and coordinate conversion;
+- undo/redo patch history and keyboard shortcuts;
+- semantic/support mode switching and label palette selection;
+- toolbar controls for tools, brush size, opacity, fit/zoom, save, export, and status display;
+- slice classification select/save workflow;
+- review state cards, submit/approve/reject actions, comments, and export-readiness display;
+- assisted correction panel, prediction overlay toggle, prediction-mask loading, and explicit prediction-to-editable-mask copy behavior.
+
+RB-068 decomposes these concerns without changing editor routes, APIs, mask bytes, review semantics, assisted-correction semantics, or iPad pointer assumptions.
+
 ## Current Entry Route
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
