@@ -36,8 +36,8 @@
 
 ## Known Gaps
 
-- Project/image metadata, default slice support/classification, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export, ZIP batch prediction import, single-host batch worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
-- Slice-specific metadata, multi-slice editing, advanced export policy/history, metrics dashboards, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
+- Project/image metadata, default slice support/classification, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export with QA metrics, ZIP batch prediction import, single-host batch worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
+- Slice-specific metadata, multi-slice editing, advanced export policy/history, metric dashboards/reports, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

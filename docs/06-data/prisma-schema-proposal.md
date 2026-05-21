@@ -250,7 +250,7 @@ Implemented synchronous owner-only project export creation and manifest/ZIP gene
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
-Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import; RB-058 through RB-061 implement the first queue, assisted correction, prediction-analysis export, and batch import slices; RB-065 hardens the single-host batch runner; RB-066 adds temporary staging/orphan cleanup.
+Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import; RB-058 through RB-061 implement the first queue, assisted correction, prediction-analysis export, and batch import slices; RB-065 hardens the single-host batch runner; RB-066 adds temporary staging/orphan cleanup; RB-067 adds export-time QA metrics.
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
@@ -258,11 +258,11 @@ Implemented checksum enforcement, PNG/JPEG dimensions, mask byte/dimension check
 
 ### RB-056 - Prediction Provenance / ModelRun Registry
 
-Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, RB-058/RB-059 add correction tasks and assisted correction, RB-060 adds the separate prediction-analysis export, RB-061 adds batch import jobs, RB-065 adds batch-item idempotency keys for retry-safe imports, and RB-066 adds temporary staging purge markers.
+Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, RB-058/RB-059 add correction tasks and assisted correction, RB-060 adds the separate prediction-analysis export, RB-061 adds batch import jobs, RB-065 adds batch-item idempotency keys for retry-safe imports, RB-066 adds temporary staging purge markers, and RB-067 computes prediction-analysis QA metrics without changing the schema.
 
 ### RB-057 - Prediction Import API / Storage Validation
 
-Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links. RB-058/RB-059 add correction tasks and editor overlays; RB-060 adds prediction-analysis export; RB-061 adds ZIP batch imports that reuse the same import service; RB-065 reuses existing provenance by batch item id after interrupted worker passes; RB-066 may purge only temporary source staging objects after retention.
+Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links. RB-058/RB-059 add correction tasks and editor overlays; RB-060 adds prediction-analysis export; RB-061 adds ZIP batch imports that reuse the same import service; RB-065 reuses existing provenance by batch item id after interrupted worker passes; RB-066 may purge only temporary source staging objects after retention; RB-067 compares predictions against approved references for QA only.
 
 ### RB-058 - Active-Learning Task Queue
 
@@ -288,6 +288,10 @@ Implemented processor identity, item leases, stale processing recovery, a proces
 
 Implemented admin-only dry-run/execute cleanup for temporary batch staging objects and identifiable abandoned presigned image/mask uploads. Cleanup records audit events, protects DB-referenced durable storage objects, and marks purged batch item sources through `PredictionImportBatchItem.stagingPurgedAt`/`stagingPurgeReason`.
 
+### RB-067 - Prediction QA Metrics And Evaluation Preparation
+
+Implemented deterministic TypeScript semantic/support QA metrics in prediction-analysis export manifests. Metrics compare model proposals only against approved human references, include not-computed reasons when unavailable, and remain separate from RB-053 training export semantics.
+
 ## Open Questions For RB-049
 
 - Resolved in RB-049: Prisma uses `AnnotationProject` while public browser URLs still use `/projects` for compatibility.
@@ -301,3 +305,4 @@ Implemented admin-only dry-run/execute cleanup for temporary batch staging objec
 - [annotation-label-schema.md](annotation-label-schema.md)
 - [mask-and-artifact-versioning.md](mask-and-artifact-versioning.md)
 - [training-export-contract.md](training-export-contract.md)
+- [prediction-qa-metrics-contract.md](prediction-qa-metrics-contract.md)

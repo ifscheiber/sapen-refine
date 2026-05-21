@@ -432,13 +432,15 @@ Context: RB-060 prediction-analysis exports package predictions and references b
 
 Impact: Model-evaluation workflows still require external scripts and cannot yet provide in-app/offline metrics from exported proposals and approved references.
 
-Proposed next step: Define the metrics contract and add trial-safe offline or export-time metrics preparation without contaminating ground-truth training exports.
+Resolution: Implemented by RB-067 optimized ticket. Prediction-analysis exports now embed `sapen-annotate-prediction-qa-metrics-v1` item metrics or stable not-computed reasons, compute semantic/support prediction-vs-approved-reference metrics in TypeScript, store summary metadata for export responses, and keep RB-053 training exports prediction-free and `qaMetrics`-free.
 
-Affected modules: `src/server/domain/predictionAnalysisExports.ts`, `docs/06-data/prediction-analysis-export-contract.md`, tests, and future analysis UI/docs.
+Remaining follow-up: Slice-classification QA metrics, dashboards, model-to-model reports, advanced filters, and async large analysis jobs remain deferred.
 
-Owner: Unassigned.
+Affected modules: `src/server/domain/predictionAnalysisMetrics.ts`, `src/server/domain/predictionAnalysisExports.ts`, `src/features/projects/ProjectExportPanel.tsx`, docs under `docs/06-data`, and tests.
 
-Priority: P2.
+Owner: Codex.
+
+Priority: Resolved by RB-067.
 
 ## RB-068 - Editor Decomposition
 

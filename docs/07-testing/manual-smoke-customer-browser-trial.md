@@ -53,7 +53,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Reload. | Semantic mask, support mask status, classification, and approved review state reload. |  |  |
 | Open project exports and create a training export as owner. | `/app/projects/[projectId]/exports` readiness counts include the approved components and export creation returns manifest/package download links. Integrity warnings block export creation if selected inputs lack checksum/dimensions. |  |  |
 | Download manifest and package. | Files download through app routes; no MinIO console/S3 URL is exposed to the browser. |  |  |
-| If a prediction fixture exists, create a prediction analysis export as owner/QA. | Export completes through `/api/prediction-analysis-exports/*`, warning text says predictions are proposals, and no private storage URL is exposed. |  |  |
+| If a prediction fixture exists, create a prediction analysis export as owner/QA. | Export completes through `/api/prediction-analysis-exports/*`, warning text says predictions are proposals, QA metrics summary appears when approved references exist, and no private storage URL is exposed. |  |  |
 | If a batch prediction ZIP fixture exists, open project prediction imports and create a prediction import batch as owner/QA. | `/app/projects/[projectId]/prediction-imports` shows item counts; process/retry controls work; failed items show stable error codes; no staging or MinIO/S3 URL is exposed. |  |  |
 | If the worker profile is enabled, inspect worker logs after batch upload. | Worker processes bounded due batches, reports processor/run summary, and does not log credentials, session tokens, or private storage keys. |  |  |
 | Run storage cleanup dry-run after any batch-import test data. | `npm run storage:cleanup -- --dry-run` reports only temporary/staged candidates and does not list committed raw images, artifact versions, or exports as deletable. |  |  |
@@ -101,7 +101,7 @@ Blocking failure criteria:
 | Save support mask and set classification. | Support state and classification persist after reload. |  |  |
 | Inspect review controls. | Review state fits the iPad viewport without blocking normal editor controls. |  |  |
 | Inspect project export panel. | Readiness counts and export controls fit the iPad viewport; owner-only behavior is clear. |  |  |
-| If a prediction fixture exists, inspect prediction analysis export controls. | Proposal warning, target checkboxes, prediction-run selector, and download links fit the iPad viewport. |  |  |
+| If a prediction fixture exists, inspect prediction analysis export controls. | Proposal warning, metric availability counts, target checkboxes, prediction-run selector, and download links fit the iPad viewport. |  |  |
 | If a batch prediction ZIP fixture exists, inspect prediction import controls. | Prediction-run selector, ZIP upload, counts, process/retry buttons, and item failures fit without horizontal-only desktop dependence. |  |  |
 | If prediction task fixture exists, open correction task. | Prediction panel, overlay toggle, and save correction controls fit the iPad viewport. |  |  |
 | Draw with Apple Pencil if available. | Pencil input draws through Pointer Events. |  |  |
@@ -127,5 +127,5 @@ Blocking failure criteria:
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
-- RB-053 training export and RB-060 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. RB-066 storage cleanup is admin-only and dry-run first. Cleanup UI, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
+- RB-053 training export and RB-060/RB-067 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. RB-066 storage cleanup is admin-only and dry-run first. Cleanup UI, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
 - Assisted correction supports semantic/support mask predictions only; slice-classification correction remains deferred.

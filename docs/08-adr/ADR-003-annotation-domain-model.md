@@ -31,13 +31,13 @@ Copper semantic masks remain material annotations only. They must not be treated
 - RB-049 implements schema changes from the proposal rather than extending the MVP `MaskKind.REFINED` model directly.
 - Existing MVP routes may need compatibility handling or a clean development reset during schema implementation.
 - Export implementation can target semantic segmentation, support/instance segmentation, slice classification, or combined manifest exports without conflating their artifacts.
-- Active-learning and model preprediction fit through task priority, task reason, confidence/uncertainty, and prediction provenance; RB-056 through RB-061 implement the first proposal/correction path, RB-065 hardens the single-host runner, and RB-066 adds temporary staging/orphan cleanup.
+- Active-learning and model preprediction fit through task priority, task reason, confidence/uncertainty, and prediction provenance; RB-056 through RB-061 implement the first proposal/correction path, RB-065 hardens the single-host runner, RB-066 adds temporary staging/orphan cleanup, and RB-067 adds prediction-analysis QA metrics.
 
 ## Deferred Work
 
 - Full API/UI workflow depth beyond the current MVP slices.
 - Advanced export filters/history/job handling.
-- Production-scale prediction workers, cleanup UI, metrics dashboards, and slice-classification prediction correction.
+- Production-scale prediction workers, cleanup UI, metric dashboards/reports, and slice-classification prediction correction.
 - Broader audit coverage and security hardening beyond current artifact write paths.
 
 ## Evidence

@@ -41,8 +41,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects/[projectId]/exports` - creates a synchronous RB-053 training export for project owners.
 - `GET /api/exports/[exportId]` - returns sanitized export summary and download routes for project owners.
 - `GET /api/exports/[exportId]/download?file=manifest|package` - streams the stored manifest JSON or ZIP package through the app for project owners.
-- `GET /api/projects/[projectId]/prediction-analysis-export/readiness` - returns prediction-analysis export candidate counts, prediction-run options, selected target filters, and owner/QA export capability for project members.
-- `POST /api/projects/[projectId]/prediction-analysis-exports` - creates a synchronous RB-060 prediction-analysis export for project `OWNER`/`QA`.
+- `GET /api/projects/[projectId]/prediction-analysis-export/readiness` - returns prediction-analysis export candidate counts, metric availability counts, prediction-run options, selected target filters, and owner/QA export capability for project members.
+- `POST /api/projects/[projectId]/prediction-analysis-exports` - creates a synchronous RB-060/RB-067 prediction-analysis export with QA metrics or not-computed reasons for project `OWNER`/`QA`.
 - `GET /api/prediction-analysis-exports/[exportId]` - returns sanitized prediction-analysis export summary and download routes for project `OWNER`/`QA`.
 - `GET /api/prediction-analysis-exports/[exportId]/download?file=manifest|package` - streams the prediction-analysis manifest JSON or ZIP package through the app for project `OWNER`/`QA`.
 - `POST /api/model-runs` - creates a model/checkpoint/training provenance record for global admins.
@@ -78,7 +78,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
-- Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
+- Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, include QA metrics as evaluation metadata where approved references exist, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
 - Prediction provenance/import APIs do not approve prediction artifacts and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
 - Prediction batch processing APIs are bounded and DB-lease backed for prediction-import items only; normal browser annotation concurrency does not use this worker path.
 - Prediction import accepts only app-mediated multipart upload for RB-057. It does not accept arbitrary client-provided storage keys.
@@ -99,7 +99,7 @@ This page lists the current API route handlers under `src/app/api`.
 ## Known Gaps
 
 - Audit logging now covers the main auth/project/upload/artifact/metadata/review/export/prediction/correction paths, but no admin audit UI exists yet.
-- RB-053 and RB-060 exports are synchronous and trial-sized. RB-061/RB-065 cover batch prediction import jobs only; RB-066 covers temporary storage cleanup without adding a cleanup UI. Advanced export filters, export history UI, metrics dashboards, and production-grade queue workers remain deferred.
+- RB-053 and RB-060/RB-067 exports are synchronous and trial-sized. RB-061/RB-065 cover batch prediction import jobs only; RB-066 covers temporary storage cleanup without adding a cleanup UI. Advanced export filters, export history UI, metrics dashboards, and production-grade queue workers remain deferred.
 
 ## Related Tickets / Docs
 

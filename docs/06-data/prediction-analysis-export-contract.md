@@ -16,7 +16,8 @@ Important files:
 - `src/app/api/prediction-analysis-exports/[exportId]/route.ts` - sanitized export summary.
 - `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts` - manifest/package download through the app.
 - `src/features/projects/ProjectExportPanel.tsx` - project exports route UI with a separate prediction-analysis section.
-- `tests/integration/prediction-analysis-export.test.ts` - export separation, authorization, manifest, package layout, and regression coverage.
+- `src/server/domain/predictionAnalysisMetrics.ts` - RB-067 QA metric helpers for semantic/support prediction comparisons.
+- `tests/integration/prediction-analysis-export.test.ts` - export separation, authorization, manifest, package layout, metrics, and regression coverage.
 
 Manifest version:
 
@@ -71,9 +72,33 @@ The manifest includes:
 - correction task context where available,
 - human correction references where available,
 - approved human ground-truth references where available,
+- QA metrics or explicit not-computed reasons for each item,
 - item warnings.
 
 Human corrections and approved ground truth are references for comparison. They are never merged with prediction output into one label file.
+
+## QA Metrics
+
+RB-067 embeds v1 QA metrics in `manifest.json` only. Metrics compare model predictions against approved human references and remain evaluation metadata, not labels.
+
+Metric version:
+
+```text
+sapen-annotate-prediction-qa-metrics-v1
+```
+
+Implemented comparisons:
+
+- semantic mask prediction vs approved semantic human reference,
+- slice support mask prediction vs approved support human reference.
+
+Each item includes `qaMetrics`. Computed semantic metrics include per-label counts, IoU, Dice, macro IoU/Dice, pixel accuracy, and a reference-by-prediction confusion matrix. Computed support metrics include TP/TN/FP/FN pixels, support pixel counts, IoU, and Dice.
+
+If metrics cannot be computed, `qaMetrics.computed` is `false` with a stable reason such as `NO_APPROVED_REFERENCE`, `DIMENSIONS_MISMATCH`, `LABEL_SCHEMA_MISMATCH`, or `CLASSIFICATION_PREDICTION_NOT_IMPLEMENTED`.
+
+The top-level `summary.qaMetrics` and `ExportBatch.metadataSummary.qaMetricsSummary` record computed/not-computed item counts and reason counts for UI/readiness display.
+
+See [prediction-qa-metrics-contract.md](prediction-qa-metrics-contract.md).
 
 ## Package Layout
 
@@ -117,11 +142,11 @@ Roles used by RB-060 include:
 - `human-correction-reference`,
 - `approved-ground-truth-reference`.
 
-`ExportBatch.selectionCriteria` records the prediction-analysis mode and filters. `metadataSummary` records package checksum, package size, item count, and warning count.
+`ExportBatch.selectionCriteria` records the prediction-analysis mode and filters. `metadataSummary` records package checksum, package size, item count, warning count, and the QA metrics summary.
 
 ## Non-Goals
 
-- RB-060 does not compute Dice, IoU, confusion matrices, or dashboards.
+- RB-067 does not implement dashboards or model-to-model benchmark reports.
 - RB-061 adds batch prediction import jobs. RB-060 prediction-analysis exports remain synchronous and separate from those import jobs.
 - RB-060 does not allow predictions through RB-053 training export targets.
 - RB-060 does not approve predictions or convert them to ground truth.
@@ -129,6 +154,7 @@ Roles used by RB-060 include:
 ## Related Docs
 
 - [training-export-contract.md](training-export-contract.md)
+- [prediction-qa-metrics-contract.md](prediction-qa-metrics-contract.md)
 - [model-prediction-contract.md](model-prediction-contract.md)
 - [active-learning-task-model.md](active-learning-task-model.md)
 - [prisma.md](prisma.md)

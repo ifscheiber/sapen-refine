@@ -46,12 +46,14 @@ The current task fields are sufficient for a first active-learning queue orderin
 - RB-061: Batch prediction import and background job support. Implemented after this ADR as a single-host DB-backed baseline.
 - RB-065: Single-host batch runner leases, stale recovery, and optional Compose worker. Implemented after this ADR.
 - RB-066: Temporary staging/orphan storage cleanup. Implemented after this ADR.
-- Cleanup UI, production-scale workers, classification batch imports, and model metrics dashboards remain deferred.
+- RB-067: Prediction-analysis QA metrics. Implemented after this ADR.
+- Cleanup UI, production-scale workers, classification batch imports, and model metrics dashboards/reports remain deferred.
 
 ## Evidence
 
 - Current schema: `prisma/schema.prisma`
 - Prediction contract: `docs/06-data/model-prediction-contract.md`
+- Prediction QA metrics contract: `docs/06-data/prediction-qa-metrics-contract.md`
 - Active-learning task model: `docs/06-data/active-learning-task-model.md`
 - Training export contract: `docs/06-data/training-export-contract.md`
 - Editor docs: `docs/03-features/editor.md`

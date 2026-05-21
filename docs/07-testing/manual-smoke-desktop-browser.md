@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This checklist verifies the current desktop browser MVP workflow after the RB-066 storage cleanup slice. It targets the local or trial-deployed browser app and does not require iPad Safari.
+This checklist verifies the current desktop browser MVP workflow after the RB-067 prediction QA metrics slice. It targets the local or trial-deployed browser app and does not require iPad Safari.
 
 ## Preconditions
 
@@ -38,8 +38,8 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Open project exports. | `/app/projects/[projectId]/exports` shows approved semantic, support, and classification counts. |  |  |
 | Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links; integrity warnings block export when selected inputs lack checksum/dimensions. |  |  |
 | Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |
-| If a prediction run fixture exists, inspect the prediction analysis export section. | Candidate counts, target controls, prediction-run selection, and proposal warning render separately from the training export controls. |  |  |
-| Create a prediction analysis export as `OWNER` or `QA`. | Export completes with `/api/prediction-analysis-exports/[exportId]/download` links and clearly labels predictions as proposals, not training labels. |  |  |
+| If a prediction run fixture exists, inspect the prediction analysis export section. | Candidate counts, metric-ready count, missing-reference count, target controls, prediction-run selection, and proposal warning render separately from the training export controls. |  |  |
+| Create a prediction analysis export as `OWNER` or `QA`. | Export completes with `/api/prediction-analysis-exports/[exportId]/download` links, shows QA metrics computed/not-computed summary when available, and clearly labels predictions as proposals, not training labels. |  |  |
 | If a batch prediction ZIP fixture exists, open project prediction imports and create/process a batch as `OWNER` or `QA`. | `/app/projects/[projectId]/prediction-imports` shows batch counts, item failures show stable error codes, successful items become prediction proposals, and no private staging/MinIO URL is exposed. |  |  |
 | If testing the RB-065 worker path, run one script pass for due batches. | `npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email '<owner-or-qa-email>' --password '<password>'` processes due batches without a browser tab and logs processor/run summary without secrets. |  |  |
 | If testing RB-066 cleanup, run storage cleanup dry-run after batch processing. | `npm run storage:cleanup -- --category batch-staging --batch '<batch-id>' --email '<admin-email>' --password '<password>'` reports candidates without deleting committed raw images, prediction artifacts, or exports. |  |  |
@@ -55,7 +55,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default slice/support geometry per image.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
-- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, and a small assisted-correction happy path. RB-060 prediction-analysis exports, RB-061/RB-065 batch prediction imports, and RB-066 storage cleanup are covered by DB/domain integration tests rather than E2E.
+- Automated browser coverage remains focused and protects metadata save/reload, semantic mask save, support mask save, slice classification persistence, the owner review happy path, creation of a training export with manifest/package links, and a small assisted-correction happy path. Prediction-analysis exports and RB-067 QA metrics, RB-061/RB-065 batch prediction imports, and RB-066 storage cleanup are covered by DB/domain integration tests rather than E2E.
 
 ## Result Tracking
 

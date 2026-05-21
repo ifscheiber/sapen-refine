@@ -15,6 +15,16 @@ import {
 import { canExportPredictionAnalysis } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  PREDICTION_QA_COMPARISON,
+  PREDICTION_QA_METRICS_VERSION,
+  computeBinaryMaskMetrics,
+  computeSemanticMaskMetrics,
+  notComputedQaMetrics,
+  supportValueFromLabels,
+  type MetricLabelDefinition,
+  type PredictionQaNotComputedReason,
+} from "@/server/domain/predictionAnalysisMetrics";
 import { getObjectBytes, putObject } from "@/server/storage/s3";
 import { normalizeChecksum } from "@/server/uploads/integrity";
 
@@ -436,6 +446,200 @@ function candidateWarnings(candidate: Omit<PredictionAnalysisCandidate, "warning
   return Array.from(new Set(warnings));
 }
 
+function metricArtifactInputs(params: {
+  prediction: SelectedArtifactVersion;
+  reference: SelectedArtifactVersion;
+}) {
+  return {
+    predictionArtifactVersionId: params.prediction.id,
+    predictionChecksum: params.prediction.checksum,
+    predictionWidth: params.prediction.width,
+    predictionHeight: params.prediction.height,
+    predictionLabelSchemaVersionId: params.prediction.labelSchemaVersionId,
+    referenceArtifactVersionId: params.reference.id,
+    referenceChecksum: params.reference.checksum,
+    referenceWidth: params.reference.width,
+    referenceHeight: params.reference.height,
+    referenceLabelSchemaVersionId: params.reference.labelSchemaVersionId,
+  };
+}
+
+function artifactDimensionsMatch(prediction: SelectedArtifactVersion, reference: SelectedArtifactVersion) {
+  return (
+    prediction.width !== null &&
+    prediction.height !== null &&
+    reference.width !== null &&
+    reference.height !== null &&
+    prediction.width === reference.width &&
+    prediction.height === reference.height
+  );
+}
+
+function expectedMaskByteLength(version: SelectedArtifactVersion) {
+  if (version.width === null || version.height === null) return null;
+  if (version.width <= 0 || version.height <= 0) return null;
+  return version.width * version.height;
+}
+
+function checksumMatches(version: SelectedArtifactVersion, bytes: Uint8Array) {
+  const expected = normalizeChecksum(version.checksum);
+  return !expected || expected === sha256(bytes);
+}
+
+async function loadMetricLabels(
+  db: PredictionAnalysisDb,
+  labelSchemaVersionId: string,
+): Promise<MetricLabelDefinition[]> {
+  const definitions = await db.labelDefinition.findMany({
+    where: { schemaVersionId: labelSchemaVersionId },
+    orderBy: [{ sortOrder: "asc" }, { stableId: "asc" }],
+    select: {
+      stableId: true,
+      byteValue: true,
+      displayName: true,
+      semanticMeaning: true,
+      applicability: true,
+      sortOrder: true,
+      isTrainable: true,
+    },
+  });
+  return definitions.map((definition) => ({
+    ...definition,
+    applicability: definition.applicability,
+  }));
+}
+
+function qaNotComputed(params: {
+  candidate: PredictionAnalysisCandidate;
+  reason: PredictionQaNotComputedReason;
+  warnings?: string[];
+}) {
+  return notComputedQaMetrics({
+    targetType: params.candidate.prediction.targetType,
+    reason: params.reason,
+    warnings: params.warnings,
+  });
+}
+
+async function buildCandidateQaMetrics(params: {
+  db: PredictionAnalysisDb;
+  candidate: PredictionAnalysisCandidate;
+}) {
+  const { candidate } = params;
+  if (candidate.prediction.targetType === PredictionTargetType.SLICE_CLASSIFICATION) {
+    return qaNotComputed({
+      candidate,
+      reason: "CLASSIFICATION_PREDICTION_NOT_IMPLEMENTED",
+    });
+  }
+  if (
+    candidate.prediction.targetType !== PredictionTargetType.SEMANTIC_MASK &&
+    candidate.prediction.targetType !== PredictionTargetType.SLICE_SUPPORT_MASK
+  ) {
+    return qaNotComputed({ candidate, reason: "TARGET_TYPE_UNSUPPORTED" });
+  }
+
+  const predictionArtifact = candidate.prediction.artifactVersion;
+  if (!predictionArtifact) return qaNotComputed({ candidate, reason: "NO_PREDICTION_ARTIFACT" });
+  const referenceArtifact = candidate.approvedGroundTruthArtifact;
+  if (!referenceArtifact) return qaNotComputed({ candidate, reason: "NO_APPROVED_REFERENCE" });
+  if (!artifactDimensionsMatch(predictionArtifact, referenceArtifact)) {
+    return qaNotComputed({ candidate, reason: "DIMENSIONS_MISMATCH" });
+  }
+  if (
+    !predictionArtifact.labelSchemaVersionId ||
+    predictionArtifact.labelSchemaVersionId !== referenceArtifact.labelSchemaVersionId
+  ) {
+    return qaNotComputed({ candidate, reason: "LABEL_SCHEMA_MISMATCH" });
+  }
+
+  const expectedLength = expectedMaskByteLength(predictionArtifact);
+  if (!expectedLength) return qaNotComputed({ candidate, reason: "DIMENSIONS_MISMATCH" });
+
+  let predictionBytes: Uint8Array;
+  let referenceBytes: Uint8Array;
+  try {
+    [predictionBytes, referenceBytes] = await Promise.all([
+      getObjectBytes(predictionArtifact.storageKey),
+      getObjectBytes(referenceArtifact.storageKey),
+    ]);
+  } catch {
+    return qaNotComputed({ candidate, reason: "ARTIFACT_READ_FAILED" });
+  }
+  if (predictionBytes.byteLength !== expectedLength || referenceBytes.byteLength !== expectedLength) {
+    return qaNotComputed({ candidate, reason: "DIMENSIONS_MISMATCH" });
+  }
+  if (!checksumMatches(predictionArtifact, predictionBytes) || !checksumMatches(referenceArtifact, referenceBytes)) {
+    return qaNotComputed({
+      candidate,
+      reason: "ARTIFACT_READ_FAILED",
+      warnings: ["CHECKSUM_MISMATCH"],
+    });
+  }
+
+  const labels = await loadMetricLabels(params.db, predictionArtifact.labelSchemaVersionId);
+  const inputs = metricArtifactInputs({ prediction: predictionArtifact, reference: referenceArtifact });
+
+  if (candidate.prediction.targetType === PredictionTargetType.SEMANTIC_MASK) {
+    const semantic = computeSemanticMaskMetrics({
+      prediction: predictionBytes,
+      reference: referenceBytes,
+      labels,
+    });
+    if (semantic.trainablePredictionPixels === 0 && semantic.trainableReferencePixels === 0) {
+      return qaNotComputed({ candidate, reason: "EMPTY_REFERENCE_AND_PREDICTION" });
+    }
+    return {
+      computed: true as const,
+      metricVersion: PREDICTION_QA_METRICS_VERSION,
+      comparison: PREDICTION_QA_COMPARISON,
+      targetType: candidate.prediction.targetType,
+      inputs,
+      semantic,
+      warnings: [],
+    };
+  }
+
+  const supportValue = supportValueFromLabels(labels);
+  if (supportValue === null) return qaNotComputed({ candidate, reason: "LABEL_SCHEMA_MISMATCH" });
+  const support = computeBinaryMaskMetrics({
+    prediction: predictionBytes,
+    reference: referenceBytes,
+    supportValue,
+  });
+  if (support.predictionSupportPixels === 0 && support.referenceSupportPixels === 0) {
+    return qaNotComputed({ candidate, reason: "EMPTY_REFERENCE_AND_PREDICTION" });
+  }
+  return {
+    computed: true as const,
+    metricVersion: PREDICTION_QA_METRICS_VERSION,
+    comparison: PREDICTION_QA_COMPARISON,
+    targetType: candidate.prediction.targetType,
+    inputs,
+    support,
+    warnings: [],
+  };
+}
+
+function summarizeQaMetrics(items: Array<{ qaMetrics: Awaited<ReturnType<typeof buildCandidateQaMetrics>> }>) {
+  const notComputedReasons: Partial<Record<PredictionQaNotComputedReason, number>> = {};
+  let computedItemCount = 0;
+  for (const item of items) {
+    if (item.qaMetrics.computed) {
+      computedItemCount += 1;
+      continue;
+    }
+    notComputedReasons[item.qaMetrics.reason] = (notComputedReasons[item.qaMetrics.reason] ?? 0) + 1;
+  }
+  return {
+    metricVersion: PREDICTION_QA_METRICS_VERSION,
+    comparison: PREDICTION_QA_COMPARISON,
+    computedItemCount,
+    notComputedItemCount: items.length - computedItemCount,
+    notComputedReasons,
+  };
+}
+
 async function buildCandidate(params: {
   db: PredictionAnalysisDb;
   prediction: SelectedPrediction;
@@ -547,6 +751,25 @@ export async function resolveProjectPredictionAnalysisReadiness(params: {
       candidatesWithHumanReferences: candidates.filter((candidate) =>
         Boolean(candidate.humanCorrection || candidate.approvedGroundTruthArtifact || candidate.approvedGroundTruthClassification),
       ).length,
+      metricEligibleCandidates: candidates.filter((candidate) =>
+        Boolean(
+          candidate.prediction.artifactVersion &&
+          candidate.approvedGroundTruthArtifact &&
+          (
+            candidate.prediction.targetType === PredictionTargetType.SEMANTIC_MASK ||
+            candidate.prediction.targetType === PredictionTargetType.SLICE_SUPPORT_MASK
+          ),
+        ),
+      ).length,
+      candidatesWithoutApprovedReference: candidates.filter((candidate) =>
+        (
+          candidate.prediction.targetType === PredictionTargetType.SEMANTIC_MASK ||
+          candidate.prediction.targetType === PredictionTargetType.SLICE_SUPPORT_MASK
+        ) && !candidate.approvedGroundTruthArtifact
+      ).length,
+      classificationMetricsDeferred: candidates.filter((candidate) =>
+        candidate.prediction.targetType === PredictionTargetType.SLICE_CLASSIFICATION
+      ).length,
       candidatesWithWarnings: candidates.filter((candidate) => candidate.warnings.length > 0).length,
     },
     candidates,
@@ -618,6 +841,7 @@ function modelRunManifest(run: SelectedPrediction["predictionRun"]["modelRun"]) 
 }
 
 async function buildManifest(params: {
+  db: PredictionAnalysisDb;
   exportId: string;
   exportedAt: Date;
   exportedBy: { id: string; email: string; name: string | null };
@@ -632,11 +856,12 @@ async function buildManifest(params: {
     new Map(params.candidates.map((candidate) => [candidate.prediction.predictionRun.modelRun.id, candidate.prediction.predictionRun.modelRun])),
   ).map(([, run]) => modelRunManifest(run));
 
-  const items = params.candidates.map((candidate) => {
+  const items = await Promise.all(params.candidates.map(async (candidate) => {
     const predictionFilePath = predictionPath(candidate);
     const correctionFilePath = humanCorrectionPath(candidate);
     const groundTruthFilePath = groundTruthPath(candidate);
     const task = candidate.prediction.tasks[0] ?? null;
+    const qaMetrics = await buildCandidateQaMetrics({ db: params.db, candidate });
     return {
       state: candidate.state,
       image: {
@@ -709,11 +934,13 @@ async function buildManifest(params: {
               taskId: candidate.approvedGroundTruthClassification.taskId,
               createdBy: userManifest(candidate.approvedGroundTruthClassification.createdBy),
               createdAt: candidate.approvedGroundTruthClassification.createdAt.toISOString(),
-            }
+          }
           : null,
+      qaMetrics,
       warnings: candidate.warnings,
     };
-  });
+  }));
+  const qaMetricsSummary = summarizeQaMetrics(items);
 
   return {
     manifestVersion: MANIFEST_VERSION,
@@ -738,6 +965,7 @@ async function buildManifest(params: {
       predictionRunCount: predictionRuns.length,
       modelRunCount: modelRuns.length,
       warningCount: items.reduce((count, item) => count + item.warnings.length, 1),
+      qaMetrics: qaMetricsSummary,
     },
   };
 }
@@ -806,6 +1034,10 @@ function sanitizeExportBatch(batch: {
     packageChecksum: typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null,
     itemCount: batch._count?.items ?? (typeof metadata.itemCount === "number" ? metadata.itemCount : 0),
     warningCount: warningList.length,
+    qaMetricsSummary:
+      metadata.qaMetricsSummary && typeof metadata.qaMetricsSummary === "object" && !Array.isArray(metadata.qaMetricsSummary)
+        ? metadata.qaMetricsSummary
+        : null,
     selection: batch.selectionCriteria,
     exportedAt: batch.exportedAt,
     createdAt: batch.createdAt,
@@ -900,6 +1132,7 @@ export async function createPredictionAnalysisExportForUser(params: {
 
   try {
     const manifest = await buildManifest({
+      db,
       exportId: batch.id,
       exportedAt: batch.exportedAt,
       exportedBy: user,
@@ -971,6 +1204,7 @@ export async function createPredictionAnalysisExportForUser(params: {
           mode: "prediction_analysis",
           itemCount: manifest.summary.itemCount,
           warningCount: manifest.summary.warningCount,
+          qaMetricsSummary: manifest.summary.qaMetrics,
           packageStorageKey,
           packageChecksum: sha256(packageBytes),
           packageSize: packageBytes.byteLength,

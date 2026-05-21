@@ -212,24 +212,49 @@ describe("prediction analysis export workflow", () => {
     );
   }
 
+  async function importSupportPrediction(predictionRunId: string, imageId: string, name: string) {
+    const bytes = new Uint8Array([0, 10, 10, 0]);
+    return predictionImport.importPredictionMaskForUser(
+      {
+        predictionRunId,
+        userId: ownerId,
+        imageId,
+        targetType: "SLICE_SUPPORT_MASK",
+        bytes,
+        width: 2,
+        height: 2,
+        contentType: "application/octet-stream",
+        expectedChecksum: sha256Checksum(bytes),
+        confidenceScore: 0.79,
+        uncertaintyScore: 0.21,
+        outputStats: { pixels: bytes.byteLength, fixture: name },
+      },
+      prisma,
+    );
+  }
+
   async function createHumanReference(params: {
     imageId: string;
     predictionArtifactVersionId: string;
     taskId: string;
     name: string;
+    kind?: AnnotationArtifactKind;
+    approvedBytes?: Uint8Array;
+    correctionBytes?: Uint8Array;
   }) {
+    const kind = params.kind ?? AnnotationArtifactKind.SEMANTIC_MASK;
     const artifact = await prisma.annotationArtifact.create({
       data: {
         projectId,
         imageId: params.imageId,
-        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+        kind,
         scopeKey: "default",
         createdById: labelerId,
       },
       select: { id: true },
     });
 
-    const approvedBytes = new Uint8Array([0, 1, 1, 2]);
+    const approvedBytes = params.approvedBytes ?? new Uint8Array([0, 1, 1, 2]);
     const approvedStorageKey = `tests/prediction-analysis/${suffix}/${params.name}-approved.u8raw`;
     await storage.putObject(approvedStorageKey, approvedBytes, "application/octet-stream");
     const approved = await prisma.annotationArtifactVersion.create({
@@ -260,7 +285,7 @@ describe("prediction analysis export workflow", () => {
       },
     });
 
-    const correctionBytes = new Uint8Array([0, 2, 3, 1]);
+    const correctionBytes = params.correctionBytes ?? new Uint8Array([0, 2, 3, 1]);
     const correctionStorageKey = `tests/prediction-analysis/${suffix}/${params.name}-correction.u8raw`;
     await storage.putObject(correctionStorageKey, correctionBytes, "application/octet-stream");
     const correction = await prisma.annotationArtifactVersion.create({
@@ -355,6 +380,37 @@ describe("prediction analysis export workflow", () => {
       `ground-truth/semantic/${imageId}-${humanReference.approvedVersionId}.u8raw`,
     );
     expect(item.correctionTask.taskId).toBe(task.id);
+    expect(item.qaMetrics).toMatchObject({
+      computed: true,
+      metricVersion: "sapen-annotate-prediction-qa-metrics-v1",
+      comparison: "prediction_vs_approved_human_reference",
+      targetType: "SEMANTIC_MASK",
+      inputs: {
+        predictionArtifactVersionId: imported.artifactVersionId,
+        referenceArtifactVersionId: humanReference.approvedVersionId,
+        predictionWidth: 2,
+        predictionHeight: 2,
+        referenceWidth: 2,
+        referenceHeight: 2,
+      },
+      semantic: {
+        pixelAccuracy: 0.5,
+      },
+    });
+    expect(item.qaMetrics.semantic.macroIoU).toBeCloseTo(1 / 6);
+    expect(item.qaMetrics.semantic.macroDice).toBeCloseTo(2 / 9);
+    expect(item.qaMetrics.semantic.perLabel).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ stableId: "sapwood", intersection: 1, union: 2, iou: 0.5 }),
+        expect.objectContaining({ stableId: "heartwood", intersection: 0, union: 2, iou: 0 }),
+        expect.objectContaining({ stableId: "copper", intersection: 0, union: 1, iou: 0 }),
+      ]),
+    );
+    expect(manifest.summary.qaMetrics).toMatchObject({
+      metricVersion: "sapen-annotate-prediction-qa-metrics-v1",
+      computedItemCount: 1,
+      notComputedItemCount: 0,
+    });
 
     const packageFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
       { exportId: exportBatch.id, userId: qaId, file: "package" },
@@ -420,6 +476,15 @@ describe("prediction analysis export workflow", () => {
         prisma,
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const analysisManifestFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const analysisManifest = JSON.parse(new TextDecoder().decode(analysisManifestFile.bytes));
+    expect(analysisManifest.items[0].qaMetrics).toMatchObject({
+      computed: false,
+      reason: "NO_APPROVED_REFERENCE",
+    });
     await expect(
       exportsDomain.getTrainingExportForUser({ exportId: exportBatch.id, userId: ownerId }, prisma),
     ).rejects.toMatchObject({ code: "EXPORT_NOT_FOUND" });
@@ -435,6 +500,107 @@ describe("prediction analysis export workflow", () => {
     });
     expect(trainingItems.map((item) => item.artifactVersionId)).not.toContain(imported.artifactVersionId);
     expect(trainingItems.map((item) => item.predictionProvenanceId)).not.toContain(imported.predictionProvenanceId);
+    const trainingManifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: trainingExport.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    expect(new TextDecoder().decode(trainingManifestFile.bytes)).not.toContain("qaMetrics");
+  });
+
+  it("computes support metrics from approved support artifacts only", async () => {
+    const predictionRun = await createPredictionRun("support-export");
+    const imageId = await createImage("support-export");
+    const imported = await importSupportPrediction(predictionRun.id, imageId, "support-export");
+    const createdTasks = await correctionTasks.createCorrectionTasksForPredictionRunForUser(
+      { predictionRunId: predictionRun.id, userId: ownerId },
+      prisma,
+    );
+    const task = createdTasks.tasks.find((item) => item.predictionProvenanceId === imported.predictionProvenanceId);
+    if (!task) throw new Error("SUPPORT_TASK_NOT_CREATED");
+    const humanReference = await createHumanReference({
+      imageId,
+      predictionArtifactVersionId: imported.artifactVersionId,
+      taskId: task.id,
+      name: "support-export",
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      approvedBytes: new Uint8Array([0, 10, 0, 10]),
+      correctionBytes: new Uint8Array([0, 10, 10, 10]),
+    });
+
+    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
+      {
+        projectId,
+        userId: qaId,
+        input: { predictionRunId: predictionRun.id, targetTypes: ["SLICE_SUPPORT_MASK"], includeHumanReferences: true },
+      },
+      prisma,
+    );
+    const manifestFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
+      { exportId: exportBatch.id, userId: qaId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    const item = manifest.items.find((entry: { image: { id: string } }) => entry.image.id === imageId);
+
+    expect(item.approvedGroundTruthReference.artifactVersionId).toBe(humanReference.approvedVersionId);
+    expect(item.qaMetrics).toMatchObject({
+      computed: true,
+      targetType: "SLICE_SUPPORT_MASK",
+      support: {
+        truePositivePixels: 1,
+        trueNegativePixels: 1,
+        falsePositivePixels: 1,
+        falseNegativePixels: 1,
+        intersection: 1,
+        union: 3,
+        predictionSupportPixels: 2,
+        referenceSupportPixels: 2,
+      },
+    });
+    expect(item.qaMetrics.support.iou).toBeCloseTo(1 / 3);
+    expect(item.qaMetrics.support.dice).toBeCloseTo(0.5);
+  });
+
+  it("does not treat Copper semantic references as support geometry", async () => {
+    const predictionRun = await createPredictionRun("support-copper-boundary");
+    const imageId = await createImage("support-copper-boundary");
+    const imported = await importSupportPrediction(predictionRun.id, imageId, "support-copper-boundary");
+    const createdTasks = await correctionTasks.createCorrectionTasksForPredictionRunForUser(
+      { predictionRunId: predictionRun.id, userId: ownerId },
+      prisma,
+    );
+    const task = createdTasks.tasks.find((item) => item.predictionProvenanceId === imported.predictionProvenanceId);
+    if (!task) throw new Error("SUPPORT_COPPER_TASK_NOT_CREATED");
+    await createHumanReference({
+      imageId,
+      predictionArtifactVersionId: imported.artifactVersionId,
+      taskId: task.id,
+      name: "support-copper-boundary",
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      approvedBytes: new Uint8Array([0, 3, 3, 0]),
+    });
+
+    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
+      {
+        projectId,
+        userId: ownerId,
+        input: { predictionRunId: predictionRun.id, targetTypes: ["SLICE_SUPPORT_MASK"], includeHumanReferences: true },
+      },
+      prisma,
+    );
+    const manifestFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    const item = manifest.items.find((entry: { image: { id: string } }) => entry.image.id === imageId);
+
+    expect(item.approvedGroundTruthReference).toBeNull();
+    expect(item.qaMetrics).toMatchObject({
+      computed: false,
+      reason: "NO_APPROVED_REFERENCE",
+      targetType: "SLICE_SUPPORT_MASK",
+    });
   });
 
   it("exports slice-classification prediction proposals as manifest-only prediction items", async () => {
@@ -485,6 +651,11 @@ describe("prediction analysis export workflow", () => {
       predictedClass: "COPPER_SLICE",
       path: null,
       artifact: null,
+    });
+    expect(item.qaMetrics).toMatchObject({
+      computed: false,
+      reason: "CLASSIFICATION_PREDICTION_NOT_IMPLEMENTED",
+      targetType: "SLICE_CLASSIFICATION",
     });
 
     const packageFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(

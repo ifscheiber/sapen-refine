@@ -194,5 +194,5 @@ The cleanup service deletes only eligible temporary staging objects after the co
 ## Deferred
 
 - Slice-classification batch prediction imports.
-- Metrics dashboards such as Dice/IoU/confusion matrices.
+- Metrics dashboards and model-to-model analysis reports. RB-067 computes basic export-time Dice/IoU/confusion metrics for prediction-analysis manifests only.
 - Production-scale queue infrastructure. RB-065 intentionally keeps the trial path to one default single-host worker and PostgreSQL leases; revisit Redis/BullMQ/RabbitMQ only if real usage outgrows this model.

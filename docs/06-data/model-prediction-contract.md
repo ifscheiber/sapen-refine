@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, RB-058 implements the first active-learning correction task queue, RB-059 implements assisted correction, RB-061 implements DB-backed batch prediction imports, RB-065 implements single-host batch-runner hardening, and RB-066 implements temporary storage cleanup for staging/orphan objects. Running inference remains deferred.
+This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, RB-058 implements the first active-learning correction task queue, RB-059 implements assisted correction, RB-061 implements DB-backed batch prediction imports, RB-065 implements single-host batch-runner hardening, RB-066 implements temporary storage cleanup for staging/orphan objects, and RB-067 implements export-time QA metrics for prediction-vs-approved-reference comparisons. Running inference remains deferred.
 
 Hard rule:
 
@@ -30,6 +30,7 @@ Prediction artifacts must not become training labels unless a human creates or c
 - Import service: `src/server/domain/predictionImport.ts`
 - Batch import service: `src/server/domain/predictionImportBatches.ts`
 - Storage cleanup service: `src/server/domain/storageCleanup.ts`
+- Prediction QA metrics: `src/server/domain/predictionAnalysisMetrics.ts`
 - Minimal APIs: `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts`, `src/app/api/prediction-import-batches/*`, `src/app/api/prediction-runs/[predictionRunId]/correction-tasks/route.ts`, `src/app/api/projects/[projectId]/correction-tasks/route.ts`, and `src/app/api/correction-tasks/[taskId]/route.ts`
 - Export implementation: `src/server/domain/exports.ts`
 
@@ -187,6 +188,8 @@ RB-056 keeps this behavior unchanged. `src/server/domain/exports.ts` still selec
 
 RB-060 adds `src/server/domain/predictionAnalysisExports.ts` for QA/debug exports. Those manifests use `sapen-annotate-prediction-analysis-export-v1`, mark each prediction with `artifactRole: "model_prediction_proposal"` and `groundTruth: false`, include `ModelRun`/`PredictionRun` provenance, and keep prediction, human-correction, and approved-ground-truth files in separate package paths.
 
+RB-067 adds `sapen-annotate-prediction-qa-metrics-v1` metrics inside prediction-analysis manifests. Metrics compare semantic/support prediction bytes only against approved human semantic/support references. Missing approved references and unsupported slice-classification metrics are reported with stable not-computed reasons. These QA metrics do not appear in RB-053 training export manifests.
+
 ## RB-055 Dependency
 
 RB-055 implements the current upload/artifact validation helpers used by human image and mask writes. Real prediction import should reuse or extend those helpers:
@@ -203,11 +206,11 @@ Large batch imports now use the RB-061/RB-065 DB-backed batch item and lease mod
 
 RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-## Deferred After RB-066
+## Deferred After RB-067
 
 - Cleanup UI and production-scale queue infrastructure.
 - Slice-classification batch prediction imports.
-- Metrics dashboards such as Dice/IoU/confusion matrices.
+- Metrics dashboards, report generators, and model-to-model benchmark views.
 
 ## Related Docs
 
@@ -215,4 +218,5 @@ RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `I
 - [mask-and-artifact-versioning.md](mask-and-artifact-versioning.md)
 - [training-export-contract.md](training-export-contract.md)
 - [prediction-analysis-export-contract.md](prediction-analysis-export-contract.md)
+- [prediction-qa-metrics-contract.md](prediction-qa-metrics-contract.md)
 - [../08-adr/ADR-004-model-preprediction-active-learning.md](../08-adr/ADR-004-model-preprediction-active-learning.md)

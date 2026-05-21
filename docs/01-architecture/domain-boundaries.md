@@ -20,6 +20,7 @@ SaPen Annotate owns standalone ground-truth annotation workflows:
 - export batches and manifests,
 - model-run and prediction-run provenance for assisted correction,
 - prediction mask import and trial-sized batch prediction imports,
+- prediction QA metric metadata for proposal-vs-approved-reference analysis,
 - attribution and audit records for annotation actions.
 
 ## SaPen Annotate Does Not Own
@@ -40,7 +41,7 @@ Human-reviewed annotation artifacts become ground truth only through explicit re
 
 Model predictions, prefilled masks, active-learning priorities, and imported proposals are inputs. They are not ground truth until a human workflow creates and approves a separate artifact version.
 
-RB-054 documents this as a design contract. RB-056 implements the provenance registry, RB-057 imports prediction mask proposals, RB-058/RB-059 implement the first correction queue/editor path, RB-061 adds trial-sized ZIP batch prediction imports, RB-065 adds single-host batch runner leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Prediction artifacts may guide work queues or editor overlays, but approved human artifact/classification versions remain the only default training-export labels.
+RB-054 documents this as a design contract. RB-056 implements the provenance registry, RB-057 imports prediction mask proposals, RB-058/RB-059 implement the first correction queue/editor path, RB-061 adds trial-sized ZIP batch prediction imports, RB-065 adds single-host batch runner leases/recovery, RB-066 adds temporary staging/orphan cleanup, and RB-067 adds prediction-analysis QA metrics. Prediction artifacts and metrics may guide QA or correction work, but approved human artifact/classification versions remain the only default training-export labels.
 
 ## Mask Boundary
 
@@ -73,4 +74,5 @@ Server-side authorization must enforce these permissions.
 - [../06-data/prisma-schema-proposal.md](../06-data/prisma-schema-proposal.md)
 - [../06-data/training-export-contract.md](../06-data/training-export-contract.md)
 - [../06-data/model-prediction-contract.md](../06-data/model-prediction-contract.md)
+- [../06-data/prediction-qa-metrics-contract.md](../06-data/prediction-qa-metrics-contract.md)
 - [../06-data/active-learning-task-model.md](../06-data/active-learning-task-model.md)

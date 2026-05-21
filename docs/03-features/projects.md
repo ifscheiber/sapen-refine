@@ -56,7 +56,7 @@ Route files are thin wrappers around `src/features/projects`.
 - `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and links to the RB-059 assisted correction editor.
 - Task rows link to `/app/projects/[projectId]/tasks/[taskId]/correct` for RB-059 assisted correction.
 - The training export panel shows approved semantic/support/classification readiness counts, target selection, and owner-only export creation with manifest/package download links.
-- The prediction-analysis export panel shows proposal counts, prediction-run selection, target selection, optional human-reference inclusion, and owner/QA export creation. It labels prediction-analysis packages as model proposals, not ground-truth training labels.
+- The prediction-analysis export panel shows proposal counts, metric-ready counts, candidates missing approved references, prediction-run selection, target selection, optional human-reference inclusion, and owner/QA export creation. It labels prediction-analysis packages and QA metrics as model-evaluation metadata, not ground-truth training labels.
 - The prediction batch import panel lets owner/QA users select a prediction run, upload a ZIP manifest package, inspect status/counts/item errors, and trigger process/retry passes. It does not expose private staging keys.
 - Project membership remains the authorization boundary for image and editor routes.
 
@@ -84,7 +84,7 @@ Route files are thin wrappers around `src/features/projects`.
 
 - Projects now carry an optional active label schema version and surface missing schema setup in the UI.
 - RB-053 adds basic owner-only training export from `/app/projects/[projectId]/exports`. RB-060 adds separate owner/QA prediction-analysis exports from the same route. Advanced export filters, export history UI, and advanced reviewer administration remain deferred.
-- RB-056 adds project-scoped prediction-run provenance APIs, RB-057 adds the server-side prediction mask import API, RB-058 adds the first project correction task queue, RB-059 adds the first assisted correction editor, RB-060 adds the separate prediction-analysis export, RB-061 adds ZIP batch prediction import controls, RB-065 adds optional due-batch worker processing for owner/QA users, and RB-066 adds admin-only storage cleanup without adding project UI.
+- RB-056 adds project-scoped prediction-run provenance APIs, RB-057 adds the server-side prediction mask import API, RB-058 adds the first project correction task queue, RB-059 adds the first assisted correction editor, RB-060 adds the separate prediction-analysis export, RB-061 adds ZIP batch prediction import controls, RB-065 adds optional due-batch worker processing for owner/QA users, RB-066 adds admin-only storage cleanup without adding project UI, and RB-067 adds export-time QA metrics without adding a dashboard.
 - RB-063 moves heavy export and prediction-import controls out of the overview into dedicated project operations routes.
 - Project creation is sufficient for the desktop smoke path and maps to the annotation-domain schema baseline.
 - Projects do not yet model reviewer/export permissions separately from the broad `QA` role.

@@ -26,6 +26,11 @@ type CreatedExport = {
   target: string;
   itemCount: number;
   warningCount: number;
+  qaMetricsSummary?: {
+    computedItemCount: number;
+    notComputedItemCount: number;
+    notComputedReasons?: Record<string, number>;
+  } | null;
   manifestChecksum: string | null;
   packageChecksum: string | null;
   downloads: {
@@ -61,6 +66,9 @@ type PredictionAnalysisReadiness = {
     classificationPredictions: number;
     candidatesWithCorrectionTasks: number;
     candidatesWithHumanReferences: number;
+    metricEligibleCandidates: number;
+    candidatesWithoutApprovedReference: number;
+    classificationMetricsDeferred: number;
     candidatesWithWarnings: number;
   };
 };
@@ -340,7 +348,7 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
         </div>
 
         {predictionReadiness && (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
             <div className="rounded-md border border-border bg-background p-3">
               <div className="text-xs text-muted-foreground">Candidates</div>
               <div className="text-lg font-semibold">{predictionReadiness.summary.totalCandidates}</div>
@@ -354,9 +362,19 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
               <div className="text-lg font-semibold">{predictionReadiness.summary.supportPredictions}</div>
             </div>
             <div className="rounded-md border border-border bg-background p-3">
-              <div className="text-xs text-muted-foreground">Human refs</div>
+              <div className="text-xs text-muted-foreground">Classification</div>
+              <div className="text-lg font-semibold">{predictionReadiness.summary.classificationPredictions}</div>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">Metric-ready</div>
               <div className="text-lg font-semibold">
-                {predictionReadiness.summary.candidatesWithHumanReferences}
+                {predictionReadiness.summary.metricEligibleCandidates}
+              </div>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">No approved ref</div>
+              <div className="text-lg font-semibold">
+                {predictionReadiness.summary.candidatesWithoutApprovedReference}
               </div>
             </div>
           </div>
@@ -410,7 +428,7 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
 
         <div className="rounded-md border border-border bg-background p-3 text-sm text-muted-foreground">
           Prediction analysis exports contain model proposals and are not ground-truth training labels.
-          Prediction files, human corrections, and approved references are written to separate package paths.
+          QA metrics compare predictions only against approved human references where available.
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -438,6 +456,12 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
               {createdPredictionExport.id} · {createdPredictionExport.itemCount} item rows ·{" "}
               {createdPredictionExport.warningCount} warnings
             </div>
+            {createdPredictionExport.qaMetricsSummary && (
+              <div className="mt-1 text-muted-foreground">
+                QA metrics: {createdPredictionExport.qaMetricsSummary.computedItemCount} computed ·{" "}
+                {createdPredictionExport.qaMetricsSummary.notComputedItemCount} not computed
+              </div>
+            )}
             {createdPredictionExport.downloads && (
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button asChild variant="outline">
