@@ -686,6 +686,7 @@ model PredictionArtifactProvenance {
   perClassScores      Json?
   outputStats         Json?
   modelOutputChecksum String?
+  sourceBatchItemId   String?              @unique
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
@@ -762,6 +763,10 @@ model PredictionImportBatchItem {
   outputStatsJson             Json?
   predictionArtifactVersionId String?                         @unique
   predictionProvenanceId      String?                         @unique
+  processorId                 String?
+  processorRunId              String?
+  leaseExpiresAt              DateTime?
+  lastHeartbeatAt             DateTime?
   errorCode                   String?
   errorMessage                String?
   createdAt                   DateTime                        @default(now())
@@ -776,7 +781,10 @@ model PredictionImportBatchItem {
 
   @@unique([batchJobId, clientItemId])
   @@index([batchJobId, status])
+  @@index([batchJobId, status, leaseExpiresAt])
   @@index([status, nextRetryAt])
+  @@index([status, leaseExpiresAt])
+  @@index([processorRunId])
   @@index([imageId])
   @@index([targetType])
 }

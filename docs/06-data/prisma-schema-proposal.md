@@ -249,7 +249,7 @@ Implemented synchronous owner-only project export creation and manifest/ZIP gene
 
 ### RB-054 - Model Preprediction / Active-Learning Design
 
-Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import; RB-058 through RB-061 implement the first queue, assisted correction, prediction-analysis export, and batch import slices.
+Implemented the design contract for prediction artifacts, human correction provenance, active-learning task ordering, and future editor/export implications. RB-056 implements model-run and prediction-run provenance persistence; RB-057 implements one-at-a-time prediction mask import; RB-058 through RB-061 implement the first queue, assisted correction, prediction-analysis export, and batch import slices; RB-065 hardens the single-host batch runner.
 
 ### RB-055 - Upload Artifact Validation / Checksum Hardening
 
@@ -257,11 +257,11 @@ Implemented checksum enforcement, PNG/JPEG dimensions, mask byte/dimension check
 
 ### RB-056 - Prediction Provenance / ModelRun Registry
 
-Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, RB-058/RB-059 add correction tasks and assisted correction, RB-060 adds the separate prediction-analysis export, and RB-061 adds batch import jobs.
+Implemented `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` plus `AnnotationTask` links for model-prediction correction tasks. The registry stores provenance only; RB-057 adds the first prediction mask import path, RB-058/RB-059 add correction tasks and assisted correction, RB-060 adds the separate prediction-analysis export, RB-061 adds batch import jobs, and RB-065 adds batch-item idempotency keys for retry-safe imports.
 
 ### RB-057 - Prediction Import API / Storage Validation
 
-Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links. RB-058/RB-059 add correction tasks and editor overlays; RB-060 adds prediction-analysis export; RB-061 adds ZIP batch imports that reuse the same import service.
+Implemented multipart import for semantic/support prediction mask proposals. Imported predictions are private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance and `PredictionArtifactProvenance` links. RB-058/RB-059 add correction tasks and editor overlays; RB-060 adds prediction-analysis export; RB-061 adds ZIP batch imports that reuse the same import service; RB-065 reuses existing provenance by batch item id after interrupted worker passes.
 
 ### RB-058 - Active-Learning Task Queue
 
@@ -278,6 +278,10 @@ Implemented separate prediction-analysis exports with `ExportTarget.PREDICTION_A
 ### RB-061 - Batch Prediction Import Jobs
 
 Implemented `PredictionImportBatchJob` and `PredictionImportBatchItem` for ZIP-backed semantic/support prediction mask imports. Batch processing uses explicit process calls and delegates every item to the RB-057 import service; successful items remain model-proposal artifacts, not ground truth.
+
+### RB-065 - Batch Job Runner Hardening
+
+Implemented processor identity, item leases, stale processing recovery, a process-due API, retry-safe batch item idempotency, and an optional Docker Compose worker profile for the single-host customer trial.
 
 ## Open Questions For RB-049
 

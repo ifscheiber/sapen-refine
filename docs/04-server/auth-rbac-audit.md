@@ -59,8 +59,8 @@ RB-064 adds audit coverage for:
 - model-run creation,
 - prediction-run creation.
 
-Existing RB-055 through RB-061 coverage remains in place for image upload acceptance/rejection, semantic/support mask commits, export creation/download, prediction imports, correction-task updates, assisted corrections, and prediction batch processing.
+Existing RB-055 through RB-061 coverage remains in place for image upload acceptance/rejection, semantic/support mask commits, export creation/download, prediction imports, correction-task updates, assisted corrections, and prediction batch processing. RB-065 extends prediction batch processing audit details with `processorId`, `processorRunId`, item claim/success/failure/retry events, stale recovery events, and due-batch worker pass summaries.
 
 ## Deferred
 
-Always-on worker identity, stale processing recovery, audit UI, general API write rate limiting, and full user-management workflows remain deferred. RB-065 owns the worker/system actor hardening path.
+Audit UI, general API write rate limiting, full user-management workflows, and dedicated system-actor login semantics remain deferred. RB-065 uses a named owner/QA job account plus non-secret processor metadata for the single-host trial worker path.

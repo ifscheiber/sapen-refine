@@ -2,16 +2,18 @@
 
 ## Purpose
 
-RB-061 adds a single-host, DB-backed batch import baseline for prediction masks. It is intended for trial-sized customer/model runs where importing one prediction per browser request is too brittle, but a full external queue is not yet justified.
+RB-061 adds a single-host, DB-backed batch import baseline for prediction masks. RB-065 hardens that baseline with a small PostgreSQL lease model and optional Compose worker for the Strato-style customer trial. It is intended for trial-sized customer/model runs where importing one prediction per browser request is too brittle, but a full external queue is not justified.
 
 Implemented evidence:
 
 - `prisma/schema.prisma` - `PredictionImportBatchJob`, `PredictionImportBatchItem`, and batch status/source enums.
-- `src/server/domain/predictionImportBatches.ts` - ZIP manifest parsing, private staging, item claiming, processing, retry, and sanitized serialization.
+- `src/server/domain/predictionImportBatches.ts` - ZIP manifest parsing, private staging, item claiming, lease/stale recovery, processing, retry, and sanitized serialization.
+- `src/server/domain/predictionImportBatchLeases.ts` - RB-065 lease expiry and stale-recovery helpers.
 - `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts` - ZIP batch creation.
-- `src/app/api/prediction-import-batches/*` and `src/app/api/projects/[projectId]/prediction-import-batches/route.ts` - inspect/process/retry APIs.
+- `src/app/api/prediction-import-batches/*` and `src/app/api/projects/[projectId]/prediction-import-batches/route.ts` - inspect/process/process-due/retry APIs.
 - `src/features/projects/ProjectPredictionImportBatchPanel.tsx` - minimal prediction-imports route UI for owner/QA batch management.
 - `scripts/process-prediction-import-batch.mjs` - optional API-based processing script.
+- `deploy/docker-compose.trial.yml` - optional `worker` profile for API-based background processing.
 
 ## Input Format
 
@@ -56,19 +58,59 @@ Supported RB-061 targets are `SEMANTIC_MASK` and `SLICE_SUPPORT_MASK`, matching 
 
 The create request validates the ZIP and manifest, verifies that referenced images belong to the `PredictionRun` project, stages item files privately, and creates a `PENDING` batch with `PENDING` items.
 
-Processing is explicit:
+Processing is explicit and bounded:
 
 - UI button on `/app/projects/[projectId]/prediction-imports`.
 - API call to `POST /api/prediction-import-batches/[batchId]/process`.
+- API call to `POST /api/prediction-import-batches/process-due` for due pending/retry/stale batches.
 - Optional script:
 
 ```bash
 npm run jobs:prediction-import -- --batch <batch-id> --limit 25 --email owner@example.com --password '<password>'
 ```
 
-The processor claims only `PENDING` or due `RETRY_PENDING` items, marks them `PROCESSING`, increments `attemptCount`, reads staged bytes, and calls `importPredictionMaskForUser` from `src/server/domain/predictionImport.ts`. Successful items store the created `AnnotationArtifactVersion` and `PredictionArtifactProvenance` ids.
+Without `--batch`, the script processes due batches:
 
-Re-running process is idempotent at the batch-item level: `SUCCEEDED` items are not processed again, so repeated process calls do not create duplicate prediction provenance rows.
+```bash
+npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email qa@example.com --password '<password>'
+```
+
+Loop mode is for the optional single-host worker:
+
+```bash
+npm run jobs:prediction-import -- --loop --interval 30 --limit 25 --max-jobs 5 --email qa@example.com --password '<password>'
+```
+
+The processor claims only `PENDING` or due `RETRY_PENDING` items, marks them `PROCESSING`, sets `processorId`, `processorRunId`, `leaseExpiresAt`, and `lastHeartbeatAt`, increments `attemptCount`, reads staged bytes, and calls `importPredictionMaskForUser` from `src/server/domain/predictionImport.ts`. Successful items store the created `AnnotationArtifactVersion` and `PredictionArtifactProvenance` ids and clear the lease.
+
+Re-running process is idempotent at the batch-item level: `SUCCEEDED` items are not processed again, and batch-created `PredictionArtifactProvenance.sourceBatchItemId` prevents a retry from creating a second prediction artifact if a worker crashes after the provenance transaction but before the batch item is marked succeeded.
+
+Normal annotator concurrency is unrelated to this runner. Browser users can log in, draw, save, review, approve, and export without a queue. The DB lease model applies only to prediction-import batch items.
+
+## Trial Worker Model
+
+RB-065 chooses Option A for the customer trial: an optional Docker Compose worker service using PostgreSQL as the queue/lease store. There is no Redis, BullMQ, RabbitMQ, distributed coordination, GPU execution, or model inference in this slice.
+
+Enable the optional worker profile after creating a named project `OWNER` or `QA` account for `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` in `deploy/trial.env`:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f prediction-import-worker
+```
+
+One-shot processing remains available when an always-on worker is not desired:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
+```
+
+For a single batch:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --batch '<batch-id>' --limit 25 --email 'qa@example.com' --password '<password>'
+```
+
+Use a named job account, not shared demo credentials, so batch processing remains attributable. The processor metadata records the configured `PREDICTION_IMPORT_PROCESSOR_ID`; the audit actor remains the authenticated named account used by the script.
 
 ## Retry And Failure Behavior
 
@@ -81,6 +123,15 @@ curl -X POST https://annotate.example.com/api/prediction-import-batches/<batch-i
 ```
 
 Manual retry resets failed/retry-pending items to `PENDING`; successful items are never reset by the batch retry endpoint.
+
+Stale `PROCESSING` recovery:
+
+- `leaseExpiresAt <= now` marks the item stale.
+- Legacy rows without a lease fall back to `startedAt + PREDICTION_BATCH_LEASE_SECONDS`.
+- Stale items with remaining attempts become `RETRY_PENDING` with error code `BATCH_ITEM_STALE_PROCESSING_RECOVERED`.
+- Stale items without remaining attempts become `FAILED` with the same stable error code.
+- The next processing pass may immediately claim due recovered retry items.
+- `SUCCEEDED` items are terminal and are never reprocessed by process/process-due/retry.
 
 Batch statuses:
 
@@ -101,20 +152,23 @@ Runtime variables:
 - `PREDICTION_BATCH_MAX_ITEMS` - max manifest items, default `200`.
 - `PREDICTION_BATCH_PROCESS_LIMIT` - default and maximum process-pass limit, default `25`.
 - `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS` - attempts per item, default `3`.
+- `PREDICTION_BATCH_LEASE_SECONDS` - processing lease/stale timeout, default `900`.
+- `PREDICTION_BATCH_MAX_JOBS_PER_TICK` - max due batches per worker tick, default `5`.
+- `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` - loop sleep interval for the optional worker, default `30`.
+- `PREDICTION_IMPORT_PROCESSOR_ID` - non-secret processor label stored on claimed items/audit details, default `sapen-annotate-worker`.
 - `MASK_UPLOAD_MAX_BYTES` - per-item staged mask cap, default `52428800`.
 
 For customer trials, keep `CADDY_MAX_BODY_SIZE` above `PREDICTION_BATCH_UPLOAD_MAX_BYTES`; otherwise Caddy can reject the request before the app returns JSON.
 
 ## Authorization
 
-Project `OWNER` and `QA` can create, inspect, process, and retry batch imports. `LABELER`, `VIEWER`, and non-members cannot access the batch import UI or APIs in RB-061.
+Project `OWNER` and `QA` can create, inspect, process, process due batches, and retry batch imports. `LABELER`, `VIEWER`, and non-members cannot access the batch import UI or per-batch processing APIs. The `process-due` runner path only sees projects where the authenticated job account has an owner/QA role.
 
 Direct `ModelRun` details remain admin-only elsewhere. Batch responses include reduced prediction-run/model summaries and never expose private storage keys.
 
 ## Deferred
 
-- Dedicated always-on worker process or scheduler.
-- Stale `PROCESSING` lease recovery.
 - Retention cleanup for staged batch source objects.
 - Slice-classification batch prediction imports.
 - Metrics dashboards such as Dice/IoU/confusion matrices.
+- Production-scale queue infrastructure. RB-065 intentionally keeps the trial path to one default single-host worker and PostgreSQL leases; revisit Redis/BullMQ/RabbitMQ only if real usage outgrows this model.

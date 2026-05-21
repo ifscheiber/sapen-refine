@@ -15,6 +15,14 @@ import { canImportPrediction, canProcessPredictionBatch } from "@/server/auth/po
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
+  BATCH_ITEM_STALE_PROCESSING_RECOVERED,
+  calculateLeaseExpiresAt,
+  isProcessingLeaseExpired,
+  processorRunSummary,
+  recoveredStatusForStaleItem,
+  staleStartedBefore,
+} from "@/server/domain/predictionImportBatchLeases";
+import {
   importPredictionMaskForUser,
   predictionImportErrorResponse,
 } from "@/server/domain/predictionImport";
@@ -110,6 +118,10 @@ const ITEM_SELECT = {
   outputStatsJson: true,
   predictionArtifactVersionId: true,
   predictionProvenanceId: true,
+  processorId: true,
+  processorRunId: true,
+  leaseExpiresAt: true,
+  lastHeartbeatAt: true,
   errorCode: true,
   errorMessage: true,
   createdAt: true,
@@ -138,11 +150,31 @@ const PROCESS_ITEM_SELECT = {
   uncertaintyScore: true,
   perClassScoresJson: true,
   outputStatsJson: true,
+  processorId: true,
+  processorRunId: true,
+  leaseExpiresAt: true,
 } satisfies Prisma.PredictionImportBatchItemSelect;
 
 type SelectedBatch = Prisma.PredictionImportBatchJobGetPayload<{ select: typeof BATCH_SELECT }>;
 type SelectedItem = Prisma.PredictionImportBatchItemGetPayload<{ select: typeof ITEM_SELECT }>;
 type ProcessItem = Prisma.PredictionImportBatchItemGetPayload<{ select: typeof PROCESS_ITEM_SELECT }>;
+
+type ProcessorContext = {
+  processorId: string;
+  processorRunId: string;
+  leaseSeconds: number;
+};
+
+type BatchProcessResult = {
+  batch: SelectedBatch;
+  processedCount: number;
+  succeededCount: number;
+  failedCount: number;
+  retryPendingCount: number;
+  staleRecoveredCount: number;
+  processorId: string;
+  processorRunId: string;
+};
 
 type ManifestItem = {
   clientItemId: string | null;
@@ -219,6 +251,37 @@ function parseLimit(value: unknown) {
     throw new PredictionImportBatchError("BATCH_PROCESS_LIMIT_INVALID");
   }
   return Math.min(parsed, fallback);
+}
+
+function parseMaxJobs(value: unknown) {
+  const fallback = getRuntimeConfig().batchRunner.maxJobsPerTick;
+  if (value === undefined || value === null || value === "") return fallback;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new PredictionImportBatchError("BATCH_PROCESS_MAX_JOBS_INVALID");
+  }
+  return Math.min(parsed, fallback);
+}
+
+function parseBoolean(value: unknown, fallback: boolean) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") throw new PredictionImportBatchError("BATCH_PROCESS_FLAG_INVALID");
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "y"].includes(normalized)) return true;
+  if (["0", "false", "no", "n"].includes(normalized)) return false;
+  throw new PredictionImportBatchError("BATCH_PROCESS_FLAG_INVALID");
+}
+
+function resolveProcessorContext(input: Record<string, unknown>): ProcessorContext {
+  const config = getRuntimeConfig().batchRunner;
+  const processorId = cleanText(input.processorId) ?? config.processorId;
+  const processorRunId = cleanText(input.processorRunId) ?? randomUUID();
+  return {
+    processorId,
+    processorRunId,
+    leaseSeconds: config.leaseSeconds,
+  };
 }
 
 function assertZipUploadSize(bytes: Uint8Array) {
@@ -677,11 +740,146 @@ export async function listPredictionImportBatchItemsForUser(params: {
   return items.map(serializeItem);
 }
 
-async function claimItems(params: { batchId: string; limit: number }, db: BatchDb) {
+async function recordItemAudit(params: {
+  action: string;
+  batch: SelectedBatch;
+  item: { id: string; imageId?: string; targetType?: PredictionTargetType | null };
+  actorId: string;
+  processor: ProcessorContext;
+  details?: Prisma.InputJsonObject;
+}, db: BatchDb) {
+  await recordAuditEvent({
+    action: params.action,
+    entity: "PredictionImportBatchItem",
+    entityId: params.item.id,
+    actorId: params.actorId,
+    details: {
+      projectId: params.batch.projectId,
+      predictionRunId: params.batch.predictionRunId,
+      batchId: params.batch.id,
+      imageId: params.item.imageId ?? null,
+      targetType: params.item.targetType ?? null,
+      processorId: params.processor.processorId,
+      processorRunId: params.processor.processorRunId,
+      ...(params.details ?? {}),
+    },
+  }, db);
+}
+
+async function recoverStaleItemsForBatch(params: {
+  batch: SelectedBatch;
+  userId: string;
+  processor: ProcessorContext;
+}, db: BatchDb) {
+  const now = new Date();
+  const staleItems = await db.predictionImportBatchItem.findMany({
+    where: {
+      batchJobId: params.batch.id,
+      status: PredictionImportBatchItemStatus.PROCESSING,
+      OR: [
+        { leaseExpiresAt: { lte: now } },
+        {
+          leaseExpiresAt: null,
+          startedAt: { lte: staleStartedBefore(now, params.processor.leaseSeconds) },
+        },
+      ],
+    },
+    orderBy: [{ startedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      imageId: true,
+      targetType: true,
+      status: true,
+      attemptCount: true,
+      maxAttempts: true,
+      startedAt: true,
+      leaseExpiresAt: true,
+      processorId: true,
+      processorRunId: true,
+    },
+  });
+
+  let recoveredCount = 0;
+  let retryPendingCount = 0;
+  let failedCount = 0;
+
+  for (const item of staleItems) {
+    if (!isProcessingLeaseExpired(item, now, params.processor.leaseSeconds)) continue;
+    const nextStatus = recoveredStatusForStaleItem(item);
+    const result = await db.predictionImportBatchItem.updateMany({
+      where: { id: item.id, status: PredictionImportBatchItemStatus.PROCESSING },
+      data: {
+        status: nextStatus,
+        nextRetryAt: nextStatus === PredictionImportBatchItemStatus.RETRY_PENDING ? now : null,
+        startedAt: nextStatus === PredictionImportBatchItemStatus.RETRY_PENDING ? null : item.startedAt,
+        completedAt: nextStatus === PredictionImportBatchItemStatus.FAILED ? now : null,
+        processorId: params.processor.processorId,
+        processorRunId: params.processor.processorRunId,
+        leaseExpiresAt: null,
+        lastHeartbeatAt: now,
+        errorCode: BATCH_ITEM_STALE_PROCESSING_RECOVERED,
+        errorMessage: BATCH_ITEM_STALE_PROCESSING_RECOVERED,
+      },
+    });
+    if (result.count !== 1) continue;
+
+    recoveredCount += 1;
+    if (nextStatus === PredictionImportBatchItemStatus.RETRY_PENDING) retryPendingCount += 1;
+    if (nextStatus === PredictionImportBatchItemStatus.FAILED) failedCount += 1;
+
+    await recordItemAudit({
+      action:
+        nextStatus === PredictionImportBatchItemStatus.RETRY_PENDING
+          ? "PREDICTION_IMPORT_BATCH_ITEM_RETRY_SCHEDULED"
+          : "PREDICTION_IMPORT_BATCH_ITEM_FAILED",
+      batch: params.batch,
+      item,
+      actorId: params.userId,
+      processor: params.processor,
+      details: {
+        errorCode: BATCH_ITEM_STALE_PROCESSING_RECOVERED,
+        previousProcessorId: item.processorId,
+        previousProcessorRunId: item.processorRunId,
+        recoveredStatus: nextStatus,
+      },
+    }, db);
+  }
+
+  if (recoveredCount > 0) {
+    await recordAuditEvent({
+      action: "PREDICTION_IMPORT_BATCH_STALE_RECOVERED",
+      entity: "PredictionImportBatchJob",
+      entityId: params.batch.id,
+      actorId: params.userId,
+      details: {
+        projectId: params.batch.projectId,
+        predictionRunId: params.batch.predictionRunId,
+        processorId: params.processor.processorId,
+        processorRunId: params.processor.processorRunId,
+        recoveredCount,
+        retryPendingCount,
+        failedCount,
+      },
+    }, db);
+    await refreshBatchSummary(params.batch.id, db);
+  }
+
+  return { recoveredCount, retryPendingCount, failedCount };
+}
+
+async function claimItems(
+  params: {
+    batch: SelectedBatch;
+    limit: number;
+    userId: string;
+    processor: ProcessorContext;
+  },
+  db: BatchDb,
+) {
   const now = new Date();
   const candidates = await db.predictionImportBatchItem.findMany({
     where: {
-      batchJobId: params.batchId,
+      batchJobId: params.batch.id,
       OR: [
         { status: PredictionImportBatchItemStatus.PENDING },
         {
@@ -705,11 +903,24 @@ async function claimItems(params: { batchId: string; limit: number }, db: BatchD
         startedAt: now,
         completedAt: null,
         nextRetryAt: null,
+        processorId: params.processor.processorId,
+        processorRunId: params.processor.processorRunId,
+        leaseExpiresAt: calculateLeaseExpiresAt(now, params.processor.leaseSeconds),
+        lastHeartbeatAt: now,
         errorCode: null,
         errorMessage: null,
       },
     });
-    if (result.count === 1) claimedIds.push(candidate.id);
+    if (result.count === 1) {
+      claimedIds.push(candidate.id);
+      await recordItemAudit({
+        action: "PREDICTION_IMPORT_BATCH_ITEM_CLAIMED",
+        batch: params.batch,
+        item: { id: candidate.id },
+        actorId: params.userId,
+        processor: params.processor,
+      }, db);
+    }
   }
 
   if (claimedIds.length === 0) return [];
@@ -739,6 +950,7 @@ async function processItem(params: {
   batch: SelectedBatch;
   item: ProcessItem;
   userId: string;
+  processor: ProcessorContext;
 }, db: BatchDb) {
   try {
     const bytes = await getObjectBytes(params.item.stagingKey).catch(() => {
@@ -761,6 +973,7 @@ async function processItem(params: {
         uncertaintyScore: params.item.uncertaintyScore,
         perClassScores: params.item.perClassScoresJson as Prisma.InputJsonValue | undefined,
         outputStats: params.item.outputStatsJson as Prisma.InputJsonValue | undefined,
+        sourceBatchItemId: params.item.id,
       },
       db,
     );
@@ -771,11 +984,24 @@ async function processItem(params: {
         status: PredictionImportBatchItemStatus.SUCCEEDED,
         predictionArtifactVersionId: result.artifactVersionId,
         predictionProvenanceId: result.predictionProvenanceId,
+        leaseExpiresAt: null,
+        lastHeartbeatAt: new Date(),
         errorCode: null,
         errorMessage: null,
         completedAt: new Date(),
       },
     });
+    await recordItemAudit({
+      action: "PREDICTION_IMPORT_BATCH_ITEM_SUCCEEDED",
+      batch: params.batch,
+      item: params.item,
+      actorId: params.userId,
+      processor: params.processor,
+      details: {
+        artifactVersionId: result.artifactVersionId,
+        predictionProvenanceId: result.predictionProvenanceId,
+      },
+    }, db);
     return { status: PredictionImportBatchItemStatus.SUCCEEDED, code: null };
   } catch (error) {
     const payload = processError(error);
@@ -787,11 +1013,23 @@ async function processItem(params: {
           ? PredictionImportBatchItemStatus.RETRY_PENDING
           : PredictionImportBatchItemStatus.FAILED,
         nextRetryAt: retry ? new Date(Date.now() + 60_000) : null,
+        leaseExpiresAt: null,
+        lastHeartbeatAt: new Date(),
         errorCode: payload.code,
         errorMessage: payload.code,
         completedAt: retry ? null : new Date(),
       },
     });
+    await recordItemAudit({
+      action: retry
+        ? "PREDICTION_IMPORT_BATCH_ITEM_RETRY_SCHEDULED"
+        : "PREDICTION_IMPORT_BATCH_ITEM_FAILED",
+      batch: params.batch,
+      item: params.item,
+      actorId: params.userId,
+      processor: params.processor,
+      details: { errorCode: payload.code },
+    }, db);
     return {
       status: retry
         ? PredictionImportBatchItemStatus.RETRY_PENDING
@@ -808,6 +1046,8 @@ export async function processPredictionImportBatchForUser(params: {
 }, db: BatchDb = prisma) {
   const input = params.input && typeof params.input === "object" ? params.input as Record<string, unknown> : {};
   const limit = parseLimit(input.limit);
+  const recoverStale = parseBoolean(input.recoverStale, true);
+  const processor = resolveProcessorContext(input);
   const batch = await getPredictionImportBatchById(params.batchId, db);
   await requireBatchMembership(db, {
     projectId: batch.projectId,
@@ -817,6 +1057,25 @@ export async function processPredictionImportBatchForUser(params: {
   if (batch.status === PredictionImportBatchStatus.CANCELLED) {
     throw new PredictionImportBatchError("BATCH_CANCELLED", 409);
   }
+  const staleRecovery = recoverStale
+    ? await recoverStaleItemsForBatch({ batch, userId: params.userId, processor }, db)
+    : { recoveredCount: 0, retryPendingCount: 0, failedCount: 0 };
+
+  await recordAuditEvent({
+    action: "PREDICTION_IMPORT_BATCH_PROCESS_STARTED",
+    entity: "PredictionImportBatchJob",
+    entityId: params.batchId,
+    actorId: params.userId,
+    details: {
+      projectId: batch.projectId,
+      predictionRunId: batch.predictionRunId,
+      requestedLimit: limit,
+      recoverStale,
+      staleRecoveredCount: staleRecovery.recoveredCount,
+      processorId: processor.processorId,
+      processorRunId: processor.processorRunId,
+    },
+  }, db);
 
   await db.predictionImportBatchJob.update({
     where: { id: params.batchId },
@@ -827,15 +1086,15 @@ export async function processPredictionImportBatchForUser(params: {
     },
   });
 
-  const claimed = await claimItems({ batchId: params.batchId, limit }, db);
+  const claimed = await claimItems({ batch, limit, userId: params.userId, processor }, db);
   const outcomes = [];
   for (const item of claimed) {
-    outcomes.push(await processItem({ batch, item, userId: params.userId }, db));
+    outcomes.push(await processItem({ batch, item, userId: params.userId, processor }, db));
   }
   const refreshed = await refreshBatchSummary(params.batchId, db);
 
   await recordAuditEvent({
-    action: "PREDICTION_IMPORT_BATCH_PROCESSED",
+    action: "PREDICTION_IMPORT_BATCH_PROCESS_COMPLETED",
     entity: "PredictionImportBatchJob",
     entityId: params.batchId,
     actorId: params.userId,
@@ -847,6 +1106,9 @@ export async function processPredictionImportBatchForUser(params: {
       succeededCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.SUCCEEDED).length,
       failedCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.FAILED).length,
       retryPendingCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.RETRY_PENDING).length,
+      staleRecoveredCount: staleRecovery.recoveredCount,
+      processorId: processor.processorId,
+      processorRunId: processor.processorRunId,
     },
   });
 
@@ -856,7 +1118,114 @@ export async function processPredictionImportBatchForUser(params: {
     succeededCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.SUCCEEDED).length,
     failedCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.FAILED).length,
     retryPendingCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.RETRY_PENDING).length,
-  };
+    staleRecoveredCount: staleRecovery.recoveredCount,
+    processorId: processor.processorId,
+    processorRunId: processor.processorRunId,
+  } satisfies BatchProcessResult;
+}
+
+export async function processDuePredictionImportBatchesForUser(params: {
+  userId: string;
+  input?: unknown;
+}, db: BatchDb = prisma) {
+  const input = params.input && typeof params.input === "object" ? params.input as Record<string, unknown> : {};
+  const limit = parseLimit(input.limit);
+  const maxJobs = parseMaxJobs(input.maxJobs);
+  const processor = resolveProcessorContext(input);
+  const recoverStale = parseBoolean(input.recoverStale, true);
+  const now = new Date();
+
+  const memberships = await db.annotationProjectMember.findMany({
+    where: { userId: params.userId },
+    select: { projectId: true, role: true },
+  });
+  const projectIds = memberships
+    .filter((membership) => canProcessPredictionBatch(membership.role))
+    .map((membership) => membership.projectId);
+  if (projectIds.length === 0) {
+    return {
+      ...processorRunSummary({
+        processorId: processor.processorId,
+        processorRunId: processor.processorRunId,
+        batchCount: 0,
+        processedCount: 0,
+        staleRecoveredCount: 0,
+      }),
+      results: [],
+    };
+  }
+
+  const batches = await db.predictionImportBatchJob.findMany({
+    where: {
+      projectId: { in: projectIds },
+      status: { not: PredictionImportBatchStatus.CANCELLED },
+      items: {
+        some: {
+          OR: [
+            { status: PredictionImportBatchItemStatus.PENDING },
+            {
+              status: PredictionImportBatchItemStatus.RETRY_PENDING,
+              OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+            },
+            ...(recoverStale
+              ? [
+                  {
+                    status: PredictionImportBatchItemStatus.PROCESSING,
+                    OR: [
+                      { leaseExpiresAt: { lte: now } },
+                      {
+                        leaseExpiresAt: null,
+                        startedAt: { lte: staleStartedBefore(now, processor.leaseSeconds) },
+                      },
+                    ],
+                  },
+                ]
+              : []),
+          ],
+        },
+      },
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: maxJobs,
+    select: { id: true },
+  });
+
+  const results: BatchProcessResult[] = [];
+  for (const batch of batches) {
+    results.push(await processPredictionImportBatchForUser({
+      batchId: batch.id,
+      userId: params.userId,
+      input: {
+        limit,
+        recoverStale,
+        processorId: processor.processorId,
+        processorRunId: processor.processorRunId,
+      },
+    }, db));
+  }
+
+  const summary = processorRunSummary({
+    processorId: processor.processorId,
+    processorRunId: processor.processorRunId,
+    batchCount: results.length,
+    processedCount: results.reduce((sum, result) => sum + result.processedCount, 0),
+    staleRecoveredCount: results.reduce((sum, result) => sum + result.staleRecoveredCount, 0),
+  });
+
+  await recordAuditEvent({
+    action: "PREDICTION_IMPORT_BATCH_DUE_PROCESS_COMPLETED",
+    entity: "PredictionImportBatchJob",
+    actorId: params.userId,
+    details: {
+      ...summary,
+      requestedLimit: limit,
+      requestedMaxJobs: maxJobs,
+      recoverStale,
+      batchIds: results.map((result) => result.batch.id),
+    },
+  }, db);
+
+  return { ...summary, results };
 }
 
 function parseRetryItemIds(input: unknown) {
@@ -899,6 +1268,10 @@ export async function retryPredictionImportBatchForUser(params: {
       nextRetryAt: null,
       startedAt: null,
       completedAt: null,
+      processorId: null,
+      processorRunId: null,
+      leaseExpiresAt: null,
+      lastHeartbeatAt: null,
       errorCode: null,
       errorMessage: null,
     },

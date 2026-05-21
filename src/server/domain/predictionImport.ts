@@ -57,6 +57,7 @@ export type PredictionImportInput = {
   uncertaintyScore?: unknown;
   perClassScores?: Prisma.InputJsonValue;
   outputStats?: Prisma.InputJsonValue;
+  sourceBatchItemId?: string | null;
 };
 
 function cleanText(value: unknown) {
@@ -171,11 +172,62 @@ function importErrorCode(error: unknown) {
   return "PREDICTION_IMPORT_FAILED";
 }
 
+async function findExistingBatchItemPredictionImport(
+  db: PredictionImportDb,
+  sourceBatchItemId: string | null | undefined,
+) {
+  if (!sourceBatchItemId) return null;
+  const existing = await db.predictionArtifactProvenance.findUnique({
+    where: { sourceBatchItemId },
+    select: {
+      id: true,
+      predictionRunId: true,
+      imageId: true,
+      targetType: true,
+      artifactVersion: {
+        select: {
+          id: true,
+          version: true,
+          reviewState: true,
+          provenance: true,
+          checksum: true,
+          width: true,
+          height: true,
+          coordinateSpace: true,
+          format: true,
+          createdAt: true,
+          artifact: { select: { id: true } },
+        },
+      },
+    },
+  });
+  if (!existing?.artifactVersion) return null;
+
+  return {
+    predictionRunId: existing.predictionRunId,
+    imageId: existing.imageId,
+    artifactId: existing.artifactVersion.artifact.id,
+    artifactVersionId: existing.artifactVersion.id,
+    predictionProvenanceId: existing.id,
+    targetType: existing.targetType,
+    checksum: existing.artifactVersion.checksum,
+    width: existing.artifactVersion.width,
+    height: existing.artifactVersion.height,
+    reviewState: existing.artifactVersion.reviewState,
+    provenance: existing.artifactVersion.provenance,
+    version: existing.artifactVersion.version,
+    coordinateSpace: existing.artifactVersion.coordinateSpace,
+    format: existing.artifactVersion.format,
+    createdAt: existing.artifactVersion.createdAt,
+  };
+}
+
 export async function importPredictionMaskForUser(
   input: PredictionImportInput,
   db: PredictionImportDb = prisma,
 ) {
   const targetType = parseTargetType(input.targetType);
+  const sourceBatchItemId = cleanText(input.sourceBatchItemId);
 
   const predictionRun = await db.predictionRun.findUnique({
     where: { id: input.predictionRunId },
@@ -198,6 +250,18 @@ export async function importPredictionMaskForUser(
   });
   if (!membership || !canImportPrediction(membership.role)) {
     throw new PredictionImportError("PREDICTION_IMPORT_FORBIDDEN", 403);
+  }
+
+  const existingBatchImport = await findExistingBatchItemPredictionImport(db, sourceBatchItemId);
+  if (existingBatchImport) {
+    if (
+      existingBatchImport.predictionRunId !== predictionRun.id ||
+      existingBatchImport.imageId !== image.id ||
+      existingBatchImport.targetType !== targetType
+    ) {
+      throw new PredictionImportError("PREDICTION_IMPORT_SOURCE_MISMATCH", 409);
+    }
+    return existingBatchImport;
   }
 
   let storageKey: string | null = null;
@@ -308,6 +372,7 @@ export async function importPredictionMaskForUser(
           perClassScores: input.perClassScores,
           outputStats: input.outputStats,
           modelOutputChecksum: integrity.checksum,
+          sourceBatchItemId,
         },
         select: { id: true },
       });

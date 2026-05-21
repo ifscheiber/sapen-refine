@@ -63,7 +63,7 @@
 - Audit logging is still not exposed through an admin UI.
 - Login has DB-backed throttling; general API write rate limiting remains deferred.
 - Training and prediction-analysis export generation are synchronous and intended for trial-sized datasets; large export job handling remains deferred.
-- RB-061 batch prediction import uses explicit process calls rather than an always-on worker. Stale processing recovery and staged-object cleanup remain deferred. Slice-classification prediction correction remains deferred.
+- RB-065 adds an optional single-host worker path for RB-061 batch prediction imports. Staged-object cleanup, production-scale queue infrastructure, and slice-classification prediction correction remain deferred.
 
 ## Related Tickets / Docs
 

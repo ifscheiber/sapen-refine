@@ -27,6 +27,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Log out if testing logout. | Session is cleared and protected routes redirect to login. |  |  |
 | Confirm public exposure. | Only Caddy is reachable publicly; MinIO console/S3 are not exposed. |  |  |
 | Run backup command or confirm backup schedule. | PostgreSQL, MinIO, and Caddy backup procedure is documented for this trial. |  |  |
+| If enabling batch prediction imports, set named worker credentials and start optional worker. | `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` belong to a named owner/QA account; `prediction-import-worker` runs only when the `worker` profile is enabled. |  |  |
 
 ## Desktop Browser Smoke
 
@@ -53,6 +54,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Download manifest and package. | Files download through app routes; no MinIO console/S3 URL is exposed to the browser. |  |  |
 | If a prediction fixture exists, create a prediction analysis export as owner/QA. | Export completes through `/api/prediction-analysis-exports/*`, warning text says predictions are proposals, and no private storage URL is exposed. |  |  |
 | If a batch prediction ZIP fixture exists, open project prediction imports and create a prediction import batch as owner/QA. | `/app/projects/[projectId]/prediction-imports` shows item counts; process/retry controls work; failed items show stable error codes; no staging or MinIO/S3 URL is exposed. |  |  |
+| If the worker profile is enabled, inspect worker logs after batch upload. | Worker processes bounded due batches, reports processor/run summary, and does not log credentials, session tokens, or private storage keys. |  |  |
 | If a prediction fixture exists, open project task queue. | Active-learning correction tasks render without exposing storage keys. |  |  |
 | Open a correction task. | Assisted correction editor loads prediction context and image at `/tasks/[taskId]/correct`. |  |  |
 | Use prediction as starting mask and save correction draft. | Human correction draft is saved separately; prediction remains read-only. |  |  |
@@ -123,5 +125,5 @@ Blocking failure criteria:
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
-- RB-053 training export and RB-060 prediction-analysis export generation are synchronous and trial-sized. RB-061 prediction batch imports use explicit process passes, but always-on workers, staging cleanup, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
+- RB-053 training export and RB-060 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. Staging cleanup, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
 - Assisted correction supports semantic/support mask predictions only; slice-classification correction remains deferred.

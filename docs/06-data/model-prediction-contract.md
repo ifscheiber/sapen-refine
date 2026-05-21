@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, RB-058 implements the first active-learning correction task queue, RB-059 implements assisted correction, and RB-061 implements DB-backed batch prediction imports. Running inference remains deferred.
+This page defines the model preprediction and assisted correction contract. RB-056 implements the provenance registry, RB-057 implements the first server-side prediction mask import path, RB-058 implements the first active-learning correction task queue, RB-059 implements assisted correction, RB-061 implements DB-backed batch prediction imports, and RB-065 implements single-host batch-runner hardening. Running inference remains deferred.
 
 Hard rule:
 
@@ -70,11 +70,14 @@ Inspect/process/retry routes are:
 - `GET /api/prediction-import-batches/[batchId]`
 - `GET /api/prediction-import-batches/[batchId]/items`
 - `POST /api/prediction-import-batches/[batchId]/process`
+- `POST /api/prediction-import-batches/process-due`
 - `POST /api/prediction-import-batches/[batchId]/retry`
 
 The batch manifest version is `sapen-annotate-prediction-batch-import-v1`. RB-061 supports batch imports for `SEMANTIC_MASK` and `SLICE_SUPPORT_MASK` prediction masks only. The processor calls `importPredictionMaskForUser`, so checksum, dimension, content-type, coordinate-space, label-value, storage, provenance, and proposal-only rules stay identical to the single prediction import path.
 
-Batch responses expose status/counts, item-level stable error codes, artifact/provenance ids, and reduced prediction-run summaries. They never expose staged object keys. Successful items are not processed again, so repeated process calls do not duplicate prediction artifacts.
+RB-065 adds processor identity and DB lease metadata for batch items. The single-host trial flow is: pending/due retry item becomes `PROCESSING` with `processorId`, `processorRunId`, `leaseExpiresAt`, and `lastHeartbeatAt`; success becomes `SUCCEEDED` and is never reprocessed; validation failure becomes `FAILED` with a stable error code; stale processing leases become `RETRY_PENDING` or `FAILED` with `BATCH_ITEM_STALE_PROCESSING_RECOVERED`.
+
+Batch responses expose status/counts, item-level stable error codes, artifact/provenance ids, and reduced prediction-run summaries. They never expose staged object keys. Successful items are not processed again, and batch-created provenance rows carry `sourceBatchItemId` so a retry can reattach an existing prediction artifact after an interrupted worker pass. This is a PostgreSQL-backed batch import runner only; it is not used for normal annotator browser concurrency.
 
 ## Implemented Correction Task Queue
 
@@ -193,13 +196,13 @@ RB-055 implements the current upload/artifact validation helpers used by human i
 - avoid public MinIO/S3 URLs in browser responses,
 - record audit events for imported prediction artifacts.
 
-Large batch imports now use the RB-061 DB-backed batch item model rather than one long browser request. This is a single-host baseline, not HA queue infrastructure.
+Large batch imports now use the RB-061/RB-065 DB-backed batch item and lease model rather than one long browser request. This is a single-host baseline, not HA queue infrastructure.
 
 RB-057 accepts only `u8raw-v1` `application/octet-stream` prediction masks in `IMAGE_PIXEL` coordinate space. Dimensions must match the target image. The server computes and stores canonical SHA-256 checksums and rejects mismatched checksum hints. Semantic predictions are limited to active semantic label byte values. Support predictions are limited to `0` and the active `slice_support` byte; Copper semantic values are rejected as support geometry.
 
-## Deferred After RB-061
+## Deferred After RB-065
 
-- Always-on worker/scheduler, stale processing lease recovery, and batch staging cleanup.
+- Batch staging cleanup and production-scale queue infrastructure.
 - Slice-classification batch prediction imports.
 - Metrics dashboards such as Dice/IoU/confusion matrices.
 

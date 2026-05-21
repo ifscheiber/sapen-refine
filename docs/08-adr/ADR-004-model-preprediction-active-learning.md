@@ -44,7 +44,8 @@ The current task fields are sufficient for a first active-learning queue orderin
 - RB-059: Assisted correction editor workflow. Implemented after this ADR.
 - RB-060: Optional QA/prediction-analysis export mode separate from ground-truth export. Implemented after this ADR.
 - RB-061: Batch prediction import and background job support. Implemented after this ADR as a single-host DB-backed baseline.
-- Always-on workers, staging cleanup, classification batch imports, and model metrics dashboards remain deferred.
+- RB-065: Single-host batch runner leases, stale recovery, and optional Compose worker. Implemented after this ADR.
+- Staging cleanup, production-scale workers, classification batch imports, and model metrics dashboards remain deferred.
 
 ## Evidence
 

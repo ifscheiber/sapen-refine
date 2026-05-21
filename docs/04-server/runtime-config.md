@@ -14,6 +14,8 @@ Use `.env.example` as the local template:
 - `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT` - local MinIO.
 - `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_FORCE_PATH_STYLE` - object storage.
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_MAX_ITEMS`, `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS` - app-side upload and batch-processing caps. Supported raw image MIME types are fixed in code to PNG/JPEG for RB-055.
+- `PREDICTION_BATCH_LEASE_SECONDS`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS`, `PREDICTION_IMPORT_PROCESSOR_ID` - RB-065 single-host prediction-import worker lease and loop controls.
+- `SAPEN_JOB_BASE_URL`, `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD` - optional API-script credentials for the prediction-import worker; these are consumed by `scripts/process-prediction-import-batch.mjs`, not by `src/server/runtime/config.ts`.
 - `SHOW_DEMO_CREDENTIALS`, `LOGIN_RATE_LIMIT_MAX_FAILURES`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS`, `LOGIN_RATE_LIMIT_LOCK_SECONDS`, `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - auth/session hardening controls.
 
 ## Customer Trial Variables
@@ -26,7 +28,8 @@ Required trial values:
 - `APP_BASE_URL` - public app URL, for example `https://annotate.example.com`.
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - internal PostgreSQL settings.
 - `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_FORCE_PATH_STYLE` - internal MinIO/S3 settings.
-- `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_MAX_ITEMS`, `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS`, `CADDY_MAX_BODY_SIZE` - upload/body and batch-processing limits.
+- `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_MAX_ITEMS`, `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS`, `PREDICTION_BATCH_LEASE_SECONDS`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS`, `PREDICTION_IMPORT_PROCESSOR_ID`, `CADDY_MAX_BODY_SIZE` - upload/body, worker lease, and batch-processing limits.
+- `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD` - named owner/QA account for the optional Compose worker profile; leave empty if processing manually.
 - `SHOW_DEMO_CREDENTIALS=false` - keep shared seed credentials hidden for customer trials unless explicitly accepted.
 - `LOGIN_RATE_LIMIT_MAX_FAILURES=5`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS=900`, `LOGIN_RATE_LIMIT_LOCK_SECONDS=900` - DB-backed login lockout defaults.
 - `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS=900` - throttle session activity writes.
@@ -41,6 +44,9 @@ Default app limits:
 - Prediction batch item count: `200`.
 - Prediction batch process pass: `25` items.
 - Prediction batch item attempts: `3`.
+- Prediction batch lease timeout: `900` seconds.
+- Prediction batch due jobs per worker tick: `5`.
+- Prediction batch worker loop interval: `30` seconds.
 - Caddy request body: `120MB` in the trial template.
 
 The app returns `413` with `UPLOAD_TOO_LARGE` when an app-mediated upload exceeds the configured limit. Raise the app limit and Caddy limit together; keep Caddy slightly higher than the app limit so oversized uploads fail with an app-level JSON error where possible.

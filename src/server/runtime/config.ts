@@ -7,6 +7,10 @@ const DEFAULT_PREDICTION_BATCH_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 const DEFAULT_PREDICTION_BATCH_MAX_ITEMS = 200;
 const DEFAULT_PREDICTION_BATCH_PROCESS_LIMIT = 25;
 const DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS = 3;
+const DEFAULT_PREDICTION_BATCH_LEASE_SECONDS = 15 * 60;
+const DEFAULT_PREDICTION_BATCH_MAX_JOBS_PER_TICK = 5;
+const DEFAULT_PREDICTION_BATCH_WORKER_INTERVAL_SECONDS = 30;
+const DEFAULT_PREDICTION_IMPORT_PROCESSOR_ID = "sapen-annotate-worker";
 const DEFAULT_LOGIN_RATE_LIMIT_MAX_FAILURES = 5;
 const DEFAULT_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 const DEFAULT_LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60;
@@ -31,6 +35,12 @@ export type RuntimeConfig = {
     predictionBatchMaxItems: number;
     predictionBatchProcessLimit: number;
     predictionBatchItemMaxAttempts: number;
+  };
+  batchRunner: {
+    leaseSeconds: number;
+    maxJobsPerTick: number;
+    workerIntervalSeconds: number;
+    processorId: string;
   };
   auth: {
     showDemoCredentials: boolean;
@@ -128,6 +138,31 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
         "PREDICTION_BATCH_ITEM_MAX_ATTEMPTS",
         DEFAULT_PREDICTION_BATCH_ITEM_MAX_ATTEMPTS,
         "positive integer count"
+      ),
+    },
+    batchRunner: {
+      leaseSeconds: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_LEASE_SECONDS",
+        DEFAULT_PREDICTION_BATCH_LEASE_SECONDS,
+        "positive integer number of seconds"
+      ),
+      maxJobsPerTick: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_MAX_JOBS_PER_TICK",
+        DEFAULT_PREDICTION_BATCH_MAX_JOBS_PER_TICK,
+        "positive integer count"
+      ),
+      workerIntervalSeconds: parsePositiveInteger(
+        env,
+        "PREDICTION_BATCH_WORKER_INTERVAL_SECONDS",
+        DEFAULT_PREDICTION_BATCH_WORKER_INTERVAL_SECONDS,
+        "positive integer number of seconds"
+      ),
+      processorId: optionalEnv(
+        env,
+        "PREDICTION_IMPORT_PROCESSOR_ID",
+        DEFAULT_PREDICTION_IMPORT_PROCESSOR_ID
       ),
     },
     auth: {

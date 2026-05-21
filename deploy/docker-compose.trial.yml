@@ -40,6 +40,10 @@ services:
       PREDICTION_BATCH_MAX_ITEMS: ${PREDICTION_BATCH_MAX_ITEMS:-200}
       PREDICTION_BATCH_PROCESS_LIMIT: ${PREDICTION_BATCH_PROCESS_LIMIT:-25}
       PREDICTION_BATCH_ITEM_MAX_ATTEMPTS: ${PREDICTION_BATCH_ITEM_MAX_ATTEMPTS:-3}
+      PREDICTION_BATCH_LEASE_SECONDS: ${PREDICTION_BATCH_LEASE_SECONDS:-900}
+      PREDICTION_BATCH_MAX_JOBS_PER_TICK: ${PREDICTION_BATCH_MAX_JOBS_PER_TICK:-5}
+      PREDICTION_BATCH_WORKER_INTERVAL_SECONDS: ${PREDICTION_BATCH_WORKER_INTERVAL_SECONDS:-30}
+      PREDICTION_IMPORT_PROCESSOR_ID: ${PREDICTION_IMPORT_PROCESSOR_ID:-sapen-annotate-worker}
       SHOW_DEMO_CREDENTIALS: ${SHOW_DEMO_CREDENTIALS:-false}
       LOGIN_RATE_LIMIT_MAX_FAILURES: ${LOGIN_RATE_LIMIT_MAX_FAILURES:-5}
       LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:-900}
@@ -67,6 +71,26 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  prediction-import-worker:
+    profiles: ["worker"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["npm", "run", "jobs:prediction-import", "--", "--loop", "--base-url", "http://app:3000"]
+    environment:
+      NODE_ENV: production
+      SAPEN_JOB_BASE_URL: http://app:3000
+      SAPEN_JOB_EMAIL: ${SAPEN_JOB_EMAIL:-}
+      SAPEN_JOB_PASSWORD: ${SAPEN_JOB_PASSWORD:-}
+      PREDICTION_BATCH_PROCESS_LIMIT: ${PREDICTION_BATCH_PROCESS_LIMIT:-25}
+      PREDICTION_BATCH_MAX_JOBS_PER_TICK: ${PREDICTION_BATCH_MAX_JOBS_PER_TICK:-5}
+      PREDICTION_BATCH_WORKER_INTERVAL_SECONDS: ${PREDICTION_BATCH_WORKER_INTERVAL_SECONDS:-30}
+      PREDICTION_IMPORT_PROCESSOR_ID: ${PREDICTION_IMPORT_PROCESSOR_ID:-sapen-annotate-worker}
+    depends_on:
+      app:
+        condition: service_started
 
   postgres:
     image: postgres:16

@@ -55,7 +55,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/projects/[projectId]/prediction-import-batches` - lists sanitized RB-061 batch summaries for project `OWNER`/`QA`.
 - `GET /api/prediction-import-batches/[batchId]` - returns one sanitized RB-061 batch summary for project `OWNER`/`QA`.
 - `GET /api/prediction-import-batches/[batchId]/items` - returns sanitized item summaries and stable error codes without staging/storage keys.
-- `POST /api/prediction-import-batches/[batchId]/process` - processes a limited number of pending/retryable batch items through the existing RB-057 prediction import service.
+- `POST /api/prediction-import-batches/[batchId]/process` - processes a limited number of pending/retryable/stale-recovered batch items through the existing RB-057 prediction import service using RB-065 processor lease metadata.
+- `POST /api/prediction-import-batches/process-due` - worker-oriented endpoint that processes a bounded number of due pending/retry/stale batches for projects where the authenticated account is `OWNER`/`QA`.
 - `POST /api/prediction-import-batches/[batchId]/retry` - resets failed/retryable batch items for manual retry without resetting succeeded items.
 - `POST /api/prediction-runs/[predictionRunId]/correction-tasks` - creates idempotent model-prediction correction tasks from prediction provenance rows for project `OWNER`/`QA`.
 - `GET /api/projects/[projectId]/correction-tasks` - lists project correction tasks for project members in deterministic priority/uncertainty/confidence order.
@@ -78,6 +79,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
 - Prediction provenance/import APIs do not approve prediction artifacts and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
+- Prediction batch processing APIs are bounded and DB-lease backed for prediction-import items only; normal browser annotation concurrency does not use this worker path.
 - Prediction import accepts only app-mediated multipart upload for RB-057. It does not accept arbitrary client-provided storage keys.
 - Prediction batch import accepts only app-mediated RB-061 ZIP uploads. It stages item files under internal private keys, processes items through the RB-057 service, never returns staging keys, and does not create correction tasks automatically.
 - Correction-task APIs expose prediction/run/provenance summaries but not private artifact storage keys. `OWNER`/`QA` can create and manage tasks; `LABELER` can claim/start/dismiss own or unassigned active tasks; `VIEWER` is read-only.

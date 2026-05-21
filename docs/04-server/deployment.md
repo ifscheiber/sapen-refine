@@ -117,13 +117,30 @@ Raise limits in both places:
 
 ## Batch Prediction Import Processing
 
-Project `OWNER`/`QA` users can create, inspect, process, and retry RB-061 prediction import batches from `/app/projects/[projectId]/prediction-imports`. For operational runs, use the API-based script while the app container is running:
+Project `OWNER`/`QA` users can create, inspect, process, and retry prediction import batches from `/app/projects/[projectId]/prediction-imports`. RB-065 keeps this separate from normal annotator concurrency: browser annotation actions do not use a queue, while batch prediction imports use a small PostgreSQL lease model.
+
+For one-shot operational runs, use the API-based script while the app container is running:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --batch '<batch-id>' --limit 25 --email 'owner@example.com' --password '<owner-password>'
 ```
 
-The script logs in through the normal app API and calls one processing pass. It does not run inference and does not expose MinIO.
+To process due pending/retry/stale batches without naming one batch:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<qa-password>'
+```
+
+The script logs in through the normal app API and calls bounded processing passes. It does not run inference and does not expose MinIO.
+
+Optional always-on worker for the single-host trial:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f prediction-import-worker
+```
+
+Before enabling the worker, set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` in `deploy/trial.env` to a named project `OWNER` or `QA` account. Keep `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_LEASE_SECONDS`, and `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` bounded. The default trial path is one worker process; do not scale multiple worker replicas unless the lease assumptions are reviewed.
 
 ## Backup And Restore
 

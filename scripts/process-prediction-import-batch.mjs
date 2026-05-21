@@ -1,14 +1,48 @@
 #!/usr/bin/env node
 
-const DEFAULT_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
+const DEFAULT_BASE_URL =
+  process.env.SAPEN_JOB_BASE_URL || process.env.APP_BASE_URL || "http://localhost:3000";
+const DEFAULT_PROCESSOR_ID =
+  process.env.PREDICTION_IMPORT_PROCESSOR_ID || "sapen-annotate-worker";
+const DEFAULT_INTERVAL_SECONDS = readPositiveIntegerEnv(
+  "PREDICTION_BATCH_WORKER_INTERVAL_SECONDS",
+  30,
+);
+
+function readPositiveIntegerEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
+function parsePositiveInteger(value, flagName) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${flagName} must be a positive integer`);
+  }
+  return parsed;
+}
 
 function parseArgs(argv) {
   const args = {
     baseUrl: DEFAULT_BASE_URL,
     batchId: "",
-    limit: undefined,
+    limit: process.env.PREDICTION_BATCH_PROCESS_LIMIT
+      ? parsePositiveInteger(process.env.PREDICTION_BATCH_PROCESS_LIMIT, "PREDICTION_BATCH_PROCESS_LIMIT")
+      : undefined,
+    maxJobs: process.env.PREDICTION_BATCH_MAX_JOBS_PER_TICK
+      ? parsePositiveInteger(process.env.PREDICTION_BATCH_MAX_JOBS_PER_TICK, "PREDICTION_BATCH_MAX_JOBS_PER_TICK")
+      : undefined,
     email: process.env.SAPEN_JOB_EMAIL || "",
     password: process.env.SAPEN_JOB_PASSWORD || "",
+    processorId: DEFAULT_PROCESSOR_ID,
+    loop: false,
+    intervalSeconds: DEFAULT_INTERVAL_SECONDS,
+    recoverStale: true,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -18,7 +52,10 @@ function parseArgs(argv) {
       args.batchId = next;
       index += 1;
     } else if (arg === "--limit" && next) {
-      args.limit = Number(next);
+      args.limit = parsePositiveInteger(next, "--limit");
+      index += 1;
+    } else if (arg === "--max-jobs" && next) {
+      args.maxJobs = parsePositiveInteger(next, "--max-jobs");
       index += 1;
     } else if (arg === "--base-url" && next) {
       args.baseUrl = next;
@@ -29,17 +66,26 @@ function parseArgs(argv) {
     } else if (arg === "--password" && next) {
       args.password = next;
       index += 1;
+    } else if (arg === "--processor-id" && next) {
+      args.processorId = next;
+      index += 1;
+    } else if (arg === "--interval" && next) {
+      args.intervalSeconds = parsePositiveInteger(next, "--interval");
+      index += 1;
+    } else if (arg === "--loop") {
+      args.loop = true;
+    } else if (arg === "--recover-stale") {
+      args.recoverStale = true;
+    } else if (arg === "--no-recover-stale") {
+      args.recoverStale = false;
     } else {
       throw new Error(`Unknown or incomplete argument: ${arg}`);
     }
   }
 
-  if (!args.batchId) throw new Error("--batch is required");
   if (!args.email) throw new Error("--email or SAPEN_JOB_EMAIL is required");
   if (!args.password) throw new Error("--password or SAPEN_JOB_PASSWORD is required");
-  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
-    throw new Error("--limit must be a positive integer");
-  }
+  if (!args.processorId.trim()) throw new Error("--processor-id must not be empty");
   return args;
 }
 
@@ -57,29 +103,70 @@ async function jsonOrThrow(response) {
   return body;
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const baseUrl = args.baseUrl.replace(/\/$/, "");
-
-  const login = await fetch(`${baseUrl}/api/auth/login`, {
+async function login(baseUrl, args) {
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: args.email, password: args.password }),
   });
-  await jsonOrThrow(login);
-  const cookie = sessionCookieFromHeaders(login.headers);
+  await jsonOrThrow(response);
+  return sessionCookieFromHeaders(response.headers);
+}
 
-  const processResponse = await fetch(`${baseUrl}/api/prediction-import-batches/${args.batchId}/process`, {
+function requestBody(args) {
+  return {
+    ...(args.limit ? { limit: args.limit } : {}),
+    ...(args.maxJobs ? { maxJobs: args.maxJobs } : {}),
+    processorId: args.processorId,
+    recoverStale: args.recoverStale,
+  };
+}
+
+async function runOnce(baseUrl, args, cookie) {
+  const endpoint = args.batchId
+    ? `/api/prediction-import-batches/${encodeURIComponent(args.batchId)}/process`
+    : "/api/prediction-import-batches/process-due";
+  const response = await fetch(`${baseUrl}${endpoint}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       cookie,
     },
-    body: JSON.stringify({ limit: args.limit }),
+    body: JSON.stringify(requestBody(args)),
   });
-  const result = await jsonOrThrow(processResponse);
+  return jsonOrThrow(response);
+}
 
-  console.log(JSON.stringify(result, null, 2));
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const baseUrl = args.baseUrl.replace(/\/$/, "");
+  let cookie = await login(baseUrl, args);
+
+  do {
+    try {
+      const result = await runOnce(baseUrl, args, cookie);
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        mode: args.batchId ? "batch" : "due",
+        result,
+      }, null, 2));
+    } catch (error) {
+      console.error(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      }));
+      if (!args.loop) throw error;
+      cookie = await login(baseUrl, args).catch(() => cookie);
+    }
+
+    if (args.loop) {
+      await sleep(args.intervalSeconds * 1000);
+    }
+  } while (args.loop);
 }
 
 main().catch((error) => {

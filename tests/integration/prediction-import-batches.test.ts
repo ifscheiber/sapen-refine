@@ -3,7 +3,7 @@ import { config as loadEnv } from "dotenv";
 import JSZip from "jszip";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, PredictionImportBatchItemStatus } from "@prisma/client";
 
 import { sha256Checksum } from "@/server/uploads/integrity";
 
@@ -326,6 +326,189 @@ describe("prediction import batch workflow", () => {
     expect(candidate?.eligibleTargets).not.toContain("semantic_segmentation");
   });
 
+  it("processes due batches with bounded worker passes without duplicating succeeded artifacts", async () => {
+    const firstImageId = await createImage("due-first");
+    const secondImageId = await createImage("due-second");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const [firstZip, secondZip] = await Promise.all([
+      createZip({
+        items: [{
+          clientItemId: "due-first",
+          imageId: firstImageId,
+          fileName: "predictions/due-first.u8raw",
+          bytes,
+        }],
+      }),
+      createZip({
+        items: [{
+          clientItemId: "due-second",
+          imageId: secondImageId,
+          fileName: "predictions/due-second.u8raw",
+          bytes,
+        }],
+      }),
+    ]);
+
+    const firstBatch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes: firstZip, sourceFilename: "due-first.zip" },
+      prisma,
+    );
+    const secondBatch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes: secondZip, sourceFilename: "due-second.zip" },
+      prisma,
+    );
+
+    const firstPass = await batches.processDuePredictionImportBatchesForUser(
+      {
+        userId: ownerId,
+        input: { limit: 10, maxJobs: 1, processorId: "vitest-worker" },
+      },
+      prisma,
+    );
+    expect(firstPass).toMatchObject({
+      batchCount: 1,
+      processedCount: 1,
+      staleRecoveredCount: 0,
+      processorId: "vitest-worker",
+    });
+
+    const secondPass = await batches.processDuePredictionImportBatchesForUser(
+      {
+        userId: ownerId,
+        input: { limit: 10, maxJobs: 1, processorId: "vitest-worker" },
+      },
+      prisma,
+    );
+    expect(secondPass.batchCount).toBe(1);
+    expect(secondPass.processedCount).toBe(1);
+
+    const processedBatchIds = [...firstPass.results, ...secondPass.results].map((result) => result.batch.id);
+    expect(processedBatchIds.sort()).toEqual([firstBatch.id, secondBatch.id].sort());
+
+    const beforeIdleCount = await prisma.predictionArtifactProvenance.count({
+      where: { predictionRunId, imageId: { in: [firstImageId, secondImageId] } },
+    });
+    const idlePass = await batches.processDuePredictionImportBatchesForUser(
+      {
+        userId: ownerId,
+        input: { limit: 10, maxJobs: 1, processorId: "vitest-worker" },
+      },
+      prisma,
+    );
+    const afterIdleCount = await prisma.predictionArtifactProvenance.count({
+      where: { predictionRunId, imageId: { in: [firstImageId, secondImageId] } },
+    });
+    expect(idlePass.batchCount).toBe(0);
+    expect(idlePass.processedCount).toBe(0);
+    expect(afterIdleCount).toBe(beforeIdleCount);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: "PREDICTION_IMPORT_BATCH_DUE_PROCESS_COMPLETED" },
+      orderBy: { createdAt: "desc" },
+      select: { details: true },
+    });
+    expect(audit?.details).toMatchObject({ processorId: "vitest-worker" });
+  });
+
+  it("recovers stale processing leases before retrying eligible items", async () => {
+    const imageId = await createImage("stale-recovery");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const zipBytes = await createZip({
+      items: [{
+        clientItemId: "stale-recovery",
+        imageId,
+        fileName: "predictions/stale-recovery.u8raw",
+        bytes,
+      }],
+    });
+    const batch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes, sourceFilename: "stale-recovery.zip" },
+      prisma,
+    );
+    const item = await prisma.predictionImportBatchItem.findFirstOrThrow({
+      where: { batchJobId: batch.id },
+      select: { id: true },
+    });
+    const initial = await batches.processPredictionImportBatchForUser(
+      {
+        batchId: batch.id,
+        userId: ownerId,
+        input: { limit: 10, processorId: "vitest-initial-worker" },
+      },
+      prisma,
+    );
+    expect(initial).toMatchObject({ processedCount: 1, succeededCount: 1 });
+    const initialItem = await prisma.predictionImportBatchItem.findUniqueOrThrow({
+      where: { id: item.id },
+      select: {
+        predictionArtifactVersionId: true,
+        predictionProvenanceId: true,
+      },
+    });
+    const beforeRecoveryProvenanceCount = await prisma.predictionArtifactProvenance.count({
+      where: { sourceBatchItemId: item.id },
+    });
+    expect(beforeRecoveryProvenanceCount).toBe(1);
+
+    const expiredAt = new Date(Date.now() - 60 * 60 * 1000);
+    await prisma.predictionImportBatchItem.update({
+      where: { id: item.id },
+      data: {
+        status: PredictionImportBatchItemStatus.PROCESSING,
+        attemptCount: 1,
+        maxAttempts: 3,
+        startedAt: expiredAt,
+        completedAt: null,
+        leaseExpiresAt: expiredAt,
+        lastHeartbeatAt: expiredAt,
+        processorId: "crashed-worker",
+        processorRunId: "crashed-run",
+        predictionArtifactVersionId: null,
+        predictionProvenanceId: null,
+      },
+    });
+    await prisma.predictionImportBatchJob.update({
+      where: { id: batch.id },
+      data: { status: "PROCESSING", startedAt: expiredAt, completedAt: null },
+    });
+
+    const recovered = await batches.processPredictionImportBatchForUser(
+      {
+        batchId: batch.id,
+        userId: ownerId,
+        input: { limit: 10, processorId: "vitest-recovery-worker" },
+      },
+      prisma,
+    );
+    expect(recovered).toMatchObject({
+      staleRecoveredCount: 1,
+      processedCount: 1,
+      succeededCount: 1,
+      processorId: "vitest-recovery-worker",
+    });
+
+    const refreshedItem = await prisma.predictionImportBatchItem.findUniqueOrThrow({
+      where: { id: item.id },
+      select: {
+        status: true,
+        processorId: true,
+        leaseExpiresAt: true,
+        predictionArtifactVersionId: true,
+      },
+    });
+    expect(refreshedItem).toMatchObject({
+      status: PredictionImportBatchItemStatus.SUCCEEDED,
+      processorId: "vitest-recovery-worker",
+      predictionArtifactVersionId: initialItem.predictionArtifactVersionId,
+    });
+    expect(refreshedItem.leaseExpiresAt).toBeNull();
+    expect(refreshedItem.predictionArtifactVersionId).toBeTruthy();
+    const afterRecoveryProvenanceCount = await prisma.predictionArtifactProvenance.count({
+      where: { sourceBatchItemId: item.id },
+    });
+    expect(afterRecoveryProvenanceCount).toBe(beforeRecoveryProvenanceCount);
+  });
+
   it("resets failed items for manual retry without resetting successful items", async () => {
     const successImageId = await createImage("retry-success");
     const failedImageId = await createImage("retry-failed");
@@ -413,6 +596,11 @@ describe("prediction import batch workflow", () => {
     await expect(
       batches.retryPredictionImportBatchForUser({ batchId: batch.id, userId: labelerId }, prisma),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const labelerDuePass = await batches.processDuePredictionImportBatchesForUser(
+      { userId: labelerId, input: { maxJobs: 1 } },
+      prisma,
+    );
+    expect(labelerDuePass).toMatchObject({ batchCount: 0, processedCount: 0 });
   });
 
   it("rejects unsupported manifest target types before staging", async () => {

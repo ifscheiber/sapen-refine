@@ -23,6 +23,10 @@ describe("runtime config", () => {
     expect(config.uploads.predictionBatchMaxItems).toBe(200);
     expect(config.uploads.predictionBatchProcessLimit).toBe(25);
     expect(config.uploads.predictionBatchItemMaxAttempts).toBe(3);
+    expect(config.batchRunner.leaseSeconds).toBe(15 * 60);
+    expect(config.batchRunner.maxJobsPerTick).toBe(5);
+    expect(config.batchRunner.workerIntervalSeconds).toBe(30);
+    expect(config.batchRunner.processorId).toBe("sapen-annotate-worker");
     expect(config.auth.showDemoCredentials).toBe(true);
     expect(config.auth.loginRateLimitMaxFailures).toBe(5);
     expect(config.auth.loginRateLimitWindowSeconds).toBe(15 * 60);
@@ -47,6 +51,10 @@ describe("runtime config", () => {
       PREDICTION_BATCH_MAX_ITEMS: "500",
       PREDICTION_BATCH_PROCESS_LIMIT: "50",
       PREDICTION_BATCH_ITEM_MAX_ATTEMPTS: "5",
+      PREDICTION_BATCH_LEASE_SECONDS: "120",
+      PREDICTION_BATCH_MAX_JOBS_PER_TICK: "9",
+      PREDICTION_BATCH_WORKER_INTERVAL_SECONDS: "10",
+      PREDICTION_IMPORT_PROCESSOR_ID: "trial-worker-a",
       NODE_ENV: "production",
       SHOW_DEMO_CREDENTIALS: "true",
       LOGIN_RATE_LIMIT_MAX_FAILURES: "7",
@@ -63,6 +71,10 @@ describe("runtime config", () => {
     expect(config.uploads.predictionBatchMaxItems).toBe(500);
     expect(config.uploads.predictionBatchProcessLimit).toBe(50);
     expect(config.uploads.predictionBatchItemMaxAttempts).toBe(5);
+    expect(config.batchRunner.leaseSeconds).toBe(120);
+    expect(config.batchRunner.maxJobsPerTick).toBe(9);
+    expect(config.batchRunner.workerIntervalSeconds).toBe(10);
+    expect(config.batchRunner.processorId).toBe("trial-worker-a");
     expect(config.auth.showDemoCredentials).toBe(true);
     expect(config.auth.loginRateLimitMaxFailures).toBe(7);
     expect(config.auth.loginRateLimitWindowSeconds).toBe(600);

@@ -242,7 +242,7 @@ Impact: Prediction-assisted annotation could compromise ground-truth integrity i
 
 Resolution: Implemented by RB-054 optimized ticket. Prediction artifacts are documented as proposals only, not ground truth. Future human corrections must create separate human versions, active-learning queue ordering is documented, and RB-053 export remains approved-human-only.
 
-Remaining follow-up: RB-061 now covers batch imports. Advanced model metrics, always-on workers, and dashboards remain deferred.
+Remaining follow-up: RB-061/RB-065 now cover trial-sized batch imports and the single-host worker path. Advanced model metrics, production-scale workers, and dashboards remain deferred.
 
 Affected modules: future prediction import services, annotation tasks, editor workflow, export variants, docs under `docs/06-data`, `docs/03-features`, `docs/workflows`, and `docs/08-adr`.
 
@@ -272,7 +272,7 @@ Impact: Prediction imports would be difficult to audit or reproduce without stru
 
 Resolution: Implemented by RB-056 optimized ticket. The schema now includes `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, prediction task links, model/prediction target/status enums, minimal domain services and APIs, and integration tests for authorization, linkage, classification proposals, and export exclusion.
 
-Remaining follow-up: RB-061 now covers batch import jobs. Advanced model metrics, always-on workers, and dashboards remain deferred.
+Remaining follow-up: RB-061/RB-065 now cover batch import jobs and the single-host worker path. Advanced model metrics, production-scale workers, and dashboards remain deferred.
 
 Affected modules: `prisma/schema.prisma`, `src/server/domain/predictionProvenance.ts`, `src/app/api/model-runs/*`, `src/app/api/projects/[projectId]/prediction-runs/route.ts`, `src/app/api/prediction-runs/[predictionRunId]/route.ts`, tests and docs under `docs/06-data`.
 
@@ -288,7 +288,7 @@ Impact: The app cannot safely ingest model-generated prediction artifacts yet.
 
 Resolution: Implemented by RB-057 optimized ticket. The app now has a multipart prediction mask import route, validates `u8raw-v1` bytes/checksum/dimensions/content type/coordinate space/target-specific values, stores private `PREDICTION_MASK` artifact versions with `MODEL_PREDICTION` provenance, links `PredictionArtifactProvenance`, records audit events, and keeps predictions out of review/export ground truth.
 
-Remaining follow-up: RB-061 now handles batch imports. Advanced model metrics, always-on workers, and dashboards remain deferred.
+Remaining follow-up: RB-061/RB-065 now handle batch imports and the single-host worker path. Advanced model metrics, production-scale workers, and dashboards remain deferred.
 
 Affected modules: `src/server/domain/predictionImport.ts`, `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts`, `src/server/storage`, `src/server/uploads`, tests, and docs under `docs/06-data`.
 
@@ -346,7 +346,7 @@ Impact: Larger customer or model-evaluation datasets need retryable, attributabl
 
 Resolution: Implemented by RB-061 optimized ticket. The schema now includes `PredictionImportBatchJob` and `PredictionImportBatchItem`; ZIP batch creation validates a versioned manifest and privately stages files; processing calls the RB-057 import service; item errors/retry state are persisted; owner/QA APIs and a project UI expose sanitized status without storage keys.
 
-Remaining follow-up: Always-on worker scheduling, stale `PROCESSING` recovery, staging-object retention cleanup, slice-classification batch imports, prediction metrics dashboards, and project operations UI consolidation remain deferred.
+Remaining follow-up: RB-065 now covers the single-host worker/lease/stale-recovery path. Staging-object retention cleanup, slice-classification batch imports, prediction metrics dashboards, production-scale queue infrastructure, and project operations UI consolidation remain deferred.
 
 Affected modules: `prisma/schema.prisma`, `src/server/domain/predictionImportBatches.ts`, `src/app/api/prediction-runs/[predictionRunId]/batch-imports`, `src/app/api/prediction-import-batches/*`, `src/features/projects/ProjectPredictionImportBatchPanel.tsx`, deployment/runtime docs, and tests.
 
@@ -398,17 +398,17 @@ Priority: Resolved by RB-064.
 
 ## RB-065 - Batch Job Runner Hardening
 
-Context: RB-061 batch imports are processed by explicit UI/API/script calls but do not yet have an always-on worker, lease/heartbeat model, stale `PROCESSING` recovery, or clear processor identity.
+Context: RB-061 batch imports were processed by explicit UI/API/script calls without a worker-oriented due-batch endpoint, lease/heartbeat model, stale `PROCESSING` recovery, or clear processor identity.
 
-Impact: A crashed or interrupted trial import can leave work stuck until manual intervention, and operational attribution for processing needs hardening.
+Impact: A crashed or interrupted trial import could leave work stuck until manual intervention, and operational attribution for processing needed hardening.
 
-Proposed next step: Define and implement the trial worker/cron path, stale-processing reset rules, processor identity, logs, and runbook steps.
+Resolution: RB-065 implements a single-host PostgreSQL lease model for prediction-import batch items, adds `processorId`, `processorRunId`, `leaseExpiresAt`, and `lastHeartbeatAt`, recovers stale `PROCESSING` items to `RETRY_PENDING` or `FAILED`, adds `POST /api/prediction-import-batches/process-due`, hardens `scripts/process-prediction-import-batch.mjs`, and documents an optional Docker Compose `worker` profile.
 
 Affected modules: `src/server/domain/predictionImportBatches.ts`, `scripts/process-prediction-import-batch.mjs`, `deploy/docker-compose.trial.yml`, operations docs, and integration tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-065.
 
 ## RB-066 - Batch And Staging Storage Retention Cleanup
 

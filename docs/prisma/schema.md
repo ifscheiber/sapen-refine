@@ -55,9 +55,9 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Slice-specific metadata and multi-slice/multi-object editing remain deferred.
 - One-default-slice support/classification workflows exist after RB-051.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
-- RB-053 implements synchronous owner-only training export generation. RB-060 implements separate synchronous owner/QA prediction-analysis exports. RB-061 implements DB-backed prediction import batches only. Advanced filters, export history UI, metrics dashboards, and production-grade workers remain deferred.
+- RB-053 implements synchronous owner-only training export generation. RB-060 implements separate synchronous owner/QA prediction-analysis exports. RB-061 implements DB-backed prediction import batches, and RB-065 adds single-host worker leases/recovery. Advanced filters, export history UI, metrics dashboards, and production-scale workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. Broader audit coverage and background/orphan cleanup remain deferred.
-- RB-056 implements provenance persistence, RB-057 implements one-at-a-time prediction mask import, RB-058/RB-059 implement correction queues and assisted correction, RB-060 implements prediction-analysis exports, and RB-061 implements ZIP-based batch prediction import jobs.
+- RB-056 implements provenance persistence, RB-057 implements one-at-a-time prediction mask import, RB-058/RB-059 implement correction queues and assisted correction, RB-060 implements prediction-analysis exports, RB-061 implements ZIP-based batch prediction import jobs, and RB-065 implements batch-runner hardening.
 
 ## Related Tickets / Docs
 

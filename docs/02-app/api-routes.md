@@ -2,4 +2,4 @@
 
 See `docs/src/app/api.md` for the current API route map.
 
-RB-050 adds project/image metadata APIs, RB-051 adds default slice/support APIs, RB-052 adds minimal review/approval APIs, RB-053 adds project training export readiness/creation plus app-mediated export downloads, RB-056/RB-057 add prediction provenance/import APIs, RB-058 adds active-learning correction task APIs, RB-059 adds assisted correction context/read/save APIs, RB-060 adds separate prediction-analysis export APIs, and RB-061 adds ZIP batch prediction import APIs. API hardening remains ongoing.
+RB-050 adds project/image metadata APIs, RB-051 adds default slice/support APIs, RB-052 adds minimal review/approval APIs, RB-053 adds project training export readiness/creation plus app-mediated export downloads, RB-056/RB-057 add prediction provenance/import APIs, RB-058 adds active-learning correction task APIs, RB-059 adds assisted correction context/read/save APIs, RB-060 adds separate prediction-analysis export APIs, RB-061 adds ZIP batch prediction import APIs, and RB-065 adds bounded batch process-due worker API support.
