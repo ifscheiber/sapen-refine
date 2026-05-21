@@ -5,7 +5,7 @@ import { ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
-import { requireUser } from "@/server/auth/rbac";
+import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { loadCorrectionContextForUser } from "@/server/domain/assistedCorrection";
 import EditorClient from "./EditorClient";
 
@@ -16,7 +16,7 @@ export async function CorrectionTaskEditorPage({
   projectId: string;
   taskId: string;
 }) {
-  const user = await requireUser();
+  const user = await requireWorkspaceUser();
   const context = await loadCorrectionContextForUser({ taskId, userId: user.id }).catch(() => null);
   if (!context || context.task.projectId !== projectId || !context.image?.id) return notFound();
 

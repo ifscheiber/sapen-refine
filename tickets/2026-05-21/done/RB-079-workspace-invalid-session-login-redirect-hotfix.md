@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready for Implementation
+Completed
 
 ## Priority
 
@@ -58,11 +58,22 @@ API routes must keep the RB-072 JSON `401` behavior.
 - Existing RB-072 API contract tests remain green.
 - Ticket is moved to `tickets/2026-05-21/done/` after completion.
 
+## Implementation Notes
+
+- Added `src/server/auth/workspaceRedirect.ts` for the workspace request-path header and login `next` target helper.
+- Added `src/server/auth/workspaceSession.ts` for browser-workspace auth helpers that redirect stale sessions instead of throwing.
+- Updated `src/proxy.ts` to forward `/app/**` request paths when a session cookie is present.
+- Updated `src/app/(workspace)/app/layout.tsx` to use `getUserFromSessionCookie()` and redirect invalid/stale sessions to login.
+- Updated workspace feature server components to use the workspace-specific auth helpers.
+- Preserved RB-072 JSON `401` behavior for `/api/**`.
+- Added unit coverage for redirect target fallback/preservation and proxy header behavior.
+- Added E2E coverage for stale workspace sessions redirecting to login.
+
 ## Validation
 
-- `npm run lint`
-- `npm run typecheck`
-- `npm run test`
-- `npm run build`
-- `npm run test:e2e`
-
+- `npm run lint` - passed
+- `npm run typecheck` - passed
+- `npm run test` - passed
+- `npx vitest run tests/unit/proxy-public-paths.test.ts tests/unit/workspace-redirect.test.ts tests/unit/api-errors.test.ts` - passed
+- `npm run build` - passed
+- `npm run test:e2e` - passed

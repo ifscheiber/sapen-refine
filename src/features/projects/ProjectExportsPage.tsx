@@ -4,13 +4,13 @@ import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
 import { PROJECT_READ_ROLES } from "@/server/auth/policies";
-import { requireProjectRole } from "@/server/auth/rbac";
+import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { ProjectExportPanel } from "./ProjectExportPanel";
 import { ProjectOperationsNav } from "./ProjectOperationsNav";
 
 export async function ProjectExportsPage({ projectId }: { projectId: string }) {
-  const { membership } = await requireProjectRole(projectId, PROJECT_READ_ROLES);
+  const { membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
 
   const project = await prisma.annotationProject.findUnique({
     where: { id: projectId },

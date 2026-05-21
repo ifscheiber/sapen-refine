@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
-import { requireUser } from "@/server/auth/rbac";
+import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { ProjectCorrectionTaskQueue } from "./ProjectCorrectionTaskQueue";
 import { ProjectOperationsNav } from "./ProjectOperationsNav";
 
 export async function ProjectCorrectionTasksPage({ projectId }: { projectId: string }) {
-  const user = await requireUser();
+  const user = await requireWorkspaceUser();
   const project = await prisma.annotationProject.findUnique({
     where: { id: projectId },
     select: {

@@ -12,8 +12,8 @@ import { AnnotationTaskStatus, PredictionImportBatchStatus } from "@prisma/clien
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
-import { requireUser } from "@/server/auth/rbac";
 import { canManageProject } from "@/server/auth/policies";
+import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { resolveProjectExportReadiness } from "@/server/domain/exports";
 import { ProjectMetadataForm } from "./ProjectMetadataForm";
@@ -65,7 +65,7 @@ function OperationLink({
 }
 
 export async function ProjectOverview({ projectId }: { projectId: string }) {
-  const user = await requireUser();
+  const user = await requireWorkspaceUser();
 
   const project = await prisma.annotationProject.findUnique({
     where: { id: projectId },

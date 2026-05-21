@@ -48,6 +48,8 @@ The same-origin mutation guard runs before session checks. Cross-site unsafe API
 
 Unauthenticated API requests return JSON `401`. Unauthenticated workspace page requests continue to redirect to `/login?next=...`.
 
+RB-079 keeps that split for stale or invalid session cookies. `src/proxy.ts` forwards the requested `/app/**` path to the workspace layout through an internal request header, and the layout redirects to login when `getUserFromSessionCookie()` cannot resolve a valid DB session.
+
 ## Current Coverage
 
 RB-072 applies the shared helper to representative high-risk route families:
@@ -70,4 +72,3 @@ Some lower-risk or compatibility routes still return the older flat string form 
 - [auth-rbac-audit.md](auth-rbac-audit.md)
 - [../src/app/api.md](../src/app/api.md)
 - [../adr/remediation-backlog.md](../adr/remediation-backlog.md)
-

@@ -5,11 +5,11 @@ import { AppEmptyState } from "@/components/shell/AppEmptyState";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
-import { requireUser } from "@/server/auth/rbac";
+import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 
 export async function ProjectsIndex() {
-  const user = await requireUser();
+  const user = await requireWorkspaceUser();
 
   const projects = await prisma.annotationProject.findMany({
     where: { members: { some: { userId: user.id } } },

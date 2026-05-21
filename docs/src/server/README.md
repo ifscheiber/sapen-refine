@@ -18,6 +18,7 @@
 - `src/server/auth/policies.ts` - central project/global role policy used by API/domain code.
 - `src/server/auth/loginThrottle.ts` - hashed DB-backed login throttling.
 - `src/server/auth/requestGuards.ts` - same-origin mutation guard helpers.
+- `src/server/auth/workspaceRedirect.ts` - RB-079 workspace login redirect header and `next` target helpers for stale sessions.
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
 - `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
@@ -54,6 +55,7 @@
 - Server modules must not import client components.
 - Every production write should be attributable to a user or explicit system actor.
 - Session cookies use `sapen_annotate_session`; older local cookies are intentionally ignored.
+- Browser workspace routes redirect to `/login` when a session cookie is missing, stale, or invalid; API routes keep JSON `401` semantics.
 - Runtime config must not expose secrets to the client bundle.
 - Current artifact integrity checks use `sha256:<hex>` checksums, validated image dimensions, and S3/MinIO object stat checks before database commit where practical.
 - API errors use the flat `{ ok: false, error: "CODE" }` response shape for the current trial contract.

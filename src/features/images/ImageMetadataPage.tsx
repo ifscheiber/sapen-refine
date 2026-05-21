@@ -6,7 +6,7 @@ import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { Button } from "@/components/ui/button";
 import { PROJECT_READ_ROLES } from "@/server/auth/policies";
-import { requireProjectRole } from "@/server/auth/rbac";
+import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { ImageMetadataClient } from "./ImageMetadataClient";
 
@@ -17,7 +17,7 @@ export async function ImageMetadataPage({
   projectId: string;
   imageId: string;
 }) {
-  const { membership } = await requireProjectRole(projectId, PROJECT_READ_ROLES);
+  const { membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
 
   const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },

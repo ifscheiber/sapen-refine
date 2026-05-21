@@ -46,6 +46,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RB-070 tracks explicit editor eraser UX for desktop and iPad-sized annotation work.
 - RB-071 covers this architecture/docs/backlog consistency hotfix.
 - RB-072 hardens representative route-level API auth/error contracts while leaving broader compatibility-route cleanup incremental.
+- RB-079 fixes stale workspace session cookies so browser workspace routes redirect to login instead of throwing `UNAUTHORIZED`.
 - RB-073 will harden trial Docker build-context and Compose secret handling.
 - RB-074 will clean up stale client API wrappers and document compatibility presign policy.
 - RB-075 will resolve or explicitly document the remaining Prisma CLI audit/version policy.

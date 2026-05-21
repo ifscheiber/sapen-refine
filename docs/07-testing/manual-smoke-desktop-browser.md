@@ -48,6 +48,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Toggle prediction overlay and click `Use prediction as starting mask`. | Prediction bytes copy into the editable human layer; no save occurs until explicitly requested. |  |  |
 | Click `Save correction draft`. | A draft human correction version is saved and appears in existing review controls. |  |  |
 | Log out if testing session end. | Protected routes redirect to login. |  |  |
+| If practical, set a stale `sapen_annotate_session` cookie and open a protected `/app/...` URL. | Browser redirects to `/login?next=...` instead of showing a 500. |  |  |
 | Open `/api/projects` in a fresh unauthenticated browser/session. | Response is JSON `401` with `UNAUTHENTICATED`, not an HTML login page. |  |  |
 
 ## Current MVP Limitations
