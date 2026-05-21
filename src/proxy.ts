@@ -6,6 +6,7 @@ import {
   isApiMutationPath,
   isSameOriginMutationAllowed,
 } from "@/server/auth/requestGuards";
+import { apiError } from "@/server/http/apiErrors";
 
 const PUBLIC_PATHS = new Set<string>([
   "/login",
@@ -52,6 +53,10 @@ export function proxy(req: NextRequest) {
   const session = req.cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!session) {
+    if (pathname.startsWith("/api/")) {
+      return apiError("UNAUTHENTICATED", 401);
+    }
+
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname + search);
