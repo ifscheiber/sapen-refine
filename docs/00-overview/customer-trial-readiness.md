@@ -13,6 +13,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - Handoff hygiene: `npm run handoff:archive` creates a clean ZIP with a generated `handoff-manifest.json`, excludes private/local artifacts, and refuses dirty worktrees unless `--allow-dirty` is explicit.
 - Docker/Compose hygiene: Docker build context excludes local/private/generated artifacts, and `minio-init` no longer embeds MinIO credentials in the Compose command string.
 - Header hygiene: app-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
+- Dependency audit hygiene: RB-075 aligns Prisma CLI/client/adapter versions, overrides Prisma CLI's vulnerable `@hono/node-server` transitive dependency within the 1.19.x line, and brings `npm audit --json` to 0 vulnerabilities without `npm audit fix --force`.
 
 ## Pending Before Customer Pilot
 
@@ -21,6 +22,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - Run and verify at least one PostgreSQL, MinIO, and Caddy backup.
 - Complete the operator deployment smoke in [../07-testing/manual-smoke-customer-browser-trial.md](../07-testing/manual-smoke-customer-browser-trial.md).
 - Complete the real iPad Safari gate in [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md). Current status: pending until deployed URL and device access are available.
+- Re-run `npm audit --json` as part of final handoff validation if dependencies change again.
 
 ## Intentionally Not Included
 

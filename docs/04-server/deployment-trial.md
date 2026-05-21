@@ -61,6 +61,12 @@ docker compose --env-file deploy/trial.env.example -f deploy/docker-compose.tria
 
 MinIO S3 and console endpoints remain private on the Compose network. Do not add public MinIO ports for the customer trial.
 
+## Dependency Audit Policy
+
+RB-075 aligns `prisma`, `@prisma/client`, and `@prisma/adapter-pg` on 7.8.x and uses a narrow npm override for Prisma CLI's transitive `@hono/node-server` dependency. Current trial handoff validation expects `npm audit --json` to report 0 vulnerabilities.
+
+Do not run `npm audit fix --force` on the trial server or in a handoff hotfix. If a future audit reintroduces Prisma findings, inspect the Prisma CLI/client/adapter version relationship first and update [../00-overview/dependency-audit.md](../00-overview/dependency-audit.md) with the decision.
+
 ## Build, Migrate, Start
 
 Run from the repository root:

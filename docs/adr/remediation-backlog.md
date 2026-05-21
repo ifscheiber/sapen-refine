@@ -92,13 +92,13 @@ Context: After RB-042, `npm audit --json` reports 3 moderate findings: direct `p
 
 Impact: These affect the Prisma CLI/dev dependency chain. The app runtime dependency `@prisma/client` is not the reported vulnerable direct package.
 
-Proposed next step: Re-check Prisma 7.x releases in a dedicated dependency ticket. Do not apply npm's current `--force` recommendation without review because it would install `prisma@6.19.3` and npm marks that as semver-major.
+Resolution: Fixed by RB-075. Prisma CLI/client/adapter are aligned on 7.8.x, `@hono/node-server` is narrowly overridden to `1.19.14`, and `npm audit --json` reports 0 vulnerabilities. `npm audit fix --force` was not used.
 
 Affected modules: `package.json`, `package-lock.json`, Prisma CLI dependency chain.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved by RB-075.
 
 ## RB-041-A - Prototype Editor Lint Warnings
 
@@ -556,13 +556,15 @@ Context: `npm audit --json` still reports the known moderate Prisma CLI advisory
 
 Impact: The advisory may be acceptable for a trial if documented, but the current risk decision should not remain ambiguous.
 
-Proposed next step: Re-check Prisma CLI/client versions, avoid blind forced audit fixes, and either remediate or document the accepted risk.
+Resolution: RB-075 applies a targeted dependency policy: `prisma`, `@prisma/client`, and `@prisma/adapter-pg` are aligned on 7.8.x; Prisma CLI's transitive `@hono/node-server` is overridden to `1.19.14`; `npm audit --json` reports 0 vulnerabilities; and the decision is documented in `docs/00-overview/dependency-audit.md`.
+
+Remaining follow-up: Revisit the override during routine dependency maintenance or when Prisma publishes a release that no longer pulls a vulnerable `@hono/node-server` version.
 
 Affected modules: `package.json`, `package-lock.json`, Prisma generated client workflow, and dependency docs/backlog.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved by RB-075.
 
 ## RB-080 - Editor Mask Upload Byte-Length Hotfix
 
