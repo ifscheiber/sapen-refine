@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready for Implementation
+Completed
 
 ## Priority
 
@@ -52,10 +52,16 @@ Restore source-of-truth consistency for the current repository state before cont
 - The RB-071 through RB-078 follow-up sequence is represented in the docs/backlog.
 - RB-071 is moved to `tickets/2026-05-21/done` after completion.
 
+## Implementation Notes
+
+- Updated `ARCHITECTURE.md` to reflect RB-064 through RB-069 behavior.
+- Added the 2026-05-21 trial-hardening sequence to current-state and known-gaps docs.
+- Added RB-070 through RB-078 entries to the remediation backlog.
+- Marked stale `src/lib` wrappers as an explicit RB-074 follow-up without changing code.
+
 ## Validation
 
 - `git status --short`
-- `npm run lint`
-- `npm run typecheck`
-- `npm run test`
-
+- `npm run lint` - passed
+- `npm run typecheck` - passed
+- `npm run test` - passed

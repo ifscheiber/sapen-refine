@@ -41,6 +41,16 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 - RBAC policy is centralized for server/domain enforcement. Client action visibility may still duplicate role checks for ergonomics; backend policies remain authoritative.
 - Remaining upload/security/operations limits: no malware scanning, no general API write rate limiting beyond login throttling and same-origin mutation protection, no HA/object replication, no WebP/TIFF/SVG upload support, no cleanup dashboard UI, no committed-artifact retention governance, no production-scale queue infrastructure, no dedicated system-actor login model, no audit UI, no production monitoring stack, no large async export job handling, and no completed real iPad Safari pass yet.
 
+## Current 2026-05-21 Follow-Up Sequence
+
+- RB-070 tracks explicit editor eraser UX for desktop and iPad-sized annotation work.
+- RB-071 covers this architecture/docs/backlog consistency hotfix.
+- RB-072 will harden route-level API auth/error contracts.
+- RB-073 will harden trial Docker build-context and Compose secret handling.
+- RB-074 will clean up stale client API wrappers and document compatibility presign policy.
+- RB-075 will resolve or explicitly document the remaining Prisma CLI audit/version policy.
+- RB-076 through RB-078 cover deployment dry run, real iPad Safari gate execution, and post-trial triage.
+
 ## Intentional Remaining "Refine" References
 
 - `docs/workflows/future-prediction-assisted-annotation.md` uses "refine/correction" for a planned prediction-assisted workflow.

@@ -64,7 +64,7 @@ Context: The current editor is MVP-oriented and not yet designed for reliable iP
 
 Impact: Annotation ergonomics and data quality may suffer on tablet devices.
 
-Proposed next step: Add a focused editor UX ticket after domain model cleanup, covering responsive layout, touch/pointer interactions, canvas scaling, and undo/save behavior.
+Proposed next step: RB-070 tracks explicit eraser UX as the next focused editor usability slice. Advanced iPad/Pencil viewport interactions remain a later follow-up.
 
 Affected modules: `src/features/editor/EditorClient.tsx`, `src/features/editor/EditImagePage.tsx`, `src/mask/*`, `src/design/editorCanvas.ts`.
 
@@ -473,3 +473,129 @@ Affected modules: `deploy`, `docs/04-server`, `docs/operations`, `scripts/create
 Owner: Codex.
 
 Priority: Resolved by RB-069.
+
+## RB-070 - Editor Eraser Tool UX
+
+Context: The editor supports brush and lasso drawing, and users can erase only indirectly by painting a background label.
+
+Impact: The workflow is discoverable enough for developers but weak for repeated customer annotation work, especially on iPad-sized layouts.
+
+Proposed next step: Implement an explicit eraser tool that writes the current mask-mode background value and preserves undo/redo, dirty state, save/reload, and pointer/touch behavior.
+
+Affected modules: `src/features/editor`, `src/mask`, editor smoke docs, and editor tests.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-071 - Architecture / Docs / Backlog Consistency Hotfix
+
+Context: The 2026-05-21 deep review found stale top-level architecture/backlog statements after RB-064 through RB-069.
+
+Impact: Stale entry-point docs can mislead future agents or contributors and reopen already-solved cleanup work.
+
+Resolution: RB-071 refreshes `ARCHITECTURE.md`, current-state docs, known gaps, `docs/src/lib`, and this backlog to reflect the current trial-hardening sequence.
+
+Affected modules: `ARCHITECTURE.md`, `docs/00-overview/current-state.md`, `docs/known-gaps.md`, `docs/src/lib/README.md`, `docs/adr/remediation-backlog.md`, and tickets under `tickets/2026-05-21`.
+
+Owner: Codex.
+
+Priority: Resolved by RB-071.
+
+## RB-072 - Route-Level API Auth/Error Contract Hardening
+
+Context: Several protected API routes call authentication or project-role helpers before structured route-level error handling.
+
+Impact: Customer-facing XHR failures may become inconsistent generic errors or redirects instead of stable JSON `401`/`403`/project-access responses.
+
+Proposed next step: Standardize representative route-level API error handling and add route/integration coverage for unauthenticated and forbidden cases.
+
+Affected modules: `src/app/api`, `src/server/auth`, route-handler tests, and API docs.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-073 - Trial Deployment Secret & Build-Context Hygiene
+
+Context: The trial Docker build context can include generated artifacts, and the MinIO init command currently risks rendering credentials into Compose command output.
+
+Impact: Customer-trial handoff/deployment could expose unnecessary local artifacts or operational secrets.
+
+Proposed next step: Align `.dockerignore` with handoff hygiene, harden Compose secret handling, and update the trial runbook.
+
+Affected modules: `.dockerignore`, `deploy/docker-compose.trial.yml`, deployment docs, and Compose config validation.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-074 - Client API Wrapper / Presign Compatibility Cleanup
+
+Context: `src/lib` still documents and exposes older presign/commit browser helpers while the current UI uses app-mediated upload/read routes.
+
+Impact: Future code may accidentally reintroduce direct-storage assumptions or depend on stale fields such as browser-visible storage keys.
+
+Proposed next step: Audit/remove/align `src/lib` wrappers and document the compatibility presign route policy.
+
+Affected modules: `src/lib`, compatibility presign routes, API/storage docs, and any wrapper tests retained by the slice.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-075 - Dependency Audit / Prisma Version Policy
+
+Context: `npm audit --json` still reports the known moderate Prisma CLI advisory chain.
+
+Impact: The advisory may be acceptable for a trial if documented, but the current risk decision should not remain ambiguous.
+
+Proposed next step: Re-check Prisma CLI/client versions, avoid blind forced audit fixes, and either remediate or document the accepted risk.
+
+Affected modules: `package.json`, `package-lock.json`, Prisma generated client workflow, and dependency docs/backlog.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-076 - Customer Trial Deployment Dry Run
+
+Context: RB-069 prepared the trial deployment runbook, but the real Strato/customer deployment process has not been rehearsed end to end.
+
+Impact: Runbook gaps may only surface during customer-facing deployment unless a dry run is performed first.
+
+Proposed next step: Execute the trial Compose deployment flow in a suitable environment, verify named trial users, backup/restore commands, health/readiness, upload/editor/review/export, and document deviations.
+
+Affected modules: deployment docs, Compose runtime, trial user scripts, backup/restore runbook, and customer-trial readiness docs.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-077 - Real iPad Safari Trial Gate Execution
+
+Context: iPad viewport prep and manual checklists exist, but real iPad Safari validation has not been executed against a deployed app.
+
+Impact: Canvas scaling, Apple Pencil behavior, file uploads, rotation, and Home Screen behavior can fail only on the physical device/browser.
+
+Proposed next step: Run the manual iPad Safari gate after deployment and convert any failures into focused follow-up tickets.
+
+Affected modules: editor UI, iPad smoke docs, customer-trial readiness docs, and any defect tickets created from the gate.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-078 - Post-Trial Findings / Triage
+
+Context: After real customer-trial usage, the backlog should be reordered based on evidence instead of speculative feature planning.
+
+Impact: Without a triage pass, larger features such as review dashboards, audit UI, multi-slice support, and async exports may be prioritized before actual customer blockers.
+
+Proposed next step: Review trial feedback, logs, smoke results, and operator notes; split findings into bugs, trial blockers, UX improvements, and larger roadmap tickets.
+
+Affected modules: docs/backlog, tickets, and any areas implicated by customer findings.
+
+Owner: Unassigned.
+
+Priority: P2.

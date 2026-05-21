@@ -16,7 +16,7 @@ Scratch annotation is the primary product mode. Prediction-assisted correction i
 - Design boundary: `src/design` owns CSS-variable tokens, themes, and central canvas preview constants.
 - Authentication boundary: `src/server/auth` owns session cookie handling, session persistence, and project-role checks.
 - Database boundary: `prisma/schema.prisma` defines the current annotation-domain persisted model; `src/server/db.ts` owns Prisma client setup.
-- Object storage boundary: `src/server/storage/s3.ts` owns the active S3/MinIO helpers for compatibility presign routes plus app-mediated object writes, reads, stat verification, and best-effort cleanup. The older `src/server/storage.ts` file is currently unused and tracked for cleanup.
+- Object storage boundary: `src/server/storage/s3.ts` owns the active S3/MinIO helpers for compatibility presign routes plus app-mediated object writes, reads, stat verification, object listing/deletion, and best-effort cleanup. The older flat `src/server/storage.ts` helper was removed by RB-069.
 - Client helper boundary: `src/lib` wraps current browser-side API calls.
 - Mask boundary: `src/mask` owns label constants, mask buffers, serialization, patching, tools, and overlay rendering helpers.
 - Future SaPen Core/training boundary: integration must use explicit export or handoff contracts, not implicit shared project semantics.
@@ -46,7 +46,7 @@ Persisted entities today:
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, `PredictionImportBatchJob`, and `PredictionImportBatchItem` for model-assisted correction provenance and trial-sized batch prediction import bookkeeping.
 
-Known workflow gaps include advanced export filters/history/job handling, reviewer dashboards/bulk review, multi-slice support, always-on import workers, staged-object cleanup, prediction metrics dashboards, and slice-classification prediction correction. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include advanced export filters/history/async large-job handling, reviewer dashboards/bulk review, multi-slice support, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial worker. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -70,22 +70,28 @@ Current MVP protections:
 - Trial browser storage access is app-mediated by default; compatibility presigned routes are constrained to server-generated keys and server-side commit validation.
 - Current upload, mask, support-mask, export create, and export download paths record explicit `AuditLog` rows.
 - Session cookies are HTTP-only, `sameSite=lax`, and secure in production.
+- Login throttling, sanitized redirects, and same-origin browser mutation protection are implemented for the current local-auth trial model.
 
 Known gaps:
 
-- Rate limiting and brute-force protection are not implemented.
+- General write-rate limiting beyond login throttling and same-origin mutation protection is not implemented.
 - Admin user-management and advanced export authorization policy are incomplete; RB-053 currently restricts export creation/download to project owners.
-- Audit logging is not complete enough for production attribution across every mutation route.
+- Audit logging covers key mutation routes, but there is no audit UI or complete production attribution policy for every possible administrative action.
 - Review decisions are append-only for the minimal RB-052 workflow, but full audit logging remains incomplete.
 
 ## Known Follow-Up Areas
 
-- Advanced export filtering/history/job handling on top of the RB-049 through RB-061 baseline.
-- Always-on batch workers, staged-object cleanup, and prediction metrics dashboards.
+- Route-level API auth/error contract hardening for stable JSON `401`/`403`/project-access failures.
+- Trial deployment secret handling and Docker build-context hygiene.
+- Explicit editor eraser UX, followed by deeper iPad/Pencil viewport interaction work.
+- Client API wrapper cleanup and compatibility presign route policy.
+- Prisma CLI audit/version policy review.
+- Customer-trial deployment dry run, real iPad Safari gate execution, and post-trial triage.
+- Advanced export filtering/history/async large-job handling on top of the RB-049 through RB-069 baseline.
+- Prediction dashboards, model reports, and large analysis job handling beyond the current prediction-analysis export metrics.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
-- Advanced iPad/Pencil viewport interaction work beyond the RB-045 browser/iPad baseline.
-- Broader audit coverage, malware scanning, rate limiting, and background cleanup for orphaned objects.
+- Broader audit coverage, malware scanning, general API write-rate limiting, cleanup UI, committed-artifact retention governance, and production monitoring.
 - Further prediction-assisted annotation/correction beyond the current semantic/support mask MVP.
 
 See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md) for the working backlog.
