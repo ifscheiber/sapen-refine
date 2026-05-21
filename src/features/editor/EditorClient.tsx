@@ -28,16 +28,12 @@ import {
 } from "./editorApi";
 import {
   errorMessage,
-  formatCorrectionModel,
-  formatCorrectionScore,
   formatReviewState,
   formatSliceClassLabel,
-  formatVersion,
   isAbortError,
 } from "./editorFormatters";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import {
-  SLICE_CLASS_OPTIONS,
   type CorrectionContext,
   type EditorProps,
   type ImageReviewState,
@@ -50,6 +46,11 @@ import {
   type Stroke,
   type Tool,
 } from "./editorTypes";
+import { EditorAssistedCorrectionPanel } from "./components/EditorAssistedCorrectionPanel";
+import { EditorCanvasStack } from "./components/EditorCanvasStack";
+import { EditorReviewPanel } from "./components/EditorReviewPanel";
+import { EditorSliceClassificationPanel } from "./components/EditorSliceClassificationPanel";
+import { EditorToolbar } from "./components/EditorToolbar";
 
 export default function EditorClient({ imageId, canEdit, correctionTaskId, correctionMode }: EditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1230,9 +1231,6 @@ function stamp(x: number, y: number) {
 
   // ---------- UI ----------
   const editorStatus = isSaving ? "Saving…" : status || (hasUnsavedChanges ? "Unsaved changes" : "");
-  const activeButtonClass = "min-h-11 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90";
-  const idleButtonClass =
-    "min-h-11 rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground hover:bg-accent";
   const latestClassificationLabel = formatSliceClassLabel(sliceState?.latestClassification?.class);
   const latestSupportStatus = sliceState?.latestSupportMask
     ? `${formatReviewState(sliceState.latestSupportMask.reviewState)} v${sliceState.latestSupportMask.version} saved`
@@ -1244,328 +1242,84 @@ function stamp(x: number, y: number) {
         reviewState.reviewables.sliceClassification,
       ]
     : [];
-  const correctionModelLabel = formatCorrectionModel(correctionContext);
-  const correctionScoreLabel = formatCorrectionScore(correctionContext);
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
       <div className="border-b border-border bg-muted p-3">
         {isCorrectionMode && (
-          <div className="mb-3 rounded-md border border-border bg-background p-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">
-                  Prediction / model proposal · {correctionContext?.targetType ?? "Loading"}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {correctionModelLabel} {correctionScoreLabel ? `· ${correctionScoreLabel}` : ""}
-                </div>
-                {correctionStatus && (
-                  <div className="mt-1 text-xs text-muted-foreground">{correctionStatus}</div>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={predictionOverlayEnabled}
-                    onChange={(event) => setPredictionOverlayEnabled(event.target.checked)}
-                  />
-                  <span>Prediction overlay</span>
-                </label>
-                <button
-                  className={idleButtonClass}
-                  onClick={usePredictionAsStartingMask}
-                  disabled={!canEdit || !predictionLoaded}
-                >
-                  Use prediction as starting mask
-                </button>
-              </div>
-            </div>
-          </div>
+          <EditorAssistedCorrectionPanel
+            correctionContext={correctionContext}
+            correctionStatus={correctionStatus}
+            predictionOverlayEnabled={predictionOverlayEnabled}
+            onPredictionOverlayEnabledChange={setPredictionOverlayEnabled}
+            canEdit={canEdit}
+            predictionLoaded={predictionLoaded}
+            onUsePredictionAsStartingMask={usePredictionAsStartingMask}
+          />
         )}
 
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
-            aria-pressed={maskMode === "semantic"}
-            className={maskMode === "semantic" ? activeButtonClass : idleButtonClass}
-            onClick={() => switchMaskMode("semantic")}
-            disabled={isCorrectionMode}
-          >
-            Semantic mask
-          </button>
-          <button
-            aria-pressed={maskMode === "support"}
-            className={maskMode === "support" ? activeButtonClass : idleButtonClass}
-            onClick={() => switchMaskMode("support")}
-            disabled={isCorrectionMode}
-          >
-            Slice support
-          </button>
-          <div className="flex min-h-11 flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span>Support mask: {latestSupportStatus}</span>
-            <span>Classification: {latestClassificationLabel}</span>
-          </div>
-        </div>
+        <EditorToolbar
+          maskMode={maskMode}
+          isCorrectionMode={isCorrectionMode}
+          latestSupportStatus={latestSupportStatus}
+          latestClassificationLabel={latestClassificationLabel}
+          onSwitchMaskMode={switchMaskMode}
+          tool={tool}
+          onToolChange={setTool}
+          brushRadius={brushRadius}
+          onBrushRadiusChange={setBrushRadius}
+          labels={labels}
+          activeLabel={activeLabel}
+          onActiveLabelChange={setActiveLabel}
+          canEdit={canEdit}
+          opacity={opacity}
+          onOpacityChange={setOpacity}
+          onUndo={undo}
+          onRedo={redo}
+          onFit={fitToContainer}
+          onSave={() => void saveMaskNow()}
+          onExportPng={() => void exportMaskPng()}
+          isSaving={isSaving}
+          hasUnsavedChanges={hasUnsavedChanges}
+          editorStatus={editorStatus}
+          zoom={zoom}
+          onZoomChange={setZoom}
+        />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              aria-pressed={tool === "brush"}
-              className={tool === "brush" ? activeButtonClass : idleButtonClass}
-              onClick={() => setTool("brush")}
-              disabled={!canEdit}
-            >
-              Brush
-            </button>
-            <button
-              aria-pressed={tool === "lasso_free"}
-              className={tool === "lasso_free" ? activeButtonClass : idleButtonClass}
-              onClick={() => setTool("lasso_free")}
-              disabled={!canEdit}
-            >
-              Lasso
-            </button>
-            <button
-              aria-pressed={tool === "lasso_poly"}
-              className={tool === "lasso_poly" ? activeButtonClass : idleButtonClass}
-              onClick={() => setTool("lasso_poly")}
-              disabled={!canEdit}
-            >
-              Polygon
-            </button>
-            <div className="ml-3 flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
-              <span>Tool Size: {brushRadius}px</span>
-              <input
-                type="range"
-                min={1}
-                max={120}
-                value={brushRadius}
-                onChange={(e) => setBrushRadius(Number(e.target.value))}
-                disabled={!canEdit || tool === "lasso_poly"}
-                className="w-32"
-              />
-            </div>
-          </div>
+        <EditorSliceClassificationPanel
+          selectedSliceClass={selectedSliceClass}
+          onSelectedSliceClassChange={setSelectedSliceClass}
+          canEdit={canEdit}
+          classificationSaving={classificationSaving}
+          onSaveClassification={() => void saveSliceClassification()}
+          classificationStatus={classificationStatus}
+        />
 
-          <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
-            {labels.map((label) => (
-              <button
-                key={label.id}
-                aria-pressed={activeLabel === label.id}
-                onClick={() => setActiveLabel(label.id)}
-                disabled={!canEdit}
-                className={`flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                  activeLabel === label.id
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-secondary text-secondary-foreground hover:bg-accent"
-                }`}
-              >
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ background: `rgb(${label.rgb[0]}, ${label.rgb[1]}, ${label.rgb[2]})` }}
-                />
-                <span>{label.name}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
-            <span>Mask Opacity</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(opacity * 100)}
-              onChange={(e) => setOpacity(Number(e.target.value) / 100)}
-              className="w-32"
-            />
-            <span className="tabular-nums w-10">{Math.round(opacity * 100)}%</span>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-          <button
-            className={idleButtonClass}
-            onClick={undo}
-            disabled={!canEdit}
-          >
-            Undo
-          </button>
-          <button
-            className={idleButtonClass}
-            onClick={redo}
-            disabled={!canEdit}
-          >
-            Redo
-          </button>
-          <button className={idleButtonClass} onClick={fitToContainer}>
-            Fit
-          </button>
-          <button
-            className={idleButtonClass}
-            onClick={() => void saveMaskNow()}
-            disabled={!canEdit || isSaving || !hasUnsavedChanges}
-          >
-            {isCorrectionMode ? "Save correction draft" : maskMode === "support" ? "Save support mask" : "Save now"}
-          </button>
-          <button
-            className={idleButtonClass}
-            onClick={() => void exportMaskPng()}
-          >
-            Export PNG
-          </button>
-          <div className="ml-auto flex min-h-11 items-center gap-3">
-            {editorStatus && <div className="text-xs text-muted-foreground">{editorStatus}</div>}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Zoom</span>
-              <input
-                type="range"
-                min={5}
-                max={300}
-                value={Math.round(zoom * 100)}
-                onChange={(e) => setZoom(clampNumber(Number(e.target.value) / 100, 0.05, 3))}
-                className="w-32"
-              />
-              <span className="tabular-nums w-10">{Math.round(zoom * 100)}%</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-          <label className="flex min-h-11 items-center gap-2">
-            <span className="text-xs text-muted-foreground">Slice classification</span>
-            <select
-              aria-label="Slice classification"
-              value={selectedSliceClass}
-              disabled={!canEdit || classificationSaving}
-              onChange={(event) => setSelectedSliceClass(event.target.value as SliceClassValue | "")}
-              className="min-h-11 rounded-md border border-border bg-input-background px-3 py-2 text-sm"
-            >
-              <option value="">No classification</option>
-              {SLICE_CLASS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className={idleButtonClass}
-            onClick={() => void saveSliceClassification()}
-            disabled={!canEdit || classificationSaving || !selectedSliceClass}
-          >
-            {classificationSaving ? "Saving classification..." : "Save classification"}
-          </button>
-          {classificationStatus && (
-            <div className="flex min-h-11 items-center text-xs text-muted-foreground">
-              {classificationStatus}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-3 border-t border-border pt-3">
-          <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span>
-              Export-ready: {reviewState ? (reviewState.exportReady ? "Yes" : "No") : "Loading"}
-            </span>
-            {reviewState && !reviewState.exportReady && (
-              <span>{reviewState.warnings.length} missing approved item(s)</span>
-            )}
-            {reviewStatus && <span>{reviewStatus}</span>}
-          </div>
-
-          <div className="grid gap-2 lg:grid-cols-3">
-            {reviewItems.map((item) => {
-              const version = item.latestVersion;
-              const busyPrefix = version ? `${item.type}:${version.id}:` : "";
-              return (
-                <div key={item.type} className="rounded-md border border-border bg-background p-3">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-medium">{item.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Latest: {formatVersion(item.latestVersion)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Approved: {formatVersion(item.latestApprovedVersion)}
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {item.exportReady ? "Ground truth" : "Not ready"}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      aria-label={`Submit ${item.label}`}
-                      className={idleButtonClass}
-                      disabled={!item.actions.canSubmit || reviewBusyKey?.startsWith(busyPrefix)}
-                      onClick={() => void runReviewAction(item, "submit")}
-                    >
-                      Submit
-                    </button>
-                    <button
-                      aria-label={`Approve ${item.label}`}
-                      className={idleButtonClass}
-                      disabled={!item.actions.canApprove || reviewBusyKey?.startsWith(busyPrefix)}
-                      onClick={() => void runReviewAction(item, "approve")}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      aria-label={`Reject ${item.label}`}
-                      className={idleButtonClass}
-                      disabled={!item.actions.canReject || reviewBusyKey?.startsWith(busyPrefix)}
-                      onClick={() => void runReviewAction(item, "reject")}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <label className="mt-2 block text-xs text-muted-foreground">
-            Review comment / reject reason
-            <textarea
-              aria-label="Review comment"
-              value={reviewComment}
-              onChange={(event) => setReviewComment(event.target.value)}
-              className="mt-1 min-h-16 w-full rounded-md border border-border bg-input-background px-3 py-2 text-sm text-foreground"
-            />
-          </label>
-        </div>
+        <EditorReviewPanel
+          reviewState={reviewState}
+          reviewItems={reviewItems}
+          reviewStatus={reviewStatus}
+          reviewComment={reviewComment}
+          onReviewCommentChange={setReviewComment}
+          reviewBusyKey={reviewBusyKey}
+          onReviewAction={(reviewable, action) => void runReviewAction(reviewable, action)}
+        />
       </div>
 
-      <div ref={containerRef} className="relative h-[70vh] w-full overflow-auto overscroll-contain bg-background">
-        <div className="relative inline-block">
-          <canvas ref={baseCanvasRef} className="block" />
-          <canvas
-            ref={predictionCanvasRef}
-            aria-label="Read-only prediction proposal"
-            className="absolute left-0 top-0 pointer-events-none"
-          />
-          <canvas
-            ref={overlayCanvasRef}
-            aria-label="Mask drawing surface"
-            className="absolute left-0 top-0 touch-none select-none"
-            draggable={false}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerCancel}
-            onPointerLeave={onPointerLeave}
-            style={{ touchAction: "none" }}
-            onDoubleClick={() => {
-              if (tool === "lasso_poly") {
-                commitLasso(lassoPointsRef.current.slice());
-              }
-            }}
-          />
-          <canvas ref={previewCanvasRef} className="absolute left-0 top-0 pointer-events-none" />
-        </div>
-      </div>
+      <EditorCanvasStack
+        containerRef={containerRef}
+        baseCanvasRef={baseCanvasRef}
+        predictionCanvasRef={predictionCanvasRef}
+        overlayCanvasRef={overlayCanvasRef}
+        previewCanvasRef={previewCanvasRef}
+        tool={tool}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onPointerLeave={onPointerLeave}
+        onCommitPolygon={() => commitLasso(lassoPointsRef.current.slice())}
+      />
     </div>
   );
 }
