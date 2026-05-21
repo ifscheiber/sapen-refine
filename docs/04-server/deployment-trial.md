@@ -1,0 +1,184 @@
+# Customer Trial Deployment Runbook
+
+## Purpose
+
+This runbook is the copy-paste baseline for the current single-host customer trial. It uses Docker Compose for Caddy, the Next.js app, PostgreSQL, and MinIO. Caddy is the only public service.
+
+This is trial-ready, not HA. PostgreSQL and MinIO store local data on the host through Docker volumes; backup/restore is the compensation for missing replication.
+
+## Host Prerequisites
+
+- Linux server with enough disk for raw images, masks, exports, PostgreSQL, MinIO, Caddy data, and backups.
+- Docker Engine with the Compose plugin.
+- DNS `A`/`AAAA` record for `TRIAL_HOSTNAME` pointing to the server.
+- Firewall allows inbound `80/tcp`, `443/tcp`, and optionally `443/udp` for HTTP/3.
+- Outbound HTTPS access for image pulls and Let's Encrypt certificate issuance.
+- Repository handoff archive created with `npm run handoff:archive` or a clean git checkout.
+
+Do not expose MinIO console or S3 API publicly for the customer trial. If temporary admin exposure is required, protect it separately and document the risk before enabling it.
+
+## Prepare Environment
+
+On the server:
+
+```bash
+cp deploy/trial.env.example deploy/trial.env
+chmod 600 deploy/trial.env
+```
+
+Edit `deploy/trial.env` and replace every placeholder. Use long random values for `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY`.
+
+Required public values:
+
+```text
+TRIAL_HOSTNAME=annotate.example.com
+APP_BASE_URL=https://annotate.example.com
+SHOW_DEMO_CREDENTIALS=false
+```
+
+Keep shared demo credentials hidden for customer trials. Create named tester accounts so annotation, review, export, and operations remain attributable.
+
+## Build, Migrate, Start
+
+Run from the repository root:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml build
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d postgres minio
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile tools run --rm migrate
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d
+```
+
+After schema changes, run deployed migrations before restarting the app:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile tools run --rm migrate
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d app
+```
+
+Do not use `prisma migrate dev` on the trial server.
+
+## Create Named Users
+
+Create the first named tester:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester'
+```
+
+Add a tester to an existing project:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email bob@example.com --password 'replace-with-unique-password' --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
+```
+
+Rotate a password by rerunning the command for the same email with a new password. To revoke active sessions:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB" -c "UPDATE \"Session\" SET \"revokedAt\" = now() WHERE \"userId\" = (SELECT id FROM \"User\" WHERE email = '\''alice@example.com'\'');"'
+```
+
+## Verify Runtime
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ps
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs --tail=100 app
+curl -fsS https://annotate.example.com/api/health
+curl -fsS https://annotate.example.com/api/ready
+```
+
+Expected:
+
+- `caddy`, `app`, `postgres`, and `minio` are running.
+- `/api/health` returns `status: ok`.
+- `/api/ready` returns `status: ok` for database and storage.
+- Browser upload/download routes do not expose MinIO URLs.
+
+## Upload And Batch Limits
+
+Default trial limits:
+
+- App image upload: 100 MiB.
+- App mask upload: 50 MiB.
+- Prediction batch ZIP upload: 100 MiB.
+- Prediction batch items per ZIP: 200.
+- Prediction batch process pass: 25 items.
+- Caddy request body: 120 MB.
+
+Raise app and Caddy limits together:
+
+- `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
+- `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
+
+Supported raw image uploads are PNG and JPEG. Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` when the request reaches the app. If Caddy rejects the body first, the browser sees a Caddy `413`.
+
+## Optional Prediction Import Worker
+
+Normal annotation work does not use a queue. The optional worker is only for bounded prediction-import batch processing.
+
+Set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` to a named project `OWNER` or `QA` account, then start:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f prediction-import-worker
+```
+
+One-shot processing remains available:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
+```
+
+Keep one default worker process for the trial. There is no Redis, RabbitMQ, distributed worker coordination, GPU execution, or inference execution in this deployment.
+
+## Backup, Cleanup, Restart
+
+Before customer data collection, run or schedule the PostgreSQL, MinIO, and Caddy backup commands in [backup-restore.md](backup-restore.md). Without a completed backup, host disk loss destroys all data since the previous successful backup.
+
+Storage cleanup is dry-run first:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --dry-run
+```
+
+Execute only after inspecting candidates:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --execute --category all --limit 100
+```
+
+Restart app:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d app
+```
+
+Stop:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml down
+```
+
+Destructive reset for dev/trial only:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml down -v
+```
+
+`down -v` deletes PostgreSQL, MinIO, and Caddy volumes.
+
+## Gates Before Customer Pilot
+
+- Handoff archive created from a clean worktree.
+- Named tester accounts created.
+- Backup command executed or backup schedule accepted.
+- Desktop customer smoke checklist completed.
+- Real iPad Safari gate in [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) completed against the deployed URL.
+
+## Known Trial Limits
+
+- No HA, object replication, point-in-time recovery, or production monitoring stack.
+- No enterprise identity provider.
+- No public MinIO access.
+- Export and prediction-analysis export generation are synchronous and trial-sized.
+- Prediction-import batch processing is single-host and PostgreSQL-backed.

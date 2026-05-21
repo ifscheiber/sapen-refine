@@ -6,7 +6,7 @@ The customer trial is a single-host deployment without HA. Backups are the compe
 
 PostgreSQL contains users, sessions, RB-064 login throttle buckets, projects, image metadata, review decisions, `ExportBatch` rows, `ExportItem` exact-version references, RB-061/RB-066 prediction import batch/job/item rows including processor lease state and staging-purge markers, and `AuditLog` rows for upload, artifact, auth, review, import, export, and cleanup actions. MinIO contains raw images, mask artifacts, RB-061 staged prediction batch item objects until cleanup, and export manifest/ZIP objects.
 
-Run backups from the repository root on the server.
+Run backups from the repository root on the server after following [deployment-trial.md](deployment-trial.md).
 
 ## PostgreSQL Dump
 

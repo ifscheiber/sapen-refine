@@ -79,7 +79,7 @@ Uncommitted objects from these routes are identifiable by age and prefix under `
 
 ## Operational Commands
 
-Dry-run is the default. Run it first:
+Dry-run is the default. On a trial deployment prepared with [deployment-trial.md](deployment-trial.md), run it first:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --email 'admin@example.com' --password '<admin-password>'

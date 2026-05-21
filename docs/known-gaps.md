@@ -1,6 +1,6 @@
 # Known Gaps
 
-This page summarizes known limitations after the RB-040 through RB-068 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, and editor decomposition work.
+This page summarizes known limitations after the RB-040 through RB-069 baseline, metadata workflow, slice-support workflow, review/approval workflow, training export MVP work, model preprediction/active-learning design, upload/artifact validation hardening, prediction provenance registry work, prediction mask import work, active-learning correction task queue work, assisted correction editor work, prediction-analysis export work, batch prediction import work, auth/RBAC/audit hardening, batch-runner hardening, storage cleanup work, prediction QA metrics baseline, editor decomposition work, and customer-trial handoff gate.
 
 ## Current Gaps
 
@@ -26,6 +26,7 @@ This page summarizes known limitations after the RB-040 through RB-068 baseline,
 - RB-066 adds admin-only dry-run/execute storage cleanup for temporary batch staging objects and identifiable abandoned presigned image/mask uploads, retention configuration, staging purge markers on batch items, cleanup audit events, and integration coverage for protected durable objects.
 - RB-067 adds deterministic prediction-analysis QA metrics for semantic/support prediction-vs-approved-reference comparisons, manifest-level not-computed reasons, metric summary metadata, UI metric availability counts, and coverage for training-export separation plus Copper-not-support behavior.
 - RB-068 decomposes editor client structure into shared contracts/helpers and extracted toolbar, canvas stack, review, slice-classification, and assisted-correction panels without changing editor behavior.
+- RB-069 adds reproducible handoff archive creation, safe download filename headers, a dedicated customer-trial readiness summary, a copy-paste trial deployment runbook, a real iPad Safari gate checklist, and removes the unused legacy `src/server/storage.ts` helper.
 - `MaskKind.REFINED` has been removed from the active Prisma schema; current editor saves map to draft semantic annotation artifacts.
 - Upload and commit routes have RB-046 size limits and app-mediated trial upload/read paths. RB-055 adds checksum, dimension, object stat, and audit hardening for the current raw-image, semantic-mask, support-mask, and export paths.
 - RB-050 `SampleMetadata` is image-level/default metadata only. RB-051 creates a default `SliceInstance`, but slice-specific sample metadata remains deferred.
@@ -38,8 +39,7 @@ This page summarizes known limitations after the RB-040 through RB-068 baseline,
 - Slice-classification prediction correction remains deferred.
 - RB-063 splits project operations into route-addressable overview, exports, and prediction-import pages; export history and advanced operations dashboards remain deferred.
 - RBAC policy is centralized for server/domain enforcement. Client action visibility may still duplicate role checks for ergonomics; backend policies remain authoritative.
-- `src/server/storage.ts` is an unused legacy duplicate of the active `src/server/storage/s3.ts` storage helper pattern and should be removed or converted to a re-export in a cleanup ticket.
-- Remaining upload/security limits: no malware scanning, no general API write rate limiting beyond login throttling and same-origin mutation protection, no HA/object replication, no WebP/TIFF/SVG upload support, no cleanup dashboard UI, no committed-artifact retention governance, no production-scale queue infrastructure, no dedicated system-actor login model, no audit UI, and no large async export job handling.
+- Remaining upload/security/operations limits: no malware scanning, no general API write rate limiting beyond login throttling and same-origin mutation protection, no HA/object replication, no WebP/TIFF/SVG upload support, no cleanup dashboard UI, no committed-artifact retention governance, no production-scale queue infrastructure, no dedicated system-actor login model, no audit UI, no production monitoring stack, no large async export job handling, and no completed real iPad Safari pass yet.
 
 ## Intentional Remaining "Refine" References
 

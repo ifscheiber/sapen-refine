@@ -92,7 +92,7 @@ Normal annotator concurrency is unrelated to this runner. Browser users can log 
 
 RB-065 chooses Option A for the customer trial: an optional Docker Compose worker service using PostgreSQL as the queue/lease store. There is no Redis, BullMQ, RabbitMQ, distributed coordination, GPU execution, or model inference in this slice.
 
-Enable the optional worker profile after creating a named project `OWNER` or `QA` account for `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` in `deploy/trial.env`:
+Enable the optional worker profile after creating a named project `OWNER` or `QA` account for `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` in `deploy/trial.env` as described in [deployment-trial.md](deployment-trial.md):
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker

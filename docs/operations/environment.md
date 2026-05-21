@@ -51,11 +51,11 @@ These avoid accidentally connecting to older SaPen Refine/Core services on stand
 
 ## Known Gaps
 
-- Customer-trial deployment variables are documented in the RB-046 deployment runbook; `.env.example` remains a local-development template with placeholder values.
+- Customer-trial deployment variables are documented in [../04-server/deployment-trial.md](../04-server/deployment-trial.md); `.env.example` remains a local-development template with placeholder values.
 
 ## Related Tickets / Docs
 
 - [local-development.md](local-development.md)
 - [../04-server/runtime-config.md](../04-server/runtime-config.md)
 - [../04-server/storage-retention-cleanup.md](../04-server/storage-retention-cleanup.md)
-- [../04-server/deployment.md](../04-server/deployment.md)
+- [../04-server/deployment-trial.md](../04-server/deployment-trial.md)

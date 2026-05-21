@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This checklist verifies the current desktop browser MVP workflow after the RB-067 prediction QA metrics slice. It targets the local or trial-deployed browser app and does not require iPad Safari.
+This checklist verifies the current desktop browser MVP workflow after the RB-069 trial-readiness slice. It targets the local or trial-deployed browser app and does not require iPad Safari.
 
 ## Preconditions
 

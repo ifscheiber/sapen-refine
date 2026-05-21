@@ -2,7 +2,9 @@
 
 ## Purpose
 
-RB-046 defines a minimal customer-facing browser trial deployment for one server. It is production-shaped but not HA.
+RB-046 defined the initial customer-facing browser trial deployment for one server. The current copy-paste RB-069 runbook is [deployment-trial.md](deployment-trial.md).
+
+This page is retained as the historical deployment entry and summary. Use [deployment-trial.md](deployment-trial.md) for operator execution.
 
 Chosen shape: Docker Compose runs `caddy`, `app`, `postgres`, and `minio`. Caddy is the only public service.
 

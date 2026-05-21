@@ -12,6 +12,7 @@ This page defines the current validation baseline and the intended testing direc
 - `npm run build`
 - `npm run test`
 - `npm run check:design-hardcoding`
+- `npm run handoff:archive -- --dry-run` for RB-069 clean handoff packaging.
 - `npm run test:e2e` after `npm run build` when local PostgreSQL/MinIO are running and seeded.
 - `npm run test:e2e:ipad-prep` for the non-device iPad viewport/manifest preparation smoke.
 
@@ -42,6 +43,8 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/prediction-import-batch-leases.test.ts` covers RB-065 lease expiry, stale legacy processing detection, and retry/fail recovery state selection.
 - `tests/unit/prediction-analysis-metrics.test.ts` covers RB-067 binary support IoU/Dice, semantic per-label/macro metrics, confusion matrix counts, empty-union behavior, unknown byte handling, support label lookup, not-computed payloads, and dimension mismatch handling.
 - `tests/unit/upload-validation.test.ts` covers image/mask upload size validation, `413` payloads, SHA-256 checksum normalization, PNG/JPEG dimension parsing, image content-type rejection, mask dimension checks, and support-mask value validation.
+- `tests/unit/content-disposition.test.ts` covers RB-069 safe image/export download filenames, CR/LF injection removal, quote/backslash handling, ASCII fallback, and UTF-8 `filename*`.
+- `tests/unit/handoff-archive.test.ts` covers RB-069 archive exclusion policy, env/example handling, path filtering, and handoff manifest summaries.
 - `tests/unit/health-readiness.test.ts` covers health payloads and dependency readiness aggregation.
 - `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths and protected workspace paths.
 
@@ -57,6 +60,7 @@ This page defines the current validation baseline and the intended testing direc
 - `docs/07-testing/manual-smoke-desktop-browser.md` defines the current desktop browser MVP smoke path.
 - `docs/07-testing/manual-smoke-editor-ipad.md` defines the current desktop and iPad Safari editor trial checklist.
 - `docs/07-testing/manual-smoke-customer-browser-trial.md` defines the deployment-oriented desktop and iPad Safari customer-trial checklist.
+- `docs/07-testing/manual-smoke-ipad-safari-gate.md` is the authoritative RB-069 real iPad Safari customer-pilot gate and remains pending until deployed URL/device access exist.
 
 ## Baseline From RB-041
 
@@ -85,7 +89,7 @@ This page defines the current validation baseline and the intended testing direc
 
 - Current tests cover stable mask serialization, editor canvas geometry utilities, and extracted editor helper utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
-- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules.
+- API route-handler tests remain limited; DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules. RB-069 adds unit coverage for handoff and filename-header hygiene.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
 
 ## Related Tickets / Docs

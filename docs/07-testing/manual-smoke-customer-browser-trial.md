@@ -6,7 +6,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 
 ## Preconditions
 
-- Trial deployment follows [../04-server/deployment.md](../04-server/deployment.md).
+- Trial deployment follows [../04-server/deployment-trial.md](../04-server/deployment-trial.md).
 - HTTPS URL is available through Caddy.
 - `/api/health` and `/api/ready` are reachable.
 - Named trial users exist; do not use shared demo credentials unless explicitly accepted.
@@ -64,9 +64,11 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 
 ## iPad Safari Smoke
 
+Use the dedicated customer-pilot gate in [manual-smoke-ipad-safari-gate.md](manual-smoke-ipad-safari-gate.md) for the authoritative real-device pass/fail record. The table below remains a short combined smoke checklist.
+
 ## Deferred Gate: Real iPad Safari Trial
 
-Status: Not executed in RB-047.
+Status: Pending until deployed URL and device access are available.
 
 Required before customer pilot: yes.
 

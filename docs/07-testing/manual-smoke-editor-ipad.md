@@ -38,11 +38,11 @@ This checklist verifies the current browser editor baseline for a customer trial
 
 ## Deferred Gate: Real iPad Safari Trial
 
-Status: Not executed in RB-047.
+Status: Pending until deployed URL and real iPad Safari device access are available. The authoritative customer-pilot gate is [manual-smoke-ipad-safari-gate.md](manual-smoke-ipad-safari-gate.md).
 
 Required before customer pilot: yes.
 
-Reason: deployment/device access is unavailable during RB-047. The Playwright iPad viewport preparation smoke is not a substitute for real iPad Safari and Apple Pencil validation.
+Reason: deployment/device access is unavailable in the local Codex environment. The Playwright iPad viewport preparation smoke is not a substitute for real iPad Safari and Apple Pencil validation.
 
 Required environment:
 

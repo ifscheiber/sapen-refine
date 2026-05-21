@@ -464,10 +464,12 @@ Context: The repo has a Compose trial baseline, but real customer deployment, iP
 
 Impact: Customer or contractor handoffs can accidentally include local artifacts, iPad behavior remains unverified until deployment/device access exists, and small storage/header hygiene gaps remain before a trial.
 
-Proposed next step: Create a reproducible handoff/deployment checklist or script, exclude `.git`, build caches, test results, and secrets from handoff archives, run the Strato/customer trial gate when deployable, validate iPad Safari manually, clean up or re-export `src/server/storage.ts`, and harden `Content-Disposition` filename handling.
+Resolution: Implemented by RB-069 optimized ticket. The repo now has `npm run handoff:archive`, a generated handoff manifest, clean-worktree enforcement by default, safe `Content-Disposition` filename helpers, a dedicated trial deployment runbook, a customer-trial readiness summary, a real iPad Safari gate checklist, and the legacy `src/server/storage.ts` helper was removed.
 
-Affected modules: `deploy`, `docs/04-server`, `docs/operations`, `src/server/storage.ts`, asset download routes, trial smoke docs, and ticket/runbook docs.
+Remaining follow-up: Execute the real Strato/customer deployment, run the real iPad Safari gate against the deployed URL, and add production monitoring/HA only if the trial grows beyond the current single-host model.
 
-Owner: Unassigned.
+Affected modules: `deploy`, `docs/04-server`, `docs/operations`, `scripts/create-handoff-archive.mjs`, `src/server/http/contentDisposition.ts`, asset download routes, trial smoke docs, and ticket/runbook docs.
 
-Priority: P2.
+Owner: Codex.
+
+Priority: Resolved by RB-069.

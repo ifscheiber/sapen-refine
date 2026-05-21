@@ -55,6 +55,7 @@ npm run lint               # Run ESLint
 npm run typecheck          # Run TypeScript without emitting files
 npm run build              # Run production build/typecheck
 npm run test               # Run unit tests
+npm run handoff:archive    # Create a clean customer/deployment handoff ZIP
 ```
 
 The required root validation baseline is `npm run db:rebuild`, `npm run prisma:generate`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test`, `npm run test:e2e`, and `npm run check:design-hardcoding` when local Docker services are available.
@@ -65,15 +66,17 @@ Images and mask artifacts are stored in S3-compatible object storage. The curren
 
 ## Customer Trial Deployment
 
-The RB-046 browser-trial baseline uses Docker Compose for Caddy, the Next.js app, PostgreSQL, and MinIO. Start with [docs/04-server/deployment.md](docs/04-server/deployment.md), [docs/04-server/reverse-proxy-caddy.md](docs/04-server/reverse-proxy-caddy.md), and [docs/04-server/backup-restore.md](docs/04-server/backup-restore.md).
+The browser-trial baseline uses Docker Compose for Caddy, the Next.js app, PostgreSQL, and MinIO. Start with [docs/04-server/deployment-trial.md](docs/04-server/deployment-trial.md), [docs/04-server/reverse-proxy-caddy.md](docs/04-server/reverse-proxy-caddy.md), and [docs/04-server/backup-restore.md](docs/04-server/backup-restore.md).
 
 Customer-facing trials should use named user accounts per tester. Do not expose shared demo credentials unless that risk is explicitly accepted.
+
+Before external handoff, run `npm run handoff:archive` from a clean worktree. The generated archive includes `handoff-manifest.json` and excludes local secrets, `.git`, build output, caches, test artifacts, backups, and local data volumes.
 
 ## MVP Limitations
 
 - Export generation and prediction-analysis export are synchronous and intended for trial-sized datasets.
 - Project operations are split into route-addressable overview, exports, and prediction-import pages; advanced history dashboards remain deferred.
-- RBAC, audit coverage, login hardening, background workers, retention cleanup, and advanced iPad/Pencil interactions still need focused hardening.
+- Real iPad Safari validation remains a pending customer-pilot gate until a deployed HTTPS URL and device access exist.
 - `MaskKind.PREDICTION` and `MaskKind.REFINED` have been removed from the active Prisma schema; remaining "refine" wording is historical or refers to future prediction correction.
 - The validation baseline is green; remaining product and deployment gaps are tracked in [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md).
 
