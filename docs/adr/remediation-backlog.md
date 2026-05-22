@@ -614,7 +614,7 @@ Owner: Codex.
 
 Priority: Resolved by RB-081.
 
-## Future - Edit Session / Soft Lock / Multi-Tab Warning
+## RB-083 - Edit Session / Soft Lock / Multi-Tab Warning
 
 Context: Trial users may open the same large image in multiple browser tabs. Ground-truth saves are versioned and append-only, but multiple tabs increase browser memory pressure and can confuse annotators about which draft is current.
 
@@ -626,7 +626,7 @@ Affected modules: editor page, editor client state, browser storage/session sign
 
 Owner: Unassigned.
 
-Priority: P2.
+Priority: Deferred in `tickets/deferred/RB-083-editor-edit-session-soft-lock-multitab-warning.md`.
 
 ## RB-077 - Real iPad Safari Trial Gate Execution
 
@@ -634,13 +634,13 @@ Context: iPad viewport prep and manual checklists exist, but real iPad Safari va
 
 Impact: Canvas scaling, Apple Pencil behavior, file uploads, rotation, and Home Screen behavior can fail only on the physical device/browser.
 
-Proposed next step: Run the manual iPad Safari gate after deployment and convert any failures into focused follow-up tickets.
+Proposed next step: Run the manual iPad Safari gate after deployment and convert any failures into focused follow-up tickets. The execution ticket is deferred at `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md`; RB-077 completed gate preparation and tracking only.
 
 Affected modules: editor UI, iPad smoke docs, customer-trial readiness docs, and any defect tickets created from the gate.
 
 Owner: Unassigned.
 
-Priority: P2.
+Priority: Deferred until deployed URL and device access exist.
 
 ## RB-078 - Post-Trial Findings / Triage
 
@@ -648,10 +648,10 @@ Context: After real customer-trial usage, the backlog should be reordered based 
 
 Impact: Without a triage pass, larger features such as review dashboards, audit UI, multi-slice support, and async exports may be prioritized before actual customer blockers.
 
-Proposed next step: Review trial feedback, logs, smoke results, and operator notes; split findings into bugs, trial blockers, UX improvements, and larger roadmap tickets.
+Proposed next step: Review trial feedback, logs, smoke results, and operator notes; split findings into bugs, trial blockers, UX improvements, and larger roadmap tickets. The triage ticket is deferred at `tickets/deferred/RB-078-post-trial-findings-triage.md`.
 
 Affected modules: docs/backlog, tickets, and any areas implicated by customer findings.
 
 Owner: Unassigned.
 
-Priority: P2.
+Priority: Deferred until real customer/operator trial findings exist.

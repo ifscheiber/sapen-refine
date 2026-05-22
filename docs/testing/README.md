@@ -68,7 +68,7 @@ This page defines the current validation baseline and the intended testing direc
 - `docs/07-testing/manual-smoke-desktop-browser.md` defines the current desktop browser MVP smoke path.
 - `docs/07-testing/manual-smoke-editor-ipad.md` defines the current desktop and iPad Safari editor trial checklist.
 - `docs/07-testing/manual-smoke-customer-browser-trial.md` defines the deployment-oriented desktop and iPad Safari customer-trial checklist.
-- `docs/07-testing/manual-smoke-ipad-safari-gate.md` is the authoritative RB-069 real iPad Safari customer-pilot gate and remains pending until deployed URL/device access exist.
+- `docs/07-testing/manual-smoke-ipad-safari-gate.md` is the authoritative real iPad Safari customer-pilot gate; execution is deferred in `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md` until deployed URL/device access exist.
 
 ## Baseline From RB-041
 
@@ -98,7 +98,7 @@ This page defines the current validation baseline and the intended testing direc
 - Current tests cover stable mask serialization, editor canvas geometry utilities, and extracted editor helper utilities.
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
 - API route-handler tests remain selective; RB-072 adds unit/proxy/E2E coverage for representative API error contracts. DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules. RB-069 adds unit coverage for handoff and filename-header hygiene.
-- Real iPad Safari smoke remains manual and deferred until deployment/device access is available.
+- Real iPad Safari smoke remains manual and deferred until deployment/device access is available; `npm run test:e2e:ipad-prep` is preparation only.
 
 ## Related Tickets / Docs
 

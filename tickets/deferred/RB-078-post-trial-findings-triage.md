@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Future
+Deferred / Post-Trial
 
 ## Priority
 
@@ -17,6 +17,8 @@ Product Triage / Trial Feedback / Planning
 After customer-trial deployment and initial iPad/desktop use, the repo needs a structured triage pass before starting larger product features.
 
 Likely topics include editor ergonomics, review workflow, export history, audit visibility, cleanup operations, multi-slice support, and prediction-analysis dashboards.
+
+Deferred trigger: move this ticket back into the active dated ticket folder after real customer/operator trial feedback, logs, smoke results, or failed gate evidence exist.
 
 ## Goal
 

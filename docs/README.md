@@ -12,6 +12,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Baseline checks: [00-overview/baseline-checks.md](00-overview/baseline-checks.md)
 - Dependency audit: [00-overview/dependency-audit.md](00-overview/dependency-audit.md)
 - Remediation backlog: [adr/remediation-backlog.md](adr/remediation-backlog.md)
+- Deferred tickets: [../tickets/deferred/README.md](../tickets/deferred/README.md)
 - Naming ADR: [architecture/decisions/ADR-0001-sapen-annotate-naming.md](architecture/decisions/ADR-0001-sapen-annotate-naming.md)
 - Desktop-first/iPad-deferred ADR: [08-adr/ADR-002-desktop-browser-first-ipad-deferred.md](08-adr/ADR-002-desktop-browser-first-ipad-deferred.md)
 - Annotation domain model ADR: [08-adr/ADR-003-annotation-domain-model.md](08-adr/ADR-003-annotation-domain-model.md)

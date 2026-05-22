@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after the RB-049 through RB-069 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, storage-cleanup, prediction QA metrics, editor decomposition, customer-trial handoff, trial-hardening, and RB-076 local deployment dry-run slices.
+This page records the repository state after the RB-049 through RB-069 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, storage-cleanup, prediction QA metrics, editor decomposition, customer-trial handoff, trial-hardening, and RB-076 local deployment dry-run and RB-077 iPad deferred-tracking slices.
 
 ## Important Files
 
@@ -20,6 +20,7 @@ This page records the repository state after the RB-049 through RB-069 annotatio
 - `src/mask` - current label constants, mask buffers, serialization, patching, and overlay rendering.
 - `src/components/shell` and `src/design` - reusable workspace shell, UI primitives, design tokens, and editor canvas constants.
 - `tests/e2e/desktop-browser-smoke.spec.ts` and `tests/e2e/ipad-viewport-prep.spec.ts` - current browser smoke coverage.
+- `tickets/deferred/` - deferred manual gates and backlog tickets that are not actionable until their trigger conditions exist.
 
 ## Current Baseline
 
@@ -78,8 +79,8 @@ There is no `check:docs-links` script in `package.json` yet.
 - The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060/RB-067 prediction-analysis exports and QA metrics, RB-061 batch prediction import jobs, RB-065 batch item processor/lease fields, and RB-066 batch staging purge markers. RB-063 adds route-addressable project operations pages without schema changes.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. RB-067 adds export-time QA metrics without a dashboard. Malware scanning, general API write rate limiting, large async export jobs, production-scale queue infrastructure/system actors, committed-artifact retention, cleanup dashboards, and metrics dashboards remain deferred.
-- Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate.
-- The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, RB-082 covers missing-resource/not-found page UX, RB-076 covers the local deployment dry run, and RB-077/RB-078 cover real iPad/post-trial gates.
+- Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate and `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md` tracks manual execution.
+- The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, RB-082 covers missing-resource/not-found page UX, RB-076 covers the local deployment dry run, RB-077 completes iPad gate preparation/deferred tracking, and RB-077-B/RB-078 now live in `tickets/deferred/` until real device/trial evidence exists.
 
 ## Related Tickets / Docs
 

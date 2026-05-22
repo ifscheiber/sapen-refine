@@ -50,8 +50,8 @@ Not claimed: real Strato deployment, public HTTPS certificate issuance, real iPa
 ## Follow-Up Tickets
 
 - `tickets/2026-05-22/RB-084-docker-prisma-openssl-runtime-warning.md` - harden the Docker image so Prisma no longer warns about OpenSSL detection in build/migrate/runtime containers.
-- RB-077 remains the real iPad Safari customer-trial gate and must not be marked passed from this local dry run.
-- RB-078 remains post-trial findings triage.
+- RB-077-B in `tickets/deferred/` remains the real iPad Safari customer-trial gate and must not be marked passed from this local dry run.
+- RB-078 in `tickets/deferred/` remains post-trial findings triage.
 
 ## Cleanup
 

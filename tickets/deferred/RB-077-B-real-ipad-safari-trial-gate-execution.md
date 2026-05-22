@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Future
+Deferred / Manual Gate
 
 ## Priority
 
@@ -17,6 +17,8 @@ iPad Validation / Customer Trial Gate
 The app has automated desktop and iPad viewport preparation tests, but real iPad Safari behavior has not been validated because deployment/device access was unavailable.
 
 Canvas-based annotation, file upload, Apple Pencil behavior, viewport sizing, scrolling, and Home Screen mode can differ from desktop browsers.
+
+Deferred trigger: move this ticket back into the active dated ticket folder only after a deployed HTTPS trial URL, named tester account, physical iPad/Safari access, and optional Apple Pencil are available.
 
 ## Goal
 

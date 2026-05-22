@@ -75,11 +75,11 @@ Use the dedicated customer-pilot gate in [manual-smoke-ipad-safari-gate.md](manu
 
 ## Deferred Gate: Real iPad Safari Trial
 
-Status: Pending until deployed URL and device access are available.
+Status: Pending until deployed URL and device access are available. Tracked by `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md`.
 
 Required before customer pilot: yes.
 
-Reason: the Strato/customer-trial deployment and real iPad Safari device access are not available during RB-047. The desktop E2E smoke and iPad viewport preparation smoke only reduce regression risk; they do not validate Safari, Apple Pencil, or Home-Screen behavior on a real device.
+Reason: real iPad Safari execution requires a deployed customer-trial URL and physical device access, which are not available in the Codex environment. The desktop E2E smoke and iPad viewport preparation smoke only reduce regression risk; they do not validate Safari, Apple Pencil, or Home-Screen behavior on a real device.
 
 Required inputs before execution:
 

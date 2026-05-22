@@ -2,7 +2,7 @@
 
 ## Status
 
-Real iPad Safari Gate status: pending until deployed URL and device access are available. RB-076 completed only a local desktop/Caddy dry run and does not count as this gate.
+Real iPad Safari Gate status: pending until deployed URL and device access are available. RB-076 completed only a local desktop/Caddy dry run and does not count as this gate. Manual execution is tracked by `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md`.
 
 Do not mark this gate as passed unless it has been executed on a real iPad Safari device against the deployed trial URL.
 
@@ -27,6 +27,9 @@ Do not mark this gate as passed unless it has been executed on a real iPad Safar
 | Tester |  |
 | Date |  |
 | Named trial user |  |
+| Role |  |
+| Apple Pencil available | Yes / No |
+| Network |  |
 | Project/Image |  |
 | Overall result | Pending / Pass / Fail |
 
@@ -43,6 +46,17 @@ Do not mark this gate as passed unless it has been executed on a real iPad Safar
 - Home-Screen launch fails when installed-app behavior is part of the pilot.
 
 Non-blocking issues should still be recorded with screenshots or video when possible.
+
+## Result Classification
+
+Classify every failed or surprising step as one of:
+
+- `BLOCKER` - prevents the customer pilot or normal annotation path.
+- `MAJOR` - materially harms annotation speed, confidence, or data integrity but has a workaround.
+- `MINOR` - visible defect or inconvenience that does not block the pilot.
+- `OBSERVATION` - noteworthy behavior without immediate fix requirement.
+
+Evidence should include short notes and, when practical, a screenshot, photo, screen recording, Safari console note, or network note plus a follow-up ticket id.
 
 ## Gate Checklist
 
@@ -73,9 +87,10 @@ Non-blocking issues should still be recorded with screenshots or video when poss
 | Rotate to landscape. | Layout remains usable; fit/zoom still works. | Yes |  |  |
 | Rotate to portrait. | Layout remains usable; no controls overlap. | Yes |  |  |
 | Inspect Safari console if available. | No unexpected runtime errors. | No |  |  |
+| Log out. | Session ends and login route is reachable again. | No |  |  |
 
 ## Issue Log
 
-| Step | Expected | Actual | Blocking | Evidence | Follow-up |
+| Step | Expected | Actual | Classification | Evidence | Follow-up |
 | --- | --- | --- | --- | --- | --- |
 |  |  |  |  |  |  |

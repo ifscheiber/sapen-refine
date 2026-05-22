@@ -22,7 +22,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - Create named customer tester accounts and avoid shared demo credentials unless the risk is explicitly accepted.
 - Run and verify at least one PostgreSQL, MinIO, and Caddy backup on the real host. RB-076 verified the commands in a local dry run.
 - Complete the operator deployment smoke in [../07-testing/manual-smoke-customer-browser-trial.md](../07-testing/manual-smoke-customer-browser-trial.md).
-- Complete the real iPad Safari gate in [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md). Current status: pending until deployed URL and device access are available.
+- Complete the real iPad Safari gate in [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md). Current status: pending until deployed URL and device access are available; tracked by `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md`.
 - Re-run `npm audit --json` as part of final handoff validation if dependencies change again.
 
 ## Intentionally Not Included

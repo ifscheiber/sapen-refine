@@ -10,6 +10,7 @@ The app is separate from SaPen Core. Future integration should happen through ex
 - High-level architecture map: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Detailed docs index: [docs/README.md](docs/README.md)
 - Known gaps and deferred work: [docs/known-gaps.md](docs/known-gaps.md)
+- Deferred manual and backlog tickets: [tickets/deferred/README.md](tickets/deferred/README.md)
 
 ## Local Setup
 
