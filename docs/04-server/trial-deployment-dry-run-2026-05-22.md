@@ -43,13 +43,13 @@ Not claimed: real Strato deployment, public HTTPS certificate issuance, real iPa
 
 - The optimized RB-076 ticket fully replaced the older RB-076 ticket. The older ticket can be deleted when RB-076 is finalized.
 - A trial-safe bootstrap command was required because `migrate deploy` alone creates tables only, and local `seed` creates shared demo credentials. RB-076 added `npm run trial:bootstrap` for roles and the default label schema without demo users/projects.
-- Docker image build and `migrate` run emitted Prisma warnings that OpenSSL could not be detected in `node:22-bookworm-slim`. The commands passed, but RB-084 tracks installing OpenSSL in the image to remove that trial risk.
+- Docker image build and `migrate` run originally emitted Prisma warnings that OpenSSL could not be detected in `node:22-bookworm-slim`. RB-084 installs OpenSSL in the Docker image stages used for Prisma generate, migrate, runtime, and worker scripts.
 - The local dry run did not validate public HTTPS, DNS, Let's Encrypt, real Strato firewall behavior, real iPad Safari, or Apple Pencil.
 - No prediction ZIP fixture was used. Batch processing was verified as no-op/due processing plus optional worker startup only.
 
 ## Follow-Up Tickets
 
-- `tickets/2026-05-22/RB-084-docker-prisma-openssl-runtime-warning.md` - harden the Docker image so Prisma no longer warns about OpenSSL detection in build/migrate/runtime containers.
+- RB-084 hardens the Docker image so Prisma no longer warns about OpenSSL detection in build/migrate/runtime containers.
 - RB-077-B in `tickets/deferred/` remains the real iPad Safari customer-trial gate and must not be marked passed from this local dry run.
 - RB-078 in `tickets/deferred/` remains post-trial findings triage.
 

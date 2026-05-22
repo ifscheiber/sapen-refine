@@ -482,13 +482,28 @@ Impact: Without a dry run, trial setup could fail on Compose build, migrations, 
 
 Resolution: RB-076 completed a local isolated Compose dry run with `caddy`, `app`, PostgreSQL, MinIO, and the optional prediction-import worker profile. It added a safe `trial:bootstrap` path, verified named users, health/readiness, desktop browser smoke, large-mask upload, worker no-op processing, storage cleanup dry-run, PostgreSQL/MinIO backup/restore, and Caddy backup commands.
 
-Remaining follow-up: Real Strato HTTPS deployment and real iPad Safari gate remain pending. RB-084 tracks the Docker/Prisma OpenSSL warning found during the dry run.
+Remaining follow-up: Real Strato HTTPS deployment and real iPad Safari gate remain pending. The Docker/Prisma OpenSSL warning found during the dry run is resolved by RB-084.
 
 Affected modules: `deploy`, `Dockerfile` follow-up, trial scripts, docs under `docs/04-server`, smoke docs, and tickets under `tickets/2026-05-21` and `tickets/2026-05-22`.
 
 Owner: Codex.
 
 Priority: Resolved by RB-076 local dry run.
+
+## RB-084 - Docker Prisma OpenSSL Runtime Hygiene
+
+Context: RB-076 found Prisma OpenSSL detection warnings during Docker build and `migrate deploy` inside the `node:22-bookworm-slim` trial image.
+
+Impact: The trial image should not rely on Prisma fallback OpenSSL detection for generate, migrations, runtime scripts, or the optional worker.
+
+Resolution: RB-084 installs the Debian `openssl` package in Docker stages that run Prisma generate and in the final runtime image used by app, migrate, and worker services. Prisma package versions and Compose topology remain unchanged.
+
+Affected modules: `Dockerfile`, deployment-hygiene tests, and trial deployment docs.
+
+Owner: Codex.
+
+Priority: Resolved by RB-084.
+
 
 ## RB-070 - Editor Eraser Tool UX
 

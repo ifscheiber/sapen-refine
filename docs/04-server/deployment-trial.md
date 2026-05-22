@@ -44,6 +44,8 @@ Keep shared demo credentials hidden for customer trials. Create named tester acc
 
 Docker builds use the repository root as context. [.dockerignore](../../.dockerignore) excludes local secrets, generated build output, dependency folders, caches, test artifacts, reports, traces, archives, backup output, and local PostgreSQL/MinIO/storage volumes. It intentionally keeps source, Prisma schema/migrations, public assets, package lockfiles, deployment templates, and example env files available to the image build and handoff docs.
 
+The Docker image installs the Debian `openssl` package in the stages that run Prisma generate, `prisma migrate deploy`, app runtime scripts, and optional worker scripts. This is a container runtime dependency for Prisma compatibility, not a Prisma version change, and it does not require OpenSSL to be installed manually on the host beyond Docker/Compose.
+
 Real trial secrets belong only in `deploy/trial.env` on the server. `deploy/trial.env.example` is a placeholder template and may be committed.
 
 `minio-init` uses [../../deploy/minio-init.sh](../../deploy/minio-init.sh) instead of embedding `mc alias set ... <secret>` in the Compose entrypoint. The rendered Compose command should show only:

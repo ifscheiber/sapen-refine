@@ -95,6 +95,15 @@ describe("deployment hygiene", () => {
     expect(echoLines.join("\n")).not.toMatch(/S3_(ACCESS|SECRET)_KEY/);
   });
 
+  it("installs OpenSSL in Docker stages that run Prisma", () => {
+    const dockerfile = readRepoFile("Dockerfile");
+
+    expect(dockerfile).toContain("apt-get install -y --no-install-recommends openssl");
+    expect(dockerfile).not.toContain("libssl1.1");
+    expect(dockerfile).toMatch(/FROM node:22-bookworm-slim AS builder[\s\S]*apt-get install -y --no-install-recommends openssl[\s\S]*RUN npm run prisma:generate/);
+    expect(dockerfile).toMatch(/FROM node:22-bookworm-slim AS runner[\s\S]*apt-get install -y --no-install-recommends openssl[\s\S]*CMD \["npm", "run", "start"\]/);
+  });
+
   it("keeps the Next proxy body limit aligned with trial upload limits", () => {
     const nextConfig = readRepoFile("next.config.ts");
     const dockerfile = readRepoFile("Dockerfile");

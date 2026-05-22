@@ -12,7 +12,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - Trial operations: Compose deployment shape, private MinIO, Caddy-only public exposure, named user creation, upload limits, optional single-host prediction-import worker, backup/restore, and storage cleanup runbooks.
 - Trial dry-run evidence: [../04-server/trial-deployment-dry-run-2026-05-22.md](../04-server/trial-deployment-dry-run-2026-05-22.md).
 - Handoff hygiene: `npm run handoff:archive` creates a clean ZIP with a generated `handoff-manifest.json`, excludes private/local artifacts, and refuses dirty worktrees unless `--allow-dirty` is explicit.
-- Docker/Compose hygiene: Docker build context excludes local/private/generated artifacts, and `minio-init` no longer embeds MinIO credentials in the Compose command string.
+- Docker/Compose hygiene: Docker build context excludes local/private/generated artifacts, `minio-init` no longer embeds MinIO credentials in the Compose command string, and the image includes OpenSSL for Prisma generate/migrate/runtime compatibility.
 - Header hygiene: app-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 - Dependency audit hygiene: RB-075 aligns Prisma CLI/client/adapter versions, overrides Prisma CLI's vulnerable `@hono/node-server` transitive dependency within the 1.19.x line, and brings `npm audit --json` to 0 vulnerabilities without `npm audit fix --force`.
 
