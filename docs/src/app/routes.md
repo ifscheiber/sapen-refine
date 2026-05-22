@@ -19,10 +19,12 @@ This page lists current browser routes backed by `src/app`.
 - `/app/projects/[projectId]/images` - project image list/upload page from `src/app/(workspace)/app/projects/[projectId]/images/page.tsx` and `src/features/images/ProjectImagesPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]` - image metadata page from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/page.tsx` and `src/features/images/ImageMetadataPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/edit` - image editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx` and `src/features/editor/EditImagePage.tsx`.
+- Unknown workspace routes are caught by `src/app/(workspace)/app/[...missing]/page.tsx` and render the SaPen Annotate workspace not-found fallback from `src/app/(workspace)/app/not-found.tsx`; unknown non-workspace routes render `src/app/not-found.tsx`.
 
 ## Invariants And Constraints
 
 - Protected project routes must verify session and membership server-side.
+- Missing or unauthorized project routes must not leak existence details; known-project stale child resources may render project-aware soft landings.
 - Future tablet/iPad layouts should preserve the same URL routes unless a ticket explicitly changes navigation.
 - Task queue links to the assisted correction route for prediction-backed correction tasks.
 

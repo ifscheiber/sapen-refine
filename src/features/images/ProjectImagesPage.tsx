@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { ProjectOperationsNav } from "@/features/projects/ProjectOperationsNav";
@@ -14,7 +16,7 @@ export async function ProjectImagesPage({ projectId }: { projectId: string }) {
     select: { id: true, name: true },
   });
 
-  if (!project) throw new Error("PROJECT_NOT_FOUND");
+  if (!project) notFound();
 
   return (
     <AppMain>

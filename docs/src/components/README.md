@@ -8,6 +8,7 @@
 
 - `src/components/ui/*` - reusable UI primitives.
 - `src/components/shell/*` - authenticated workspace shell components.
+- `src/components/shell/AppMissingResource.tsx` - reusable missing-resource soft landing with project/images/tasks navigation actions.
 - `src/components/LogoutButton.tsx` - logout action shared by shell variants.
 
 ## Public Interfaces / Routes / Functions

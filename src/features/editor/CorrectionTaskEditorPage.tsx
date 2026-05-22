@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ListTodo } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AppMain } from "@/components/shell/AppMain";
+import { AppMissingResource } from "@/components/shell/AppMissingResource";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
-import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
+import { PROJECT_READ_ROLES } from "@/server/auth/policies";
+import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { loadCorrectionContextForUser } from "@/server/domain/assistedCorrection";
 import EditorClient from "./EditorClient";
 
@@ -16,9 +17,23 @@ export async function CorrectionTaskEditorPage({
   projectId: string;
   taskId: string;
 }) {
-  const user = await requireWorkspaceUser();
+  const { user } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
   const context = await loadCorrectionContextForUser({ taskId, userId: user.id }).catch(() => null);
-  if (!context || context.task.projectId !== projectId || !context.image?.id) return notFound();
+  if (!context || context.task.projectId !== projectId || !context.image?.id) {
+    return (
+      <AppMain>
+        <AppPageHeader title="Correction task not found" description="SaPen Annotate" />
+        <AppMissingResource
+          title="Correction task not found or no longer available"
+          description="The task may have been removed, completed elsewhere, or the copied link may be stale."
+          actions={[
+            { kind: "tasks", href: `/app/projects/${projectId}/tasks` },
+            { kind: "project", href: `/app/projects/${projectId}` },
+          ]}
+        />
+      </AppMain>
+    );
+  }
 
   const target = context.mode === "support" ? "Slice support correction" : "Semantic correction";
   const score = [

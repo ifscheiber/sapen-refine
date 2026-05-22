@@ -19,6 +19,7 @@
 - `src/server/auth/loginThrottle.ts` - hashed DB-backed login throttling.
 - `src/server/auth/requestGuards.ts` - same-origin mutation guard helpers.
 - `src/server/auth/workspaceRedirect.ts` - RB-079 workspace login redirect header and `next` target helpers for stale sessions.
+- `src/server/auth/workspaceSession.ts` - page-oriented workspace auth helpers that redirect unauthenticated users and use `notFound()` for missing/unauthorized project access.
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
 - `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
@@ -36,6 +37,7 @@
 
 - `requireUser()` throws `UNAUTHORIZED` for route/domain callers without a valid session.
 - `requireProjectRole(projectId, allowed)` enforces project membership roles.
+- `requireWorkspaceUser()` and `requireWorkspaceProjectRole(projectId, allowed)` are for App Router workspace pages; they redirect stale/anonymous sessions to login and avoid exposing project existence through raw page errors.
 - `presignGetObject(key)` and `presignPutObject(key, contentType)` wrap S3 presigned URLs.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.

@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { AnnotationProjectRole, User } from "@prisma/client";
 
 import { prisma } from "@/server/db";
@@ -24,7 +24,7 @@ export async function requireWorkspaceProjectRole(
   projectId: string,
   allowed: readonly AnnotationProjectRole[],
 ) {
-  if (!projectId) throw new Error("PROJECT_ID_MISSING");
+  if (!projectId) notFound();
 
   const user = await requireWorkspaceUser();
   const membership = await prisma.annotationProjectMember.findUnique({
@@ -32,7 +32,7 @@ export async function requireWorkspaceProjectRole(
     select: { role: true, projectId: true, userId: true },
   });
 
-  if (!membership || !allowed.includes(membership.role)) throw new Error("FORBIDDEN");
+  if (!membership || !allowed.includes(membership.role)) notFound();
 
   return { user, membership };
 }

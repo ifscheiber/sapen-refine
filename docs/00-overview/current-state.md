@@ -10,6 +10,7 @@ This page records the repository state after the RB-049 through RB-069 annotatio
 - `prisma/schema.prisma` - current annotation-domain persisted model.
 - `src/app/(public)/login/page.tsx` and `src/app/(public)/login/LoginForm.tsx` - public login route.
 - `src/app/(workspace)/app/**` - protected App Router workspace URLs.
+- `src/app/not-found.tsx`, `src/app/(workspace)/app/not-found.tsx`, and `src/app/(workspace)/app/[...missing]/page.tsx` - SaPen Annotate branded not-found fallbacks for stale or unknown page URLs.
 - `src/app/api/**` - current auth, project, image, mask, health, and readiness route handlers.
 - `src/features/projects`, `src/features/images`, and `src/features/editor` - feature-owned workflow composition.
 - `src/server/auth`, `src/server/runtime`, `src/server/storage`, `src/server/uploads`, and `src/server/domain/storageCleanup.ts` - server-only auth, config, storage, upload validation, and temporary cleanup helpers.
@@ -43,6 +44,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - App-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
+- Stale editor/metadata image URLs and project/image mismatches render a project-aware missing-resource soft landing through `src/components/shell/AppMissingResource.tsx`; missing or unauthorized project pages use App Router `notFound()` to avoid existence leakage.
 - Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist as compatibility endpoints. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
 - Browser-side helpers in `src/lib/projectsClient.ts` and `src/lib/imagesApi.ts` follow the app-mediated upload/read contract and do not expose private storage keys or presigned upload internals.
 - Latest mask reload uses `src/app/api/images/[imageId]/mask/latest/route.ts` and app-mediated version assets.
@@ -75,7 +77,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. RB-067 adds export-time QA metrics without a dashboard. Malware scanning, general API write rate limiting, large async export jobs, production-scale queue infrastructure/system actors, committed-artifact retention, cleanup dashboards, and metrics dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate.
-- The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, and RB-076 through RB-078 cover deployment/iPad/post-trial gates.
+- The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, RB-082 covers missing-resource/not-found page UX, and RB-076 through RB-078 cover deployment/iPad/post-trial gates.
 
 ## Related Tickets / Docs
 

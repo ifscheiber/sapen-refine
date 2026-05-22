@@ -3,6 +3,7 @@ import { AlertTriangleIcon, ArrowLeftIcon } from "lucide-react";
 
 import { AppEmptyState } from "@/components/shell/AppEmptyState";
 import { AppMain } from "@/components/shell/AppMain";
+import { AppMissingResource } from "@/components/shell/AppMissingResource";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { Button } from "@/components/ui/button";
 import { evaluateTrialImageEditability } from "@/lib/imageSizePolicy";
@@ -20,13 +21,25 @@ export async function EditImagePage({
 }) {
   const { membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
 
-  const image = await prisma.imageAsset.findUnique({
-    where: { id: imageId },
-    select: { id: true, filename: true, contentType: true, size: true, width: true, height: true, projectId: true },
+  const image = await prisma.imageAsset.findFirst({
+    where: { id: imageId, projectId },
+    select: { id: true, filename: true, contentType: true, size: true, width: true, height: true },
   });
 
-  if (!image || image.projectId !== projectId) {
-    throw new Error("IMAGE_NOT_FOUND");
+  if (!image) {
+    return (
+      <AppMain>
+        <AppPageHeader title="Image not found" description="SaPen Annotate" />
+        <AppMissingResource
+          title="Image not found or no longer available"
+          description="The image may have been removed, the database may have been rebuilt, or the copied link may be stale."
+          actions={[
+            { kind: "images", href: `/app/projects/${projectId}/images` },
+            { kind: "project", href: `/app/projects/${projectId}` },
+          ]}
+        />
+      </AppMain>
+    );
   }
   const editability = evaluateTrialImageEditability(image.width, image.height);
   const baseDescription = `${image.contentType ?? "unknown type"} · ${image.size ?? 0} bytes · Role: ${membership.role}`;
