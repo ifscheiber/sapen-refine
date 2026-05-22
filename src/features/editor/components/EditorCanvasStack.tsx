@@ -7,6 +7,7 @@ type EditorCanvasStackProps = {
   baseCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   predictionCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   overlayCanvasRef: React.RefObject<HTMLCanvasElement | null>;
+  bboxCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   previewCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   tool: Tool;
   onPointerDown: React.PointerEventHandler<HTMLCanvasElement>;
@@ -22,6 +23,7 @@ export function EditorCanvasStack({
   baseCanvasRef,
   predictionCanvasRef,
   overlayCanvasRef,
+  bboxCanvasRef,
   previewCanvasRef,
   tool,
   onPointerDown,
@@ -54,6 +56,11 @@ export function EditorCanvasStack({
           onDoubleClick={() => {
             if (tool === "lasso_poly") onCommitPolygon();
           }}
+        />
+        <canvas
+          ref={bboxCanvasRef}
+          aria-label="Slice BBox proposal overlay"
+          className="absolute left-0 top-0 pointer-events-none"
         />
         <canvas ref={previewCanvasRef} className="absolute left-0 top-0 pointer-events-none" />
       </div>

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the planned crop-based slice annotation workflow for RB-086 through RB-092. It is a design contract, not a statement of current runtime behavior.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements the first runtime slice: persistent source-image BBox proposals. Later crop, support-mask, semantic, classification, review, and export steps remain planned until their tickets land.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -29,12 +29,31 @@ A BBox proposal is an ergonomic work-area proposal. It gives the system enough i
 
 A support mask is the pixel-perfect physical slice geometry. It is the training target for support/instance segmentation.
 
+RB-086 persists BBox proposals as append-only `SliceBoundingBoxVersion` rows linked to `SliceInstance`. Each saved BBox uses integer `SOURCE_IMAGE_PIXEL` coordinates validated against `ImageAsset.width` and `ImageAsset.height`.
+
 Rules:
 
 - BBox proposals are not instance ground truth.
 - A training-ready slice instance requires an approved support mask.
 - Crops may be regenerated or superseded if the BBox, padding, or source image version changes.
 - Support masks must remain separate from semantic material masks.
+- Deleting a BBox proposal appends a `DELETED` version; it does not delete historical proposal versions.
+
+## Implemented SliceBoundingBoxVersion Concept
+
+`SliceBoundingBoxVersion` records the current RB-086 BBox proposal history:
+
+- project id,
+- image id,
+- slice instance id,
+- monotonically increasing version per slice instance,
+- active/deleted status,
+- source-image integer `x`, `y`, `width`, and `height`,
+- `coordinateSpace = SOURCE_IMAGE_PIXEL`,
+- provenance, creator, and creation time,
+- optional metadata JSON for replacement/deletion lineage.
+
+`SliceInstance.boundingBox` stores a denormalized current summary for UI convenience. The version rows remain the history source of truth, and downstream RB-087 crops should reference a specific BBox version id.
 
 ## Planned DerivedSliceCrop Concept
 
@@ -150,12 +169,14 @@ Current implemented behavior:
 
 - one default `SliceInstance` per image,
 - full-resolution semantic and support masks,
+- one or more RB-086 BBox proposal slice instances per image,
+- BBox proposal versions in `SOURCE_IMAGE_PIXEL`,
 - current saved mask coordinate space is `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- one or more slice instances can be represented by BBox/crop/support artifacts,
+- saved BBox proposal versions seed derived crops,
 - crop masks use `CROP_PIXEL`,
 - each crop carries a transform to `SOURCE_IMAGE_PIXEL`,
 - crop exports preserve both crop-space artifacts and source-image provenance.

@@ -81,6 +81,7 @@ enum ArtifactProvenance {
 
 enum CoordinateSpace {
   IMAGE_PIXEL
+  SOURCE_IMAGE_PIXEL
   TRANSFORMED
 }
 
@@ -89,6 +90,11 @@ enum SliceClass {
   COPPER_SLICE
   UNKNOWN
   REVIEW_REQUIRED
+}
+
+enum SliceBoundingBoxStatus {
+  ACTIVE
+  DELETED
 }
 
 enum ExportTarget {
@@ -173,6 +179,7 @@ model User {
   createdArtifacts               AnnotationArtifact[]         @relation("ArtifactCreatedBy")
   createdArtifactVersions        AnnotationArtifactVersion[]  @relation("ArtifactVersionCreatedBy")
   createdSliceInstances          SliceInstance[]              @relation("SliceInstanceCreatedBy")
+  createdSliceBoundingBoxes      SliceBoundingBoxVersion[]    @relation("SliceBoundingBoxCreatedBy")
   createdSliceClassifications    SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
   reviewDecisions                ReviewDecision[]             @relation("ReviewDecisionReviewedBy")
   exportBatches                  ExportBatch[]                @relation("ExportBatchExportedBy")
@@ -214,6 +221,7 @@ model AnnotationProject {
   annotationSessions      AnnotationSession[]
   artifacts               AnnotationArtifact[]
   sliceInstances          SliceInstance[]
+  sliceBoundingBoxes      SliceBoundingBoxVersion[]
   classifications         SliceClassificationVersion[]
   reviewDecisions         ReviewDecision[]
   exportBatches           ExportBatch[]
@@ -303,6 +311,7 @@ model ImageAsset {
   annotationSessions         AnnotationSession[]
   artifacts                  AnnotationArtifact[]
   sliceInstances             SliceInstance[]
+  sliceBoundingBoxes         SliceBoundingBoxVersion[]
   classifications            SliceClassificationVersion[]
   exportItems                ExportItem[]
   predictionProvenances      PredictionArtifactProvenance[]
@@ -491,12 +500,42 @@ model SliceInstance {
   supportArtifactVersion AnnotationArtifactVersion?     @relation("SliceSupportArtifactVersion", fields: [supportArtifactVersionId], references: [id], onDelete: SetNull)
   createdBy              User?                          @relation("SliceInstanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   tasks                  AnnotationTask[]
+  boundingBoxVersions    SliceBoundingBoxVersion[]
   classifications        SliceClassificationVersion[]
   predictionProvenances  PredictionArtifactProvenance[]
 
   @@index([projectId])
   @@index([imageId])
   @@index([supportArtifactVersionId])
+  @@index([createdById])
+}
+
+model SliceBoundingBoxVersion {
+  id              String                 @id @default(cuid())
+  projectId       String
+  imageId         String
+  sliceInstanceId String
+  version         Int
+  status          SliceBoundingBoxStatus @default(ACTIVE)
+  x               Int
+  y               Int
+  width           Int
+  height          Int
+  coordinateSpace CoordinateSpace        @default(SOURCE_IMAGE_PIXEL)
+  provenance      ArtifactProvenance     @default(HUMAN_ANNOTATION)
+  metadataJson    Json?
+  createdById     String?
+  createdAt       DateTime               @default(now())
+
+  project       AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image         ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance SliceInstance     @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  createdBy     User?             @relation("SliceBoundingBoxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([sliceInstanceId, version])
+  @@index([projectId, status])
+  @@index([imageId, status])
+  @@index([sliceInstanceId, status])
   @@index([createdById])
 }
 

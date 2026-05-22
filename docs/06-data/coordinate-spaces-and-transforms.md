@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This page defines the planned coordinate-space vocabulary for crop-based slice annotation. It is a design contract for RB-086 through RB-092.
+This page defines the coordinate-space vocabulary for crop-based slice annotation.
 
-Current runtime behavior still saves full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. Crop-specific coordinate spaces are planned and must be implemented by later schema/API/editor/export tickets before they are used by runtime artifacts.
+Current runtime behavior still saves full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. Crop masks and `CROP_PIXEL` remain planned for later schema/API/editor/export tickets.
 
 ## Coordinate Spaces
 
@@ -20,11 +20,11 @@ Properties:
 - valid source pixels satisfy `0 <= x < sourceWidth` and `0 <= y < sourceHeight`,
 - source image checksum and dimensions are part of provenance.
 
-`SOURCE_IMAGE_PIXEL` is the crop-design name for source-image coordinates. The current implemented full-resolution mask coordinate value is `IMAGE_PIXEL`.
+`SOURCE_IMAGE_PIXEL` is the implemented persisted coordinate value for RB-086 `SliceBoundingBoxVersion` rows. Current full-resolution mask artifacts still use `IMAGE_PIXEL`.
 
 ### CROP_PIXEL
 
-`CROP_PIXEL` means pixel coordinates inside a derived crop image.
+`CROP_PIXEL` means pixel coordinates inside a derived crop image. It is still a design term; the active Prisma enum does not persist crop-mask artifacts in `CROP_PIXEL` yet.
 
 Properties:
 
@@ -72,7 +72,8 @@ Crop transforms must be integer-pixel transforms for the first implementation.
 
 Rules:
 
-- BBox proposal coordinates should be normalized to integer source pixels before crop generation.
+- RB-086 BBox proposal coordinates are normalized to integer source pixels before persistence.
+- BBox proposals must satisfy `x >= 0`, `y >= 0`, `width >= 4`, `height >= 4`, `x + width <= sourceWidth`, and `y + height <= sourceHeight`.
 - Crop origin and dimensions must be non-negative integers after clipping.
 - Empty crops are invalid.
 - The crop rectangle must satisfy `0 <= cropOriginX < sourceWidth`, `0 <= cropOriginY < sourceHeight`, `cropOriginX + cropWidth <= sourceWidth`, and `cropOriginY + cropHeight <= sourceHeight`.

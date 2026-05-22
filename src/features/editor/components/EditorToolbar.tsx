@@ -120,6 +120,15 @@ export function EditorToolbar({
           >
             Polygon
           </button>
+          <button
+            aria-pressed={tool === "bbox"}
+            className={tool === "bbox" ? activeButtonClass : idleButtonClass}
+            onClick={() => onToolChange("bbox")}
+            disabled={!canEdit || isCorrectionMode}
+            title="Draw rough slice crop proposals. Not ground truth."
+          >
+            BBox proposal
+          </button>
           <div className="ml-3 flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
             <span>Tool Size: {brushRadius}px</span>
             <input
@@ -128,7 +137,7 @@ export function EditorToolbar({
               max={120}
               value={brushRadius}
               onChange={(event) => onBrushRadiusChange(Number(event.target.value))}
-              disabled={!canEdit || tool === "lasso_poly"}
+              disabled={!canEdit || tool === "lasso_poly" || tool === "bbox"}
               className="w-32"
             />
             {tool === "eraser" && <span>{formatEraserHint(maskMode)}</span>}

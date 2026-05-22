@@ -13,6 +13,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260520213000_prediction_analysis_exports/migration.sql` - RB-060 prediction-analysis export target and `ExportItem.predictionProvenanceId` extension.
 - `prisma/migrations/20260520204932_prediction_import_batches/migration.sql` - RB-061 prediction import batch/job/item extension.
 - `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 batch staging purge markers.
+- `prisma/migrations/20260522214000_slice_bbox_proposals/migration.sql` - RB-086 `SliceBoundingBoxVersion`, `SliceBoundingBoxStatus`, and `SOURCE_IMAGE_PIXEL` coordinate-space extension.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -25,7 +26,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `ImageAsset`, `ImageAcquisitionMetadata`, `SampleMetadata` - immutable image asset references plus RB-050 image-level acquisition/default sample metadata workflow storage.
 - `AnnotationTask`, `AnnotationSession` - assignment/edit context baseline with priority, confidence/uncertainty, and model-source placeholders.
 - `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts.
-- `SliceInstance`, `SliceClassificationVersion` - physical slice object and classification baseline; RB-051 uses one default slice instance per image.
+- `SliceInstance`, `SliceBoundingBoxVersion`, `SliceClassificationVersion` - physical slice object, BBox proposal history, and classification baseline; RB-051 uses one default slice instance per image and RB-086 creates BBox proposal slice instances.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
 - `ExportBatch`, `ExportItem` - RB-053 training export and RB-060 prediction-analysis export batch persistence, manifest/package metadata, warnings, actor attribution, exact exported version references, and optional prediction provenance references.
 - `ModelRun` - model/training/checkpoint identity with task type, checkpoint, training dataset/export references, config hash, actor, warnings, and metadata.
@@ -42,6 +43,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Every annotation artifact version references exactly one `LabelSchemaVersion`.
 - `AnnotationArtifactKind.SEMANTIC_MASK` is separate from `SLICE_SUPPORT_MASK` and `INSTANCE_MASK`.
 - Copper is a semantic label in the default label schema and is not support geometry.
+- `SliceBoundingBoxVersion` records source-image proposal rectangles only. It uses `CoordinateSpace.SOURCE_IMAGE_PIXEL`, appends new versions for replacement/deletion, and does not make the BBox export-ready support geometry.
 - `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
 - Current image writes persist `ImageValidationStatus.VALIDATED` only after server-side PNG/JPEG validation and object stat verification.
 - Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
@@ -54,8 +56,8 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 
 ## Known Gaps
 
-- Slice-specific metadata and multi-slice/multi-object editing remain deferred.
-- One-default-slice support/classification workflows exist after RB-051.
+- Slice-specific metadata and multi-slice/multi-object support-mask editing remain deferred.
+- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, but derived crops and per-crop support masks remain deferred.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only training export generation. RB-060/RB-067 implement separate synchronous owner/QA prediction-analysis exports with QA metrics. RB-061 implements DB-backed prediction import batches, RB-065 adds single-host worker leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Advanced filters, export history UI, metrics dashboards, cleanup UI, and production-scale workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. RB-066 handles identifiable temporary/orphan cleanup, but committed artifact retention remains out of scope.

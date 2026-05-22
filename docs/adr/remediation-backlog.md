@@ -4,11 +4,11 @@ Deferred work discovered during repository hygiene should be recorded here inste
 
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation
 
-Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. The runtime still uses the full-resolution editor and image-sized `IMAGE_PIXEL` masks.
+Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions, but the runtime still lacks derived crops and still saves semantic/support masks as full-resolution image-sized `IMAGE_PIXEL` artifacts.
 
 Impact: Large images can still stress browser/iPad memory and server request buffering during full-image annotation. Crop-based annotation is needed for scalable multi-slice workflows while preserving source-image coordinate provenance.
 
-Proposed next step: Implement the planned sprint sequence: RB-086 BBox proposals, RB-087 derived crops, RB-088 crop support-mask editor, RB-089 crop-constrained semantics, RB-090 auto classification, RB-091 crop/original-coordinate export, and RB-092 crop review/approval.
+Proposed next step: Continue the planned sprint sequence: RB-087 derived crops, RB-088 crop support-mask editor, RB-089 crop-constrained semantics, RB-090 auto classification, RB-091 crop/original-coordinate export, and RB-092 crop review/approval.
 
 Affected modules: `src/features/editor`, `src/app/api`, `src/server/domain`, `src/mask`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
 

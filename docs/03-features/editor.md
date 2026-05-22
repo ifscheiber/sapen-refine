@@ -53,6 +53,7 @@ Extracted ownership:
 - `src/features/editor/components/EditorReviewPanel.tsx` owns review/export-readiness display and submit/approve/reject controls.
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
 - `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
+- `src/features/editor/components/EditorBBoxPanel.tsx` owns RB-086 slice BBox proposal list, selection, replacement, and delete controls.
 
 RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit eraser tool without changing mask serialization, server API semantics, review/export behavior, or prediction provenance.
 
@@ -68,9 +69,10 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 ## Current Canvas And Input Model
 
 - The editor loads the source image through `/api/images/[imageId]/view`.
-- The standard editor stacks base image, editable mask overlay, and lasso preview canvases.
+- The standard editor stacks base image, editable mask overlay, BBox proposal overlay, and lasso/BBox preview canvases.
 - The correction editor adds a read-only prediction proposal canvas between the base image and editable human mask.
 - The mask coordinate space currently matches the image pixel dimensions.
+- RB-086 BBox proposals use source-image pixel coordinates and are drawn with Pointer Events on the original-image editor canvas.
 - Pointer Events are the only drawing input layer; there is no parallel mouse/touch event system.
 - The overlay canvas uses `touch-none`, so drawing on the canvas is intended not to scroll the page on touch devices.
 - Pointer capture is already used for brush strokes, freehand lasso, and polygon-handle dragging.
@@ -103,6 +105,9 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
 - Review/export-readiness state is loaded from `/api/images/[imageId]/review-state`.
 - Mask bytes are fetched through app-mediated version asset URLs.
+- BBox proposal state is loaded from `GET /api/images/[imageId]/slice-bboxes`.
+- Creating a BBox proposal posts source-image integer geometry to `POST /api/images/[imageId]/slice-bboxes`.
+- Replacing or deleting the current BBox proposal version calls `PATCH /api/slice-bboxes/[bboxVersionId]` or `DELETE /api/slice-bboxes/[bboxVersionId]`. RB-086 uses an append-only rule: replacement creates the next active `SliceBoundingBoxVersion`, and deletion creates the next `DELETED` version instead of erasing history.
 
 ## Current Domain Model
 
@@ -114,6 +119,9 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Slice support saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SLICE_SUPPORT_MASK` and link the default `SliceInstance.supportArtifactVersionId`.
 - Saved mask versions record canonical SHA-256 checksum, byte size, width, height, `u8raw-v1` format, `IMAGE_PIXEL` coordinate space, creator, and label schema version.
 - Slice classification is set from the editor and persisted as `SliceClassificationVersion`.
+- BBox proposal mode creates one `SliceInstance` per new slice proposal and appends `SliceBoundingBoxVersion` rows in `SOURCE_IMAGE_PIXEL` coordinate space.
+- `SliceInstance.boundingBox` is a denormalized current summary only; `SliceBoundingBoxVersion` is the proposal history source of truth.
+- BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -141,11 +149,11 @@ At the upper bound, one `u8raw-v1` mask is `48,000,000` bytes, about 45.8 MiB. T
 
 The trial does not hard-block multiple editor tabs. Users should avoid opening multiple large editor tabs; a future edit-session or soft-lock workflow is tracked as backlog.
 
-## Planned Crop-Based Slice Annotation
+## Crop-Based Slice Annotation
 
-RB-085 defines the planned crop-based workflow for RB-086 through RB-092. This is not current editor behavior.
+RB-085 defines the crop-based workflow for RB-086 through RB-092. RB-086 implements only the first runtime slice: source-image BBox proposals in the existing editor.
 
-The intended future flow is:
+The overall target flow is:
 
 ```text
 Original image
@@ -157,6 +165,14 @@ Original image
 -> review/approval
 -> export with crop/source-image provenance
 ```
+
+Current RB-086 behavior:
+
+- `BBox proposal` mode is available in the existing editor toolbar.
+- Users can draw source-image rectangles, select a slice proposal, replace its geometry by drawing again, delete the current proposal, and reload persisted proposals.
+- Server validation uses persisted `ImageAsset.width` and `ImageAsset.height`, not browser display size.
+- Viewer roles can list proposals but cannot mutate them.
+- Crop generation is not implemented yet; derived crops start in RB-087.
 
 The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 

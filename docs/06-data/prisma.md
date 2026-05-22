@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-067 workflow, provenance, batch-runner, storage-cleanup, and prediction-QA extensions. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-067 workflow, provenance, batch-runner, storage-cleanup, prediction-QA extensions, and the RB-086 BBox slice proposal model. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -14,7 +14,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 - `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` persist immutable image references plus the RB-050 image-level metadata workflow.
 - `AnnotationTask` and `AnnotationSession` provide the persistence baseline for assignment, active-learning/preprediction fields, and edit context. RB-058 adds a unique correction-task link for `predictionProvenanceId + type`.
 - `AnnotationArtifact` and `AnnotationArtifactVersion` replace `Mask`/`MaskVersion` and separate semantic, support/instance, prediction, and derived artifact families.
-- `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051.
+- `SliceInstance` and `SliceClassificationVersion` provide the persistence baseline for RB-051. RB-086 adds `SliceBoundingBoxVersion` for append-only source-image BBox proposal history linked to slice instances.
 - `ReviewDecision` and `ArtifactReviewState` provide the persistence and workflow baseline for draft/submitted/approved/rejected/superseded ground-truth state. RB-052 decisions can target artifact versions or slice classification versions.
 - `ExportBatch` and `ExportItem` persist RB-053 training export batches and RB-060/RB-067 prediction-analysis export batches, manifest/package metadata, QA metric summary metadata, warnings, actor attribution, and exact exported version/provenance references.
 - `ModelRun`, `PredictionRun`, and `PredictionArtifactProvenance` persist RB-056 model/checkpoint/training provenance, project-scoped inference runs, per-image prediction proposal metadata, and RB-065 batch-item idempotency keys for retry-safe imports.
@@ -30,6 +30,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - image metadata routes use `ImageAcquisitionMetadata` and image-level/default `SampleMetadata`,
 - current editor mask saves create or append to a `SEMANTIC_MASK` `AnnotationArtifact`,
 - support-mask editor saves create or append to a `SLICE_SUPPORT_MASK` `AnnotationArtifact`,
+- BBox proposal editor writes create `SliceInstance` rows plus append-only `SliceBoundingBoxVersion` rows in `SOURCE_IMAGE_PIXEL` coordinate space,
 - slice classification writes create `SliceClassificationVersion` rows for the default `SliceInstance`,
 - review routes update `reviewState` and append `ReviewDecision` rows for semantic masks, support masks, and slice classifications,
 - upload routes persist verified `ImageAsset` checksums/dimensions/status for PNG/JPEG images,
@@ -78,6 +79,7 @@ Customer-facing trial deployment uses `npm run trial:bootstrap` after `prisma mi
 - RB-054 documents the model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import; RB-058 implements the first active-learning correction task queue; RB-059 implements assisted correction; RB-060 implements separate prediction-analysis exports; RB-061 implements ZIP-based batch prediction import jobs; RB-065 adds single-host DB leases, stale processing recovery, process-due API support, and an optional Compose worker profile; RB-066 adds temporary staging/presigned-orphan cleanup markers and admin cleanup tooling; RB-067 adds export-time QA metrics without schema changes.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
 - RB-064 adds central role-policy helpers, DB-backed login throttling, same-origin mutation guards, throttled session `lastSeenAt` updates, and broader auth/project/review/provenance audit coverage.
+- RB-086 implements persistent source-image BBox proposal versions. Crop generation, crop support masks, crop-aware exports, and crop review integration remain RB-087+ work.
 
 ## Related Docs
 

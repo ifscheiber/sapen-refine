@@ -23,6 +23,7 @@ This checklist verifies the current browser editor baseline for a customer trial
 | Open or create a project. | Project page renders with image navigation. |  |  |
 | Upload a representative PNG/JPEG image. | Image appears in the project image list with validated technical metadata. |  |  |
 | Open the editor. | Image loads and editor controls are visible. |  |  |
+| Select `BBox proposal` and draw a rough slice box. | A slice proposal appears and reloads as a proposal, not ground truth. |  |  |
 | Select each label. | Active label state is visible and touch target remains stable. |  |  |
 | Select Brush and draw with mouse. | Mask overlay follows the pointer and page does not scroll unexpectedly. |  |  |
 | Select Eraser and erase part of the mask. | Eraser uses the brush size, writes background, and participates in dirty/save state. |  |  |
@@ -57,6 +58,7 @@ Blocking failure criteria:
 - Login or session persistence fails on iPad Safari.
 - Editor canvas cannot load images or saved masks.
 - Finger/Pencil drawing does not update the mask.
+- Finger/Pencil BBox proposal drawing fails if crop proposal workflow is part of the pilot.
 - Drawing scrolls the page instead of drawing on the canvas.
 - Save/reload loses the latest mask.
 - Controls overlap or become unusable on the iPad viewport.
@@ -83,6 +85,7 @@ Blocking: yes/no
 | Log in. | Workspace opens and session persists. |  |  |
 | Open an uploaded image in the editor. | Image and controls render. |  |  |
 | Open a large image above `6000x4000` and no larger than `8000x6000` if available. | Large-image memory warning is visible; editor remains usable. |  |  |
+| Select `BBox proposal` and draw a rough slice box with finger/Pencil. | Proposal appears in the BBox list and persists after reload without page scrolling during the draw. |  |  |
 | Draw with finger using Brush. | Mask draws; canvas does not scroll the page while drawing. |  |  |
 | Select Eraser by touch and erase part of the mask. | Eraser touch target is usable and erasing does not scroll the page. |  |  |
 | Draw with Apple Pencil if available. | Pencil draws through Pointer Events. |  |  |
@@ -107,5 +110,6 @@ Blocking: yes/no
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
 - RB-070 adds explicit eraser UX; real iPad Safari/Pencil behavior still needs the manual gate.
+- RB-086 BBox proposals are crop-planning artifacts only; crop generation and crop support-mask editing remain later workflow slices.
 - Current editor review controls are minimal; reviewer dashboards and bulk review remain separate follow-up slices. RB-053 export testing is covered by the desktop/customer browser smoke checklists through the project exports route.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

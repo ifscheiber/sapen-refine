@@ -4,6 +4,7 @@ import {
   clientPointToImagePoint,
   getFitZoom,
   getZoomedCanvasDisplaySize,
+  imageRectFromPoints,
 } from "@/features/editor/canvasGeometry";
 
 describe("editor canvas geometry", () => {
@@ -69,6 +70,15 @@ describe("editor canvas geometry", () => {
     expect(getZoomedCanvasDisplaySize(1000, 500, 0)).toEqual({
       width: 10,
       height: 5,
+    });
+  });
+
+  it("normalizes image rectangles from drag endpoints", () => {
+    expect(imageRectFromPoints({ x: 12, y: 9 }, { x: 4, y: 3 })).toEqual({
+      x: 4,
+      y: 3,
+      width: 9,
+      height: 7,
     });
   });
 });

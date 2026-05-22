@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Depends on RB-085
+Superseded by `RB-086-bbox-slice-proposal-workflow-optimized.md`; implemented by the optimized RB-086 ticket.
 
 ## Priority
 

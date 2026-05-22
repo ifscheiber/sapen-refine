@@ -74,6 +74,7 @@ Current app-mediated upload and mask-save routes use stable flat JSON errors:
 - `UPLOAD_TOO_LARGE` with `413` for bodies above app limits when the request reaches the app.
 - `UNSUPPORTED_CONTENT_TYPE`, `IMAGE_DIMENSIONS_UNREADABLE`, `CHECKSUM_MISMATCH`, and `IMAGE_DIMENSIONS_UNSUPPORTED` for raw image upload validation.
 - `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, and `SUPPORT_MASK_VALUES_INVALID` for current `u8raw-v1` mask validation.
+- `BBOX_TOO_SMALL`, `BBOX_OUT_OF_BOUNDS`, `BBOX_VERSION_STALE`, `IMAGE_DIMENSIONS_REQUIRED`, and integer-field errors for RB-086 source-image BBox proposal validation.
 
 RB-081 keeps `MASK_BYTE_LENGTH_MISMATCH` public responses flat while audit details may include safe byte diagnostics. The diagnostic `x-mask-byte-length` header is never trusted for validation; the actual received request body length is the server source of truth.
 

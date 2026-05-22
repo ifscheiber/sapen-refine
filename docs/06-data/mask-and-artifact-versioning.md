@@ -37,7 +37,7 @@ A copper semantic mask is not a support mask. Copper regions may be smaller than
 
 RB-051 support masks are draft `SLICE_SUPPORT_MASK` artifact versions with default `scopeKey = "default"`. The first workflow supports one default support geometry per image; multi-object instance masks remain deferred.
 
-RB-085 defines the planned crop-based workflow for later sprint slices. In that workflow, a BBox proposal is only an ergonomic crop seed. The pixel-perfect support mask remains the physical slice geometry and an approved support mask is mandatory for a training-ready slice instance.
+RB-085 defines the crop-based workflow for later sprint slices. RB-086 implements BBox proposals as append-only `SliceBoundingBoxVersion` rows linked to `SliceInstance`. A BBox proposal is only an ergonomic crop seed. The pixel-perfect support mask remains the physical slice geometry and an approved support mask is mandatory for a training-ready slice instance.
 
 ### Derived Slice Crop Artifacts
 
@@ -92,6 +92,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - Every saved artifact version is immutable after commit.
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
+- RB-086 BBox proposal edits are also append-only: replacement appends the next active `SliceBoundingBoxVersion`, and deletion appends a `DELETED` version rather than erasing proposal history.
 - Future crop-derived versions must also record or reference their source image, crop artifact, crop transform, and source-image checksum.
 - RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
@@ -116,7 +117,7 @@ RB-052 implements review decisions as separate records so history is attributabl
 
 ## Coordinate Space
 
-The current MVP assumes mask dimensions match the source image dimensions. RB-085 defines planned crop coordinate vocabulary for future implementation in [coordinate-spaces-and-transforms.md](coordinate-spaces-and-transforms.md).
+The current MVP assumes mask dimensions match the source image dimensions. RB-085 defines crop coordinate vocabulary in [coordinate-spaces-and-transforms.md](coordinate-spaces-and-transforms.md), and RB-086 implements the source-image coordinate term for BBox proposal versions.
 
 Each mask artifact records either:
 
@@ -125,10 +126,10 @@ Each mask artifact records either:
 
 The current runtime accepts only `IMAGE_PIXEL` mask coordinate space. Semantic and support masks are rejected when declared dimensions do not match the target image dimensions.
 
-Planned crop workflow terms:
+Crop workflow terms:
 
-- `SOURCE_IMAGE_PIXEL` - source-image pixel coordinates on the immutable upload.
-- `CROP_PIXEL` - pixel coordinates inside a derived slice crop.
+- `SOURCE_IMAGE_PIXEL` - source-image pixel coordinates on the immutable upload. RB-086 persists this value for `SliceBoundingBoxVersion`.
+- `CROP_PIXEL` - pixel coordinates inside a derived slice crop. This remains planned for RB-087+ crop masks/artifacts.
 
 The planned crop transform is:
 
@@ -137,7 +138,7 @@ sourceX = cropX + cropOriginX
 sourceY = cropY + cropOriginY
 ```
 
-Until RB-086+ implements the crop workflow, these terms are documentation contracts only. Current saved masks remain image-sized `IMAGE_PIXEL` artifacts.
+Current saved semantic/support masks remain image-sized `IMAGE_PIXEL` artifacts.
 
 Exports must include coordinate-space metadata.
 

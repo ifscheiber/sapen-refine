@@ -49,6 +49,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open image metadata. | Technical metadata, checksum, dimensions, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
+| Select `BBox proposal` and draw a rough slice box. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth. |  |  |
+| Reload after creating the BBox proposal. | The BBox proposal reloads; no support mask or export-ready state is implied by the BBox alone. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |
 | Select Eraser and erase part of the semantic mask. | Eraser is discoverable, uses brush size, writes background, and can be saved. |  |  |
 | Save semantic mask. | Semantic mask save completes and persists. |  |  |
@@ -105,6 +107,7 @@ Blocking failure criteria:
 | Open project and image metadata. | Metadata form controls remain reachable without overlap. |  |  |
 | Enter or inspect T-number and acquisition metadata. | Metadata fields fit the viewport and save/reload works. |  |  |
 | Open editor. | Editor controls remain reachable without overlap. |  |  |
+| Select `BBox proposal` and draw a rough slice box by touch. | BBox drawing works through Pointer Events without scrolling the page while drawing. |  |  |
 | Draw with finger using Brush. | Canvas draws and page does not scroll while drawing. |  |  |
 | Select Eraser by touch and erase. | Eraser control is reachable and erasing uses the same brush-size workflow. |  |  |
 | Switch to `Slice support`. | Mode switch and support controls fit the iPad viewport. |  |  |
@@ -139,6 +142,7 @@ Blocking failure criteria:
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - RB-068 is an internal editor decomposition; visible customer-trial editor behavior should remain unchanged.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
-- RB-051 supports one default slice/support geometry per image; multi-object editing remains deferred.
+- RB-051 supports one default pixel-perfect slice/support geometry per image; multi-object editing remains deferred.
+- RB-086 supports source-image BBox slice proposals as crop-planning artifacts only; crop generation and crop support-mask editing remain deferred.
 - RB-053 training export and RB-060/RB-067 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. RB-066 storage cleanup is admin-only and dry-run first. Cleanup UI, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
 - Assisted correction supports semantic/support mask predictions only; slice-classification correction remains deferred.

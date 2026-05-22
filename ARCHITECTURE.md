@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, source-image BBox slice proposals, semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction is a secondary provenance-bearing mode. SaPen Core handoff workflows are future integrations and must remain explicit.
 
@@ -42,11 +42,11 @@ Persisted entities today:
 - `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` for image references and metadata structures.
 - `AnnotationTask` and `AnnotationSession` for assignment/edit context.
 - `AnnotationArtifact` and `AnnotationArtifactVersion` for semantic/support/instance/prediction/derived artifacts.
-- `SliceInstance` and `SliceClassificationVersion` for physical slice and classification persistence.
+- `SliceInstance`, `SliceBoundingBoxVersion`, and `SliceClassificationVersion` for physical slice proposals, BBox planning history, and classification persistence.
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, `PredictionImportBatchJob`, and `PredictionImportBatchItem` for model-assisted correction provenance and trial-sized batch prediction import bookkeeping.
 
-Known workflow gaps include advanced export filters/history/async large-job handling, reviewer dashboards/bulk review, multi-slice support, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial worker. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include derived crop generation from BBox versions, crop support-mask editing, crop-aware exports/review integration, advanced export filters/history/async large-job handling, reviewer dashboards/bulk review, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial worker. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -55,6 +55,7 @@ Known workflow gaps include advanced export filters/history/async large-job hand
 - Image upload: the customer-trial browser path posts to `/api/projects/[projectId]/images/upload`; the app server validates PNG/JPEG bytes, checksum, dimensions, and object metadata before storing the image row. Presign/commit routes remain compatibility paths with server-side commit validation.
 - Workspace shell: `/app/**` routes live under `src/app/(workspace)/app` and compose feature modules through `src/components/shell`.
 - Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders `src/features/editor/EditorClient.tsx`.
+- BBox slice proposals: the editor BBox mode stores source-image pixel rectangles through `/api/images/[imageId]/slice-bboxes` and `/api/slice-bboxes/[bboxVersionId]`. BBoxes are append-only proposal versions linked to `SliceInstance`; they are not support masks or export-ready ground truth.
 - Mask/classification save/reload: the editor posts semantic bytes to `/api/images/[imageId]/mask/upload`, support bytes to `/api/images/[imageId]/support-mask/upload`, and classifications to `/api/images/[imageId]/slice/classification`; latest artifacts are streamed through app-mediated version asset routes.
 - Review/approval: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, and `/api/slice-classification-versions/[versionId]/review` implement minimal draft/submitted/approved/rejected transitions and export-readiness state.
 - Training export: `/app/projects/[projectId]/exports` uses `/api/projects/[projectId]/export/readiness` and `/api/projects/[projectId]/exports` to create owner-only approved-version exports; `/api/exports/[exportId]/download` streams manifest and ZIP package downloads through the app.

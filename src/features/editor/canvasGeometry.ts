@@ -10,6 +10,13 @@ export type ImagePoint = {
   y: number;
 };
 
+export type ImageRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export function clampNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -68,5 +75,19 @@ export function clientPointToImagePoint({
   return {
     x: clampNumber(x, 0, canvasWidth - 1),
     y: clampNumber(y, 0, canvasHeight - 1),
+  };
+}
+
+export function imageRectFromPoints(start: ImagePoint, end: ImagePoint): ImageRect {
+  const x0 = Math.min(start.x, end.x);
+  const y0 = Math.min(start.y, end.y);
+  const x1 = Math.max(start.x, end.x);
+  const y1 = Math.max(start.y, end.y);
+
+  return {
+    x: x0,
+    y: y0,
+    width: x1 - x0 + 1,
+    height: y1 - y0 + 1,
   };
 }

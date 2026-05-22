@@ -12,6 +12,8 @@ import {
   clientPointToImagePoint,
   getFitZoom,
   getZoomedCanvasDisplaySize,
+  imageRectFromPoints,
+  type ImageRect,
 } from "./canvasGeometry";
 import {
   API_ARTIFACT_REVIEW,
@@ -21,6 +23,8 @@ import {
   API_MASK_LATEST,
   API_MASK_UPLOAD,
   API_REVIEW_STATE,
+  API_SLICE_BBOX,
+  API_SLICE_BBOXES,
   API_SLICE_CLASSIFICATION,
   API_SLICE_STATE,
   API_SUPPORT_MASK_LATEST,
@@ -43,24 +47,47 @@ import {
   type Point,
   type ReviewAction,
   type ReviewableState,
+  type SliceBoundingBoxProposal,
   type SliceClassValue,
   type SliceState,
   type Stroke,
   type Tool,
 } from "./editorTypes";
 import { EditorAssistedCorrectionPanel } from "./components/EditorAssistedCorrectionPanel";
+import { EditorBBoxPanel } from "./components/EditorBBoxPanel";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
 import { EditorReviewPanel } from "./components/EditorReviewPanel";
 import { EditorSliceClassificationPanel } from "./components/EditorSliceClassificationPanel";
 import { EditorToolbar } from "./components/EditorToolbar";
+
+function drawBBoxRect(ctx: CanvasRenderingContext2D, rect: ImageRect, selected = false) {
+  ctx.save();
+  ctx.lineWidth = selected ? 3 : 2;
+  ctx.setLineDash(selected ? [10, 5] : [6, 4]);
+  ctx.strokeStyle = selected
+    ? editorCanvasPreviewStyle.bboxSelectedStroke
+    : editorCanvasPreviewStyle.bboxStroke;
+  ctx.fillStyle = selected
+    ? editorCanvasPreviewStyle.bboxSelectedFill
+    : editorCanvasPreviewStyle.bboxFill;
+  ctx.shadowColor = editorCanvasPreviewStyle.bboxShadow;
+  ctx.shadowBlur = 2;
+  ctx.beginPath();
+  ctx.rect(rect.x + 0.5, rect.y + 0.5, Math.max(1, rect.width), Math.max(1, rect.height));
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
 
 export default function EditorClient({ imageId, canEdit, correctionTaskId, correctionMode }: EditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bboxCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const overlayCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const bboxCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -86,10 +113,16 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   const [correctionStatus, setCorrectionStatus] = useState<string>("");
   const [predictionOverlayEnabled, setPredictionOverlayEnabled] = useState(true);
   const [predictionLoaded, setPredictionLoaded] = useState(false);
+  const [bboxProposals, setBBoxProposals] = useState<SliceBoundingBoxProposal[]>([]);
+  const [bboxStatus, setBBoxStatus] = useState("");
+  const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
+  const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
+  const [bboxCanvasReadyRevision, setBBoxCanvasReadyRevision] = useState(0);
 
   const [zoom, setZoom] = useState<number>(1);
   const isCorrectionMode = Boolean(correctionTaskId);
   const editorCanEdit = canEdit && editorReady;
+  const canEditBBox = editorCanEdit && !isCorrectionMode;
 
   const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
   const supportBackgroundValue = sliceState?.supportLabels.background ?? Labels.BG;
@@ -107,6 +140,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   const lassoPointsRef = useRef<Point[]>([]);
   const lassoActiveRef = useRef(false);
   const lassoDragIndexRef = useRef<number | null>(null);
+  const bboxDragStartRef = useRef<Point | null>(null);
 
   // Undo/Redo: strokes (Patch[])
   const undoRef = useRef<Stroke[]>([]);
@@ -168,6 +202,24 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     setReviewStatus("");
   }, [imageId]);
 
+  const loadBBoxProposals = useCallback(async () => {
+    const res = await fetch(API_SLICE_BBOXES(imageId), { method: "GET", cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      setBBoxStatus(data?.error ?? `SLICE_BBOXES_FAILED_${res.status}`);
+      return [];
+    }
+
+    const boxes = (data.boxes ?? []) as SliceBoundingBoxProposal[];
+    setBBoxProposals(boxes);
+    setSelectedBBoxId((current) => {
+      if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
+      return boxes[0]?.bboxVersionId ?? null;
+    });
+    setBBoxStatus("");
+    return boxes;
+  }, [imageId]);
+
   const loadCorrectionContext = useCallback(async (taskId: string) => {
     setCorrectionStatus("Loading correction task");
     try {
@@ -191,7 +243,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   useEffect(() => {
     void loadSliceState();
     void loadReviewState();
-  }, [loadReviewState, loadSliceState]);
+    void loadBBoxProposals();
+  }, [loadBBoxProposals, loadReviewState, loadSliceState]);
 
   useEffect(() => {
     if (!correctionTaskId) return;
@@ -412,8 +465,9 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     const base = baseCanvasRef.current;
     const prediction = predictionCanvasRef.current;
     const over = overlayCanvasRef.current;
+    const bbox = bboxCanvasRef.current;
     const preview = previewCanvasRef.current;
-    if (!base || !prediction || !over || !preview) return;
+    if (!base || !prediction || !over || !bbox || !preview) return;
 
     const iw = base.width;
     const ih = base.height;
@@ -426,6 +480,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     prediction.style.height = `${dispH}px`;
     over.style.width = `${dispW}px`;
     over.style.height = `${dispH}px`;
+    bbox.style.width = `${dispW}px`;
+    bbox.style.height = `${dispH}px`;
     preview.style.width = `${dispW}px`;
     preview.style.height = `${dispH}px`;
   }, []);
@@ -532,6 +588,29 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
       }
     }
     ctx.restore();
+  }
+
+  const renderBBoxOverlay = useCallback(() => {
+    const ctx = bboxCtxRef.current;
+    const c = bboxCanvasRef.current;
+    if (!ctx || !c) return;
+
+    ctx.clearRect(0, 0, c.width, c.height);
+    for (const box of bboxProposals) {
+      drawBBoxRect(
+        ctx,
+        { x: box.x, y: box.y, width: box.width, height: box.height },
+        box.bboxVersionId === selectedBBoxId,
+      );
+    }
+  }, [bboxProposals, selectedBBoxId]);
+
+  function drawBBoxPreview(rect: ImageRect) {
+    const ctx = previewCtxRef.current;
+    const c = previewCanvasRef.current;
+    if (!ctx || !c) return;
+    ctx.clearRect(0, 0, c.width, c.height);
+    drawBBoxRect(ctx, rect, true);
   }
 
   const resetLasso = useCallback(() => {
@@ -739,6 +818,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
       const base = baseCanvasRef.current!;
       const prediction = predictionCanvasRef.current!;
       const over = overlayCanvasRef.current!;
+      const bbox = bboxCanvasRef.current!;
       const preview = previewCanvasRef.current!;
       base.width = w;
       base.height = h;
@@ -746,11 +826,15 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
       prediction.height = h;
       over.width = w;
       over.height = h;
+      bbox.width = w;
+      bbox.height = h;
       preview.width = w;
       preview.height = h;
       predictionCtxRef.current = prediction.getContext("2d");
       overlayCtxRef.current = over.getContext("2d");
+      bboxCtxRef.current = bbox.getContext("2d");
       previewCtxRef.current = preview.getContext("2d");
+      setBBoxCanvasReadyRevision((revision) => revision + 1);
 
       // base
       const bctx = base.getContext("2d")!;
@@ -892,6 +976,54 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     }
   }
 
+  async function saveBBoxProposal(rect: ImageRect) {
+    if (!canEditBBox) return;
+
+    const replacing = bboxReplaceArmed && selectedBBoxId;
+    const url = replacing ? API_SLICE_BBOX(selectedBBoxId) : API_SLICE_BBOXES(imageId);
+    const method = replacing ? "PATCH" : "POST";
+
+    setBBoxStatus(replacing ? "Replacing BBox proposal" : "Saving BBox proposal");
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(rect),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `BBOX_SAVE_FAILED_${res.status}`);
+      }
+
+      await loadBBoxProposals();
+      setSelectedBBoxId(data.box.bboxVersionId);
+      setBBoxReplaceArmed(false);
+      setBBoxStatus(replacing ? "BBox proposal replaced" : "BBox proposal saved");
+    } catch (error) {
+      setBBoxStatus(errorMessage(error, "BBox proposal save failed"));
+    }
+  }
+
+  async function deleteSelectedBBoxProposal() {
+    if (!canEditBBox || !selectedBBoxId) return;
+
+    setBBoxStatus("Deleting BBox proposal");
+    try {
+      const res = await fetch(API_SLICE_BBOX(selectedBBoxId), { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `BBOX_DELETE_FAILED_${res.status}`);
+      }
+
+      setSelectedBBoxId(null);
+      setBBoxReplaceArmed(false);
+      await loadBBoxProposals();
+      setBBoxStatus("BBox proposal deleted");
+    } catch (error) {
+      setBBoxStatus(errorMessage(error, "BBox proposal delete failed"));
+    }
+  }
+
   // Opacity affects palette => full redraw (rare)
   useEffect(() => {
     paletteRef.current = null;
@@ -901,6 +1033,10 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   useEffect(() => {
     renderPredictionOverlayFull();
   }, [renderPredictionOverlayFull]);
+
+  useEffect(() => {
+    renderBBoxOverlay();
+  }, [bboxCanvasReadyRevision, renderBBoxOverlay]);
 
   // Apply zoom
   useEffect(() => {
@@ -916,6 +1052,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
   useEffect(() => {
     resetLasso();
+    bboxDragStartRef.current = null;
     draggingRef.current = false;
     lastPtRef.current = null;
   }, [resetLasso, tool]);
@@ -964,6 +1101,14 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
     const target = e.currentTarget;
     const p = canvasToImageCoords(e);
+
+    if (tool === "bbox") {
+      if (!canEditBBox) return;
+      bboxDragStartRef.current = p;
+      capturePointer(target, e.pointerId);
+      drawBBoxPreview(imageRectFromPoints(p, p));
+      return;
+    }
 
     if (isBrushLikeTool(tool)) {
       draggingRef.current = true;
@@ -1023,6 +1168,13 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     e.preventDefault();
 
     const p = canvasToImageCoords(e);
+    if (tool === "bbox") {
+      const start = bboxDragStartRef.current;
+      if (!start) return;
+      drawBBoxPreview(imageRectFromPoints(start, p));
+      return;
+    }
+
     if (isBrushLikeTool(tool)) {
       if (!draggingRef.current) return;
       const last = lastPtRef.current;
@@ -1088,6 +1240,18 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     e.preventDefault();
     const target = e.currentTarget;
 
+    if (tool === "bbox") {
+      const start = bboxDragStartRef.current;
+      bboxDragStartRef.current = null;
+      releasePointer(target, e.pointerId);
+      clearPreview();
+      if (start) {
+        const end = canvasToImageCoords(e);
+        void saveBBoxProposal(imageRectFromPoints(start, end));
+      }
+      return;
+    }
+
     if (isBrushLikeTool(tool)) {
       draggingRef.current = false;
       lastPtRef.current = null;
@@ -1119,6 +1283,13 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     e.preventDefault();
     const target = e.currentTarget;
 
+    if (tool === "bbox") {
+      bboxDragStartRef.current = null;
+      clearPreview();
+      releasePointer(target, e.pointerId);
+      return;
+    }
+
     if (isBrushLikeTool(tool)) {
       draggingRef.current = false;
       lastPtRef.current = null;
@@ -1142,6 +1313,9 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   }
 
   function onPointerLeave(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (tool === "bbox" && bboxDragStartRef.current === null) {
+      clearPreview();
+    }
     if (tool === "lasso_poly" && lassoDragIndexRef.current === null) {
       drawLassoPreview(lassoPointsRef.current, null, true);
     }
@@ -1352,6 +1526,24 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
           onZoomChange={setZoom}
         />
 
+        <EditorBBoxPanel
+          boxes={bboxProposals}
+          selectedBBoxId={selectedBBoxId}
+          replaceArmed={bboxReplaceArmed}
+          canEdit={canEditBBox}
+          status={bboxStatus}
+          onSelect={(bboxVersionId) => {
+            setSelectedBBoxId(bboxVersionId);
+            setBBoxReplaceArmed(false);
+          }}
+          onArmReplace={() => {
+            setTool("bbox");
+            setBBoxReplaceArmed(true);
+            setBBoxStatus("Draw a replacement BBox proposal on the image.");
+          }}
+          onDelete={() => void deleteSelectedBBoxProposal()}
+        />
+
         <EditorSliceClassificationPanel
           selectedSliceClass={selectedSliceClass}
           onSelectedSliceClassChange={setSelectedSliceClass}
@@ -1377,6 +1569,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
         baseCanvasRef={baseCanvasRef}
         predictionCanvasRef={predictionCanvasRef}
         overlayCanvasRef={overlayCanvasRef}
+        bboxCanvasRef={bboxCanvasRef}
         previewCanvasRef={previewCanvasRef}
         tool={tool}
         onPointerDown={onPointerDown}

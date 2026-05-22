@@ -39,6 +39,7 @@ Do not mark this gate as passed unless it has been executed on a real iPad Safar
 - Login or session persistence fails.
 - Project navigation or image/editor load fails.
 - Finger or Apple Pencil drawing does not update the mask.
+- Finger or Apple Pencil BBox proposal drawing fails when BBox mode is part of the pilot workflow.
 - Drawing on the canvas scrolls the page instead of drawing.
 - Scrolling outside the canvas is impossible.
 - Save/reload loses semantic mask, support mask, or classification state.
@@ -70,6 +71,8 @@ Evidence should include short notes and, when practical, a screenshot, photo, sc
 | Save or inspect T-number and metadata. | Save/reload persists values without overlap. | Yes |  |  |
 | Open editor. | Image, canvas, toolbar, semantic labels, support mode, review controls, and save controls render. | Yes |  |  |
 | Open a larger full-resolution image if available. | For images above `6000x4000` and no larger than `8000x6000`, the large-image warning is visible, editor readiness completes, controls remain usable, and no `MASK_BYTE_LENGTH_MISMATCH` appears during save. | Yes if large images are part of pilot |  |  |
+| Select `BBox proposal` and draw a rough slice box with finger. | A BBox proposal appears in the slice proposal list, persists after reload, and the canvas does not scroll page while drawing. | Yes if crop workflow is part of pilot |  |  |
+| Draw a BBox proposal with Apple Pencil if available. | Pencil input creates a BBox through Pointer Events. | Yes if Pencil and crop workflow are part of pilot |  |  |
 | Draw semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
 | Select Eraser and erase semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |
 | Draw semantic mask with Apple Pencil if available. | Pencil input draws through Pointer Events. | Yes if Pencil is part of pilot |  |  |

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, and RB-054 documents the model preprediction/active-learning design contract. Runtime preprediction, advanced export policy, and multi-slice workflow depth remain split across later tickets.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, and RB-086 adds source-image BBox slice proposal persistence. Runtime crop generation, advanced export policy, and multi-slice workflow depth remain split across later tickets.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -17,6 +17,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current mask labels and editor raw-byte upload helper: `src/mask/labels.ts`, `src/features/editor/editorMaskUpload.ts`
 - Legacy/test mask serialization helper: `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
+- Current BBox proposal domain/API: `src/server/domain/sliceBboxes.ts`, `src/app/api/images/[imageId]/slice-bboxes/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
 - Current training export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
 - Current prediction-analysis export domain/API: `src/server/domain/predictionAnalysisExports.ts`, `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts`, `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts`, `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts`
 - Prediction/active-learning design: `docs/06-data/model-prediction-contract.md`, `docs/06-data/active-learning-task-model.md`
@@ -212,6 +213,10 @@ Slice classifications should include at least:
 
 RB-051 creates or reuses one default `SliceInstance` per image and links it to the latest default support-mask version when available. This is an MVP convention, not the final multi-slice model.
 
+RB-086 creates one `SliceInstance` for each new source-image BBox proposal. The BBox history is stored in append-only `SliceBoundingBoxVersion` rows with `SOURCE_IMAGE_PIXEL` geometry. `SliceInstance.boundingBox` is a denormalized current summary and is cleared when the latest BBox version is `DELETED`.
+
+`SliceBoundingBoxVersion` is a planning/provenance artifact for crop generation. It is not physical support geometry and is not exported as ground-truth instance segmentation.
+
 `SliceClassificationVersion` stores draft classification versions with actor attribution and label schema version. RB-051 supports `SAP_HEARTWOOD_SLICE`, `COPPER_SLICE`, `UNKNOWN`, and `REVIEW_REQUIRED`.
 
 ### Review And Approval
@@ -315,6 +320,7 @@ Server-side route handlers must enforce these rules. Hiding UI controls is not s
 - Every annotation artifact version belongs to exactly one project and one image.
 - Every mask artifact version references exactly one label schema version.
 - Mask dimensions must match the image or declare an explicit coordinate transform.
+- BBox proposal dimensions must be integer `SOURCE_IMAGE_PIXEL` rectangles validated against the source image dimensions.
 - Reviewed/approved annotations reference immutable artifact versions.
 - Reviewed/approved slice classifications reference immutable `SliceClassificationVersion` rows.
 - Export manifests reference exact immutable artifact versions.

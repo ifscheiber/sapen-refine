@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after the RB-049 through RB-069 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, storage-cleanup, prediction QA metrics, editor decomposition, customer-trial handoff, trial-hardening, and RB-076 local deployment dry-run and RB-077 iPad deferred-tracking slices.
+This page records the repository state after the RB-049 through RB-069 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, storage-cleanup, prediction QA metrics, editor decomposition, customer-trial handoff, trial-hardening, RB-076 local deployment dry-run, RB-077 iPad deferred-tracking, and RB-085/RB-086 crop-workflow slices.
 
 ## Important Files
 
@@ -46,6 +46,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - App-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 - The editor route is `/app/projects/[projectId]/images/[imageId]/edit`, composed by `src/features/editor/EditImagePage.tsx` and `src/features/editor/EditorClient.tsx`.
+- Source-image BBox slice proposals use the editor `BBox proposal` mode plus `src/app/api/images/[imageId]/slice-bboxes/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`, and `src/server/domain/sliceBboxes.ts`. Proposal versions are append-only `SliceBoundingBoxVersion` rows in `SOURCE_IMAGE_PIXEL`; they are not support masks or export-ready ground truth.
 - Stale editor/metadata image URLs and project/image mismatches render a project-aware missing-resource soft landing through `src/components/shell/AppMissingResource.tsx`; missing or unauthorized project pages use App Router `notFound()` to avoid existence leakage.
 - Mask save uses app-mediated upload through `src/app/api/images/[imageId]/mask/upload/route.ts`; legacy presign/commit routes still exist as compatibility endpoints. Semantic and support masks are validated as image-sized `u8raw-v1` byte arrays before version rows are created.
 - Browser-side helpers in `src/lib/projectsClient.ts` and `src/lib/imagesApi.ts` follow the app-mediated upload/read contract and do not expose private storage keys or presigned upload internals.
@@ -64,6 +65,7 @@ There is no `check:docs-links` script in `package.json` yet.
 - `ImageAsset` stores a raw object key, verified file metadata, checksum/dimensions, validation status, uploader, and metadata relations.
 - `AnnotationArtifact` groups semantic/support/instance/prediction/derived artifacts by image, kind, and scope key.
 - `AnnotationArtifactVersion` is append-only per artifact and stores artifact key, size, dimensions, checksum, format, label schema version, review state, provenance, creator, and timestamp.
+- `SliceBoundingBoxVersion` is append-only per BBox proposal slice instance and stores source-image integer geometry, active/deleted status, provenance, creator, and timestamp.
 - `AuditLog` records upload, mask/support-mask, auth, project/metadata, review, export, prediction, correction, batch-processing, and storage-cleanup events. There is no admin audit UI yet.
 
 ## Invariants And Constraints
@@ -71,13 +73,15 @@ There is no `check:docs-links` script in `package.json` yet.
 - URL-first workspace routes must remain stable while domain implementation evolves.
 - Raw image objects should be treated as immutable after commit.
 - Mask saves should append versions instead of overwriting previous versions.
+- BBox proposal replacement/deletion should append versions instead of overwriting previous proposal geometry.
 - Writes must be tied to an authenticated user or an explicit future system actor.
 - Development data may be destroyed during schema work; RB-049 replaces the baseline migration and uses `npm run db:rebuild`.
 
 ## Known Gaps
 
-- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060/RB-067 prediction-analysis exports and QA metrics, RB-061 batch prediction import jobs, RB-065 batch item processor/lease fields, and RB-066 batch staging purge markers. RB-063 adds route-addressable project operations pages without schema changes.
+- The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, BBox proposal versions, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060/RB-067 prediction-analysis exports and QA metrics, RB-061 batch prediction import jobs, RB-065 batch item processor/lease fields, and RB-066 batch staging purge markers. RB-063 adds route-addressable project operations pages without schema changes.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
+- RB-086 adds rough BBox proposals for candidate slices, but derived crop generation and crop support-mask editing remain deferred.
 - Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. RB-067 adds export-time QA metrics without a dashboard. Malware scanning, general API write rate limiting, large async export jobs, production-scale queue infrastructure/system actors, committed-artifact retention, cleanup dashboards, and metrics dashboards remain deferred.
 - Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate and `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md` tracks manual execution.
 - The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, RB-082 covers missing-resource/not-found page UX, RB-076 covers the local deployment dry run, RB-077 completes iPad gate preparation/deferred tracking, and RB-077-B/RB-078 now live in `tickets/deferred/` until real device/trial evidence exists.

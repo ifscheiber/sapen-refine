@@ -10,9 +10,25 @@ export type EditorProps = {
 };
 
 export type Stroke = Patch[];
-export type Tool = "brush" | "eraser" | "lasso_free" | "lasso_poly";
+export type Tool = "brush" | "eraser" | "lasso_free" | "lasso_poly" | "bbox";
 export type MaskMode = "semantic" | "support";
 export type Point = { x: number; y: number };
+
+export type SliceBoundingBoxProposal = {
+  bboxVersionId: string;
+  sliceInstanceId: string;
+  version: number;
+  status: "ACTIVE" | "DELETED";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  coordinateSpace: "SOURCE_IMAGE_PIXEL";
+  provenance: string;
+  createdAt: string;
+  createdBy: { email: string; name: string | null } | null;
+  isCurrent: boolean;
+};
 
 export type SliceClassValue =
   | "SAP_HEARTWOOD_SLICE"

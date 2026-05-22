@@ -12,6 +12,8 @@ Important files:
 - `src/features/images/ImageMetadataClient.tsx`
 - `src/app/api/projects/[projectId]/images/*`
 - `src/app/api/images/[imageId]/metadata/route.ts`
+- `src/app/api/images/[imageId]/slice-bboxes/route.ts`
+- `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
 - `src/app/api/images/[imageId]/slice/*`
 - `src/app/api/images/[imageId]/support-mask/*`
 - `src/app/api/images/[imageId]/review-state/route.ts`
@@ -41,7 +43,9 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `SampleMetadata` captures image-level/default T-number, specimen identifier, slice index, replicate, treatment/reference, and notes.
 - RB-050 treats `SampleMetadata` as image-level/default metadata only. Slice-specific metadata remains deferred to the future `SliceInstance` workflow.
 - RB-051 creates a default `SliceInstance` when support-mask or classification writes need one.
+- RB-086 creates additional `SliceInstance` rows for source-image BBox slice proposals. Each saved proposal is versioned as `SliceBoundingBoxVersion` in `SOURCE_IMAGE_PIXEL` coordinate space.
 - Support geometry is stored as separate `SLICE_SUPPORT_MASK` artifact versions; it is not inferred from semantic masks.
+- BBox proposals are rough crop planning artifacts only. They are not support geometry and are not exported as pixel-perfect instance ground truth.
 - Slice classification is stored as `SliceClassificationVersion` with actor and label schema version.
 - RB-052 lets the current semantic mask version, support mask version, and slice classification version move from draft to submitted and then approved/rejected.
 
@@ -55,6 +59,10 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `GET /api/images/[imageId]/slice` returns default-slice state, latest support mask, latest classification, and support label byte values.
 - `POST /api/images/[imageId]/slice/ensure` creates the default slice instance for editable roles.
 - `PATCH /api/images/[imageId]/slice/classification` appends a slice classification version.
+- `GET /api/images/[imageId]/slice-bboxes` lists the current active BBox proposal per slice instance for project members.
+- `POST /api/images/[imageId]/slice-bboxes` creates a new `SliceInstance` plus first active `SliceBoundingBoxVersion` for editable project roles.
+- `PATCH /api/slice-bboxes/[bboxVersionId]` appends a replacement BBox version for the same slice instance when the target version is still current.
+- `DELETE /api/slice-bboxes/[bboxVersionId]` appends a `DELETED` BBox version and clears the denormalized current `SliceInstance.boundingBox` summary.
 - `GET /api/images/[imageId]/support-mask/latest` returns latest support-mask metadata and an app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` uploads support-mask bytes through the app server and records a `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` returns latest and latest-approved review state for semantic mask, support mask, and slice classification.
@@ -77,7 +85,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 - Legacy presigned upload/view routes remain for compatibility, but the trial browser workflow and `src/lib` helper contract use app-mediated upload and read paths so MinIO can stay private.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
-- Only one default slice/support geometry per image is implemented.
+- Only one default pixel-perfect slice/support geometry per image is implemented.
 - Tiling, downscaled working masks, sparse/patch uploads, hard multi-tab locking, and large-image edit-session soft locks remain deferred.
-- Multi-slice and multi-object workflows remain deferred.
+- RB-086 supports multiple BBox slice proposals, but crop generation, crop support-mask editing, slice-specific metadata, and multi-object pixel-perfect support editing remain deferred.
 - RB-053 exports approved semantic/support/classification data only and warns about missing metadata or missing approved components.
