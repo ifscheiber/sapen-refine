@@ -62,6 +62,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/e2e/ipad-viewport-prep.spec.ts` checks the iPad-sized Chromium viewport and Web App Manifest availability. It is preparation only and does not replace real iPad Safari testing.
 - `playwright.config.ts` uses the system Chrome channel by default because Playwright's bundled Chromium download is not available for the current `ubuntu26.04-x64` environment.
 - E2E prerequisites: local DB/MinIO running, migrations applied, seed/admin login available, and a current production build for the Playwright `next start` web server.
+- Desktop smoke had one transient wait during baseline before RB-084 changes; focused retry and final full E2E passed. Track if repeated.
 
 ## Manual Smoke
 
@@ -99,6 +100,7 @@ This page defines the current validation baseline and the intended testing direc
 - Advanced iPad zoom/pan gestures remain deferred; RB-045 resolved previous editor hook lint warnings.
 - API route-handler tests remain selective; RB-072 adds unit/proxy/E2E coverage for representative API error contracts. DB/domain integration coverage now protects annotation-domain persistence, metadata, slice/support, review, export, RB-055 export integrity behavior, RB-056 prediction provenance rules, RB-057 prediction import rules, RB-058 correction task queue rules, RB-059 assisted correction boundaries, RB-060/RB-067 prediction-analysis export separation and QA metrics, RB-061/RB-065 batch import processing/idempotency/stale-recovery rules, RB-064 auth throttle persistence, and RB-066 temporary storage cleanup safety rules. RB-069 adds unit coverage for handoff and filename-header hygiene.
 - Real iPad Safari smoke remains manual and deferred until deployment/device access is available; `npm run test:e2e:ipad-prep` is preparation only.
+- RB-085 is docs-only. Crop-coordinate and crop-export implementation tests are deferred to RB-086 through RB-092; those slices should add unit/integration coverage for transform round trips, crop mask dimensions, crop-aware exports, and review eligibility.
 
 ## Related Tickets / Docs
 

@@ -79,6 +79,37 @@ Purpose: provide one reproducible bundle for downstream training pipelines that 
 
 Combined exports keep each target type explicit. They include any approved selected components that exist for an image and add warnings for missing approved components. Consumers must not infer support geometry from copper semantic masks.
 
+## Planned Crop-Aware Export Extension
+
+RB-085 defines a planned crop-based slice annotation workflow. The current RB-053 export implementation remains image-level/full-resolution and does not yet emit crop-aware manifest entries.
+
+For RB-091 and later, crop-aware exports must keep the existing target separation:
+
+- Semantic segmentation exports may include crop-space semantic masks and optional source-image-space reprojected semantic masks.
+- Support/instance segmentation exports may include crop-space support masks and optional source-image-space reprojected support masks.
+- Slice classification exports may classify each slice instance and must preserve auto-derived versus human-overridden provenance.
+- Combined manifest exports may bundle crop images, support masks, semantic masks, classifications, source-image references, transforms, and checksums without conflating target types.
+
+Crop-aware training exports must only include versions that satisfy the selected target readiness policy. For the recommended RB-085 default, support masks and semantic masks require approved versions, and classifications require approved versions or an explicit accepted-auto policy.
+
+Each crop-aware item must include enough metadata to map every crop artifact back to the immutable source image:
+
+- source image id, checksum, dimensions, and package path,
+- derived crop artifact/version id when persisted,
+- BBox proposal/version reference when persisted,
+- crop origin, crop dimensions, and padding metadata,
+- declared coordinate spaces such as `SOURCE_IMAGE_PIXEL` and `CROP_PIXEL`,
+- transform version or formula,
+- exact support mask, semantic mask, and classification version ids,
+- review decisions and actor attribution,
+- lineage status proving that the semantic mask and classification reference the selected crop/support lineage.
+
+Copper-specific export rule:
+
+Copper semantic masks remain semantic material targets. They are not slice support geometry. A crop-aware support/instance export for a Copper slice requires an approved support mask for the complete physical slice.
+
+Prediction-analysis exports remain separate from ground-truth training exports. RB-085 does not add crop-aware model QA package semantics; that must be designed explicitly if a later crop-prediction workflow needs it.
+
 ## Manifest Shape
 
 Current manifest version:

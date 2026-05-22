@@ -92,6 +92,7 @@ non-copper wood / negative / unknown
 ```
 
 Do not treat Copper mask as instance mask.
+Outside-support Copper pixels must be ignored or rejected and must not expand support geometry.
 
 ### 5. Tests
 

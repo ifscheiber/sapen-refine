@@ -85,6 +85,8 @@ If lineage mismatch occurs:
 REVIEW_REQUIRED
 ```
 
+Lineage checks must compare the selected crop, support mask, semantic mask, and classification derivation references. A semantic mask saved against an older crop/support version must not become export-ready with a newer support mask without explicit regeneration or re-review.
+
 ---
 
 ## UI Scope

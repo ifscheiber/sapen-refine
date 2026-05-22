@@ -2,6 +2,20 @@
 
 Deferred work discovered during repository hygiene should be recorded here instead of expanding active ticket scope.
 
+## RB-085-A - Crop-Based Slice Annotation Runtime Implementation
+
+Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. The runtime still uses the full-resolution editor and image-sized `IMAGE_PIXEL` masks.
+
+Impact: Large images can still stress browser/iPad memory and server request buffering during full-image annotation. Crop-based annotation is needed for scalable multi-slice workflows while preserving source-image coordinate provenance.
+
+Proposed next step: Implement the planned sprint sequence: RB-086 BBox proposals, RB-087 derived crops, RB-088 crop support-mask editor, RB-089 crop-constrained semantics, RB-090 auto classification, RB-091 crop/original-coordinate export, and RB-092 crop review/approval.
+
+Affected modules: `src/features/editor`, `src/app/api`, `src/server/domain`, `src/mask`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
+
+Owner: Codex.
+
+Priority: P1.
+
 ## RB-040-A - Baseline Validation Is Not Green
 
 Context: Baseline `npm run lint` failed before RB-040 changes. Baseline `npm run build` succeeded at compilation when network font access was available, then failed TypeScript in the pre-RB-043 prototype AppShell.

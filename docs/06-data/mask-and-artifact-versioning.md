@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the planned distinction between semantic masks, support/instance masks, prediction artifacts, and reviewed ground-truth artifacts.
+This page defines the distinction between semantic masks, support/instance masks, prediction artifacts, reviewed ground-truth artifacts, and the planned crop-derived artifact model.
 
 Current mask code lives in `src/mask/*`, semantic mask APIs live in `src/app/api/images/[imageId]/mask/*`, support-mask APIs live in `src/app/api/images/[imageId]/support-mask/*`, and persisted mask artifacts are `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
 
@@ -36,6 +36,25 @@ Copper-specific rule:
 A copper semantic mask is not a support mask. Copper regions may be smaller than the physical slice, especially for copper penetration/staining workflows.
 
 RB-051 support masks are draft `SLICE_SUPPORT_MASK` artifact versions with default `scopeKey = "default"`. The first workflow supports one default support geometry per image; multi-object instance masks remain deferred.
+
+RB-085 defines the planned crop-based workflow for later sprint slices. In that workflow, a BBox proposal is only an ergonomic crop seed. The pixel-perfect support mask remains the physical slice geometry and an approved support mask is mandatory for a training-ready slice instance.
+
+### Derived Slice Crop Artifacts
+
+Derived slice crops are planned artifacts for RB-087 and later. They are not raw uploaded images.
+
+Expected derived crop metadata includes:
+
+- source image id and checksum/version,
+- slice instance id,
+- BBox proposal/version reference,
+- crop origin and dimensions,
+- padding metadata,
+- coordinate transform back to the source image,
+- creator and timestamp,
+- storage key, checksum, size, content type, and dimensions if persisted.
+
+Crop masks in future implementation should be versioned like other artifacts. They must remain traceable to the immutable source image and to the crop transform that produced their coordinate space. Semantic mask and classification versions created from a crop should also record enough lineage to detect stale references when a BBox, crop, or support mask is superseded.
 
 ### Slice Classification Artifacts
 
@@ -73,6 +92,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - Every saved artifact version is immutable after commit.
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
+- Future crop-derived versions must also record or reference their source image, crop artifact, crop transform, and source-image checksum.
 - RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Human correction versions from RB-059 use `parentVersionId` for the source prediction and keep prediction bytes immutable.
@@ -96,7 +116,7 @@ RB-052 implements review decisions as separate records so history is attributabl
 
 ## Coordinate Space
 
-The current MVP assumes mask dimensions match the source image dimensions. Future versions must make that assumption explicit.
+The current MVP assumes mask dimensions match the source image dimensions. RB-085 defines planned crop coordinate vocabulary for future implementation in [coordinate-spaces-and-transforms.md](coordinate-spaces-and-transforms.md).
 
 Each mask artifact records either:
 
@@ -104,6 +124,20 @@ Each mask artifact records either:
 - a declared transform to the image coordinate space.
 
 The current runtime accepts only `IMAGE_PIXEL` mask coordinate space. Semantic and support masks are rejected when declared dimensions do not match the target image dimensions.
+
+Planned crop workflow terms:
+
+- `SOURCE_IMAGE_PIXEL` - source-image pixel coordinates on the immutable upload.
+- `CROP_PIXEL` - pixel coordinates inside a derived slice crop.
+
+The planned crop transform is:
+
+```text
+sourceX = cropX + cropOriginX
+sourceY = cropY + cropOriginY
+```
+
+Until RB-086+ implements the crop workflow, these terms are documentation contracts only. Current saved masks remain image-sized `IMAGE_PIXEL` artifacts.
 
 Exports must include coordinate-space metadata.
 

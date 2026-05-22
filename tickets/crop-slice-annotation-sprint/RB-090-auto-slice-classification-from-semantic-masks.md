@@ -91,6 +91,8 @@ Recommended:
 auto classification may be draft/submitted but should not silently become approved unless policy says so
 ```
 
+The default policy from RB-085 is that export readiness requires an approved classification version or an explicit accepted-auto policy. Manual override creates a new version and must not mutate the auto-derived suggestion.
+
 ### 5. Tests
 
 - Copper semantic mask derives COPPER_SLICE.

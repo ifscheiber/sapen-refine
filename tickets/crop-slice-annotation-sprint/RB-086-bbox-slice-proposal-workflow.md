@@ -76,6 +76,8 @@ Required fields/concepts:
 
 If schema can reuse existing `SliceInstance` bbox fields, document why versioning is sufficient or not.
 
+The BBox must be documented as a planning/provenance artifact only. It must not be exported as pixel-perfect support or instance ground truth.
+
 ### 2. UI
 
 Add BBox proposal mode on original image.
@@ -94,6 +96,7 @@ User can:
 - BBox inside image bounds,
 - positive width/height,
 - minimum size,
+- integer source-image pixel coordinates after normalization,
 - belongs to image/project,
 - actor attribution.
 

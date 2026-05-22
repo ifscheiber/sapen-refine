@@ -80,6 +80,8 @@ support approved
 
 Use existing review concepts where appropriate.
 
+Approved crop support is required before the slice can be training-ready for support/instance targets or Copper semantic workflows. Draft/submitted support may enable local editing, but export readiness must require the review policy defined by RB-085/RB-092.
+
 ### 4. UI
 
 - Show crop image.
@@ -87,6 +89,7 @@ Use existing review concepts where appropriate.
 - Eraser works if RB-070 implemented.
 - Save/reload support mask.
 - Show readiness state.
+- Preserve crop/source transform metadata with every saved crop-space support version.
 
 ### 5. Tests
 

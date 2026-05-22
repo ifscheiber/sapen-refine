@@ -60,7 +60,8 @@ Required:
 - paddingPx,
 - cropWidth/Height,
 - coordinateSpace = CROP_PIXEL,
-- transform to source,
+- integer offset transform to source,
+- whether requested padding was clipped by source-image bounds,
 - storage key / checksum / content type / size,
 - createdBy / createdAt.
 
@@ -76,6 +77,7 @@ Requirements:
 
 - reads source image server-side,
 - extracts crop with optional padding,
+- clamps first-implementation crops to source-image bounds,
 - stores crop privately,
 - records checksum/dimensions,
 - no private URLs in client response.

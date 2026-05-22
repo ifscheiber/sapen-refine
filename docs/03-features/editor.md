@@ -141,6 +141,35 @@ At the upper bound, one `u8raw-v1` mask is `48,000,000` bytes, about 45.8 MiB. T
 
 The trial does not hard-block multiple editor tabs. Users should avoid opening multiple large editor tabs; a future edit-session or soft-lock workflow is tracked as backlog.
 
+## Planned Crop-Based Slice Annotation
+
+RB-085 defines the planned crop-based workflow for RB-086 through RB-092. This is not current editor behavior.
+
+The intended future flow is:
+
+```text
+Original image
+-> BBox proposal
+-> derived slice crop
+-> pixel-perfect crop support mask
+-> semantic annotation constrained by support
+-> auto-suggested slice classification
+-> review/approval
+-> export with crop/source-image provenance
+```
+
+The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
+
+Editor-specific crop rules:
+
+- BBox drawing is a proposal workflow, not ground-truth instance annotation.
+- Support-mask editing remains the source of physical slice geometry.
+- Semantic editing should be constrained to support once support exists.
+- Copper semantic pixels remain material labels and must not be treated as support geometry.
+- Sapwood/heartwood workflows may support complement fill inside support while preserving `UNKNOWN` or review-required options.
+- Crop-aware saves must carry explicit coordinate-space metadata and transforms rather than pretending crop masks are full-image masks.
+- Auto-suggested slice classifications must be shown as provenance-bearing suggestions until a human review/approval or accepted-auto policy makes them export-ready.
+
 ## Prediction-Assisted Correction
 
 RB-059 implements the first assisted correction path:

@@ -87,13 +87,14 @@ masks/support-original/<sliceInstanceId>.u8raw optional
 
 ### 1. Export contract docs
 
-Update training export and prediction-analysis export docs.
+Update the training export contract docs. Prediction-analysis export remains a separate proposal/QA workflow and should not be changed unless a later ADR explicitly designs crop-aware prediction analysis.
 
 ### 2. Ground-truth export integration
 
 Add crop-aware export target or extend existing export manifest.
 
 Must not break existing full-image export.
+Must not change prediction-analysis export semantics.
 
 ### 3. Transform validation
 
@@ -104,6 +105,10 @@ Add tests ensuring crop mask can be mapped to original image.
 If feasible, export reprojected full-image support/semantic masks.
 
 If not, include enough transform metadata.
+
+### 5. Lineage and review state
+
+Export only crop artifacts that satisfy the review/readiness policy from RB-092. Manifest entries must show that selected support, semantic, and classification versions belong to the same crop/support lineage or explicitly mark the item not ready.
 
 ---
 

@@ -185,12 +185,14 @@ docs/06-data/coordinate-spaces-and-transforms.md
 docs/06-data/mask-and-artifact-versioning.md
 docs/06-data/training-export-contract.md
 docs/03-features/editor.md
-docs/08-adr/ADR-00X-crop-based-slice-annotation.md
+docs/08-adr/ADR-005-crop-based-slice-annotation.md
+docs/adr/README.md
 docs/adr/remediation-backlog.md
 docs/known-gaps.md
+docs/testing/README.md
 ```
 
-Use the next available ADR number.
+ADR-005 is the next available ADR number.
 
 ---
 
