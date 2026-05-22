@@ -67,6 +67,16 @@ RB-072 applies the shared helper to representative high-risk route families:
 
 Some lower-risk or compatibility routes still return the older flat string form directly. They remain acceptable when they already return JSON and stable codes; broader migration can be handled incrementally.
 
+## Upload / Mask Errors
+
+Current app-mediated upload and mask-save routes use stable flat JSON errors:
+
+- `UPLOAD_TOO_LARGE` with `413` for bodies above app limits when the request reaches the app.
+- `UNSUPPORTED_CONTENT_TYPE`, `IMAGE_DIMENSIONS_UNREADABLE`, `CHECKSUM_MISMATCH`, and `IMAGE_DIMENSIONS_UNSUPPORTED` for raw image upload validation.
+- `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, and `SUPPORT_MASK_VALUES_INVALID` for current `u8raw-v1` mask validation.
+
+RB-081 keeps `MASK_BYTE_LENGTH_MISMATCH` public responses flat while audit details may include safe byte diagnostics. The diagnostic `x-mask-byte-length` header is never trusted for validation; the actual received request body length is the server source of truth.
+
 ## Related Tickets / Docs
 
 - [auth-rbac-audit.md](auth-rbac-audit.md)

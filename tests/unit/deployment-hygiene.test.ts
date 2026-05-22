@@ -94,4 +94,18 @@ describe("deployment hygiene", () => {
     expect(mcCommandLines.join("\n")).not.toMatch(/S3_(ACCESS|SECRET)_KEY/);
     expect(echoLines.join("\n")).not.toMatch(/S3_(ACCESS|SECRET)_KEY/);
   });
+
+  it("keeps the Next proxy body limit aligned with trial upload limits", () => {
+    const nextConfig = readRepoFile("next.config.ts");
+    const dockerfile = readRepoFile("Dockerfile");
+    const compose = readRepoFile("deploy/docker-compose.trial.yml");
+    const trialEnv = readRepoFile("deploy/trial.env.example");
+
+    expect(nextConfig).toContain("proxyClientMaxBodySize");
+    expect(nextConfig).toContain("NEXT_PROXY_CLIENT_MAX_BODY_SIZE");
+    expect(dockerfile).toContain("ARG NEXT_PROXY_CLIENT_MAX_BODY_SIZE=120mb");
+    expect(dockerfile).toContain("ENV NEXT_PROXY_CLIENT_MAX_BODY_SIZE=${NEXT_PROXY_CLIENT_MAX_BODY_SIZE}");
+    expect(compose).toContain("NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}");
+    expect(trialEnv).toContain("NEXT_PROXY_CLIENT_MAX_BODY_SIZE=120mb");
+  });
 });

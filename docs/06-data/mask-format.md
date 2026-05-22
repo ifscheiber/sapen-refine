@@ -16,6 +16,8 @@ Dimensions, coordinate space, format, checksum, size, creator, review state, and
 
 `src/features/editor/editorMaskUpload.ts` is the current browser editor upload helper. It validates byte length before upload, sends exact raw `Uint8Array` bytes, and adds `x-mask-byte-length` only as diagnostic metadata. Server validation still uses the actual received request body length.
 
+`src/server/uploads/maskRequest.ts` is the shared server raw-body reader for semantic mask, support mask, and assisted-correction saves. `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` must stay above `MASK_UPLOAD_MAX_BYTES` so proxy buffering does not truncate full-resolution bodies before the route handler validates them.
+
 `src/mask/serialize.ts` still provides an older `MSK1` header round-trip helper covered by `tests/unit/mask-serialize.test.ts`. It is a legacy/test compatibility helper and is not the current editor upload body or persisted artifact format.
 
 Current editor upload routes:

@@ -82,6 +82,7 @@ Blocking: yes/no
 | Add deployed app to Home Screen if testing trial deployment. | Home-Screen icon/name render and launch opens the app. |  |  |
 | Log in. | Workspace opens and session persists. |  |  |
 | Open an uploaded image in the editor. | Image and controls render. |  |  |
+| Open a large image above `6000x4000` and no larger than `8000x6000` if available. | Large-image memory warning is visible; editor remains usable. |  |  |
 | Draw with finger using Brush. | Mask draws; canvas does not scroll the page while drawing. |  |  |
 | Select Eraser by touch and erase part of the mask. | Eraser touch target is usable and erasing does not scroll the page. |  |  |
 | Draw with Apple Pencil if available. | Pencil draws through Pointer Events. |  |  |

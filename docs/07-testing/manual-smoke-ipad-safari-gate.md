@@ -55,7 +55,7 @@ Non-blocking issues should still be recorded with screenshots or video when poss
 | Open image metadata. | Technical metadata, readiness, T-number, and acquisition fields are reachable. | Yes |  |  |
 | Save or inspect T-number and metadata. | Save/reload persists values without overlap. | Yes |  |  |
 | Open editor. | Image, canvas, toolbar, semantic labels, support mode, review controls, and save controls render. | Yes |  |  |
-| Open a larger full-resolution image if available. | Editor readiness completes, controls remain usable, and no `MASK_BYTE_LENGTH_MISMATCH` appears during save. | Yes if large images are part of pilot |  |  |
+| Open a larger full-resolution image if available. | For images above `6000x4000` and no larger than `8000x6000`, the large-image warning is visible, editor readiness completes, controls remain usable, and no `MASK_BYTE_LENGTH_MISMATCH` appears during save. | Yes if large images are part of pilot |  |  |
 | Draw semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
 | Select Eraser and erase semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |
 | Draw semantic mask with Apple Pencil if available. | Pencil input draws through Pointer Events. | Yes if Pencil is part of pilot |  |  |

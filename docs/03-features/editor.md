@@ -94,9 +94,11 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Editor saves are app-mediated. The browser editor does not write to MinIO/S3 directly and does not require private storage keys or presigned upload URLs.
 - RB-055 validates mask byte length, declared width/height, image-pixel coordinate space, checksum hints, and storage object metadata before recording a version.
 - RB-080 adds `src/features/editor/editorMaskUpload.ts` as the single editor helper for semantic, support, and assisted-correction mask upload payloads. It validates `mask.data.byteLength === mask.width * mask.height` before `fetch()`, sends raw `Uint8Array` bytes instead of a `Blob`, and avoids sending a larger typed-array backing buffer by copying the exact view bytes.
+- RB-081 adds `src/server/uploads/maskRequest.ts` as the shared server-side raw request reader for semantic, support, and assisted-correction mask save routes. It reads the request body once with `arrayBuffer()`, validates actual received bytes against `width * height`, and records safe diagnostics when an authenticated request is rejected.
 - RB-080 also gates drawing, prediction-copy, keyboard edit actions, and saving until the image, canvas backing dimensions, and in-memory `MaskBuffer` are initialized consistently. Fetching the image URL alone is not enough to mark the editor ready.
 - Manual save cancels any pending autosave and uses a save generation guard so stale save responses cannot clear newer dirty state.
 - Editor uploads send `content-type: application/octet-stream`, `x-mask-format: u8raw-v1`, `x-mask-width`, `x-mask-height`, and diagnostic-only `x-mask-byte-length`. The server still validates the actual received request body length as the source of truth.
+- Next.js proxy body buffering must be above the mask size. RB-081 sets `experimental.proxyClientMaxBodySize` through `NEXT_PROXY_CLIENT_MAX_BODY_SIZE`, default `120mb`, because the Next default is too small for a 6000x4000 raw mask.
 - Support-mask saves additionally require binary support values: `0` or the active label schema's `slice_support` byte value. Copper semantic bytes are rejected as support geometry.
 - Latest semantic mask metadata is loaded from `/api/images/[imageId]/mask/latest`; latest support mask metadata is loaded from `/api/images/[imageId]/support-mask/latest`.
 - Review/export-readiness state is loaded from `/api/images/[imageId]/review-state`.
@@ -125,7 +127,19 @@ Mask save APIs return stable sanitized error codes for integrity failures, inclu
 
 Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful support saves record `SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
-For byte-length failures after RB-080, authenticated audit details may include safe diagnostics: expected bytes, received bytes, declared client bytes, width, height, and format. They do not include mask payload bytes, storage keys, private URLs, credentials, or tokens.
+For byte-length failures after RB-080/RB-081, authenticated audit details may include safe diagnostics: expected bytes, received bytes, declared client bytes, content length, width, height, and format. They do not include mask payload bytes, storage keys, private URLs, credentials, or tokens.
+
+## Trial Full-Resolution Policy
+
+The current editor is a full-resolution editor, not a tiled or downscaled workflow.
+
+- Up to `6000x4000` / `24,000,000` pixels: normal trial path.
+- Above that and up to `8000x6000` / `48,000,000` pixels: allowed, but the UI marks the image as large and warns about iPad/browser memory.
+- Above `8000x6000`, above `48,000,000` pixels, or beyond an `8000` long edge / `6000` short edge: not supported by the trial editor.
+
+At the upper bound, one `u8raw-v1` mask is `48,000,000` bytes, about 45.8 MiB. The editor memory budget must assume at least five mask or working-copy layers plus the decoded browser image; an `8000x6000` decoded RGBA image alone is about 192 MB. Real iPad Safari validation remains required before relying on the upper bound in a customer pilot.
+
+The trial does not hard-block multiple editor tabs. Users should avoid opening multiple large editor tabs; a future edit-session or soft-lock workflow is tracked as backlog.
 
 ## Prediction-Assisted Correction
 

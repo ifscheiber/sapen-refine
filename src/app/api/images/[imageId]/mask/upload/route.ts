@@ -10,23 +10,10 @@ import { getProjectLabelSchemaVersionId } from "@/server/domain/labelSchema";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
-  maskByteLengthDiagnostics,
   normalizeContentType,
-  readDeclaredMaskByteLength,
   validateMaskBytes,
 } from "@/server/uploads/integrity";
-import {
-  readContentLength,
-  uploadErrorPayload,
-  validateUploadSize,
-} from "@/server/uploads/validation";
-
-function readPositiveInteger(headers: Headers, name: string): number | null {
-  const value = headers.get(name);
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
+import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
 export async function POST(
   req: Request,
@@ -34,31 +21,6 @@ export async function POST(
 ) {
   const { imageId } = await props.params;
   const user = await requireUser();
-
-  const width = readPositiveInteger(req.headers, "x-mask-width");
-  if (!width) return NextResponse.json({ error: "WIDTH_REQUIRED" }, { status: 400 });
-
-  const height = readPositiveInteger(req.headers, "x-mask-height");
-  if (!height) return NextResponse.json({ error: "HEIGHT_REQUIRED" }, { status: 400 });
-
-  const contentLength = readContentLength(req.headers);
-  if (contentLength !== null) {
-    const earlyValidation = validateUploadSize(contentLength, "mask");
-    if (!earlyValidation.ok) {
-      return NextResponse.json(uploadErrorPayload(earlyValidation), {
-        status: earlyValidation.status,
-      });
-    }
-  }
-
-  const bytes = new Uint8Array(await req.arrayBuffer());
-  const declaredClientBytes = readDeclaredMaskByteLength(req.headers);
-  const sizeValidation = validateUploadSize(bytes.byteLength, "mask");
-  if (!sizeValidation.ok) {
-    return NextResponse.json(uploadErrorPayload(sizeValidation), {
-      status: sizeValidation.status,
-    });
-  }
 
   const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
@@ -74,15 +36,37 @@ export async function POST(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
+  let upload;
+  try {
+    upload = await readMaskUploadRequest(req);
+  } catch (error) {
+    const payload = integrityErrorPayload(error);
+    if (!payload) throw error;
+    await recordAuditEvent({
+      action: "ARTIFACT_VALIDATION_FAILED",
+      entity: "ImageAsset",
+      entityId: image.id,
+      actorId: user.id,
+      details: {
+        projectId: image.projectId,
+        artifactKind: "SEMANTIC_MASK",
+        route: "semantic-mask-upload",
+        error: payload.body.error,
+        ...(maskUploadDiagnosticsFromError(error) ?? {}),
+      },
+    });
+    return NextResponse.json(payload.body, { status: payload.status });
+  }
+
   let integrity;
   try {
     integrity = validateMaskBytes({
-      bytes,
-      width,
-      height,
+      bytes: upload.bytes,
+      width: upload.width,
+      height: upload.height,
       imageWidth: image.width,
       imageHeight: image.height,
-      format: req.headers.get("x-mask-format"),
+      format: upload.format,
       expectedChecksum: req.headers.get("x-checksum"),
     });
   } catch (error) {
@@ -96,14 +80,9 @@ export async function POST(
       details: {
         projectId: image.projectId,
         artifactKind: "SEMANTIC_MASK",
+        route: "semantic-mask-upload",
         error: payload.body.error,
-        ...maskByteLengthDiagnostics({
-          width,
-          height,
-          receivedBytes: bytes.byteLength,
-          declaredClientBytes,
-          format: req.headers.get("x-mask-format"),
-        }),
+        ...upload.diagnostics,
       },
     });
     return NextResponse.json(payload.body, { status: payload.status });
@@ -114,7 +93,7 @@ export async function POST(
 
   let objectWritten = false;
   try {
-    await putObject(key, bytes, contentType);
+    await putObject(key, upload.bytes, contentType);
     objectWritten = true;
     await verifyStoredObject({ key, size: integrity.size, contentType });
 

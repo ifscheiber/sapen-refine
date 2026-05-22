@@ -33,7 +33,7 @@ request_body {
 }
 ```
 
-Keep `CADDY_MAX_BODY_SIZE` higher than `IMAGE_UPLOAD_MAX_BYTES`. The default template uses `120MB` for Caddy and 100 MiB for image uploads.
+Keep `CADDY_MAX_BODY_SIZE` higher than `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, and `PREDICTION_BATCH_UPLOAD_MAX_BYTES`. Also keep `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` above the app limits because the Next proxy layer sees browser API mutations before route handlers. The default template uses `120MB` for Caddy, `120mb` for Next proxy buffering, 100 MiB for image/batch uploads, and 50 MiB for mask uploads.
 
 ## Example
 

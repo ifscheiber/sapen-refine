@@ -5,6 +5,7 @@ import { ArrowLeftIcon, PencilLineIcon } from "lucide-react";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { Button } from "@/components/ui/button";
+import { evaluateTrialImageEditability } from "@/lib/imageSizePolicy";
 import { PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
@@ -27,6 +28,8 @@ export async function ImageMetadataPage({
       filename: true,
       contentType: true,
       size: true,
+      width: true,
+      height: true,
       sampleMetadata: { select: { tNumber: true } },
     },
   });
@@ -34,6 +37,7 @@ export async function ImageMetadataPage({
   if (!image || image.projectId !== projectId) {
     notFound();
   }
+  const editability = evaluateTrialImageEditability(image.width, image.height);
 
   return (
     <AppMain>
@@ -48,12 +52,19 @@ export async function ImageMetadataPage({
                 Images
               </Link>
             </Button>
-            <Button asChild>
-              <Link href={`/app/projects/${projectId}/images/${image.id}/edit`}>
+            {editability.status === "unsupported" ? (
+              <Button disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
                 <PencilLineIcon className="size-4" aria-hidden="true" />
                 Open editor
-              </Link>
-            </Button>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link href={`/app/projects/${projectId}/images/${image.id}/edit`}>
+                  <PencilLineIcon className="size-4" aria-hidden="true" />
+                  Open editor
+                </Link>
+              </Button>
+            )}
           </>
         }
       />

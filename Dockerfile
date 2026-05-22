@@ -7,7 +7,9 @@ RUN npm ci
 FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
+ARG NEXT_PROXY_CLIENT_MAX_BODY_SIZE=120mb
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PROXY_CLIENT_MAX_BODY_SIZE=${NEXT_PROXY_CLIENT_MAX_BODY_SIZE}
 ENV APP_BASE_URL=http://localhost:3000
 ENV DATABASE_URL=postgresql://sapen_annotate:placeholder@postgres:5432/sapen_annotate?schema=public
 ENV S3_ENDPOINT=http://minio:9000
@@ -26,6 +28,7 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PROXY_CLIENT_MAX_BODY_SIZE=120mb
 
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules

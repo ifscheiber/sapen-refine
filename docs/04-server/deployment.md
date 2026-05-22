@@ -106,15 +106,17 @@ Default trial limits:
 - App prediction batch ZIP upload: 100 MiB.
 - Prediction batch items per ZIP: 200.
 - Prediction batch process pass: 25 items.
+- Next proxy request body: 120mb.
 - Caddy request body: 120 MB.
 
-Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` where the request reaches the app. If Caddy rejects the request first, the tester sees a Caddy `413`.
+Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` where the request reaches the app. If the Next proxy or Caddy rejects/truncates first, the tester may not see the app-level JSON error. `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` and `CADDY_MAX_BODY_SIZE` must stay above app upload limits.
 
-Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. RB-057 prediction mask imports use the mask upload limit and accept only `application/octet-stream` `u8raw-v1` bytes through the app; they do not expose MinIO/S3 upload URLs. RB-061 batch imports accept ZIP files through the app, privately stage the contained mask files, and process a limited number of items per pass.
+Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. Images larger than the trial full-resolution policy return `IMAGE_DIMENSIONS_UNSUPPORTED`; accepted large images near `8000x6000` should still be tested on the real iPad before pilot use. RB-057 prediction mask imports use the mask upload limit and accept only `application/octet-stream` `u8raw-v1` bytes through the app; they do not expose MinIO/S3 upload URLs. RB-061 batch imports accept ZIP files through the app, privately stage the contained mask files, and process a limited number of items per pass.
 
-Raise limits in both places:
+Raise limits in all relevant places:
 
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
+- `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` in `deploy/trial.env`.
 - `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
 
 ## Batch Prediction Import Processing

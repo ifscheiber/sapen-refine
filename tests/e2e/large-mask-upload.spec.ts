@@ -44,7 +44,7 @@ function grayscalePng(width: number, height: number) {
   ]);
 }
 
-test("large full-resolution editor mask upload sends exact raw byte length", async ({ page }) => {
+test("large full-resolution editor mask upload reaches the real route intact", async ({ page }) => {
   test.setTimeout(90_000);
 
   const width = 6000;
@@ -53,7 +53,6 @@ test("large full-resolution editor mask upload sends exact raw byte length", asy
   const projectName = `E2E Large Mask ${Date.now()}`;
   const imageBuffer = grayscalePng(width, height);
   const browserErrors: string[] = [];
-  const uploads: Array<{ headers: Record<string, string>; bodyLength: number }> = [];
 
   page.on("pageerror", (error) => browserErrors.push(error.message));
   page.on("console", (message) => {
@@ -84,31 +83,11 @@ test("large full-resolution editor mask upload sends exact raw byte length", asy
   await expect(page.getByText("large-6000x4000.png")).toBeVisible();
   await expect(page.getByText("6000 x 4000")).toBeVisible();
 
-  await page.route(/\/api\/images\/[^/]+\/mask\/upload$/, async (route, request) => {
-    if (request.method() !== "POST") {
-      await route.continue();
-      return;
-    }
-
-    uploads.push({
-      headers: request.headers(),
-      bodyLength: request.postDataBuffer()?.byteLength ?? 0,
-    });
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: true,
-        maskId: "intercepted-large-mask",
-        versionId: "intercepted-large-version",
-        version: 1,
-        createdAt: new Date().toISOString(),
-      }),
-    });
-  });
-
   await page.getByRole("link", { name: "Open editor" }).click();
+  await expect(page).toHaveURL(/\/images\/[^/]+\/edit$/);
+  const editorUrl = new URL(page.url());
+  const imageId = editorUrl.pathname.match(/\/images\/([^/]+)\/edit$/)?.[1];
+  expect(imageId).toBeTruthy();
   await expect(page.getByRole("button", { name: "Brush" })).toBeEnabled({ timeout: 30_000 });
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
@@ -134,16 +113,16 @@ test("large full-resolution editor mask upload sends exact raw byte length", asy
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
   await page.getByRole("button", { name: "Save now" }).click();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 30_000 });
 
-  expect(uploads.length).toBeGreaterThan(0);
-  for (const upload of uploads) {
-    expect(upload.bodyLength).toBe(expectedBytes);
-    expect(upload.headers["content-type"]).toBe("application/octet-stream");
-    expect(upload.headers["x-mask-width"]).toBe(String(width));
-    expect(upload.headers["x-mask-height"]).toBe(String(height));
-    expect(upload.headers["x-mask-format"]).toBe("u8raw-v1");
-    expect(upload.headers["x-mask-byte-length"]).toBe(String(expectedBytes));
-  }
+  await expect
+    .poll(async () => {
+      return page.evaluate(async (id) => {
+        const response = await fetch(`/api/images/${id}/mask/latest`, { cache: "no-store" });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data?.size ?? null;
+      }, imageId);
+    }, { timeout: 60_000 })
+    .toBe(expectedBytes);
   expect(browserErrors.filter((message) => /AbortError|operation was aborted/i.test(message))).toEqual([]);
 });

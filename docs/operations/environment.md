@@ -12,6 +12,7 @@ This page documents environment variables required by the current app and local 
 - `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT` - Docker Compose MinIO settings.
 - `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_FORCE_PATH_STYLE` - S3/MinIO settings used by `src/server/storage/s3.ts`.
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES` - app-side upload size caps used by image and mask upload routes. RB-055 image content types are fixed in code to PNG/JPEG.
+- `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` - Next.js proxy body-buffer cap. Keep it above image/mask/batch upload limits because `src/proxy.ts` covers API mutation requests.
 - `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_MAX_ITEMS`, `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS` - batch prediction import ZIP, item, pass, and retry caps.
 - `PREDICTION_BATCH_LEASE_SECONDS`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS`, `PREDICTION_IMPORT_PROCESSOR_ID` - RB-065 prediction-import worker lease/loop controls.
 - `BATCH_STAGING_COMPLETED_RETENTION_DAYS`, `BATCH_STAGING_FAILED_RETENTION_DAYS`, `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS`, `STORAGE_CLEANUP_MAX_DELETE_PER_RUN` - RB-066 storage cleanup retention and execute limits.

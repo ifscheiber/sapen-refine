@@ -40,8 +40,9 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open workspace and project list. | Project navigation renders. |  |  |
 | Create or open a project. | Project page and image list render. |  |  |
 | Upload a normal representative PNG/JPEG image. | Image uploads through the app and appears in the list. |  |  |
-| Upload a representative full-resolution image near the trial upper size, if available. | Editor readiness waits for actual image/canvas/mask dimensions, and saving a tiny semantic stroke succeeds without `MASK_BYTE_LENGTH_MISMATCH`. |  |  |
-| Upload an intentionally too-large image if available. | Request fails with controlled `UPLOAD_TOO_LARGE` or documented Caddy `413`. |  |  |
+| Upload a representative full-resolution image near `6000x4000`, if available. | Editor readiness waits for actual image/canvas/mask dimensions, and saving a tiny semantic stroke succeeds without `MASK_BYTE_LENGTH_MISMATCH`. |  |  |
+| Upload a large image above `6000x4000` but no larger than `8000x6000`, if available. | Image is accepted with a visible large-image/iPad memory warning; save still succeeds. |  |  |
+| Upload an intentionally unsupported-dimension image if available. | Request fails with `IMAGE_DIMENSIONS_UNSUPPORTED`; proxy/Caddy limits are not hit first. |  |  |
 | Upload an unsupported file type if available. | Request fails with `UNSUPPORTED_CONTENT_TYPE`; no image row or private storage URL is exposed. |  |  |
 | Open image metadata. | Technical metadata, checksum, dimensions, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
@@ -132,7 +133,7 @@ Blocking failure criteria:
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
 - Explicit eraser UX exists after RB-070; real iPad Safari/Pencil behavior remains a manual gate.
-- RB-080 verifies exact full-resolution mask upload payloads in desktop Chrome. Real iPad Safari must still be checked manually with representative large images; if memory or performance fails there, create a separate tiled/downscaled/patch-upload ticket.
+- RB-080/RB-081 verify exact full-resolution mask upload payloads and the real semantic save route in desktop Chrome. Real iPad Safari must still be checked manually with representative large images; if memory or performance fails there, create a separate tiled/downscaled/patch-upload ticket.
 - Real iPad Safari smoke is manual; automated coverage is limited to desktop Chrome and an iPad viewport preparation smoke.
 - RB-068 is an internal editor decomposition; visible customer-trial editor behavior should remain unchanged.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 
+import { evaluateTrialImageEditability } from "@/lib/imageSizePolicy";
 import { PROJECT_ANNOTATE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
@@ -9,6 +10,7 @@ import { withApiErrorHandling } from "@/server/http/apiErrors";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
+  UploadIntegrityError,
   validateImageBytes,
 } from "@/server/uploads/integrity";
 import {
@@ -80,6 +82,10 @@ export const POST = withApiErrorHandling(async function POST(
       contentType: req.headers.get("content-type"),
       expectedChecksum: req.headers.get("x-checksum"),
     });
+    const editability = evaluateTrialImageEditability(integrity.width, integrity.height);
+    if (editability.status === "unsupported") {
+      throw new UploadIntegrityError("IMAGE_DIMENSIONS_UNSUPPORTED");
+    }
   } catch (error) {
     const payload = integrityErrorPayload(error);
     if (!payload) throw error;
@@ -88,7 +94,17 @@ export const POST = withApiErrorHandling(async function POST(
       entity: "AnnotationProject",
       entityId: projectId,
       actorId: user.id,
-      details: { error: payload.body.error, filename },
+      details: {
+        error: payload.body.error,
+        filename,
+        ...(integrity
+          ? {
+              width: integrity.width,
+              height: integrity.height,
+              pixels: integrity.width * integrity.height,
+            }
+          : {}),
+      },
     });
     return NextResponse.json(payload.body, { status: payload.status });
   }

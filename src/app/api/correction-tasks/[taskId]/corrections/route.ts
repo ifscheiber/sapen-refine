@@ -3,17 +3,12 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/server/auth/rbac";
 import {
   assistedCorrectionErrorResponse,
+  loadCorrectionContextForUser,
   saveCorrectionForTaskForUser,
 } from "@/server/domain/assistedCorrection";
-import { readDeclaredMaskByteLength } from "@/server/uploads/integrity";
-import { readContentLength, uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
-
-function readPositiveInteger(headers: Headers, name: string): number | null {
-  const value = headers.get(name);
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
+import { recordAuditEvent } from "@/server/domain/audit";
+import { integrityErrorPayload } from "@/server/uploads/integrity";
+import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
 export async function POST(
   req: Request,
@@ -22,34 +17,49 @@ export async function POST(
   const user = await requireUser();
   const { taskId } = await props.params;
 
-  const width = readPositiveInteger(req.headers, "x-mask-width");
-  if (!width) return NextResponse.json({ ok: false, error: "WIDTH_REQUIRED" }, { status: 400 });
-
-  const height = readPositiveInteger(req.headers, "x-mask-height");
-  if (!height) return NextResponse.json({ ok: false, error: "HEIGHT_REQUIRED" }, { status: 400 });
-
-  const contentLength = readContentLength(req.headers);
-  if (contentLength !== null) {
-    const earlyValidation = validateUploadSize(contentLength, "mask");
-    if (!earlyValidation.ok) {
-      return NextResponse.json(uploadErrorPayload(earlyValidation), { status: earlyValidation.status });
-    }
+  let context;
+  try {
+    context = await loadCorrectionContextForUser({ taskId, userId: user.id });
+  } catch (error) {
+    const payload = assistedCorrectionErrorResponse(error);
+    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
   }
 
-  const bytes = new Uint8Array(await req.arrayBuffer());
-  const declaredClientBytes = readDeclaredMaskByteLength(req.headers);
+  let upload;
+  try {
+    upload = await readMaskUploadRequest(req);
+  } catch (error) {
+    const payload = integrityErrorPayload(error);
+    if (!payload) throw error;
+    await recordAuditEvent({
+      action: "ARTIFACT_VALIDATION_FAILED",
+      entity: "AnnotationTask",
+      entityId: taskId,
+      actorId: user.id,
+      details: {
+        projectId: context.task.projectId,
+        imageId: context.task.imageId,
+        taskId,
+        artifactKind: context.humanArtifactKind,
+        route: "assisted-correction-upload",
+        error: payload.body.error,
+        ...(maskUploadDiagnosticsFromError(error) ?? {}),
+      },
+    });
+    return NextResponse.json(payload.body, { status: payload.status });
+  }
 
   try {
     const result = await saveCorrectionForTaskForUser({
       taskId,
       userId: user.id,
-      bytes,
-      width,
-      height,
+      bytes: upload.bytes,
+      width: upload.width,
+      height: upload.height,
       contentType: req.headers.get("content-type"),
-      format: req.headers.get("x-mask-format"),
+      format: upload.format,
       expectedChecksum: req.headers.get("x-checksum"),
-      declaredClientBytes,
+      declaredClientBytes: upload.declaredClientBytes,
     });
     return NextResponse.json({ ok: true, correction: result });
   } catch (error) {

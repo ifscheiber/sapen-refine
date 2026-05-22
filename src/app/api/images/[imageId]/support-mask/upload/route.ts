@@ -11,24 +11,11 @@ import { recordAuditEvent } from "@/server/domain/audit";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
-  maskByteLengthDiagnostics,
   normalizeContentType,
-  readDeclaredMaskByteLength,
   validateMaskBytes,
   validateSupportMaskValues,
 } from "@/server/uploads/integrity";
-import {
-  readContentLength,
-  uploadErrorPayload,
-  validateUploadSize,
-} from "@/server/uploads/validation";
-
-function readPositiveInteger(headers: Headers, name: string): number | null {
-  const value = headers.get(name);
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
+import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
 export async function POST(
   req: Request,
@@ -37,49 +24,15 @@ export async function POST(
   const user = await requireUser();
   const { imageId } = await props.params;
 
-  const width = readPositiveInteger(req.headers, "x-mask-width");
-  if (!width) return NextResponse.json({ ok: false, error: "WIDTH_REQUIRED" }, { status: 400 });
-
-  const height = readPositiveInteger(req.headers, "x-mask-height");
-  if (!height) return NextResponse.json({ ok: false, error: "HEIGHT_REQUIRED" }, { status: 400 });
-
-  const contentLength = readContentLength(req.headers);
-  if (contentLength !== null) {
-    const earlyValidation = validateUploadSize(contentLength, "mask");
-    if (!earlyValidation.ok) {
-      return NextResponse.json(uploadErrorPayload(earlyValidation), {
-        status: earlyValidation.status,
-      });
-    }
-  }
-
-  const bytes = new Uint8Array(await req.arrayBuffer());
-  const declaredClientBytes = readDeclaredMaskByteLength(req.headers);
-  const sizeValidation = validateUploadSize(bytes.byteLength, "mask");
-  if (!sizeValidation.ok) {
-    return NextResponse.json(uploadErrorPayload(sizeValidation), {
-      status: sizeValidation.status,
-    });
-  }
-
   try {
     const preflight = await loadSliceStateForUser({ imageId, userId: user.id });
     if (!preflight.canEdit) {
       return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
     }
 
-    let integrity;
+    let upload;
     try {
-      integrity = validateMaskBytes({
-        bytes,
-        width,
-        height,
-        imageWidth: preflight.image.width,
-        imageHeight: preflight.image.height,
-        format: req.headers.get("x-mask-format"),
-        expectedChecksum: req.headers.get("x-checksum"),
-      });
-      validateSupportMaskValues(bytes, preflight.supportLabels.sliceSupport);
+      upload = await readMaskUploadRequest(req);
     } catch (error) {
       const payload = integrityErrorPayload(error);
       if (!payload) throw error;
@@ -91,14 +44,40 @@ export async function POST(
         details: {
           projectId: preflight.image.projectId,
           artifactKind: "SLICE_SUPPORT_MASK",
+          route: "support-mask-upload",
           error: payload.body.error,
-          ...maskByteLengthDiagnostics({
-            width,
-            height,
-            receivedBytes: bytes.byteLength,
-            declaredClientBytes,
-            format: req.headers.get("x-mask-format"),
-          }),
+          ...(maskUploadDiagnosticsFromError(error) ?? {}),
+        },
+      });
+      return NextResponse.json(payload.body, { status: payload.status });
+    }
+
+    let integrity;
+    try {
+      integrity = validateMaskBytes({
+        bytes: upload.bytes,
+        width: upload.width,
+        height: upload.height,
+        imageWidth: preflight.image.width,
+        imageHeight: preflight.image.height,
+        format: upload.format,
+        expectedChecksum: req.headers.get("x-checksum"),
+      });
+      validateSupportMaskValues(upload.bytes, preflight.supportLabels.sliceSupport);
+    } catch (error) {
+      const payload = integrityErrorPayload(error);
+      if (!payload) throw error;
+      await recordAuditEvent({
+        action: "ARTIFACT_VALIDATION_FAILED",
+        entity: "ImageAsset",
+        entityId: imageId,
+        actorId: user.id,
+        details: {
+          projectId: preflight.image.projectId,
+          artifactKind: "SLICE_SUPPORT_MASK",
+          route: "support-mask-upload",
+          error: payload.body.error,
+          ...upload.diagnostics,
         },
       });
       return NextResponse.json(payload.body, { status: payload.status });
@@ -109,7 +88,7 @@ export async function POST(
 
     let objectWritten = false;
     try {
-      await putObject(storageKey, bytes, contentType);
+      await putObject(storageKey, upload.bytes, contentType);
       objectWritten = true;
       await verifyStoredObject({ key: storageKey, size: integrity.size, contentType });
     } catch {

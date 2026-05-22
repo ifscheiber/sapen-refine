@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { evaluateTrialImageEditability } from "@/lib/imageSizePolicy";
 import { PROJECT_ANNOTATE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { prisma } from "@/server/db";
 import { getObjectBytes, statObject } from "@/server/storage/s3";
-import { integrityErrorPayload, validateImageBytes } from "@/server/uploads/integrity";
+import { integrityErrorPayload, UploadIntegrityError, validateImageBytes } from "@/server/uploads/integrity";
 import { uploadErrorPayload, validateUploadSize } from "@/server/uploads/validation";
 
 function safeFilename(value: unknown) {
@@ -79,6 +80,9 @@ export async function POST(
       contentType: object.contentType ?? body?.contentType,
       expectedChecksum: body?.checksum,
     });
+    if (evaluateTrialImageEditability(integrity.width, integrity.height).status === "unsupported") {
+      throw new UploadIntegrityError("IMAGE_DIMENSIONS_UNSUPPORTED");
+    }
     if (object.contentLength !== null && object.contentLength !== integrity.size) {
       return NextResponse.json({ ok: false, error: "OBJECT_STAT_FAILED" }, { status: 500 });
     }
@@ -90,7 +94,17 @@ export async function POST(
       entity: "AnnotationProject",
       entityId: projectId,
       actorId: user.id,
-      details: { error: payload.body.error, key },
+      details: {
+        error: payload.body.error,
+        key,
+        ...(integrity
+          ? {
+              width: integrity.width,
+              height: integrity.height,
+              pixels: integrity.width * integrity.height,
+            }
+          : {}),
+      },
     });
     return NextResponse.json(payload.body, { status: payload.status });
   }

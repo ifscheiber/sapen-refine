@@ -67,6 +67,8 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Unsupported image types return `UNSUPPORTED_CONTENT_TYPE`.
 - Oversized uploads return `UPLOAD_TOO_LARGE` with `413` when the request reaches the app.
 - Bad image bytes or unreadable dimensions return `IMAGE_DIMENSIONS_UNREADABLE`.
+- Images beyond the trial full-resolution editor policy return `IMAGE_DIMENSIONS_UNSUPPORTED`: the maximum editable trial image is `8000x6000`, `48,000,000` pixels, with long edge at most `8000` and short edge at most `6000`.
+- Images above `6000x4000` and within the trial maximum are accepted but marked with a large-image warning because full-resolution editing may use significant browser memory, especially on iPad.
 - Optional client checksum hints are normalized and checked against the server-computed `sha256:<hex>` value; mismatches return `CHECKSUM_MISMATCH`.
 - Storage keys are generated or constrained server-side. Browser API responses do not include private object-store URLs or storage keys.
 - Successful upload and compatibility commit events create `IMAGE_UPLOAD_ACCEPTED` audit rows. Rejected uploads create `IMAGE_UPLOAD_REJECTED` rows where the request is authenticated and reaches application code.
@@ -76,5 +78,6 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Legacy presigned upload/view routes remain for compatibility, but the trial browser workflow and `src/lib` helper contract use app-mediated upload and read paths so MinIO can stay private.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - Only one default slice/support geometry per image is implemented.
+- Tiling, downscaled working masks, sparse/patch uploads, hard multi-tab locking, and large-image edit-session soft locks remain deferred.
 - Multi-slice and multi-object workflows remain deferred.
 - RB-053 exports approved semantic/support/classification data only and warns about missing metadata or missing approved components.

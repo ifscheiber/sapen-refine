@@ -582,6 +582,36 @@ Owner: Codex.
 
 Priority: Resolved by RB-080.
 
+## RB-081 - Mask Upload Byte-Length Follow-up Hotfix
+
+Context: Manual browser testing still saw `MASK_BYTE_LENGTH_MISMATCH` after RB-080. Audit logs showed the client declared 24,000,000 bytes for a 6000x4000 mask, while the server received about 10.4 MB, matching the Next.js proxy default body limit.
+
+Impact: Full-resolution trial masks could be truncated before reaching route handlers even when the browser constructed the correct raw payload.
+
+Resolution: RB-081 configures `experimental.proxyClientMaxBodySize` via `NEXT_PROXY_CLIENT_MAX_BODY_SIZE`, default `120mb`; adds a shared raw mask request reader for semantic, support, and assisted-correction save paths; preserves strict actual-body byte validation; adds safe diagnostics; and documents the trial full-resolution policy.
+
+Remaining follow-up: Real iPad Safari still needs device validation at large sizes. Images above `8000x6000` require a future tiled, downscaled, sparse, or patch-upload workflow.
+
+Affected modules: `next.config.ts`, deployment config, `src/server/uploads`, mask save routes, image upload validation/UI, editor UI, docs, and tests.
+
+Owner: Codex.
+
+Priority: Resolved by RB-081.
+
+## Future - Edit Session / Soft Lock / Multi-Tab Warning
+
+Context: Trial users may open the same large image in multiple browser tabs. Ground-truth saves are versioned and append-only, but multiple tabs increase browser memory pressure and can confuse annotators about which draft is current.
+
+Impact: This is most risky on iPad or other memory-constrained devices and for images near the `8000x6000` trial upper bound.
+
+Proposed next step: Add an edit-session signal or local multi-tab warning for the same image, without hard-blocking normal browser behavior. Consider server-visible soft locks only after real trial feedback.
+
+Affected modules: editor page, editor client state, browser storage/session signaling, audit/docs.
+
+Owner: Unassigned.
+
+Priority: P2.
+
 ## RB-076 - Customer Trial Deployment Dry Run
 
 Context: RB-069 prepared the trial deployment runbook, but the real Strato/customer deployment process has not been rehearsed end to end.

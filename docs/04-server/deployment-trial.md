@@ -132,14 +132,16 @@ Default trial limits:
 - Prediction batch ZIP upload: 100 MiB.
 - Prediction batch items per ZIP: 200.
 - Prediction batch process pass: 25 items.
+- Next proxy request body: 120mb.
 - Caddy request body: 120 MB.
 
-Raise app and Caddy limits together:
+Raise app, Next proxy, and Caddy limits together:
 
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
+- `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` in `deploy/trial.env`; rebuild/restart the app image when changing it.
 - `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
 
-Supported raw image uploads are PNG and JPEG. Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` when the request reaches the app. If Caddy rejects the body first, the browser sees a Caddy `413`.
+Supported raw image uploads are PNG and JPEG. Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` when the request reaches the app. If the Next proxy or Caddy rejects/truncates first, the app may not produce the intended JSON error, so keep both proxy limits above the app limits. Trial full-resolution annotation supports normal images up to `6000x4000`, large-warning images up to `8000x6000`, and rejects larger images with `IMAGE_DIMENSIONS_UNSUPPORTED`.
 
 ## Optional Prediction Import Worker
 

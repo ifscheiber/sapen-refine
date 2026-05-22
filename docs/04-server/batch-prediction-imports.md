@@ -165,7 +165,7 @@ Runtime variables:
 - `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS` - abandoned presigned image/mask upload retention, default `24`.
 - `STORAGE_CLEANUP_MAX_DELETE_PER_RUN` - maximum cleanup deletes per execute run, default `500`.
 
-For customer trials, keep `CADDY_MAX_BODY_SIZE` above `PREDICTION_BATCH_UPLOAD_MAX_BYTES`; otherwise Caddy can reject the request before the app returns JSON.
+For customer trials, keep `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` and `CADDY_MAX_BODY_SIZE` above `PREDICTION_BATCH_UPLOAD_MAX_BYTES`; otherwise the Next proxy or Caddy can reject the request before the app returns JSON.
 
 ## Authorization
 

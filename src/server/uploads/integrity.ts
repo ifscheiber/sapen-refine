@@ -7,6 +7,8 @@ export class UploadIntegrityError extends Error {
     public readonly code: string,
     public readonly status = 400,
     message = code,
+    public readonly diagnostics: Record<string, unknown> | null = null,
+    public readonly maxBytes: number | null = null,
   ) {
     super(message);
   }
@@ -203,12 +205,14 @@ export function maskByteLengthDiagnostics(params: {
   height: number;
   receivedBytes: number;
   declaredClientBytes?: number | null;
+  contentLengthHeader?: number | null;
   format?: string | null;
 }) {
   return {
     expectedBytes: params.width * params.height,
     receivedBytes: params.receivedBytes,
     declaredClientBytes: params.declaredClientBytes ?? null,
+    contentLengthHeader: params.contentLengthHeader ?? null,
     format: params.format?.trim() || "u8raw-v1",
   };
 }
@@ -217,7 +221,11 @@ export function integrityErrorPayload(error: unknown) {
   if (error instanceof UploadIntegrityError) {
     return {
       status: error.status,
-      body: { ok: false, error: error.code },
+      body: {
+        ok: false,
+        error: error.code,
+        ...(typeof error.maxBytes === "number" ? { maxBytes: error.maxBytes } : {}),
+      },
     };
   }
   return null;

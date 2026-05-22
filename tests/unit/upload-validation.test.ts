@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { evaluateTrialImageEditability } from "@/lib/imageSizePolicy";
 import {
   readContentLength,
   uploadErrorPayload,
@@ -16,6 +17,7 @@ import {
   validateMaskBytes,
   validateSupportMaskValues,
 } from "@/server/uploads/integrity";
+import { readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
 function minimalPng(width: number, height: number) {
   const bytes = new Uint8Array(24);
@@ -140,6 +142,13 @@ describe("upload validation", () => {
     );
   });
 
+  it("classifies trial image editability limits", () => {
+    expect(evaluateTrialImageEditability(6000, 4000).status).toBe("normal");
+    expect(evaluateTrialImageEditability(8000, 6000).status).toBe("large");
+    expect(evaluateTrialImageEditability(8001, 6000).status).toBe("unsupported");
+    expect(evaluateTrialImageEditability(8000, 6001).status).toBe("unsupported");
+  });
+
   it("validates raw u8 mask dimensions and support mask values", () => {
     const bytes = new Uint8Array([0, 10, 0, 10]);
 
@@ -190,7 +199,91 @@ describe("upload validation", () => {
       expectedBytes: 4,
       receivedBytes: 4,
       declaredClientBytes: 999,
+      contentLengthHeader: null,
       format: "u8raw-v1",
     });
+  });
+
+  it("reads a 6000 x 4000 raw mask request without truncating bytes", async () => {
+    const width = 6000;
+    const height = 4000;
+    const expectedBytes = width * height;
+    const bytes = new Uint8Array(expectedBytes);
+    const request = new Request("http://local.test/mask", {
+      method: "POST",
+      headers: {
+        "content-type": "application/octet-stream",
+        "content-length": String(expectedBytes),
+        "x-mask-width": String(width),
+        "x-mask-height": String(height),
+        "x-mask-format": "u8raw-v1",
+        "x-mask-byte-length": String(expectedBytes),
+      },
+      body: bytes,
+    });
+
+    const upload = await readMaskUploadRequest(request, { maxBytes: 50 * 1024 * 1024 });
+
+    expect(upload.bytes.byteLength).toBe(expectedBytes);
+    expect(upload.diagnostics).toEqual({
+      width,
+      height,
+      expectedBytes,
+      receivedBytes: expectedBytes,
+      declaredClientBytes: expectedBytes,
+      contentLengthHeader: expectedBytes,
+      format: "u8raw-v1",
+    });
+  });
+
+  it("rejects truncated raw mask bodies and keeps client byte length diagnostic only", async () => {
+    const width = 6000;
+    const height = 4000;
+    const expectedBytes = width * height;
+    const receivedBytes = 10_455_308;
+    const request = new Request("http://local.test/mask", {
+      method: "POST",
+      headers: {
+        "content-type": "application/octet-stream",
+        "content-length": String(receivedBytes),
+        "x-mask-width": String(width),
+        "x-mask-height": String(height),
+        "x-mask-format": "u8raw-v1",
+        "x-mask-byte-length": String(expectedBytes),
+      },
+      body: new Uint8Array(receivedBytes),
+    });
+
+    await expect(readMaskUploadRequest(request, { maxBytes: 50 * 1024 * 1024 })).rejects.toMatchObject({
+      code: "MASK_BYTE_LENGTH_MISMATCH",
+      diagnostics: {
+        width,
+        height,
+        expectedBytes,
+        receivedBytes,
+        declaredClientBytes: expectedBytes,
+        contentLengthHeader: receivedBytes,
+        format: "u8raw-v1",
+      },
+    });
+  });
+
+  it("does not reject a correct mask when the declared client byte diagnostic is wrong", async () => {
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const request = new Request("http://local.test/mask", {
+      method: "POST",
+      headers: {
+        "content-type": "application/octet-stream",
+        "x-mask-width": "2",
+        "x-mask-height": "2",
+        "x-mask-byte-length": "999",
+      },
+      body: bytes,
+    });
+
+    const upload = await readMaskUploadRequest(request, { maxBytes: 1024 });
+
+    expect(upload.bytes.byteLength).toBe(4);
+    expect(upload.declaredClientBytes).toBe(999);
   });
 });

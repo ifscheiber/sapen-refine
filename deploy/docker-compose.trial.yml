@@ -23,9 +23,12 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
       APP_BASE_URL: ${APP_BASE_URL:?Set APP_BASE_URL}
       DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
       S3_ENDPOINT: http://minio:9000
@@ -71,6 +74,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
     restart: "no"
     command: ["npx", "prisma", "migrate", "deploy"]
     environment:
@@ -84,6 +89,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
     restart: unless-stopped
     command: ["npm", "run", "jobs:prediction-import", "--", "--loop", "--base-url", "http://app:3000"]
     environment:
