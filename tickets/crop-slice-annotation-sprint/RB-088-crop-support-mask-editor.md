@@ -1,8 +1,8 @@
-# RB-086 — Crop Editor: Mandatory Pixel-Perfect Slice Support Mask
+# RB-088 — Crop Editor: Mandatory Pixel-Perfect Slice Support Mask
 
 ## Status
 
-Proposed / Depends on RB-085
+Proposed / Depends on RB-087
 
 ## Priority
 

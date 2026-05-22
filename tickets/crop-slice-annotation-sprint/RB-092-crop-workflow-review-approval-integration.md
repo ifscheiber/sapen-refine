@@ -1,8 +1,8 @@
-# RB-090 — Crop Workflow Review / Approval Integration
+# RB-092 — Crop Workflow Review / Approval Integration
 
 ## Status
 
-Proposed / Depends on RB-086–RB-089
+Proposed / Depends on RB-088–RB-091
 
 ## Priority
 

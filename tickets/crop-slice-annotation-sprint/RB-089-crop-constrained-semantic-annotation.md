@@ -1,8 +1,8 @@
-# RB-087 — Crop-Constrained Semantic Annotation
+# RB-089 — Crop-Constrained Semantic Annotation
 
 ## Status
 
-Proposed / Depends on RB-086
+Proposed / Depends on RB-088
 
 ## Priority
 

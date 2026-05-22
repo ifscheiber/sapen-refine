@@ -1,8 +1,8 @@
-# RB-084 — BBox Slice Proposal Workflow
+# RB-086 — BBox Slice Proposal Workflow
 
 ## Status
 
-Proposed / Depends on RB-083
+Proposed / Depends on RB-085
 
 ## Priority
 

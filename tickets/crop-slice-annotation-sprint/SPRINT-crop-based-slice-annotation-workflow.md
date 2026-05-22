@@ -171,14 +171,14 @@ semantic/support/classification → slice instance
 ## 4. Sprint Tickets
 
 ```text
-RB-083  Crop-Based Slice Annotation Workflow ADR / Design
-RB-084  BBox Slice Proposal Workflow
-RB-085  Derived Slice Crop Generation
-RB-086  Crop Support Mask Editor
-RB-087  Crop-Constrained Semantic Annotation
-RB-088  Auto Slice Classification from Semantic Masks
-RB-089  Crop / Original Coordinate Export Contract
-RB-090  Crop Workflow Review / Approval Integration
+RB-085  Crop-Based Slice Annotation Workflow ADR / Design
+RB-086  BBox Slice Proposal Workflow
+RB-087  Derived Slice Crop Generation
+RB-088  Crop Support Mask Editor
+RB-089  Crop-Constrained Semantic Annotation
+RB-090  Auto Slice Classification from Semantic Masks
+RB-091  Crop / Original Coordinate Export Contract
+RB-092  Crop Workflow Review / Approval Integration
 ```
 
 ---
@@ -187,22 +187,22 @@ RB-090  Crop Workflow Review / Approval Integration
 
 ```text
 Phase 1 — Design:
-  RB-083
-
-Phase 2 — Crop foundation:
-  RB-084
   RB-085
 
-Phase 3 — Support-first annotation:
+Phase 2 — Crop foundation:
   RB-086
-
-Phase 4 — Semantics and classification:
   RB-087
+
+Phase 3 — Support-first annotation:
   RB-088
 
-Phase 5 — Export and review integration:
+Phase 4 — Semantics and classification:
   RB-089
   RB-090
+
+Phase 5 — Export and review integration:
+  RB-091
+  RB-092
 ```
 
 ---

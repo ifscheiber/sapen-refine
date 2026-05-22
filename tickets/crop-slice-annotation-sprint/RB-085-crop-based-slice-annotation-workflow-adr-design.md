@@ -1,4 +1,4 @@
-# RB-083 — Crop-Based Slice Annotation Workflow ADR / Design
+# RB-085 — Crop-Based Slice Annotation Workflow ADR / Design
 
 ## Status
 
@@ -204,7 +204,7 @@ Use the next available ADR number.
 6. Sap/Heartwood complement-fill decision is documented.
 7. Auto-classification decision is documented.
 8. Export/review implications are documented.
-9. Follow-up tickets RB-084 to RB-090 are aligned or updated.
+9. Follow-up tickets RB-086 to RB-092 are aligned or updated.
 10. No runtime behavior changes.
 11. Ticket is moved to `tickets/2026-05-21/done/`.
 12. Full validation gate passes.

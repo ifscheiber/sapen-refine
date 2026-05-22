@@ -1,8 +1,8 @@
-# RB-085 — Derived Slice Crop Generation
+# RB-087 — Derived Slice Crop Generation
 
 ## Status
 
-Proposed / Depends on RB-084
+Proposed / Depends on RB-086
 
 ## Priority
 

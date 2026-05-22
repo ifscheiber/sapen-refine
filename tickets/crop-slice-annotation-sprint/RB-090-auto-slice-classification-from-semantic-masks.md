@@ -1,8 +1,8 @@
-# RB-088 — Auto Slice Classification from Semantic Masks
+# RB-090 — Auto Slice Classification from Semantic Masks
 
 ## Status
 
-Proposed / Depends on RB-087
+Proposed / Depends on RB-089
 
 ## Priority
 
