@@ -474,6 +474,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-069.
 
+## RB-076 - Customer Trial Deployment Dry Run
+
+Context: RB-069 prepared the runbook, but the trial deployment process still needed execution evidence before customer access.
+
+Impact: Without a dry run, trial setup could fail on Compose build, migrations, seed/user setup, Caddy routing, backups, or operational commands only after customer deployment started.
+
+Resolution: RB-076 completed a local isolated Compose dry run with `caddy`, `app`, PostgreSQL, MinIO, and the optional prediction-import worker profile. It added a safe `trial:bootstrap` path, verified named users, health/readiness, desktop browser smoke, large-mask upload, worker no-op processing, storage cleanup dry-run, PostgreSQL/MinIO backup/restore, and Caddy backup commands.
+
+Remaining follow-up: Real Strato HTTPS deployment and real iPad Safari gate remain pending. RB-084 tracks the Docker/Prisma OpenSSL warning found during the dry run.
+
+Affected modules: `deploy`, `Dockerfile` follow-up, trial scripts, docs under `docs/04-server`, smoke docs, and tickets under `tickets/2026-05-21` and `tickets/2026-05-22`.
+
+Owner: Codex.
+
+Priority: Resolved by RB-076 local dry run.
+
 ## RB-070 - Editor Eraser Tool UX
 
 Context: The editor supports brush and lasso drawing, and users can erase only indirectly by painting a background label.
@@ -607,20 +623,6 @@ Impact: This is most risky on iPad or other memory-constrained devices and for i
 Proposed next step: Add an edit-session signal or local multi-tab warning for the same image, without hard-blocking normal browser behavior. Consider server-visible soft locks only after real trial feedback.
 
 Affected modules: editor page, editor client state, browser storage/session signaling, audit/docs.
-
-Owner: Unassigned.
-
-Priority: P2.
-
-## RB-076 - Customer Trial Deployment Dry Run
-
-Context: RB-069 prepared the trial deployment runbook, but the real Strato/customer deployment process has not been rehearsed end to end.
-
-Impact: Runbook gaps may only surface during customer-facing deployment unless a dry run is performed first.
-
-Proposed next step: Execute the trial Compose deployment flow in a suitable environment, verify named trial users, backup/restore commands, health/readiness, upload/editor/review/export, and document deviations.
-
-Affected modules: deployment docs, Compose runtime, trial user scripts, backup/restore runbook, and customer-trial readiness docs.
 
 Owner: Unassigned.
 

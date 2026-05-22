@@ -105,6 +105,8 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ex
 
 Use a named global `ADMIN` account for cleanup. Do not use shared demo credentials for customer-facing trial operations.
 
+RB-076 verified this dry-run command against the local trial Compose stack; the dry run returned zero cleanup candidates.
+
 The same script can run outside Compose against a deployed app:
 
 ```bash

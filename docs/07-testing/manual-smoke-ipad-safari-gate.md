@@ -2,7 +2,7 @@
 
 ## Status
 
-Real iPad Safari Gate status: pending until deployed URL and device access are available.
+Real iPad Safari Gate status: pending until deployed URL and device access are available. RB-076 completed only a local desktop/Caddy dry run and does not count as this gate.
 
 Do not mark this gate as passed unless it has been executed on a real iPad Safari device against the deployed trial URL.
 

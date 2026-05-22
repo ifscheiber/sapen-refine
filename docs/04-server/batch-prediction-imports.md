@@ -113,6 +113,8 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ex
 
 Use a named job account, not shared demo credentials, so batch processing remains attributable. The processor metadata records the configured `PREDICTION_IMPORT_PROCESSOR_ID`; the audit actor remains the authenticated named account used by the script.
 
+RB-076 verified the no-op due-processing command and optional worker profile startup in a local Compose dry run. No prediction ZIP fixture was used in that dry run.
+
 ## Retry And Failure Behavior
 
 Validation failures such as checksum, dimension, content-type, coordinate-space, or label-value errors become item `FAILED` rows with stable error codes. They are not retried automatically.

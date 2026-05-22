@@ -10,6 +10,8 @@ Run backups from the repository root on the server after following [deployment-t
 
 Store backup output under `backups/` for the commands below. That folder is excluded from Docker build context and handoff archives, but it is not a durable backup location by itself; copy completed backups off the trial host according to the accepted trial operations process.
 
+RB-076 verified the PostgreSQL dump/restore and MinIO volume backup/restore commands in a local isolated Compose dry run on 2026-05-22. It also verified Caddy data/config backup commands; Caddy restore was not executed locally because the HTTP dry run did not create meaningful certificate state. See [trial-deployment-dry-run-2026-05-22.md](trial-deployment-dry-run-2026-05-22.md).
+
 ## PostgreSQL Dump
 
 ```bash

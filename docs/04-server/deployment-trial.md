@@ -6,6 +6,8 @@ This runbook is the copy-paste baseline for the current single-host customer tri
 
 This is trial-ready, not HA. PostgreSQL and MinIO store local data on the host through Docker volumes; backup/restore is the compensation for missing replication.
 
+RB-076 local dry-run evidence is recorded in [trial-deployment-dry-run-2026-05-22.md](trial-deployment-dry-run-2026-05-22.md). The dry run used local HTTP through Caddy; real trial deployment still requires the HTTPS/DNS steps below.
+
 ## Host Prerequisites
 
 - Linux server with enough disk for raw images, masks, exports, PostgreSQL, MinIO, Caddy data, and backups.
