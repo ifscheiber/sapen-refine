@@ -75,6 +75,7 @@ Run from the repository root:
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml build
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d postgres minio
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile tools run --rm migrate
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:bootstrap
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d
 ```
 
@@ -87,13 +88,17 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up
 
 Do not use `prisma migrate dev` on the trial server.
 
+Do not run `npm run seed` or `prisma db seed` for customer-facing trials unless shared demo credentials have been explicitly accepted. The seed command is for local development/demo resets and creates `admin@sapen.local`, `labeler@sapen.local`, and `demo_project`. `npm run trial:bootstrap` creates only global roles and the default label schema required by real named trial users.
+
 ## Create Named Users
 
-Create the first named tester:
+Create the first named administrator/project owner:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester' --global-role ADMIN
 ```
+
+This account can log in, create the first project, and run global-admin operational commands such as storage cleanup dry-runs. After a project exists, add additional named testers to the project:
 
 Add a tester to an existing project:
 
@@ -157,7 +162,7 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml lo
 One-shot processing remains available:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
 ```
 
 Keep one default worker process for the trial. There is no Redis, RabbitMQ, distributed worker coordination, GPU execution, or inference execution in this deployment.

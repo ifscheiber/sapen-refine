@@ -102,13 +102,13 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml lo
 One-shot processing remains available when an always-on worker is not desired:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
 ```
 
 For a single batch:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --batch '<batch-id>' --limit 25 --email 'qa@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --batch '<batch-id>' --limit 25 --email 'qa@example.com' --password '<password>'
 ```
 
 Use a named job account, not shared demo credentials, so batch processing remains attributable. The processor metadata records the configured `PREDICTION_IMPORT_PROCESSOR_ID`; the audit actor remains the authenticated named account used by the script.

@@ -14,6 +14,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260520204932_prediction_import_batches/migration.sql` - RB-061 prediction import batch/job/item extension.
 - `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 batch staging purge markers.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
+- `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
 
 ## Current Model Summary

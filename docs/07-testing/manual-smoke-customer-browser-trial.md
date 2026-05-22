@@ -20,6 +20,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Check `deploy/trial.env`. | Hostname, app URL, DB, S3, and upload limits are set with non-placeholder secrets. |  |  |
 | Run `docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ps`. | `caddy`, `app`, `postgres`, and `minio` are running or healthy. |  |  |
 | Run the `migrate` service. | `prisma migrate deploy` completes without using `migrate dev`. |  |  |
+| Run `npm run trial:bootstrap` through Compose. | Global roles and the default label schema exist without creating shared demo users or demo projects. |  |  |
+| Create named trial users through Compose. | At least one named global admin/project owner and one named project labeler exist; no shared demo credentials are used unless explicitly accepted. |  |  |
 | Open `/api/health`. | Returns `status: ok`. |  |  |
 | Open `/api/ready`. | Returns `status: ok`; failures name only dependency checks. |  |  |
 | Open HTTPS app URL. | Redirects to login without TLS warnings. |  |  |

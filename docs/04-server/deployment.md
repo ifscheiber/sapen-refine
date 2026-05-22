@@ -35,6 +35,7 @@ Run from the repository root:
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml build
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d postgres minio
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile tools run --rm migrate
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:bootstrap
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d
 ```
 
@@ -46,6 +47,8 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up
 ```
 
 Do not use `prisma migrate dev` for the customer trial. `migrate dev` is local development tooling; trial deployment uses `prisma migrate deploy` through the `migrate` Compose service.
+
+Do not use the local development seed for customer-facing trial setup unless shared demo credentials have been explicitly accepted. The trial path runs `npm run trial:bootstrap` to create roles and the default label schema without demo users or projects.
 
 ## Verify Runtime
 
@@ -64,13 +67,13 @@ Do not expose shared demo credentials for customer-facing access unless that ris
 
 RB-064 hides shared seed credentials in production/trial unless `SHOW_DEMO_CREDENTIALS=true`. Keep that value `false` for customer-facing trials and create named tester accounts instead.
 
-Create the first named tester:
+Create the first named administrator/project owner:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester' --global-role ADMIN
 ```
 
-The first tester can log in and create a project. Add additional testers to a known project ID from the project URL:
+The first tester can log in, create a project, and run global-admin operational dry-runs. Add additional testers to a known project ID from the project URL:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email bob@example.com --password 'replace-with-unique-password' --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
@@ -126,13 +129,13 @@ Project `OWNER`/`QA` users can create, inspect, process, and retry prediction im
 For one-shot operational runs, use the API-based script while the app container is running:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --batch '<batch-id>' --limit 25 --email 'owner@example.com' --password '<owner-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --batch '<batch-id>' --limit 25 --email 'owner@example.com' --password '<owner-password>'
 ```
 
 To process due pending/retry/stale batches without naming one batch:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<qa-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<qa-password>'
 ```
 
 The script logs in through the normal app API and calls bounded processing passes. It does not run inference and does not expose MinIO.

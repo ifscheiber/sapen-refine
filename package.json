@@ -8,6 +8,7 @@
     "db:reset": "docker compose down -v && docker compose up -d",
     "db:bootstrap": "prisma migrate deploy && prisma db seed",
     "db:rebuild": "docker compose down -v && docker compose up -d --wait postgres minio && docker compose up -d minio-init && prisma migrate deploy && prisma db seed",
+    "trial:bootstrap": "node scripts/trial-bootstrap.mjs",
     "trial:user:create": "node scripts/create-trial-user.mjs",
     "handoff:archive": "node scripts/create-handoff-archive.mjs",
     "jobs:prediction-import": "node scripts/process-prediction-import-batch.mjs",
@@ -30,7 +31,7 @@
     "test:watch": "vitest"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node prisma/seed.mjs"
   },
   "overrides": {
     "@hono/node-server": "1.19.14",

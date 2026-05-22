@@ -65,6 +65,10 @@ The command removes local Docker volumes, recreates PostgreSQL/MinIO, applies `p
 
 The default label schema includes stable ids for `background`, `unknown`, `sapwood`, `heartwood`, `copper`, `slice_support`, `review_required`, and slice classification labels.
 
+## Trial Bootstrap Baseline
+
+Customer-facing trial deployment uses `npm run trial:bootstrap` after `prisma migrate deploy`. That command creates only global `ADMIN`/`USER` roles and the same default label schema/definitions used by the local seed. It does not create `admin@sapen.local`, `labeler@sapen.local`, or `demo_project`; named users are created separately with `npm run trial:user:create`.
+
 ## Implemented And Deferred Work
 
 - RB-050 implements project/image metadata UI/API workflow for image-level acquisition and default sample metadata.

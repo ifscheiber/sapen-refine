@@ -16,6 +16,7 @@
 - `prisma/migrations/20260521090500_prediction_import_idempotency/migration.sql` - RB-065 batch-item source idempotency key for prediction provenance rows.
 - `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 batch staging purge markers.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
+- `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
 
 ## Public Interfaces / Routes / Functions

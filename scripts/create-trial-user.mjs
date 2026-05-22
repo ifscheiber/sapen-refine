@@ -4,11 +4,13 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
+import { ensureGlobalRole } from "./trial-bootstrap-lib.mjs";
+
 const { Pool } = pg;
 
 function usage() {
   console.error(`Usage:
-node scripts/create-trial-user.mjs --email tester@example.com --password '<password>' --name 'Tester Name' [--project-id demo_project] [--project-role LABELER]
+node scripts/create-trial-user.mjs --email tester@example.com --password '<password>' --name 'Tester Name' [--global-role USER|ADMIN] [--project-id demo_project] [--project-role LABELER]
 
 Creates or updates a named trial user and optionally adds project membership.
 `);
@@ -41,18 +43,20 @@ function assertProjectRole(role) {
   }
 }
 
-async function ensureGlobalUserRole(prisma, userId) {
-  const role = await prisma.role.upsert({
-    where: { name: "USER" },
-    update: {},
-    create: { name: "USER" },
-  });
+function assertGlobalRole(role) {
+  const allowed = new Set(["USER", "ADMIN"]);
+  if (!allowed.has(role)) {
+    throw new Error(`Invalid global role "${role}". Use one of: ${[...allowed].join(", ")}`);
+  }
+}
 
-  await prisma.userGlobalRole.upsert({
-    where: { userId_roleId: { userId, roleId: role.id } },
-    update: {},
-    create: { userId, roleId: role.id },
-  });
+async function ensureRequestedGlobalRoles(prisma, userId, role) {
+  await ensureGlobalRole(prisma, userId, "USER");
+  if (role === "ADMIN") {
+    await ensureGlobalRole(prisma, userId, "ADMIN");
+    return ["USER", "ADMIN"];
+  }
+  return ["USER"];
 }
 
 async function main() {
@@ -62,12 +66,14 @@ async function main() {
   const name = args.name?.trim();
   const projectId = args["project-id"]?.trim();
   const projectRole = args["project-role"]?.trim() || "LABELER";
+  const globalRole = args["global-role"]?.trim() || "USER";
 
   if (!email || !password) {
     usage();
     process.exit(1);
   }
   assertProjectRole(projectRole);
+  assertGlobalRole(globalRole);
 
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -95,7 +101,7 @@ async function main() {
       select: { id: true, email: true, name: true },
     });
 
-    await ensureGlobalUserRole(prisma, user.id);
+    const globalRoles = await ensureRequestedGlobalRoles(prisma, user.id, globalRole);
 
     if (projectId) {
       const project = await prisma.annotationProject.findUnique({
@@ -122,13 +128,15 @@ async function main() {
         details: {
           actorKind: "TRIAL_USER_CLI",
           email: user.email,
+          globalRoles,
           projectId: projectId ?? null,
-          projectRole,
+          projectRole: projectId ? projectRole : null,
         },
       },
     });
 
     console.log(`Trial user ready: ${user.email}`);
+    console.log(`Global roles: ${globalRoles.join(", ")}`);
     if (projectId) {
       console.log(`Project membership: ${projectId} / ${projectRole}`);
     }
