@@ -26,6 +26,7 @@ import {
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
 import { API_ARTIFACT_REVIEW, API_CROP_SUPPORT_MASK, API_CROP_SUPPORT_MASK_UPLOAD } from "./editorApi";
 import { errorMessage, formatReviewState } from "./editorFormatters";
+import { createEditorLoadGuard } from "./editorLoadGuard";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
@@ -64,12 +65,16 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
   const overlayCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const overlayImageRef = useRef<ImageData | null>(null);
   const maskRef = useRef<MaskBuffer | null>(null);
+  const paletteRef = useRef<Uint8ClampedArray>(
+    buildPalette(supportMaskLabels(Labels.SLICE_SUPPORT), 0.5),
+  );
   const draggingRef = useRef(false);
   const lastPtRef = useRef<{ x: number; y: number } | null>(null);
   const currentStrokeRef = useRef<Stroke>([]);
   const undoRef = useRef<Stroke[]>([]);
   const redoRef = useRef<Stroke[]>([]);
   const opacityRef = useRef(0.5);
+  const loadSequenceRef = useRef(0);
 
   const [state, setState] = useState<CropSupportMaskState | null>(null);
   const [status, setStatus] = useState("");
@@ -123,13 +128,13 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
     applyZoom(nextZoom);
   }, [applyZoom]);
 
-  function ensureOverlayBuffer(width: number, height: number) {
+  const ensureOverlayBuffer = useCallback((width: number, height: number) => {
     const ctx = overlayCtxRef.current;
     const current = overlayImageRef.current;
     if (!current || current.width !== width || current.height !== height) {
       overlayImageRef.current = ctx?.createImageData(width, height) ?? new ImageData(width, height);
     }
-  }
+  }, []);
 
   const renderOverlayFull = useCallback(() => {
     const mask = maskRef.current;
@@ -139,9 +144,9 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
     ensureOverlayBuffer(mask.width, mask.height);
     const imageData = overlayImageRef.current;
     if (!imageData) return;
-    updateOverlayRegionWithPalette(imageData, mask, palette, 0, 0, mask.width, mask.height);
+    updateOverlayRegionWithPalette(imageData, mask, paletteRef.current, 0, 0, mask.width, mask.height);
     ctx.putImageData(imageData, 0, 0);
-  }, [palette]);
+  }, [ensureOverlayBuffer]);
 
   function paintOverlayRect(x: number, y: number, width: number, height: number) {
     const mask = maskRef.current;
@@ -156,7 +161,7 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
     const y0 = clampNumber(y, 0, mask.height);
     const x1 = clampNumber(x + width, 0, mask.width);
     const y1 = clampNumber(y + height, 0, mask.height);
-    updateOverlayRegionWithPalette(imageData, mask, palette, x0, y0, x1 - x0, y1 - y0);
+    updateOverlayRegionWithPalette(imageData, mask, paletteRef.current, x0, y0, x1 - x0, y1 - y0);
     ctx.putImageData(imageData, 0, 0, x0, y0, x1 - x0, y1 - y0);
   }
 
@@ -172,29 +177,38 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
     lastPtRef.current = null;
   }, []);
 
-  const loadEditor = useCallback(async () => {
+  const loadEditor = useCallback(async (signal?: AbortSignal) => {
+    const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
     resetEditor();
     setStatus("Loading crop support mask");
     try {
       const response = await fetch(API_CROP_SUPPORT_MASK(cropId), {
         method: "GET",
         cache: "no-store",
+        signal,
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
         throw new Error(data?.error ?? `CROP_SUPPORT_MASK_FAILED_${response.status}`);
       }
+      if (!loadGuard.isCurrent()) return;
       const nextState = data as CropSupportMaskState;
+      paletteRef.current = buildPalette(
+        supportMaskLabels(nextState.supportLabels.sliceSupport),
+        opacityRef.current,
+      );
 
       let latestBytes: Uint8Array | null = null;
       if (nextState.latestSupportMask?.url) {
-        const assetResponse = await fetch(nextState.latestSupportMask.url, { cache: "no-store" });
+        const assetResponse = await fetch(nextState.latestSupportMask.url, { cache: "no-store", signal });
         if (!assetResponse.ok) throw new Error(`CROP_SUPPORT_MASK_ASSET_FAILED_${assetResponse.status}`);
         const assetBuffer = await assetResponse.arrayBuffer();
         latestBytes = new Uint8Array(assetBuffer);
+        if (!loadGuard.isCurrent()) return;
       }
 
       const img = await loadImageElement(nextState.crop.assetUrl);
+      if (!loadGuard.isCurrent()) return;
       const width = img.naturalWidth;
       const height = img.naturalHeight;
       if (width !== nextState.crop.cropWidth || height !== nextState.crop.cropHeight) {
@@ -249,22 +263,27 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
       setHasUnsavedChanges(false);
       setStatus("");
       requestAnimationFrame(() => {
+        if (!loadGuard.isCurrent()) return;
         fitToContainer();
       });
     } catch (error) {
+      if (signal?.aborted) return;
       setEditorReady(false);
       setStatus(errorMessage(error, "Crop support editor failed"));
     }
   }, [cropId, fitToContainer, resetEditor]);
 
   useEffect(() => {
-    void loadEditor();
+    const controller = new AbortController();
+    void loadEditor(controller.signal);
+    return () => controller.abort();
   }, [loadEditor]);
 
   useEffect(() => {
     opacityRef.current = opacity;
+    paletteRef.current = palette;
     renderOverlayFull();
-  }, [opacity, renderOverlayFull]);
+  }, [opacity, palette, renderOverlayFull]);
 
   useEffect(() => {
     applyZoom(zoom);

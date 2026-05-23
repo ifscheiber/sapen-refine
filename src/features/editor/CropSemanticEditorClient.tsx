@@ -39,6 +39,7 @@ import {
   formatSliceClassificationSource,
   formatSliceClassLabel,
 } from "./editorFormatters";
+import { createEditorLoadGuard } from "./editorLoadGuard";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
@@ -159,6 +160,10 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   const overlayImageRef = useRef<ImageData | null>(null);
   const supportMaskRef = useRef<MaskBuffer | null>(null);
   const maskRef = useRef<MaskBuffer | null>(null);
+  const paletteRef = useRef<Uint8ClampedArray>(buildPalette([], 0.5));
+  const supportPaletteRef = useRef<Uint8ClampedArray>(
+    buildPalette(supportMaskLabels(Labels.SLICE_SUPPORT), 0.3),
+  );
   const draggingRef = useRef(false);
   const lastPtRef = useRef<{ x: number; y: number } | null>(null);
   const currentStrokeRef = useRef<Stroke>([]);
@@ -166,6 +171,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   const redoRef = useRef<Stroke[]>([]);
   const opacityRef = useRef(0.5);
   const supportOpacityRef = useRef(0.3);
+  const loadSequenceRef = useRef(0);
 
   const [state, setState] = useState<CropSemanticMaskState | null>(null);
   const [status, setStatus] = useState("");
@@ -229,21 +235,21 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     applyZoom(nextZoom);
   }, [applyZoom]);
 
-  function ensureOverlayBuffer(width: number, height: number) {
+  const ensureOverlayBuffer = useCallback((width: number, height: number) => {
     const ctx = overlayCtxRef.current;
     const current = overlayImageRef.current;
     if (!current || current.width !== width || current.height !== height) {
       overlayImageRef.current = ctx?.createImageData(width, height) ?? new ImageData(width, height);
     }
-  }
+  }, []);
 
-  function ensureSupportOverlayBuffer(width: number, height: number) {
+  const ensureSupportOverlayBuffer = useCallback((width: number, height: number) => {
     const ctx = supportCtxRef.current;
     const current = supportOverlayImageRef.current;
     if (!current || current.width !== width || current.height !== height) {
       supportOverlayImageRef.current = ctx?.createImageData(width, height) ?? new ImageData(width, height);
     }
-  }
+  }, []);
 
   const renderOverlayFull = useCallback(() => {
     const mask = maskRef.current;
@@ -253,9 +259,9 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     ensureOverlayBuffer(mask.width, mask.height);
     const imageData = overlayImageRef.current;
     if (!imageData) return;
-    updateOverlayRegionWithPalette(imageData, mask, palette, 0, 0, mask.width, mask.height);
+    updateOverlayRegionWithPalette(imageData, mask, paletteRef.current, 0, 0, mask.width, mask.height);
     ctx.putImageData(imageData, 0, 0);
-  }, [palette]);
+  }, [ensureOverlayBuffer]);
 
   const renderSupportOverlayFull = useCallback(() => {
     const support = supportMaskRef.current;
@@ -269,14 +275,14 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     updateOverlayRegionWithPalette(
       imageData,
       displayMask,
-      supportPalette,
+      supportPaletteRef.current,
       0,
       0,
       displayMask.width,
       displayMask.height,
     );
     ctx.putImageData(imageData, 0, 0);
-  }, [supportPalette]);
+  }, [ensureSupportOverlayBuffer]);
 
   function paintOverlayRect(x: number, y: number, width: number, height: number) {
     const mask = maskRef.current;
@@ -291,7 +297,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     const y0 = clampNumber(y, 0, mask.height);
     const x1 = clampNumber(x + width, 0, mask.width);
     const y1 = clampNumber(y + height, 0, mask.height);
-    updateOverlayRegionWithPalette(imageData, mask, palette, x0, y0, x1 - x0, y1 - y0);
+    updateOverlayRegionWithPalette(imageData, mask, paletteRef.current, x0, y0, x1 - x0, y1 - y0);
     ctx.putImageData(imageData, 0, 0, x0, y0, x1 - x0, y1 - y0);
   }
 
@@ -309,20 +315,28 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     lastPtRef.current = null;
   }, []);
 
-  const loadEditor = useCallback(async () => {
+  const loadEditor = useCallback(async (signal?: AbortSignal) => {
+    const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
     resetEditor();
     setStatus("Loading crop semantic mask");
     try {
       const response = await fetch(API_CROP_SEMANTIC_MASK(cropId), {
         method: "GET",
         cache: "no-store",
+        signal,
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
         throw new Error(data?.error ?? `CROP_SEMANTIC_MASK_FAILED_${response.status}`);
       }
+      if (!loadGuard.isCurrent()) return;
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
+      paletteRef.current = buildPalette(semanticOverlayLabels(nextState, semanticMode), opacityRef.current);
+      supportPaletteRef.current = buildPalette(
+        supportMaskLabels(Labels.SLICE_SUPPORT),
+        supportOpacityRef.current,
+      );
 
       if (!nextState.currentSupportMask) {
         setEditorReady(false);
@@ -330,19 +344,22 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
         return;
       }
 
-      const supportResponse = await fetch(nextState.currentSupportMask.url, { cache: "no-store" });
+      const supportResponse = await fetch(nextState.currentSupportMask.url, { cache: "no-store", signal });
       if (!supportResponse.ok) throw new Error(`CROP_SUPPORT_MASK_ASSET_FAILED_${supportResponse.status}`);
       const supportBytes = new Uint8Array(await supportResponse.arrayBuffer());
+      if (!loadGuard.isCurrent()) return;
 
       let latestBytes: Uint8Array | null = null;
       const latestSemantic = nextState.latestSemanticMasks[semanticMode];
       if (latestSemantic?.url && latestSemantic.supportMaskVersionId === nextState.currentSupportMask.id) {
-        const assetResponse = await fetch(latestSemantic.url, { cache: "no-store" });
+        const assetResponse = await fetch(latestSemantic.url, { cache: "no-store", signal });
         if (!assetResponse.ok) throw new Error(`CROP_SEMANTIC_MASK_ASSET_FAILED_${assetResponse.status}`);
         latestBytes = new Uint8Array(await assetResponse.arrayBuffer());
+        if (!loadGuard.isCurrent()) return;
       }
 
       const img = await loadImageElement(nextState.crop.assetUrl);
+      if (!loadGuard.isCurrent()) return;
       const width = img.naturalWidth;
       const height = img.naturalHeight;
       if (width !== nextState.crop.cropWidth || height !== nextState.crop.cropHeight) {
@@ -402,27 +419,33 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       setHasUnsavedChanges(false);
       setStatus("");
       requestAnimationFrame(() => {
+        if (!loadGuard.isCurrent()) return;
         fitToContainer();
       });
     } catch (error) {
+      if (signal?.aborted) return;
       setEditorReady(false);
       setStatus(errorMessage(error, "Crop semantic editor failed"));
     }
   }, [cropId, fitToContainer, renderOverlayFull, renderSupportOverlayFull, resetEditor, semanticMode]);
 
   useEffect(() => {
-    void loadEditor();
+    const controller = new AbortController();
+    void loadEditor(controller.signal);
+    return () => controller.abort();
   }, [loadEditor]);
 
   useEffect(() => {
     opacityRef.current = opacity;
+    paletteRef.current = palette;
     renderOverlayFull();
-  }, [opacity, renderOverlayFull]);
+  }, [opacity, palette, renderOverlayFull]);
 
   useEffect(() => {
     supportOpacityRef.current = supportOpacity;
+    supportPaletteRef.current = supportPalette;
     renderSupportOverlayFull();
-  }, [supportOpacity, renderSupportOverlayFull]);
+  }, [supportOpacity, supportPalette, renderSupportOverlayFull]);
 
   useEffect(() => {
     applyZoom(zoom);
