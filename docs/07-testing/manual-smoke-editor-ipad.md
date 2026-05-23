@@ -87,7 +87,7 @@ Blocking: yes/no
 | Open an uploaded image in the editor. | Image and controls render. |  |  |
 | Open a large image above `6000x4000` and no larger than `8000x6000` if available. | Large-image memory warning is visible; editor remains usable. |  |  |
 | Select `BBox proposal` and draw a rough slice box with finger/Pencil. | Proposal appears in the BBox list and persists after reload without page scrolling during the draw. |  |  |
-| Tap `Generate crop` for the selected BBox proposal. | Crop preview, padding, and clipped-state text remain readable and reload. |  |  |
+| Tap `Generate crop` for the selected BBox proposal. | Crop preview, padding, clipped-state text, and crop readiness remain readable and reload. |  |  |
 | Draw with finger using Brush. | Mask draws; canvas does not scroll the page while drawing. |  |  |
 | Select Eraser by touch and erase part of the mask. | Eraser touch target is usable and erasing does not scroll the page. |  |  |
 | Draw with Apple Pencil if available. | Pencil draws through Pointer Events. |  |  |
@@ -112,6 +112,6 @@ Blocking: yes/no
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
 - RB-070 adds explicit eraser UX; real iPad Safari/Pencil behavior still needs the manual gate.
-- RB-086/RB-087/RB-088/RB-089/RB-090 BBox proposals, derived crops, crop support-mask editing, crop semantic editing, and draft auto classification suggestions are available; crop-aware review/export integration remains later workflow slices.
+- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092 BBox proposals, derived crops, crop support-mask editing, crop semantic editing, draft auto classification suggestions, crop training export, and crop-aware review/readiness integration are available.
 - Current editor review controls are minimal; reviewer dashboards and bulk review remain separate follow-up slices. RB-053 export testing is covered by the desktop/customer browser smoke checklists through the project exports route.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

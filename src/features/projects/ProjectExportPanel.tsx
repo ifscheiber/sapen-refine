@@ -26,7 +26,9 @@ type ExportReadiness = {
     readyCropItems: number;
     partialCropItems: number;
     notReadyCropItems: number;
+    reviewRequiredCropItems: number;
     cropItemsWithWarnings: number;
+    cropReasonCounts?: Record<string, number>;
   };
 };
 
@@ -299,7 +301,15 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
               {readiness.summary.readyCropItems}/{readiness.summary.totalCropItems}
             </div>
             <div className="text-xs text-muted-foreground">
-              {readiness.summary.partialCropItems} partial · {readiness.summary.notReadyCropItems} not ready
+              {readiness.summary.partialCropItems} partial · {readiness.summary.reviewRequiredCropItems} review ·{" "}
+              {readiness.summary.notReadyCropItems} not ready
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {Object.entries(readiness.summary.cropReasonCounts ?? {})
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 2)
+                .map(([reason, count]) => `${reason}: ${count}`)
+                .join(" · ") || "No crop warnings"}
             </div>
           </div>
         </div>

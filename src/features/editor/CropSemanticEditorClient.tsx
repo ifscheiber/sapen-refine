@@ -26,12 +26,15 @@ import {
 } from "./canvasGeometry";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
 import {
+  API_ARTIFACT_REVIEW,
+  API_CLASSIFICATION_REVIEW,
   API_CROP_SEMANTIC_MASK,
   API_CROP_SEMANTIC_MASK_UPLOAD,
   API_SLICE_INSTANCE_CLASSIFICATION,
 } from "./editorApi";
 import {
   errorMessage,
+  formatReviewState,
   formatSliceClassificationReason,
   formatSliceClassificationSource,
   formatSliceClassLabel,
@@ -42,8 +45,10 @@ import { activeButtonClass, idleButtonClass } from "./editorStyles";
 import { getPaintLabelForTool } from "./editorTools";
 import {
   SLICE_CLASS_OPTIONS,
+  type CropReviewActions,
   type CropSemanticMaskState,
   type CropSemanticMode,
+  type ReviewAction,
   type SliceClassValue,
   type Tool,
 } from "./editorTypes";
@@ -54,6 +59,15 @@ type CropSemanticEditorClientProps = {
 };
 
 type Stroke = Patch[];
+type CropReviewTarget = {
+  key: string;
+  label: string;
+  versionId: string;
+  version: number;
+  reviewState: string;
+  kind: "artifact" | "classification";
+  actions: CropReviewActions | null;
+};
 
 const MODE_LABELS: Record<CropSemanticMode, string> = {
   SAP_HEARTWOOD: "Sap/Heartwood",
@@ -167,6 +181,8 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSliceClass, setSelectedSliceClass] = useState<SliceClassValue | "">("");
   const [classificationSaving, setClassificationSaving] = useState(false);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
 
   const overlayLabels = useMemo(() => semanticOverlayLabels(state, semanticMode), [state, semanticMode]);
   const paintLabels = useMemo(() => semanticPaintLabels(state, semanticMode), [state, semanticMode]);
@@ -631,14 +647,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       if (!response.ok || !data?.ok) {
         throw new Error(data?.error ?? `SLICE_CLASSIFICATION_SAVE_FAILED_${response.status}`);
       }
-      setState((current) =>
-        current
-          ? {
-              ...current,
-              latestClassification: data.latestClassification ?? null,
-            }
-          : current,
-      );
+      await loadEditor();
       setStatus("Classification saved");
       setTimeout(() => setStatus(""), 800);
     } catch (error) {
@@ -653,10 +662,97 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     await loadEditor();
   }
 
+  async function runReviewAction(target: CropReviewTarget, action: ReviewAction) {
+    if (hasUnsavedChanges) return;
+    const comment = reviewComment.trim();
+    if (action === "reject" && !comment) {
+      setStatus("Reject reason required");
+      return;
+    }
+
+    const busyKey = `${target.key}:${target.versionId}:${action}`;
+    setReviewBusyKey(busyKey);
+    setStatus("");
+    try {
+      const endpoint =
+        target.kind === "classification"
+          ? API_CLASSIFICATION_REVIEW(target.versionId)
+          : API_ARTIFACT_REVIEW(target.versionId);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          comment: comment || undefined,
+          reason: action === "reject" ? comment : undefined,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? `CROP_REVIEW_FAILED_${response.status}`);
+      }
+      setReviewComment("");
+      await loadEditor();
+      setStatus(`${target.label} ${formatReviewState(data.toState)}`);
+      setTimeout(() => setStatus(""), 800);
+    } catch (error) {
+      setStatus(errorMessage(error, "Crop review action failed"));
+    } finally {
+      setReviewBusyKey(null);
+    }
+  }
+
   const editorStatus = isSaving ? "Saving..." : status || (hasUnsavedChanges ? "Unsaved changes" : "");
   const supportHref = state
     ? `/app/projects/${state.crop.projectId}/images/${state.crop.sourceImageId}/slices/${state.crop.sliceInstanceId}/crops/${state.crop.id}/support`
     : null;
+  const activeSemanticMask = state?.latestSemanticMasks[semanticMode] ?? null;
+  const classificationReviewActions =
+    state?.latestClassification &&
+    state.cropReadiness?.latestClassificationVersionId === state.latestClassification.id
+      ? state.cropReadiness.reviewActions.classification
+      : null;
+  const reviewTargets: CropReviewTarget[] = [
+    ...(state?.currentSupportMask
+      ? [
+          {
+            key: "support",
+            label: "Support",
+            versionId: state.currentSupportMask.id,
+            version: state.currentSupportMask.version,
+            reviewState: state.currentSupportMask.reviewState,
+            kind: "artifact" as const,
+            actions: state.currentSupportMask.reviewActions,
+          },
+        ]
+      : []),
+    ...(activeSemanticMask
+      ? [
+          {
+            key: `semantic-${semanticMode}`,
+            label: MODE_LABELS[semanticMode],
+            versionId: activeSemanticMask.id,
+            version: activeSemanticMask.version,
+            reviewState: activeSemanticMask.reviewState,
+            kind: "artifact" as const,
+            actions: activeSemanticMask.reviewActions,
+          },
+        ]
+      : []),
+    ...(state?.latestClassification
+      ? [
+          {
+            key: "classification",
+            label: "Classification",
+            versionId: state.latestClassification.id,
+            version: state.latestClassification.version,
+            reviewState: state.latestClassification.reviewState,
+            kind: "classification" as const,
+            actions: classificationReviewActions,
+          },
+        ]
+      : []),
+  ];
 
   if (state && !state.currentSupportMask) {
     return (
@@ -691,6 +787,9 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
           <span>{supportReadinessLabel(state)}</span>
           <span>{semanticVersionLabel(state, semanticMode)}</span>
           <span>{classificationLabel(state)}</span>
+          {state?.cropReadiness && (
+            <span>Export readiness: {state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}</span>
+          )}
           <span>Outside-support pixels are locked.</span>
           {semanticMode === "COPPER" && <span>Non-copper wood remains background inside support.</span>}
         </div>
@@ -809,6 +908,46 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
             <SaveIcon className="size-4" aria-hidden="true" />
             {classificationSaving ? "Saving classification..." : "Save classification"}
           </button>
+          {reviewTargets.map((target) => {
+            const blocked = hasUnsavedChanges || reviewBusyKey !== null;
+            return (
+              <div key={target.key} className="flex min-h-11 items-center gap-1 text-xs text-muted-foreground">
+                <span>
+                  {target.label}: {formatReviewState(target.reviewState)} v{target.version}
+                </span>
+                <button
+                  className={idleButtonClass}
+                  onClick={() => void runReviewAction(target, "submit")}
+                  disabled={blocked || !target.actions?.canSubmit}
+                >
+                  Submit
+                </button>
+                <button
+                  className={idleButtonClass}
+                  onClick={() => void runReviewAction(target, "approve")}
+                  disabled={blocked || !target.actions?.canApprove}
+                >
+                  Approve
+                </button>
+                <button
+                  className={idleButtonClass}
+                  onClick={() => void runReviewAction(target, "reject")}
+                  disabled={blocked || !target.actions?.canReject}
+                >
+                  Reject
+                </button>
+              </div>
+            );
+          })}
+          {reviewTargets.length > 0 && (
+            <input
+              aria-label="Crop review comment"
+              value={reviewComment}
+              onChange={(event) => setReviewComment(event.target.value)}
+              placeholder="Review comment"
+              className="min-h-11 w-48 rounded-md border border-border bg-input-background px-3 py-2 text-sm"
+            />
+          )}
           <div className="ml-auto flex min-h-11 flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>Semantic opacity</span>

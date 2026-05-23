@@ -59,7 +59,7 @@ This is the current primary workflow for SaPen Annotate.
 ## Known Gaps
 
 - Advanced export filters/history/job handling are not implemented.
-- Crop semantic editing and multi-object support annotation remain deferred.
+- Multi-object support annotation remains deferred; crop semantic editing is implemented for the crop workflow.
 
 ## Related Tickets / Docs
 

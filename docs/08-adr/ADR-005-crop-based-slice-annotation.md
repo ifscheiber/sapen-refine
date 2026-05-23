@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-085 design. RB-086 implements source-image BBox proposal persistence and editor drawing. RB-087 implements derived slice crop generation/persistence. Remaining runtime implementation is deferred to RB-088 through RB-092.
+Accepted for RB-085 design. RB-086 implements source-image BBox proposal persistence and editor drawing. RB-087 implements derived slice crop generation/persistence. RB-088 through RB-092 implement crop support masks, crop semantic masks, auto classification, crop training export, and crop review/readiness integration.
 
 ## Context
 
@@ -52,7 +52,7 @@ Slice classification can be auto-suggested from semantic content, but the sugges
 ## Consequences
 
 - Full-resolution editing remains an implemented MVP workflow and is not removed by the crop sprint.
-- RB-086 introduces BBox proposal versions without weakening existing ground-truth rules. RB-087 introduces derived crop versions without treating crop padding as support geometry. RB-088 through RB-090 introduce crop support masks, crop-constrained semantics, and auditable auto classification suggestions. RB-091/RB-092 remain for crop-aware export and review integration.
+- RB-086 introduces BBox proposal versions without weakening existing ground-truth rules. RB-087 introduces derived crop versions without treating crop padding as support geometry. RB-088 through RB-090 introduce crop support masks, crop-constrained semantics, and auditable auto classification suggestions. RB-091 implements crop training export, and RB-092 implements shared crop readiness plus review integration.
 - Export manifests must preserve enough transform and provenance data to map crop masks back to source-image pixels.
 - Review state must stay artifact-specific. A reviewed crop does not automatically approve its support mask, semantic mask, or classification.
 - Export readiness must reject or flag stale lineage, such as a semantic mask derived from an older crop/support version than the selected training support mask.
@@ -66,8 +66,8 @@ Slice classification can be auto-suggested from semantic content, but the sugges
 - RB-088: Crop support mask editor. Implemented crop-scoped support artifact versions.
 - RB-089: Crop-constrained semantic annotation. Implemented support-constrained crop semantic masks.
 - RB-090: Auto slice classification from semantic masks. Implemented draft auto suggestions and manual override provenance.
-- RB-091: Crop/original-coordinate export contract implementation.
-- RB-092: Crop workflow review/approval integration.
+- RB-091: Crop/original-coordinate export contract implementation. Implemented crop training manifest/package export with crop/source provenance; source-image-space reprojection remains deferred.
+- RB-092: Crop workflow review/approval integration. Implemented central crop readiness, review actions in crop editors, and project/export readiness integration.
 - Later: tiled/downscaled full-image editor, edit-session/multi-tab warnings, real iPad Safari validation, and production-scale dataset export jobs.
 
 ## Evidence

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the distinction between semantic masks, support/instance masks, prediction artifacts, reviewed ground-truth artifacts, and the planned crop-derived artifact model.
+This page defines the distinction between semantic masks, support/instance masks, prediction artifacts, reviewed ground-truth artifacts, and the implemented crop-derived artifact model.
 
 Current mask code lives in `src/mask/*`, semantic mask APIs live in `src/app/api/images/[imageId]/mask/*`, default image-sized support-mask APIs live in `src/app/api/images/[imageId]/support-mask/*`, crop support-mask APIs live in `src/app/api/slice-crops/[cropId]/support-mask/*`, crop semantic-mask APIs live in `src/app/api/slice-crops/[cropId]/semantic-mask/*`, and persisted mask artifacts are `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
 
@@ -75,7 +75,7 @@ Expected classes include:
 - `UNKNOWN`
 - `REVIEW_REQUIRED`
 
-Classification versions reference the relevant image, slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows for the default slice instance; RB-052 adds submit/approve/reject state transitions for those versions. RB-090 adds `source`, `derivationReason`, optional derivation metadata, and optional semantic/support/crop lineage links so auto-derived crop suggestions and manual overrides remain auditable separate versions.
+Classification versions reference the relevant image, slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows for the default slice instance; RB-052 adds submit/approve/reject state transitions for those versions. RB-090 adds `source`, `derivationReason`, optional derivation metadata, and optional semantic/support/crop lineage links so auto-derived crop suggestions and manual overrides remain auditable separate versions. RB-092 allows approved manual crop classifications without derivation links when they are current relative to the selected approved crop support and semantic mask versions; manual rows that do contain derivation links must match the selected crop/support/semantic lineage.
 
 ### Prediction Artifacts
 
@@ -107,6 +107,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - Human correction versions from RB-059 use `parentVersionId` for the source prediction and keep prediction bytes immutable.
 - Approved versions remain immutable. RB-052 keeps the latest approved version export-ready until a newer approved version exists; creating a new draft does not mutate approved history.
 - RB-053 training exports consume latest approved versions only and record exact artifact version ids in the manifest and `ExportItem` rows.
+- RB-092 centralizes crop readiness in `src/server/domain/cropReadiness.ts`; crop support masks, crop semantic masks, and crop classifications must be approved and current before a crop can be exported as ground truth.
 - Model prediction versions and `PredictionArtifactProvenance` rows are not export-ready ground truth. Future exports may reference prediction ids only as provenance of approved human corrections.
 
 ## Review State

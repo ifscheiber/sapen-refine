@@ -23,6 +23,7 @@ import {
   API_IMAGE_VIEW,
   API_MASK_LATEST,
   API_MASK_UPLOAD,
+  API_PROJECT_CROP_READINESS,
   API_REVIEW_STATE,
   API_SLICE_BBOX,
   API_SLICE_BBOXES,
@@ -43,6 +44,7 @@ import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./edito
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   type CorrectionContext,
+  type CropWorkflowReadinessCandidate,
   type DerivedSliceCrop,
   type EditorProps,
   type ImageReviewState,
@@ -118,6 +120,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
   const [predictionLoaded, setPredictionLoaded] = useState(false);
   const [bboxProposals, setBBoxProposals] = useState<SliceBoundingBoxProposal[]>([]);
   const [sliceCrops, setSliceCrops] = useState<DerivedSliceCrop[]>([]);
+  const [cropReadinessCandidates, setCropReadinessCandidates] = useState<CropWorkflowReadinessCandidate[]>([]);
   const [bboxStatus, setBBoxStatus] = useState("");
   const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
   const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
@@ -237,6 +240,22 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
     return crops;
   }, [imageId]);
 
+  const loadCropReadiness = useCallback(async () => {
+    const res = await fetch(API_PROJECT_CROP_READINESS(projectId, { imageId }), {
+      method: "GET",
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      setBBoxStatus(data?.error ?? `CROP_READINESS_FAILED_${res.status}`);
+      return [];
+    }
+
+    const candidates = (data.candidates ?? []) as CropWorkflowReadinessCandidate[];
+    setCropReadinessCandidates(candidates);
+    return candidates;
+  }, [imageId, projectId]);
+
   const loadCorrectionContext = useCallback(async (taskId: string) => {
     setCorrectionStatus("Loading correction task");
     try {
@@ -262,7 +281,8 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
     void loadReviewState();
     void loadBBoxProposals();
     void loadSliceCrops();
-  }, [loadBBoxProposals, loadReviewState, loadSliceCrops, loadSliceState]);
+    void loadCropReadiness();
+  }, [loadBBoxProposals, loadCropReadiness, loadReviewState, loadSliceCrops, loadSliceState]);
 
   useEffect(() => {
     if (!correctionTaskId) return;
@@ -1015,6 +1035,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
 
       await loadBBoxProposals();
       await loadSliceCrops();
+      await loadCropReadiness();
       setSelectedBBoxId(data.box.bboxVersionId);
       setBBoxReplaceArmed(false);
       setBBoxStatus(replacing ? "BBox proposal replaced" : "BBox proposal saved");
@@ -1038,6 +1059,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
       setBBoxReplaceArmed(false);
       await loadBBoxProposals();
       await loadSliceCrops();
+      await loadCropReadiness();
       setBBoxStatus("BBox proposal deleted");
     } catch (error) {
       setBBoxStatus(errorMessage(error, "BBox proposal delete failed"));
@@ -1060,6 +1082,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
       }
 
       await loadSliceCrops();
+      await loadCropReadiness();
       setBBoxStatus("Derived crop generated");
     } catch (error) {
       setBBoxStatus(errorMessage(error, "Derived crop generation failed"));
@@ -1573,6 +1596,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
           imageId={imageId}
           boxes={bboxProposals}
           crops={sliceCrops}
+          cropReadinessCandidates={cropReadinessCandidates}
           selectedBBoxId={selectedBBoxId}
           replaceArmed={bboxReplaceArmed}
           canEdit={canEditBBox}

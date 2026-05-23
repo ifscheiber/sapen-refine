@@ -192,7 +192,9 @@ The MVP exports approved ground-truth components only:
 
 Draft, submitted, rejected, and superseded versions are not exported as training targets.
 
-Crop training exports require the full ready crop set: a derived crop, approved crop support mask, approved crop semantic mask, and approved classification whose lineage matches the selected semantic/support/crop versions. RB-090 auto-derived classification rows start as `DRAFT`; they are not export-ready until approved. Manual override rows without matching semantic/support/crop derivation links are not included in the RB-091 crop ground-truth package.
+Crop training exports require the full ready crop set: a derived crop, approved crop support mask, approved crop semantic mask, and approved classification whose lineage matches the selected semantic/support/crop versions. RB-090 auto-derived classification rows start as `DRAFT`; they are not export-ready until approved. RB-092 accepts approved manual override rows when they belong to the same project/image/slice and are current relative to the selected support and semantic mask versions; any manual derived links that are present must match the selected crop/support/semantic lineage.
+
+Crop readiness is resolved centrally by `src/server/domain/cropReadiness.ts` and exposed through `GET /api/projects/[projectId]/crop-readiness`. The resolver returns `READY`, `PARTIAL`, `NOT_READY`, or `REVIEW_REQUIRED`, stable reason codes, and summary reason counts. `REVIEW_REQUIRED` is used for stale lineage, coordinate-space/dimension mismatch, or stale manual classification cases that should not silently export. Crop export creation includes only `READY` candidates and records every skipped crop with its readiness status and reasons.
 
 Model prediction artifacts are also excluded from default training exports. RB-059 human corrections based on predictions may be exported only after they are saved as separate human semantic/support versions and approved. Prediction bytes are not ground-truth labels.
 

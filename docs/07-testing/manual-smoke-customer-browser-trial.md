@@ -149,6 +149,6 @@ Blocking failure criteria:
 - RB-068 is an internal editor decomposition; visible customer-trial editor behavior should remain unchanged.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default pixel-perfect slice/support geometry per image; multi-object editing remains deferred.
-- RB-086/RB-087/RB-088/RB-089/RB-090 support source-image BBox slice proposals, derived crop previews, crop support-mask editing, support-constrained crop semantic editing, and draft auto classification suggestions/manual overrides. Crop-aware review/export integration remains deferred.
+- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092 support source-image BBox slice proposals, derived crop previews, crop support-mask editing, support-constrained crop semantic editing, draft auto classification suggestions/manual overrides, crop training export, and crop-aware review/readiness integration.
 - RB-053 training export and RB-060/RB-067 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. RB-066 storage cleanup is admin-only and dry-run first. Cleanup UI, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
 - Assisted correction supports semantic/support mask predictions only; slice-classification correction remains deferred.

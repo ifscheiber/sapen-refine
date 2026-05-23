@@ -440,6 +440,48 @@ describe("training export workflow", () => {
     return classification.id;
   }
 
+  async function createManualCropClassificationVersion(params: {
+    crop: Awaited<ReturnType<typeof createCropFixture>>["crop"];
+    name: string;
+    reviewState?: ArtifactReviewState;
+    createdAt?: Date;
+  }) {
+    const latest = await prisma.sliceClassificationVersion.aggregate({
+      where: { sliceInstanceId: params.crop.sliceInstanceId },
+      _max: { version: true },
+    });
+    const classification = await prisma.sliceClassificationVersion.create({
+      data: {
+        projectId,
+        imageId: params.crop.sourceImageId,
+        sliceInstanceId: params.crop.sliceInstanceId,
+        version: (latest._max.version ?? 0) + 1,
+        class: "COPPER_SLICE",
+        reviewState: params.reviewState ?? "APPROVED",
+        source: "MANUAL",
+        labelSchemaVersionId,
+        createdById: labelerId,
+        ...(params.createdAt ? { createdAt: params.createdAt } : {}),
+      },
+      select: { id: true },
+    });
+
+    if ((params.reviewState ?? "APPROVED") === "APPROVED") {
+      await prisma.reviewDecision.create({
+        data: {
+          projectId,
+          sliceClassificationVersionId: classification.id,
+          fromState: "SUBMITTED",
+          toState: "APPROVED",
+          reviewedById: ownerId,
+          comments: `Approved manual crop classification ${params.name}`,
+        },
+      });
+    }
+
+    return classification.id;
+  }
+
   it("creates a combined export with exact approved version references and package files", async () => {
     const imageId = await createImage("complete");
     const semanticVersionId = await createArtifactVersion({
@@ -715,7 +757,7 @@ describe("training export workflow", () => {
       readinessReasons: expect.arrayContaining([
         "SUPPORT_NOT_APPROVED",
         "SEMANTIC_NOT_APPROVED",
-        "CLASSIFICATION_NOT_APPROVED",
+        "AUTO_CLASSIFICATION_NEEDS_REVIEW",
       ]),
     });
 
@@ -736,7 +778,7 @@ describe("training export workflow", () => {
     );
   });
 
-  it("marks crop candidates with selected-version lineage mismatches as partial", async () => {
+  it("marks crop candidates with selected-version lineage mismatches as review-required", async () => {
     const { crop } = await createCropFixture("lineage-mismatch");
     const originalSupportId = await createCropArtifactVersion({
       crop,
@@ -768,8 +810,11 @@ describe("training export workflow", () => {
     );
     const cropCandidate = readiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id);
     expect(cropCandidate).toMatchObject({
-      readinessStatus: "PARTIAL",
-      readinessReasons: expect.arrayContaining(["LINEAGE_MISMATCH"]),
+      readinessStatus: "REVIEW_REQUIRED",
+      readinessReasons: expect.arrayContaining([
+        "SUPPORT_SEMANTIC_MISMATCH",
+        "CLASSIFICATION_SEMANTIC_MISMATCH",
+      ]),
     });
 
     const exportBatch = await exportsDomain.createTrainingExportForUser(
@@ -785,11 +830,104 @@ describe("training export workflow", () => {
       expect.arrayContaining([
         expect.objectContaining({
           derivedCropId: crop.id,
-          readinessStatus: "PARTIAL",
-          readinessReasons: expect.arrayContaining(["LINEAGE_MISMATCH"]),
+          readinessStatus: "REVIEW_REQUIRED",
+          readinessReasons: expect.arrayContaining([
+            "SUPPORT_SEMANTIC_MISMATCH",
+            "CLASSIFICATION_SEMANTIC_MISMATCH",
+          ]),
         }),
       ]),
     );
+  });
+
+  it("accepts current approved manual crop classifications and rejects stale manual classifications", async () => {
+    const current = await createCropFixture("manual-current");
+    const currentSupportId = await createCropArtifactVersion({
+      crop: current.crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "manual-current-support",
+    });
+    await createCropArtifactVersion({
+      crop: current.crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: currentSupportId,
+      semanticMode: "COPPER",
+      name: "manual-current-semantic",
+    });
+    const currentManualId = await createManualCropClassificationVersion({
+      crop: current.crop,
+      name: "manual-current",
+      createdAt: new Date(Date.now() + 1_000),
+    });
+
+    const stale = await createCropFixture("manual-stale");
+    const staleManualId = await createManualCropClassificationVersion({
+      crop: stale.crop,
+      name: "manual-stale",
+      createdAt: new Date(Date.now() - 60_000),
+    });
+    const staleSupportId = await createCropArtifactVersion({
+      crop: stale.crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "manual-stale-support",
+    });
+    await createCropArtifactVersion({
+      crop: stale.crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: staleSupportId,
+      semanticMode: "COPPER",
+      name: "manual-stale-semantic",
+    });
+
+    const readiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    expect(readiness.cropCandidates.find((candidate) => candidate.crop.id === current.crop.id)).toMatchObject({
+      classification: { id: currentManualId, source: "MANUAL" },
+      readinessStatus: "READY",
+      readinessReasons: [],
+    });
+    expect(readiness.cropCandidates.find((candidate) => candidate.crop.id === stale.crop.id)).toMatchObject({
+      classification: { id: staleManualId, source: "MANUAL" },
+      readinessStatus: "REVIEW_REQUIRED",
+      readinessReasons: expect.arrayContaining(["CLASSIFICATION_STALE"]),
+    });
+  });
+
+  it("marks crop candidates with crop-coordinate mismatches as review-required", async () => {
+    const { crop } = await createCropFixture("coordinate-mismatch");
+    const supportVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "coordinate-support",
+    });
+    await prisma.annotationArtifactVersion.update({
+      where: { id: supportVersionId },
+      data: { coordinateSpace: "IMAGE_PIXEL" },
+    });
+    const semanticVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: supportVersionId,
+      semanticMode: "COPPER",
+      name: "coordinate-semantic",
+    });
+    await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: semanticVersionId,
+      supportMaskVersionId: supportVersionId,
+      name: "coordinate-classification",
+    });
+
+    const readiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    expect(readiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id)).toMatchObject({
+      readinessStatus: "REVIEW_REQUIRED",
+      readinessReasons: expect.arrayContaining(["COORDINATE_SPACE_MISMATCH"]),
+    });
   });
 
   it("rejects mixed crop and full-image export target selection", () => {

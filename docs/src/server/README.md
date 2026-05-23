@@ -35,6 +35,7 @@
 - `src/server/domain/cropSupportMasks.ts` - RB-088 crop support-mask state, crop-dimension validation, coordinate helper, artifact-version creation, and sanitized latest-version reads.
 - `src/server/domain/cropSemanticMasks.ts` - RB-089 crop semantic-mask state, support-lineage validation, mode label validation, outside-support rejection, artifact-version creation, and sanitized latest-version reads.
 - `src/server/domain/sliceClassifications.ts` - RB-090 slice-instance manual override APIs, semantic-mask classification derivation, provenance serialization, and audit events.
+- `src/server/domain/cropReadiness.ts` - RB-092 shared crop readiness resolver, crop review-action availability, sanitized readiness serialization, and crop export skip policy.
 - `src/server/http/apiErrors.ts` - RB-072 flat JSON API error helpers for auth/RBAC/domain route failures.
 - `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helpers, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
 
@@ -59,6 +60,7 @@
 - `loadCropSupportMaskStateForUser`, `createCropSupportMaskVersionForUser`, and `cropPixelToSourcePixel` implement the RB-088 crop support-mask service layer.
 - `loadCropSemanticMaskStateForUser`, `createCropSemanticMaskVersionForUser`, and `validateSemanticMaskAgainstSupport` implement the RB-089 crop semantic-mask service layer.
 - `deriveSliceClassificationFromSemanticMask`, `deriveSliceClassificationForSemanticMaskVersionForUser`, `loadSliceClassificationStateForUser`, and `setSliceInstanceClassificationForUser` implement the RB-090 auto/manual crop workflow classification service layer.
+- `resolveCropWorkflowReadiness`, `resolveCropWorkflowReadinessForUser`, and `sanitizeCropWorkflowReadiness` implement the RB-092 shared crop readiness service used by crop editors, project readiness APIs, and crop-training exports.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 - `apiError`, `apiErrorFromPayload`, `apiErrorFromUnknown`, and `withApiErrorHandling` implement the RB-072 route-level JSON error contract.
 
@@ -82,7 +84,7 @@
 - Crop support-mask services create draft crop-scoped `SLICE_SUPPORT_MASK` artifact versions only after exact crop-dimension validation. They link saved versions to `DerivedSliceCrop` and `SliceInstance`, use `CROP_PIXEL`, and keep private storage keys out of browser responses.
 - Crop semantic-mask services require a current crop support mask, create draft crop-scoped `SEMANTIC_MASK` artifact versions after exact crop-dimension and support-lineage validation, link saved versions to `DerivedSliceCrop`, `SliceInstance`, and `supportMaskVersionId`, use `CROP_PIXEL`, reject non-background semantic bytes outside support, and trigger draft auto slice-classification derivation.
 - Slice-classification derivation uses semantic mask bytes and label-schema values only; it stores `AUTO_FROM_SEMANTIC_MASK` provenance, exact semantic/support/crop lineage, stable derivation reasons, and draft review state. Manual overrides append separate `MANUAL` versions.
-- Crop training exports include only ready crop candidates with approved crop support masks, approved crop semantic masks, and approved classifications whose semantic/support/crop lineage matches. They write `sapen-annotate-crop-training-export-v1` manifests and do not expose private storage keys.
+- Crop readiness is resolved centrally. Crop training exports include only `READY` crop candidates with approved crop support masks, approved crop semantic masks, and approved classifications whose semantic/support/crop lineage is current. `REVIEW_REQUIRED` candidates are skipped with explicit reasons. The manifest version remains `sapen-annotate-crop-training-export-v1`, and browser/API responses do not expose private storage keys.
 
 ## Known Gaps
 

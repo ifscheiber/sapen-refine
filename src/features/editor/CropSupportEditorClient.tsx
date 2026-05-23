@@ -24,13 +24,13 @@ import {
   getZoomedCanvasDisplaySize,
 } from "./canvasGeometry";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
-import { API_CROP_SUPPORT_MASK, API_CROP_SUPPORT_MASK_UPLOAD } from "./editorApi";
-import { errorMessage } from "./editorFormatters";
+import { API_ARTIFACT_REVIEW, API_CROP_SUPPORT_MASK, API_CROP_SUPPORT_MASK_UPLOAD } from "./editorApi";
+import { errorMessage, formatReviewState } from "./editorFormatters";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
 import { getPaintLabelForTool } from "./editorTools";
-import type { CropSupportMaskState, Tool } from "./editorTypes";
+import type { CropSupportMaskState, ReviewAction, Tool } from "./editorTypes";
 
 type CropSupportEditorClientProps = {
   cropId: string;
@@ -80,6 +80,8 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
   const [zoom, setZoom] = useState(1);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusy, setReviewBusy] = useState<ReviewAction | null>(null);
 
   const supportLabelValue = state?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
   const supportBackgroundValue = state?.supportLabels.background ?? Labels.BG;
@@ -439,6 +441,42 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
     }
   }
 
+  async function runSupportReviewAction(action: ReviewAction) {
+    const version = state?.latestSupportMask;
+    if (!version || hasUnsavedChanges) return;
+    const comment = reviewComment.trim();
+    if (action === "reject" && !comment) {
+      setStatus("Reject reason required");
+      return;
+    }
+
+    setReviewBusy(action);
+    setStatus("");
+    try {
+      const response = await fetch(API_ARTIFACT_REVIEW(version.id), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          comment: comment || undefined,
+          reason: action === "reject" ? comment : undefined,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? `CROP_SUPPORT_REVIEW_FAILED_${response.status}`);
+      }
+      setReviewComment("");
+      await loadEditor();
+      setStatus(`Support mask ${formatReviewState(data.toState)}`);
+      setTimeout(() => setStatus(""), 800);
+    } catch (error) {
+      setStatus(errorMessage(error, "Crop support review failed"));
+    } finally {
+      setReviewBusy(null);
+    }
+  }
+
   async function reloadLatest() {
     if (hasUnsavedChanges && !window.confirm("Discard unsaved crop support mask changes?")) return;
     await loadEditor();
@@ -502,6 +540,9 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
           </div>
           <div className="ml-auto flex min-h-11 flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{readinessLabel(state)}</span>
+            {state?.cropReadiness && (
+              <span>Export readiness: {state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}</span>
+            )}
             {state?.latestSupportMask && (
               <span>
                 {state.latestSupportMask.width} x {state.latestSupportMask.height}
@@ -536,6 +577,50 @@ export function CropSupportEditorClient({ cropId, canEdit }: CropSupportEditorCl
             <SaveIcon className="size-4" aria-hidden="true" />
             Save support mask
           </button>
+          {state?.latestSupportMask && (
+            <>
+              <button
+                className={idleButtonClass}
+                onClick={() => void runSupportReviewAction("submit")}
+                disabled={
+                  hasUnsavedChanges ||
+                  reviewBusy !== null ||
+                  !state.latestSupportMask.reviewActions.canSubmit
+                }
+              >
+                Submit
+              </button>
+              <button
+                className={idleButtonClass}
+                onClick={() => void runSupportReviewAction("approve")}
+                disabled={
+                  hasUnsavedChanges ||
+                  reviewBusy !== null ||
+                  !state.latestSupportMask.reviewActions.canApprove
+                }
+              >
+                Approve
+              </button>
+              <button
+                className={idleButtonClass}
+                onClick={() => void runSupportReviewAction("reject")}
+                disabled={
+                  hasUnsavedChanges ||
+                  reviewBusy !== null ||
+                  !state.latestSupportMask.reviewActions.canReject
+                }
+              >
+                Reject
+              </button>
+              <input
+                aria-label="Support review comment"
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                placeholder="Review comment"
+                className="min-h-11 w-48 rounded-md border border-border bg-input-background px-3 py-2 text-sm"
+              />
+            </>
+          )}
           <div className="ml-auto flex min-h-11 items-center gap-3">
             {editorStatus && <div className="text-xs text-muted-foreground">{editorStatus}</div>}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

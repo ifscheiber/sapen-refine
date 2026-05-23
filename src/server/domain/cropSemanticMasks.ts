@@ -7,6 +7,11 @@ import {
 
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import {
+  cropReviewActionsForVersion,
+  resolveCropWorkflowReadiness,
+  sanitizeCropWorkflowCandidate,
+} from "@/server/domain/cropReadiness";
 import { getObjectBytes } from "@/server/storage/s3";
 import {
   getProjectLabelSchemaVersionId,
@@ -164,6 +169,7 @@ function serializeCrop(crop: CropRecord) {
 function serializeSupportMask(
   version: SupportMaskVersionRecord,
   sourceImageId: string,
+  role?: AnnotationProjectRole,
 ) {
   return {
     id: version.id,
@@ -180,6 +186,7 @@ function serializeSupportMask(
     sliceInstanceId: version.sliceInstanceId,
     createdAt: version.createdAt,
     createdBy: version.createdBy,
+    reviewActions: cropReviewActionsForVersion(version, role),
     url: `/api/images/${sourceImageId}/mask/versions/${version.id}/asset`,
   };
 }
@@ -187,6 +194,7 @@ function serializeSupportMask(
 function serializeSemanticMask(
   version: CropSemanticMaskVersionRecord,
   sourceImageId: string,
+  role?: AnnotationProjectRole,
 ) {
   return {
     id: version.id,
@@ -205,6 +213,7 @@ function serializeSemanticMask(
     semanticMode: version.cropSemanticMode,
     createdAt: version.createdAt,
     createdBy: version.createdBy,
+    reviewActions: cropReviewActionsForVersion(version, role),
     url: `/api/images/${sourceImageId}/mask/versions/${version.id}/asset`,
   };
 }
@@ -561,15 +570,25 @@ export async function loadCropSemanticMaskStateForUser(params: {
     COPPER: await getLatestCropSemanticMaskVersion(db, crop, CropSemanticMode.COPPER),
   };
   const serializedSupportMask = latestSupportMask
-    ? serializeSupportMask(latestSupportMask, crop.sourceImageId)
+    ? serializeSupportMask(latestSupportMask, crop.sourceImageId, membership.role)
     : null;
   const serializedMasks = {
     SAP_HEARTWOOD: latestMasks.SAP_HEARTWOOD
-      ? serializeSemanticMask(latestMasks.SAP_HEARTWOOD, crop.sourceImageId)
+      ? serializeSemanticMask(latestMasks.SAP_HEARTWOOD, crop.sourceImageId, membership.role)
       : null,
-    COPPER: latestMasks.COPPER ? serializeSemanticMask(latestMasks.COPPER, crop.sourceImageId) : null,
+    COPPER: latestMasks.COPPER
+      ? serializeSemanticMask(latestMasks.COPPER, crop.sourceImageId, membership.role)
+      : null,
   };
   const latestClassification = await getLatestSliceClassificationForSliceInstance(db, crop.sliceInstanceId);
+  const cropReadiness = await resolveCropWorkflowReadiness({
+    projectId: crop.projectId,
+    imageId: crop.sourceImageId,
+    sliceInstanceId: crop.sliceInstanceId,
+    role: membership.role,
+  }, db);
+  const readinessCandidate =
+    cropReadiness.candidates.find((candidate) => candidate.crop.id === crop.id) ?? null;
 
   return {
     crop: serializeCrop(crop),
@@ -582,6 +601,7 @@ export async function loadCropSemanticMaskStateForUser(params: {
     latestSemanticMasks: serializedMasks,
     semanticReadiness: semanticReadiness(serializedSupportMask, serializedMasks),
     latestClassification,
+    cropReadiness: readinessCandidate ? sanitizeCropWorkflowCandidate(readinessCandidate) : null,
   };
 }
 

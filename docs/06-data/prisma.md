@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-067 workflow, provenance, batch-runner, storage-cleanup, prediction-QA extensions, the RB-086 BBox slice proposal model, the RB-087 derived crop model, the RB-088 crop support-mask lineage model, the RB-089 crop semantic-mask lineage model, the RB-090 semantic-derived classification model, and the RB-091 crop training export contract. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
+This page summarizes the RB-049 persisted annotation-domain baseline plus RB-050 through RB-067 workflow, provenance, batch-runner, storage-cleanup, prediction-QA extensions, the RB-086 BBox slice proposal model, the RB-087 derived crop model, the RB-088 crop support-mask lineage model, the RB-089 crop semantic-mask lineage model, the RB-090 semantic-derived classification model, the RB-091 crop training export contract, and the RB-092 crop review/readiness integration. The exact schema source is `prisma/schema.prisma`; migrations live under `prisma/migrations`.
 
 RB-049 intentionally replaces the previous MVP migration. There is no production data, so local development uses a destructive rebuild instead of preservation migrations.
 
@@ -36,6 +36,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - crop semantic-mask editor saves create or append to a crop-scoped `SEMANTIC_MASK` artifact with `CROP_PIXEL`, `derivedCropId`, `sliceInstanceId`, `supportMaskVersionId`, and `cropSemanticMode`; successful saves also append a draft `SliceClassificationVersion` with `source = AUTO_FROM_SEMANTIC_MASK`,
 - slice classification writes create `SliceClassificationVersion` rows for the default `SliceInstance`; crop workflow manual overrides create rows for the addressed `SliceInstance` through `/api/slices/[sliceInstanceId]/classification`,
 - review routes update `reviewState` and append `ReviewDecision` rows for semantic masks, support masks, and slice classifications,
+- crop readiness is derived from existing crop, artifact-version, classification-version, review-decision, and membership rows by `src/server/domain/cropReadiness.ts`; RB-092 does not add schema tables,
 - upload routes persist verified `ImageAsset` checksums/dimensions/status for PNG/JPEG images,
 - prediction provenance routes create/read `ModelRun` and project-scoped `PredictionRun` records without importing prediction bytes,
 - correction-task routes create/read/update `MODEL_PREDICTION_CORRECTION` `AnnotationTask` rows linked to prediction provenance,
@@ -83,7 +84,7 @@ Customer-facing trial deployment uses `npm run trial:bootstrap` after `prisma mi
 - RB-054 documents the model prediction and active-learning contract; RB-056 implements the provenance registry; RB-057 implements one-at-a-time prediction mask import; RB-058 implements the first active-learning correction task queue; RB-059 implements assisted correction; RB-060 implements separate prediction-analysis exports; RB-061 implements ZIP-based batch prediction import jobs; RB-065 adds single-host DB leases, stale processing recovery, process-due API support, and an optional Compose worker profile; RB-066 adds temporary staging/presigned-orphan cleanup markers and admin cleanup tooling; RB-067 adds export-time QA metrics without schema changes.
 - RB-055 strengthens checksum, dimension, object metadata validation, and audit events for current image/mask/export paths.
 - RB-064 adds central role-policy helpers, DB-backed login throttling, same-origin mutation guards, throttled session `lastSeenAt` updates, and broader auth/project/review/provenance audit coverage.
-- RB-086 implements persistent source-image BBox proposal versions. RB-087 implements derived crop generation with configurable 32 px default padding, clipped source rectangles, private PNG storage, and app-mediated reads. RB-088 implements crop support-mask editing and artifact lineage. RB-089 implements support-constrained crop semantic masks with exact support-version lineage. RB-090 implements draft auto slice classification suggestions from crop semantic masks plus manual override provenance. Crop-aware exports and crop review integration remain later work.
+- RB-086 implements persistent source-image BBox proposal versions. RB-087 implements derived crop generation with configurable 32 px default padding, clipped source rectangles, private PNG storage, and app-mediated reads. RB-088 implements crop support-mask editing and artifact lineage. RB-089 implements support-constrained crop semantic masks with exact support-version lineage. RB-090 implements draft auto slice classification suggestions from crop semantic masks plus manual override provenance. RB-091 implements crop-aware training export packages, and RB-092 centralizes crop readiness/review integration without schema changes.
 
 ## Related Docs
 

@@ -7,6 +7,11 @@ import {
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import {
+  cropReviewActionsForVersion,
+  resolveCropWorkflowReadiness,
+  sanitizeCropWorkflowCandidate,
+} from "@/server/domain/cropReadiness";
+import {
   getProjectLabelSchemaVersionId,
   getSupportLabelValues,
   SliceWorkflowError,
@@ -127,6 +132,7 @@ function serializeCrop(crop: CropRecord) {
 function serializeSupportMask(
   version: CropSupportMaskVersionRecord,
   sourceImageId: string,
+  role?: AnnotationProjectRole,
 ) {
   return {
     id: version.id,
@@ -143,6 +149,7 @@ function serializeSupportMask(
     sliceInstanceId: version.sliceInstanceId,
     createdAt: version.createdAt,
     createdBy: version.createdBy,
+    reviewActions: cropReviewActionsForVersion(version, role),
     url: `/api/images/${sourceImageId}/mask/versions/${version.id}/asset`,
   };
 }
@@ -298,8 +305,16 @@ export async function loadCropSupportMaskStateForUser(params: {
   const { labelSchemaVersionId, supportLabels } = await supportLabelsForProject(db, crop.projectId);
   const latestSupportMask = await getLatestCropSupportMaskVersion(db, crop);
   const serializedLatest = latestSupportMask
-    ? serializeSupportMask(latestSupportMask, crop.sourceImageId)
+    ? serializeSupportMask(latestSupportMask, crop.sourceImageId, membership.role)
     : null;
+  const cropReadiness = await resolveCropWorkflowReadiness({
+    projectId: crop.projectId,
+    imageId: crop.sourceImageId,
+    sliceInstanceId: crop.sliceInstanceId,
+    role: membership.role,
+  }, db);
+  const readinessCandidate =
+    cropReadiness.candidates.find((candidate) => candidate.crop.id === crop.id) ?? null;
 
   return {
     crop: serializeCrop(crop),
@@ -310,6 +325,7 @@ export async function loadCropSupportMaskStateForUser(params: {
     exists: Boolean(serializedLatest),
     latestSupportMask: serializedLatest,
     supportReadiness: supportReadiness(serializedLatest),
+    cropReadiness: readinessCandidate ? sanitizeCropWorkflowCandidate(readinessCandidate) : null,
   };
 }
 

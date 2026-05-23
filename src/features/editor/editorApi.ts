@@ -7,6 +7,16 @@ export const API_SLICE_STATE = (imageId: string) => `/api/images/${imageId}/slic
 export const API_SLICE_BBOXES = (imageId: string) => `/api/images/${imageId}/slice-bboxes`;
 export const API_SLICE_BBOX = (bboxVersionId: string) => `/api/slice-bboxes/${bboxVersionId}`;
 export const API_SLICE_CROPS = (imageId: string) => `/api/images/${imageId}/slice-crops`;
+export const API_PROJECT_CROP_READINESS = (
+  projectId: string,
+  params?: { imageId?: string; sliceInstanceId?: string },
+) => {
+  const search = new URLSearchParams();
+  if (params?.imageId) search.set("imageId", params.imageId);
+  if (params?.sliceInstanceId) search.set("sliceInstanceId", params.sliceInstanceId);
+  const query = search.toString();
+  return `/api/projects/${projectId}/crop-readiness${query ? `?${query}` : ""}`;
+};
 export const API_GENERATE_SLICE_CROP = (bboxVersionId: string) => `/api/slice-bboxes/${bboxVersionId}/crop`;
 export const API_CROP_SUPPORT_MASK = (cropId: string) => `/api/slice-crops/${cropId}/support-mask`;
 export const API_CROP_SUPPORT_MASK_UPLOAD = (cropId: string) =>

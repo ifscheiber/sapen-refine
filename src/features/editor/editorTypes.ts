@@ -71,6 +71,19 @@ export type SliceClassValue =
   | "REVIEW_REQUIRED";
 export type ReviewStateValue = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 export type ReviewAction = "submit" | "approve" | "reject";
+export type CropWorkflowReadinessStatus = "READY" | "PARTIAL" | "NOT_READY" | "REVIEW_REQUIRED";
+export type CropWorkflowNextAction =
+  | "OPEN_SUPPORT_EDITOR"
+  | "OPEN_SEMANTIC_EDITOR"
+  | "REVIEW_SUPPORT_MASK"
+  | "REVIEW_SEMANTIC_MASK"
+  | "REVIEW_CLASSIFICATION"
+  | "REGENERATE_CROP_OR_REVIEW_LINEAGE";
+export type CropReviewActions = {
+  canSubmit: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+};
 export type SliceClassificationSourceValue = "MANUAL" | "AUTO_FROM_SEMANTIC_MASK";
 export type SliceClassificationDerivationReasonValue =
   | "COPPER_PIXELS_PRESENT"
@@ -92,6 +105,58 @@ export type SerializedSliceClassification = {
   labelSchemaVersionId: string;
   createdAt: string;
   createdBy: { email: string; name: string | null } | null;
+};
+
+export type CropReadinessVersion = {
+  id: string;
+  version: number;
+  reviewState: ReviewStateValue;
+  createdAt: string;
+  createdBy: { email: string; name: string | null } | null;
+};
+
+export type CropReadinessArtifactVersion = CropReadinessVersion & {
+  width: number;
+  height: number;
+  coordinateSpace: "CROP_PIXEL" | string;
+  derivedCropId: string | null;
+  sliceInstanceId: string | null;
+  supportMaskVersionId?: string | null;
+  cropSemanticMode?: "SAP_HEARTWOOD" | "COPPER" | null;
+};
+
+export type CropWorkflowReadinessCandidate = {
+  crop: DerivedSliceCrop & { projectId: string };
+  sourceImage: {
+    id: string;
+    filename: string | null;
+    contentType?: string | null;
+    size?: number | null;
+    checksum: string | null;
+    width: number | null;
+    height: number | null;
+    uploadedAt: string;
+  };
+  supportMask: CropReadinessArtifactVersion | null;
+  semanticMask: CropReadinessArtifactVersion | null;
+  classification: SerializedSliceClassification | null;
+  latestSupportMask: CropReadinessArtifactVersion | null;
+  latestSemanticMask: CropReadinessArtifactVersion | null;
+  latestClassification: SerializedSliceClassification | null;
+  supportMaskVersionId: string | null;
+  semanticMaskVersionId: string | null;
+  classificationVersionId: string | null;
+  latestSupportMaskVersionId: string | null;
+  latestSemanticMaskVersionId: string | null;
+  latestClassificationVersionId: string | null;
+  readinessStatus: CropWorkflowReadinessStatus;
+  readinessReasons: string[];
+  nextActions: CropWorkflowNextAction[];
+  reviewActions: {
+    supportMask: CropReviewActions | null;
+    semanticMask: CropReviewActions | null;
+    classification: CropReviewActions | null;
+  };
 };
 
 export type SliceState = {
@@ -142,6 +207,7 @@ export type CropSupportMaskState = {
     sliceInstanceId: string | null;
     createdAt: string;
     createdBy: { email: string; name: string | null } | null;
+    reviewActions: CropReviewActions;
     url: string;
   } | null;
   supportReadiness: {
@@ -150,6 +216,7 @@ export type CropSupportMaskState = {
     semanticCropAnnotation: string;
     exportReady: boolean;
   };
+  cropReadiness: CropWorkflowReadinessCandidate | null;
 };
 
 export type CropSemanticMode = "SAP_HEARTWOOD" | "COPPER";
@@ -190,6 +257,7 @@ export type CropSemanticMaskState = {
     sliceInstanceId: string | null;
     createdAt: string;
     createdBy: { email: string; name: string | null } | null;
+    reviewActions: CropReviewActions;
     url: string;
   } | null;
   latestSemanticMasks: Record<
@@ -211,6 +279,7 @@ export type CropSemanticMaskState = {
       semanticMode: CropSemanticMode | null;
       createdAt: string;
       createdBy: { email: string; name: string | null } | null;
+      reviewActions: CropReviewActions;
       url: string;
     } | null
   >;
@@ -222,6 +291,7 @@ export type CropSemanticMaskState = {
     latestSemanticVersions?: Record<CropSemanticMode, number | null>;
   };
   latestClassification: SerializedSliceClassification | null;
+  cropReadiness: CropWorkflowReadinessCandidate | null;
   classificationDerivation?: {
     ok: boolean;
     semanticMaskVersionId: string | null;

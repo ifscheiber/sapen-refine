@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import type { DerivedSliceCrop, SliceBoundingBoxProposal } from "../editorTypes";
+import type {
+  CropWorkflowReadinessCandidate,
+  DerivedSliceCrop,
+  SliceBoundingBoxProposal,
+} from "../editorTypes";
 import { activeButtonClass, idleButtonClass } from "../editorStyles";
 
 type EditorBBoxPanelProps = {
@@ -8,6 +12,7 @@ type EditorBBoxPanelProps = {
   imageId: string;
   boxes: SliceBoundingBoxProposal[];
   crops: DerivedSliceCrop[];
+  cropReadinessCandidates: CropWorkflowReadinessCandidate[];
   selectedBBoxId: string | null;
   replaceArmed: boolean;
   canEdit: boolean;
@@ -23,6 +28,7 @@ export function EditorBBoxPanel({
   imageId,
   boxes,
   crops,
+  cropReadinessCandidates,
   selectedBBoxId,
   replaceArmed,
   canEdit,
@@ -37,6 +43,9 @@ export function EditorBBoxPanel({
     crops
       .filter((crop) => crop.bboxVersionId === selectedBBoxId)
       .sort((a, b) => b.version - a.version)[0] ?? null;
+  const selectedCropReadiness = selectedCrop
+    ? cropReadinessCandidates.find((candidate) => candidate.crop.id === selectedCrop.id) ?? null
+    : null;
 
   return (
     <div className="mt-3 border-t border-border pt-3 text-sm">
@@ -94,6 +103,19 @@ export function EditorBBoxPanel({
                 {selectedCrop.paddingRequestedPx}px
                 {selectedCrop.paddingClipped ? ", clipped" : ""}
               </span>
+              {selectedCropReadiness && (
+                <span>
+                  Readiness: {selectedCropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}
+                  {selectedCropReadiness.readinessReasons.length > 0
+                    ? ` (${selectedCropReadiness.readinessReasons.slice(0, 2).join(", ")}${
+                        selectedCropReadiness.readinessReasons.length > 2 ? ", ..." : ""
+                      })`
+                    : ""}
+                </span>
+              )}
+              {selectedCropReadiness?.nextActions[0] && (
+                <span>Next: {selectedCropReadiness.nextActions[0].toLowerCase().replaceAll("_", " ")}</span>
+              )}
             </>
           ) : (
             <span>No derived crop for this BBox yet.</span>

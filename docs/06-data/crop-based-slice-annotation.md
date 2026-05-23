@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. Review integration and crop-aware export remain planned until later tickets land.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, and RB-092 implements shared crop readiness plus review/approval UI integration.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -179,27 +179,28 @@ The default threshold is one classifying pixel. Copper mode with a Copper pixel 
 
 ## Review And Approval
 
-Review state is artifact-specific. The planned crop workflow should allow separate review decisions for:
+Review state is artifact-specific. RB-092 surfaces separate review decisions for:
 
-- BBox proposal if it is persisted as a versioned planning artifact,
-- derived crop metadata if crop generation is persisted,
 - support mask,
 - semantic mask,
 - slice classification.
 
 Approval of one artifact does not imply approval of the others. A training-ready slice instance needs the approved artifact set required by the selected export target.
 
-Recommended default:
+Current default:
 
 - BBox proposals and derived crops are lineage/provenance artifacts; review is optional unless later workflow policy makes them review targets.
 - Support masks require approval for support/instance training targets and for Copper semantic workflows.
 - Semantic masks require approval for semantic training targets.
-- Slice classifications require approval, or an explicit accepted-auto policy, before classification export readiness.
-- If semantic or classification versions reference a stale crop/support lineage, the slice is `REVIEW_REQUIRED` until regenerated, re-saved, or re-reviewed.
+- Slice classifications require approval. RB-090 auto-derived suggestions start as `DRAFT`; there is no accepted-auto export policy in RB-092.
+- Approved manual classifications are eligible when they belong to the same project/image/slice and are current relative to the selected support and semantic versions. Manual rows with derived links must match those selected versions.
+- If semantic or classification versions reference stale crop/support lineage, coordinate space, or dimensions, the crop is `REVIEW_REQUIRED` until regenerated, re-saved, or re-reviewed.
+
+The central readiness resolver lives in `src/server/domain/cropReadiness.ts`. It returns per-crop `READY`, `PARTIAL`, `NOT_READY`, or `REVIEW_REQUIRED` status, stable reason codes, next-action hints, review-action permissions for the latest support/semantic/classification versions, and summary reason counts. The read-only API route is `GET /api/projects/[projectId]/crop-readiness` with optional `imageId` and `sliceInstanceId` filters. API responses are sanitized and do not expose private storage keys.
 
 ## Export Implications
 
-RB-091 crop-aware exports include:
+RB-091/RB-092 crop-aware exports include:
 
 - crop image bytes when crop images are persisted,
 - crop-space support masks,
@@ -211,7 +212,7 @@ RB-091 crop-aware exports include:
 
 Exports must keep semantic segmentation, support/instance segmentation, slice classification, and combined manifest targets explicit. Copper semantic masks must not be exported as support geometry.
 
-RB-091 does not emit source-image-space reprojected masks. The `sapen-annotate-crop-training-export-v1` manifest includes `transformToSource` metadata so downstream consumers can map crop pixels back to the immutable source image.
+RB-091 does not emit source-image-space reprojected masks. The `sapen-annotate-crop-training-export-v1` manifest includes `transformToSource` metadata so downstream consumers can map crop pixels back to the immutable source image. RB-092 makes the export readiness path use the shared resolver from `src/server/domain/cropReadiness.ts`, so the project export panel, crop editors, readiness API, and crop export manifest all agree on skipped reasons.
 
 Crop-aware exports must not change prediction-analysis export semantics. Model predictions and QA exports remain separate proposal workflows unless a later ADR explicitly designs crop-aware prediction analysis.
 
@@ -229,12 +230,13 @@ Current implemented behavior:
 - RB-089 crop semantic masks in `CROP_PIXEL` linked to the source image, slice instance, derived crop, exact support mask version, and semantic mode,
 - RB-090 draft slice classifications derived from crop semantic masks and manual crop workflow overrides linked to the slice instance,
 - RB-091 crop training exports for ready crop candidates with approved support, semantic, and classification lineage,
+- RB-092 crop readiness and review actions in the project export panel, BBox crop panel, crop support editor, and crop semantic editor,
 - default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- crop review/readiness UI integration refines how users approve and regenerate final crop packages.
+- source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs
 

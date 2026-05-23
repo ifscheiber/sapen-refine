@@ -115,6 +115,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Mask bytes are fetched through app-mediated version asset URLs.
 - BBox proposal state is loaded from `GET /api/images/[imageId]/slice-bboxes`.
 - Derived crop state is loaded from `GET /api/images/[imageId]/slice-crops`.
+- Crop readiness for the selected image is loaded from `GET /api/projects/[projectId]/crop-readiness?imageId=[imageId]` and shown alongside the selected BBox/crop preview.
 - Creating a BBox proposal posts source-image integer geometry to `POST /api/images/[imageId]/slice-bboxes`.
 - Replacing or deleting the current BBox proposal version calls `PATCH /api/slice-bboxes/[bboxVersionId]` or `DELETE /api/slice-bboxes/[bboxVersionId]`. RB-086 uses an append-only rule: replacement creates the next active `SliceBoundingBoxVersion`, and deletion creates the next `DELETED` version instead of erasing history.
 - Generating a derived crop calls `POST /api/slice-bboxes/[bboxVersionId]/crop`. The response contains sanitized metadata and an app-mediated preview URL; it does not expose private object storage keys.
@@ -122,6 +123,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Crop support-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/support-mask/upload`.
 - Crop semantic-mask state is loaded from `GET /api/slice-crops/[cropId]/semantic-mask`.
 - Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-support-mask-version-id` and `x-semantic-mode`. The server rejects missing support, stale support lineage, invalid mode labels, wrong dimensions, and semantic foreground outside support.
+- Crop support and semantic editors surface submit/approve/reject actions for the latest crop support mask, active crop semantic mask, and latest slice classification through the existing review APIs.
 
 ## Current Domain Model
 
@@ -143,6 +145,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
 - The editor shows a simple export-readiness summary based on approved versions only.
+- Crop editors show crop-specific readiness from `src/server/domain/cropReadiness.ts`; BBox/crop panels show selected-crop next actions and the project export panel uses the same resolver summary.
 - The correction editor opens `MODEL_PREDICTION_CORRECTION` tasks, loads prediction masks read-only, and saves separate human correction versions. It does not run inference, import predictions, manage batch queues, or implement multi-object support geometry.
 - Copper is available only as a semantic material label. It is not a slice support mask and must not be used as a proxy for physical slice geometry.
 

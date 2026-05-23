@@ -2,19 +2,19 @@
 
 Deferred work discovered during repository hygiene should be recorded here instead of expanding active ticket scope.
 
-## RB-085-A - Crop-Based Slice Annotation Runtime Implementation
+## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
-Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089 adds support-constrained crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. The runtime still does not provide crop-aware exports or crop review integration.
+Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089 adds support-constrained crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
 
 Impact: Large images can still stress browser/iPad memory and server request buffering during full-image annotation. Crop-based annotation is needed for scalable multi-slice workflows while preserving source-image coordinate provenance.
 
-Proposed next step: Continue the planned sprint sequence: RB-091 crop/original-coordinate export and RB-092 crop review/approval.
+Proposed next step: No remaining action for this backlog item. Source-image-space crop-mask reprojection, production-scale exports, and advanced reviewer dashboards remain separate future work.
 
 Affected modules: `src/features/editor`, `src/app/api`, `src/server/domain`, `src/mask`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
 
 Owner: Codex.
 
-Priority: P1.
+Priority: Resolved.
 
 ## RB-089-A - Explicit Sap/Heartwood Complement Fill
 

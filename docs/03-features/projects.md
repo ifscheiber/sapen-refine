@@ -22,6 +22,7 @@ Important files:
 - `src/features/projects/ProjectCorrectionTaskQueue.tsx`
 - `src/app/api/projects/route.ts`
 - `src/app/api/projects/[projectId]/route.ts`
+- `src/app/api/projects/[projectId]/crop-readiness/route.ts`
 - `src/app/api/projects/[projectId]/export/readiness/route.ts`
 - `src/app/api/projects/[projectId]/exports/route.ts`
 - `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts`
@@ -55,7 +56,7 @@ Route files are thin wrappers around `src/features/projects`.
 - `/app/projects/[projectId]/prediction-imports` shows RB-061 prediction batch import operations for project `OWNER`/`QA` and a permission notice for other project members.
 - `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and links to the RB-059 assisted correction editor.
 - Task rows link to `/app/projects/[projectId]/tasks/[taskId]/correct` for RB-059 assisted correction.
-- The training export panel shows approved semantic/support/classification readiness counts, target selection, and owner-only export creation with manifest/package download links.
+- The training export panel shows approved semantic/support/classification readiness counts, crop readiness/reason counts from the shared crop resolver, target selection, and owner-only export creation with manifest/package download links.
 - The prediction-analysis export panel shows proposal counts, metric-ready counts, candidates missing approved references, prediction-run selection, target selection, optional human-reference inclusion, and owner/QA export creation. It labels prediction-analysis packages and QA metrics as model-evaluation metadata, not ground-truth training labels.
 - The prediction batch import panel lets owner/QA users select a prediction run, upload a ZIP manifest package, inspect status/counts/item errors, and trigger process/retry passes. It does not expose private staging keys.
 - Project membership remains the authorization boundary for image and editor routes.
@@ -68,6 +69,7 @@ Route files are thin wrappers around `src/features/projects`.
 - `src/server/auth/rbac.ts` checks project membership for project/image/editor access.
 - Current editable image and mask routes allow `OWNER`, `QA`, and `LABELER`; `VIEWER` can read project/image data where route handlers permit it.
 - `GET /api/projects/[projectId]/export/readiness` is available to authenticated project members.
+- `GET /api/projects/[projectId]/crop-readiness` is available to authenticated project members and returns sanitized per-crop readiness, optional image/slice filtering, and review action availability.
 - `POST /api/projects/[projectId]/exports` and export downloads are restricted to `OWNER` in RB-053.
 - `GET /api/projects/[projectId]/prediction-analysis-export/readiness` is available to authenticated project members.
 - `POST /api/projects/[projectId]/prediction-analysis-exports` and `/api/prediction-analysis-exports/[exportId]/download` are restricted to project `OWNER` and `QA`.

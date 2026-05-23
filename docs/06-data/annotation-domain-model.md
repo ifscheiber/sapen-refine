@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, RB-086 adds source-image BBox slice proposal persistence, and RB-087 adds derived slice crop persistence. Crop support-mask editing, advanced export policy, and multi-slice workflow depth remain split across later tickets.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, and RB-086 through RB-092 add the crop-based slice annotation, review/readiness, and crop training export path. Source-image-space crop-mask reprojection and deeper multi-slice metadata remain future extensions.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -19,6 +19,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current BBox proposal domain/API: `src/server/domain/sliceBboxes.ts`, `src/app/api/images/[imageId]/slice-bboxes/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
 - Current derived crop domain/API: `src/server/domain/sliceCrops.ts`, `src/app/api/images/[imageId]/slice-crops/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/crop/route.ts`, `src/app/api/slice-crops/[cropId]/asset/route.ts`
+- Current crop readiness domain/API: `src/server/domain/cropReadiness.ts`, `src/app/api/projects/[projectId]/crop-readiness/route.ts`
 - Current training export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
 - Current prediction-analysis export domain/API: `src/server/domain/predictionAnalysisExports.ts`, `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts`, `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts`, `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts`
 - Prediction/active-learning design: `docs/06-data/model-prediction-contract.md`, `docs/06-data/active-learning-task-model.md`
@@ -220,7 +221,7 @@ RB-086 creates one `SliceInstance` for each new source-image BBox proposal. The 
 
 RB-087 creates `DerivedSliceCrop` versions from current active BBox versions. A crop records source-image checksum/dimensions, source rectangle, requested/applied padding, clipping, `CROP_PIXEL` dimensions, transform metadata, private PNG storage metadata, creator, and timestamp. Derived crops are not raw uploads and their padding must not be treated as support geometry.
 
-RB-088 creates crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL` for a `DerivedSliceCrop` and `SliceInstance`. RB-089 creates crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL` that reference the exact crop support-mask version used as the constraint and record `cropSemanticMode` as `SAP_HEARTWOOD` or `COPPER`. RB-090 derives draft `SliceClassificationVersion` suggestions from saved crop semantic masks and stores source/reason plus semantic/support/crop lineage. Crop semantic masks are material annotations only; they must not define or expand support geometry.
+RB-088 creates crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL` for a `DerivedSliceCrop` and `SliceInstance`. RB-089 creates crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL` that reference the exact crop support-mask version used as the constraint and record `cropSemanticMode` as `SAP_HEARTWOOD` or `COPPER`. RB-090 derives draft `SliceClassificationVersion` suggestions from saved crop semantic masks and stores source/reason plus semantic/support/crop lineage. RB-092 resolves crop readiness from the selected approved crop support, crop semantic, and classification versions. Crop semantic masks are material annotations only; they must not define or expand support geometry.
 
 `SliceClassificationVersion` stores draft classification versions with actor attribution and label schema version. RB-051 supports `SAP_HEARTWOOD_SLICE`, `COPPER_SLICE`, `UNKNOWN`, and `REVIEW_REQUIRED`.
 
