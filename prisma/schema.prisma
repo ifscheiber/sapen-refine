@@ -121,6 +121,7 @@ enum ExportTarget {
   INSTANCE_SUPPORT_SEGMENTATION
   SLICE_CLASSIFICATION
   COMBINED_MANIFEST
+  CROP_TRAINING
   PREDICTION_ANALYSIS
 }
 
@@ -620,6 +621,7 @@ model DerivedSliceCrop {
   createdBy       User?                        @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   supportMasks    AnnotationArtifactVersion[]  @relation("CropSupportMaskVersions")
   classifications SliceClassificationVersion[] @relation("SliceClassificationCropSource")
+  exportItems     ExportItem[]
 
   @@unique([sliceInstanceId, version])
   @@index([projectId, createdAt])
@@ -728,6 +730,7 @@ model ExportItem {
   artifactVersionId            String?
   sliceClassificationVersionId String?
   predictionProvenanceId       String?
+  derivedCropId                String?
   role                         String
   createdAt                    DateTime @default(now())
 
@@ -736,12 +739,14 @@ model ExportItem {
   artifactVersion            AnnotationArtifactVersion?    @relation(fields: [artifactVersionId], references: [id], onDelete: SetNull)
   sliceClassificationVersion SliceClassificationVersion?   @relation(fields: [sliceClassificationVersionId], references: [id], onDelete: SetNull)
   predictionProvenance       PredictionArtifactProvenance? @relation(fields: [predictionProvenanceId], references: [id], onDelete: SetNull)
+  derivedCrop                DerivedSliceCrop?             @relation(fields: [derivedCropId], references: [id], onDelete: SetNull)
 
   @@index([exportBatchId])
   @@index([imageId])
   @@index([artifactVersionId])
   @@index([sliceClassificationVersionId])
   @@index([predictionProvenanceId])
+  @@index([derivedCropId])
 }
 
 model ModelRun {

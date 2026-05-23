@@ -51,8 +51,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
 - `POST /api/artifact-versions/[versionId]/review` - submits, approves, or rejects semantic/support artifact versions after membership and transition checks.
 - `POST /api/slice-classification-versions/[versionId]/review` - submits, approves, or rejects slice classification versions after membership and transition checks.
-- `GET /api/projects/[projectId]/export/readiness` - returns project export readiness, approved artifact/classification counts, candidate warnings, and owner export capability for project members.
-- `POST /api/projects/[projectId]/exports` - creates a synchronous RB-053 training export for project owners.
+- `GET /api/projects/[projectId]/export/readiness` - returns project export readiness, approved artifact/classification counts, crop candidate readiness counts, candidate warnings, and owner export capability for project members.
+- `POST /api/projects/[projectId]/exports` - creates a synchronous training export for project owners, including full-image RB-053 targets or the exclusive RB-091 `crop_training` target.
 - `GET /api/exports/[exportId]` - returns sanitized export summary and download routes for project owners.
 - `GET /api/exports/[exportId]/download?file=manifest|package` - streams the stored manifest JSON or ZIP package through the app for project owners.
 - `GET /api/projects/[projectId]/prediction-analysis-export/readiness` - returns prediction-analysis export candidate counts, metric availability counts, prediction-run options, selected target filters, and owner/QA export capability for project members.
@@ -96,7 +96,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Slice-instance classification APIs append manual override versions only; they do not mutate or approve auto-derived classification suggestions.
 - Review APIs enforce server-side permissions: `OWNER`/`QA` can approve/reject, `OWNER`/`QA`/`LABELER` can submit, and `VIEWER` cannot mutate review state.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
-- Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
+- Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry. The RB-091 `crop_training` target is exclusive, uses ready crop candidates only, preserves source-image/crop transform provenance, and lists partial/not-ready crops in `skippedCropItems`.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, include QA metrics as evaluation metadata where approved references exist, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
 - Prediction provenance/import APIs do not approve prediction artifacts and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
@@ -121,6 +121,7 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-088 crop support-mask error codes include `FORBIDDEN`, `CROP_NOT_FOUND`, `CROP_COORDINATE_SPACE_INVALID`, `CROP_LINEAGE_INVALID`, `MASK_SIZE_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 - RB-089 crop semantic-mask error codes include `FORBIDDEN`, `CROP_NOT_FOUND`, `CROP_COORDINATE_SPACE_INVALID`, `CROP_LINEAGE_INVALID`, `SUPPORT_MASK_REQUIRED`, `SUPPORT_MASK_LINEAGE_MISMATCH`, `SEMANTIC_MODE_INVALID`, `SEMANTIC_MASK_VALUES_INVALID`, `SEMANTIC_OUTSIDE_SUPPORT`, `MASK_SIZE_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 - RB-090 classification derivation and slice-instance classification error codes include `FORBIDDEN`, `SLICE_NOT_FOUND`, `SLICE_LINEAGE_INVALID`, `SLICE_CLASS_INVALID`, `SEMANTIC_MASK_NOT_FOUND`, `SEMANTIC_MASK_LINEAGE_INVALID`, `SEMANTIC_LABELS_MISSING`, `CLASSIFICATION_THRESHOLD_INVALID`, `CLASSIFICATION_DERIVATION_DB_ERROR`, and `CLASSIFICATION_DERIVATION_FAILED`.
+- RB-091 crop training export adds the `crop_training` target and `EXPORT_TARGET_COMBINATION_INVALID` when it is mixed with full-image export targets.
 
 ## Known Gaps
 

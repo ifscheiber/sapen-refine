@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-type ExportTarget = "semantic_segmentation" | "support_segmentation" | "slice_classification" | "combined";
+type ExportTarget =
+  | "semantic_segmentation"
+  | "support_segmentation"
+  | "slice_classification"
+  | "combined"
+  | "crop_training";
 type PredictionTarget = "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK" | "SLICE_CLASSIFICATION";
 
 type ExportReadiness = {
@@ -17,6 +22,11 @@ type ExportReadiness = {
     approvedSupportMasks: number;
     approvedClassifications: number;
     imagesWithWarnings: number;
+    totalCropItems: number;
+    readyCropItems: number;
+    partialCropItems: number;
+    notReadyCropItems: number;
+    cropItemsWithWarnings: number;
   };
 };
 
@@ -82,6 +92,7 @@ const TARGET_OPTIONS: Array<{ value: ExportTarget; label: string }> = [
   { value: "support_segmentation", label: "Support segmentation" },
   { value: "slice_classification", label: "Slice classification" },
   { value: "combined", label: "Combined manifest" },
+  { value: "crop_training", label: "Crop training" },
 ];
 
 const PREDICTION_TARGET_OPTIONS: Array<{ value: PredictionTarget; label: string }> = [
@@ -119,6 +130,7 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
   const [predictionError, setPredictionError] = useState<string | null>(null);
 
   const targetSummary = useMemo(() => {
+    if (selectedTargets.includes("crop_training")) return ["crop_training"];
     if (selectedTargets.includes("combined")) return ["combined"];
     return selectedTargets;
   }, [selectedTargets]);
@@ -182,8 +194,11 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
 
   function toggleTarget(target: ExportTarget) {
     setSelectedTargets((current) => {
+      if (target === "crop_training") {
+        return current.includes("crop_training") ? [] : ["crop_training"];
+      }
       if (target === "combined") return current.includes("combined") ? [] : ["combined"];
-      const withoutCombined = current.filter((item) => item !== "combined");
+      const withoutCombined = current.filter((item) => item !== "combined" && item !== "crop_training");
       if (withoutCombined.includes(target)) {
         return withoutCombined.filter((item) => item !== target);
       }
@@ -261,7 +276,7 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
       </div>
 
       {readiness && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-md border border-border bg-background p-3">
             <div className="text-xs text-muted-foreground">Images</div>
             <div className="text-lg font-semibold">{readiness.summary.totalImages}</div>
@@ -277,6 +292,15 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
           <div className="rounded-md border border-border bg-background p-3">
             <div className="text-xs text-muted-foreground">Classifications approved</div>
             <div className="text-lg font-semibold">{readiness.summary.approvedClassifications}</div>
+          </div>
+          <div className="rounded-md border border-border bg-background p-3">
+            <div className="text-xs text-muted-foreground">Crop ready</div>
+            <div className="text-lg font-semibold">
+              {readiness.summary.readyCropItems}/{readiness.summary.totalCropItems}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {readiness.summary.partialCropItems} partial · {readiness.summary.notReadyCropItems} not ready
+            </div>
           </div>
         </div>
       )}

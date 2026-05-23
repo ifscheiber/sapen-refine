@@ -23,8 +23,9 @@ API target strings:
 - `support_segmentation`
 - `slice_classification`
 - `combined`
+- `crop_training`
 
-The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values and maps multi-target or combined selections to `COMBINED_MANIFEST`. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the RB-053 training export API.
+The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values, maps multi-target or combined full-image selections to `COMBINED_MANIFEST`, and maps crop packages to `CROP_TRAINING`. `crop_training` is intentionally exclusive and cannot be mixed with full-image target strings in one request. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the training export API.
 
 ## Export Targets
 
@@ -79,34 +80,31 @@ Purpose: provide one reproducible bundle for downstream training pipelines that 
 
 Combined exports keep each target type explicit. They include any approved selected components that exist for an image and add warnings for missing approved components. Consumers must not infer support geometry from copper semantic masks.
 
-## Planned Crop-Aware Export Extension
+### Crop Training Export
 
-RB-085 defines a crop-based slice annotation workflow, RB-086 persists BBox proposal versions, RB-087 persists derived crop versions from those BBoxes, RB-088/RB-089 persist crop support/semantic masks, and RB-090 persists draft auto/manual crop workflow classifications. The current RB-053 export implementation remains image-level/full-resolution and does not yet emit crop-aware manifest entries.
+Purpose: provide reviewed crop-space ground-truth items while preserving original-image provenance and crop-to-source transforms.
 
-For RB-091 and later, crop-aware exports must keep the existing target separation:
+Includes one manifest `cropItems[]` entry per ready derived crop:
 
-- Semantic segmentation exports may include crop-space semantic masks and optional source-image-space reprojected semantic masks.
-- Support/instance segmentation exports may include crop-space support masks and optional source-image-space reprojected support masks.
-- Slice classification exports may classify each slice instance and must preserve auto-derived versus human-overridden provenance.
-- Combined manifest exports may bundle crop images, support masks, semantic masks, classifications, source-image references, transforms, and checksums without conflating target types.
+- immutable original image reference and relative package path,
+- `DerivedSliceCrop` id/version, private crop PNG copied into the package, checksum, dimensions, requested/applied padding, clipping state, and `transformToSource`,
+- exact source-image BBox version reference,
+- approved crop-space `SLICE_SUPPORT_MASK` version in `CROP_PIXEL`,
+- approved crop-space `SEMANTIC_MASK` version in `CROP_PIXEL`,
+- approved `SliceClassificationVersion` with semantic/support/crop derivation links,
+- label schema definitions, review attribution, and actor attribution where available.
 
-Crop-aware training exports must only include versions that satisfy the selected target readiness policy. For the recommended RB-085/RB-090 default, support masks and semantic masks require approved versions, and classifications require approved versions or an explicit accepted-auto policy. RB-090 auto-derived classification rows start as `DRAFT` and are not export-ready by themselves.
+RB-091 does not generate source-image-space reprojected masks. Consumers can reproject from `CROP_PIXEL` to `SOURCE_IMAGE_PIXEL` using the manifest transform metadata. Future exports may add optional reprojected masks without changing the source-of-truth crop artifacts.
 
-Each crop-aware item must include enough metadata to map every crop artifact back to the immutable source image:
+Crop candidates are classified as:
 
-- source image id, checksum, dimensions, and package path,
-- derived crop artifact/version id when persisted,
-- BBox proposal/version reference,
-- crop origin, crop dimensions, and padding metadata,
-- declared coordinate spaces such as `SOURCE_IMAGE_PIXEL` and `CROP_PIXEL`,
-- transform version or formula,
-- exact support mask, semantic mask, and classification version ids,
-- review decisions and actor attribution,
-- lineage status proving that the semantic mask and classification reference the selected crop/support lineage.
+- `READY` - crop, support mask, semantic mask, classification, coordinate spaces, dimensions, checksums, and lineage are exportable.
+- `PARTIAL` - some crop work exists but selected approved versions are missing, unapproved, mismatched, or incomplete.
+- `NOT_READY` - no exportable crop annotation components exist for the crop.
 
-Copper-specific export rule:
+Readiness reasons include `MISSING_SUPPORT_MASK`, `MISSING_SEMANTIC_MASK`, `MISSING_CLASSIFICATION`, `SUPPORT_NOT_APPROVED`, `SEMANTIC_NOT_APPROVED`, `CLASSIFICATION_NOT_APPROVED`, `LINEAGE_MISMATCH`, `COORDINATE_SPACE_MISMATCH`, and integrity metadata warnings such as missing checksums or dimensions. Only `READY` crop candidates are included as ground truth. `PARTIAL` and `NOT_READY` candidates are listed in `skippedCropItems`.
 
-Copper semantic masks remain semantic material targets. They are not slice support geometry. A crop-aware support/instance export for a Copper slice requires an approved support mask for the complete physical slice.
+Copper-specific export rule: Copper semantic masks remain semantic material targets. They are not slice support geometry. A crop training item for a Copper slice still requires an approved support mask for the complete physical slice crop.
 
 Prediction-analysis exports remain separate from ground-truth training exports. RB-085 does not add crop-aware model QA package semantics; that must be designed explicitly if a later crop-prediction workflow needs it.
 
@@ -116,6 +114,12 @@ Current manifest version:
 
 ```text
 sapen-annotate-training-export-v1
+```
+
+Crop manifest version:
+
+```text
+sapen-annotate-crop-training-export-v1
 ```
 
 Top-level sections:
@@ -144,6 +148,8 @@ Each item contains:
 
 API responses intentionally omit private MinIO storage keys. Manifest package paths are relative export paths, not public object-store URLs.
 
+Crop manifests use `cropItems`, `skippedCropItems`, `warnings`, and `summary` instead of full-image `items`/`skippedImages`. Each crop item includes `originalImage`, `sliceBoundingBox`, `derivedCrop`, `supportMask`, `semanticMask`, `classification`, `readinessStatus`, and `readinessReasons`. Private storage keys are omitted; all file references are relative package paths.
+
 ## Package Layout
 
 The ZIP package is transport around the manifest:
@@ -153,6 +159,16 @@ manifest.json
 images/<imageId>.<ext>
 masks/semantic/<imageId>.u8raw
 masks/support/<imageId>.u8raw
+```
+
+Crop training ZIP packages use:
+
+```text
+manifest.json
+original-images/<imageId>.<ext>
+crops/<derivedCropId>.png
+masks/support-crop/<sliceInstanceId>_<supportVersionId>.u8raw
+masks/semantic-crop/<sliceInstanceId>_<semanticVersionId>.u8raw
 ```
 
 Raw images and mask bytes are copied from private object storage into the ZIP. Classification records remain in `manifest.json`.
@@ -175,6 +191,8 @@ The MVP exports approved ground-truth components only:
 - latest approved slice classification version.
 
 Draft, submitted, rejected, and superseded versions are not exported as training targets.
+
+Crop training exports require the full ready crop set: a derived crop, approved crop support mask, approved crop semantic mask, and approved classification whose lineage matches the selected semantic/support/crop versions. RB-090 auto-derived classification rows start as `DRAFT`; they are not export-ready until approved. Manual override rows without matching semantic/support/crop derivation links are not included in the RB-091 crop ground-truth package.
 
 Model prediction artifacts are also excluded from default training exports. RB-059 human corrections based on predictions may be exported only after they are saved as separate human semantic/support versions and approved. Prediction bytes are not ground-truth labels.
 
@@ -203,7 +221,7 @@ RB-055 makes integrity metadata blocking for selected/included training inputs. 
 - warnings,
 - metadata summary with package storage key, package checksum, package size, item count, skipped image count, and warning count.
 
-`ExportItem` rows reference the included image, semantic/support artifact versions, and slice classification versions with role-specific rows. These references are the database audit trail for exact immutable export inputs.
+`ExportItem` rows reference the included image, semantic/support artifact versions, slice classification versions, and, for crop packages, `DerivedSliceCrop` through `derivedCropId` with role-specific rows. These references are the database audit trail for exact immutable export inputs.
 
 Current checksums use validated stored image/mask checksums and calculate manifest/package checksums at export time. Manifests and ZIP packages never expose private MinIO/S3 storage keys.
 
@@ -229,6 +247,7 @@ All export creation records the authenticated actor. Future project policy may a
 - The UI exposes only the most recent created export result in the project exports panel; there is no export history page.
 - Only one default support geometry and one default slice classification per image are implemented.
 - Export generation is blocked rather than partially generated when selected approved artifacts are missing checksum or dimension metadata.
+- RB-091 crop exports do not emit source-image-space reprojected masks; the crop-to-source transform metadata is the contract for downstream reprojection.
 - Prediction-analysis QA metrics exist in the separate prediction-analysis export manifest after RB-067; dashboard UI, model comparison reports, and large async analysis jobs remain deferred.
 
 ## Related Docs

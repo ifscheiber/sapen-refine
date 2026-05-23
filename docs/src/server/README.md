@@ -21,7 +21,7 @@
 - `src/server/auth/workspaceRedirect.ts` - RB-079 workspace login redirect header and `next` target helpers for stale sessions.
 - `src/server/auth/workspaceSession.ts` - page-oriented workspace auth helpers that redirect unauthenticated users and use `notFound()` for missing/unauthorized project access.
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
-- `src/server/domain/exports.ts` - RB-053 export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
+- `src/server/domain/exports.ts` - RB-053 full-image and RB-091 crop training export readiness, approved-version selection, manifest generation, ZIP packaging, export persistence, and download authorization.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
 - `src/server/domain/predictionImport.ts` - RB-057 prediction mask import validation, storage write/stat verification, artifact-version creation, provenance linking, and audit events.
 - `src/server/domain/predictionImportBatches.ts` - RB-061 ZIP batch prediction import manifest validation, private staging, job/item status updates, retry, and processing through the RB-057 import service.
@@ -46,7 +46,7 @@
 - `presignGetObject(key)` and `presignPutObject(key, contentType)` wrap S3 presigned URLs.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
-- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the RB-053 owner-only training export workflow.
+- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the owner-only training export workflow, including RB-053 full-image targets and the exclusive RB-091 `crop_training` target.
 - `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
 - `createPredictionImportBatchFromZipForUser`, `processPredictionImportBatchForUser`, `retryPredictionImportBatchForUser`, and batch list/detail helpers implement the RB-061 single-host DB-backed batch import baseline.
@@ -82,6 +82,7 @@
 - Crop support-mask services create draft crop-scoped `SLICE_SUPPORT_MASK` artifact versions only after exact crop-dimension validation. They link saved versions to `DerivedSliceCrop` and `SliceInstance`, use `CROP_PIXEL`, and keep private storage keys out of browser responses.
 - Crop semantic-mask services require a current crop support mask, create draft crop-scoped `SEMANTIC_MASK` artifact versions after exact crop-dimension and support-lineage validation, link saved versions to `DerivedSliceCrop`, `SliceInstance`, and `supportMaskVersionId`, use `CROP_PIXEL`, reject non-background semantic bytes outside support, and trigger draft auto slice-classification derivation.
 - Slice-classification derivation uses semantic mask bytes and label-schema values only; it stores `AUTO_FROM_SEMANTIC_MASK` provenance, exact semantic/support/crop lineage, stable derivation reasons, and draft review state. Manual overrides append separate `MANUAL` versions.
+- Crop training exports include only ready crop candidates with approved crop support masks, approved crop semantic masks, and approved classifications whose semantic/support/crop lineage matches. They write `sapen-annotate-crop-training-export-v1` manifests and do not expose private storage keys.
 
 ## Known Gaps
 

@@ -177,7 +177,7 @@ RB-087  Derived Slice Crop Generation  [done]
 RB-088  Crop Support Mask Editor  [done]
 RB-089  Crop-Constrained Semantic Annotation  [done]
 RB-090  Auto Slice Classification from Semantic Masks  [done]
-RB-091  Crop / Original Coordinate Export Contract
+RB-091  Crop / Original Coordinate Export Contract  [done]
 RB-092  Crop Workflow Review / Approval Integration
 ```
 
@@ -201,7 +201,7 @@ Phase 4 — Semantics and classification:
   RB-090 [done]
 
 Phase 5 — Export and review integration:
-  RB-091
+  RB-091 [done]
   RB-092
 ```
 

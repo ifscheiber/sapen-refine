@@ -199,7 +199,7 @@ Recommended default:
 
 ## Export Implications
 
-Crop-aware exports should include:
+RB-091 crop-aware exports include:
 
 - crop image bytes when crop images are persisted,
 - crop-space support masks,
@@ -207,10 +207,11 @@ Crop-aware exports should include:
 - slice classification,
 - source image id, source checksum, and source image dimensions,
 - crop origin, crop dimensions, padding, and coordinate transform,
-- optional source-image-space reprojected masks,
 - exact artifact version ids, actor attribution, review decisions, and checksums.
 
 Exports must keep semantic segmentation, support/instance segmentation, slice classification, and combined manifest targets explicit. Copper semantic masks must not be exported as support geometry.
+
+RB-091 does not emit source-image-space reprojected masks. The `sapen-annotate-crop-training-export-v1` manifest includes `transformToSource` metadata so downstream consumers can map crop pixels back to the immutable source image.
 
 Crop-aware exports must not change prediction-analysis export semantics. Model predictions and QA exports remain separate proposal workflows unless a later ADR explicitly designs crop-aware prediction analysis.
 
@@ -227,12 +228,13 @@ Current implemented behavior:
 - RB-088 crop support masks in `CROP_PIXEL` linked to the source image, slice instance, and derived crop,
 - RB-089 crop semantic masks in `CROP_PIXEL` linked to the source image, slice instance, derived crop, exact support mask version, and semantic mode,
 - RB-090 draft slice classifications derived from crop semantic masks and manual crop workflow overrides linked to the slice instance,
+- RB-091 crop training exports for ready crop candidates with approved support, semantic, and classification lineage,
 - default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- crop exports preserve both crop-space artifacts and source-image provenance.
+- crop review/readiness UI integration refines how users approve and regenerate final crop packages.
 
 ## Related Docs
 

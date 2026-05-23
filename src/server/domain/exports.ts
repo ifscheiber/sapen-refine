@@ -22,7 +22,10 @@ export type ApiExportTarget =
   | "semantic_segmentation"
   | "support_segmentation"
   | "slice_classification"
-  | "combined";
+  | "combined"
+  | "crop_training";
+
+type CropReadinessStatus = "READY" | "PARTIAL" | "NOT_READY";
 
 type ReviewApproval = {
   decisionId: string;
@@ -45,18 +48,38 @@ type ArtifactVersionExport = {
   height: number;
   format: string;
   coordinateSpace: string;
+  coordinateTransform: Prisma.JsonValue | null;
   labelSchemaVersionId: string;
+  reviewState: ArtifactReviewState;
+  derivedCropId: string | null;
+  sliceInstanceId: string | null;
+  supportMaskVersionId: string | null;
+  cropSemanticMode: string | null;
   createdAt: Date;
   createdBy: { id: string; email: string; name: string | null } | null;
+  artifact: {
+    imageId: string;
+    projectId: string;
+    kind: AnnotationArtifactKind;
+    scopeKey: string;
+  };
   approval: ReviewApproval | null;
 };
 
 type ClassificationExport = {
   id: string;
   version: number;
+  projectId: string;
+  imageId: string;
   class: string;
   labelSchemaVersionId: string;
   sliceInstanceId: string;
+  reviewState: ArtifactReviewState;
+  source: string;
+  derivationReason: string | null;
+  derivedFromSemanticMaskVersionId: string | null;
+  derivedFromSupportMaskVersionId: string | null;
+  derivedFromCropId: string | null;
   createdAt: Date;
   createdBy: { id: string; email: string; name: string | null } | null;
   approval: ReviewApproval | null;
@@ -102,6 +125,63 @@ export type ExportCandidate = {
   eligibleTargets: ApiExportTarget[];
 };
 
+type CropExportCandidate = {
+  crop: {
+    id: string;
+    projectId: string;
+    sourceImageId: string;
+    sourceImageChecksum: string | null;
+    sourceImageWidth: number;
+    sourceImageHeight: number;
+    sliceInstanceId: string;
+    bboxVersionId: string;
+    version: number;
+    sourceX: number;
+    sourceY: number;
+    sourceWidth: number;
+    sourceHeight: number;
+    cropX: number;
+    cropY: number;
+    cropWidth: number;
+    cropHeight: number;
+    paddingRequestedPx: number;
+    paddingAppliedLeftPx: number;
+    paddingAppliedTopPx: number;
+    paddingAppliedRightPx: number;
+    paddingAppliedBottomPx: number;
+    paddingClipped: boolean;
+    coordinateSpace: string;
+    transformToSourceJson: Prisma.JsonValue;
+    storageKey: string;
+    checksum: string | null;
+    contentType: string | null;
+    byteSize: number;
+    format: string;
+    createdAt: Date;
+    createdBy: { id: string; email: string; name: string | null } | null;
+    sourceImage: ExportCandidate["image"] & {
+      acquisitionMetadata: ExportCandidate["acquisitionMetadata"];
+      sampleMetadata: ExportCandidate["sampleMetadata"];
+    };
+    bboxVersion: {
+      id: string;
+      version: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      coordinateSpace: string;
+      status: string;
+      createdAt: Date;
+    };
+  };
+  supportMask: ArtifactVersionExport | null;
+  semanticMask: ArtifactVersionExport | null;
+  classification: ClassificationExport | null;
+  readinessStatus: CropReadinessStatus;
+  readinessReasons: string[];
+};
+
 export class TrainingExportError extends Error {
   constructor(
     public readonly code: string,
@@ -116,7 +196,11 @@ const TARGETS = new Set<ApiExportTarget>([
   "support_segmentation",
   "slice_classification",
   "combined",
+  "crop_training",
 ]);
+
+const TRAINING_EXPORT_MANIFEST_VERSION = "sapen-annotate-training-export-v1";
+const CROP_TRAINING_EXPORT_MANIFEST_VERSION = "sapen-annotate-crop-training-export-v1";
 
 const ARTIFACT_SELECT = {
   id: true,
@@ -129,17 +213,32 @@ const ARTIFACT_SELECT = {
   height: true,
   format: true,
   coordinateSpace: true,
+  coordinateTransform: true,
   labelSchemaVersionId: true,
+  reviewState: true,
+  derivedCropId: true,
+  sliceInstanceId: true,
+  supportMaskVersionId: true,
+  cropSemanticMode: true,
   createdAt: true,
   createdBy: { select: { id: true, email: true, name: true } },
+  artifact: { select: { imageId: true, projectId: true, kind: true, scopeKey: true } },
 } satisfies Prisma.AnnotationArtifactVersionSelect;
 
 const CLASSIFICATION_SELECT = {
   id: true,
   version: true,
+  projectId: true,
+  imageId: true,
   class: true,
   labelSchemaVersionId: true,
   sliceInstanceId: true,
+  reviewState: true,
+  source: true,
+  derivationReason: true,
+  derivedFromSemanticMaskVersionId: true,
+  derivedFromSupportMaskVersionId: true,
+  derivedFromCropId: true,
   createdAt: true,
   createdBy: { select: { id: true, email: true, name: true } },
 } satisfies Prisma.SliceClassificationVersionSelect;
@@ -156,6 +255,9 @@ export function parseExportTargets(value: unknown): ApiExportTarget[] {
   }
 
   if (parsed.length === 0) throw new TrainingExportError("EXPORT_TARGETS_REQUIRED");
+  if (parsed.includes("crop_training") && parsed.length > 1) {
+    throw new TrainingExportError("EXPORT_TARGET_COMBINATION_INVALID");
+  }
   return parsed;
 }
 
@@ -181,7 +283,12 @@ function targetForSelection(targets: ApiExportTarget[]): ExportTarget {
   if (targets[0] === "semantic_segmentation") return ExportTarget.SEMANTIC_SEGMENTATION;
   if (targets[0] === "support_segmentation") return ExportTarget.INSTANCE_SUPPORT_SEGMENTATION;
   if (targets[0] === "slice_classification") return ExportTarget.SLICE_CLASSIFICATION;
+  if (targets[0] === "crop_training") return ExportTarget.CROP_TRAINING;
   return ExportTarget.COMBINED_MANIFEST;
+}
+
+function isCropTrainingSelection(targets: ApiExportTarget[]) {
+  return targets.length === 1 && targets[0] === "crop_training";
 }
 
 async function getProjectMembership(db: ExportDb, projectId: string, userId: string) {
@@ -288,6 +395,148 @@ async function loadLatestApprovedClassification(db: ExportDb, imageId: string) {
   };
 }
 
+const CROP_SELECT = {
+  id: true,
+  projectId: true,
+  sourceImageId: true,
+  sourceImageChecksum: true,
+  sourceImageWidth: true,
+  sourceImageHeight: true,
+  sliceInstanceId: true,
+  bboxVersionId: true,
+  version: true,
+  sourceX: true,
+  sourceY: true,
+  sourceWidth: true,
+  sourceHeight: true,
+  cropX: true,
+  cropY: true,
+  cropWidth: true,
+  cropHeight: true,
+  paddingRequestedPx: true,
+  paddingAppliedLeftPx: true,
+  paddingAppliedTopPx: true,
+  paddingAppliedRightPx: true,
+  paddingAppliedBottomPx: true,
+  paddingClipped: true,
+  coordinateSpace: true,
+  transformToSourceJson: true,
+  storageKey: true,
+  checksum: true,
+  contentType: true,
+  byteSize: true,
+  format: true,
+  createdAt: true,
+  createdBy: { select: { id: true, email: true, name: true } },
+  sourceImage: {
+    select: {
+      id: true,
+      filename: true,
+      contentType: true,
+      size: true,
+      checksum: true,
+      width: true,
+      height: true,
+      storageKey: true,
+      uploadedAt: true,
+      acquisitionMetadata: {
+        select: {
+          cameraDevice: true,
+          lensObjective: true,
+          exposure: true,
+          aperture: true,
+          iso: true,
+          whiteBalance: true,
+          colorProfile: true,
+          lightingSetup: true,
+          capturedBy: true,
+          capturedAt: true,
+          notes: true,
+        },
+      },
+      sampleMetadata: {
+        select: {
+          tNumber: true,
+          specimenIdentifier: true,
+          sliceIndex: true,
+          replicate: true,
+          treatmentReference: true,
+          notes: true,
+        },
+      },
+    },
+  },
+  bboxVersion: {
+    select: {
+      id: true,
+      version: true,
+      x: true,
+      y: true,
+      width: true,
+      height: true,
+      coordinateSpace: true,
+      status: true,
+      createdAt: true,
+    },
+  },
+} satisfies Prisma.DerivedSliceCropSelect;
+
+async function loadLatestCropArtifactVersion(params: {
+  db: ExportDb;
+  projectId: string;
+  imageId: string;
+  cropId: string;
+  sliceInstanceId: string;
+  kind: AnnotationArtifactKind;
+  reviewState?: ArtifactReviewState;
+}) {
+  const version = await params.db.annotationArtifactVersion.findFirst({
+    where: {
+      derivedCropId: params.cropId,
+      sliceInstanceId: params.sliceInstanceId,
+      ...(params.reviewState ? { reviewState: params.reviewState } : {}),
+      artifact: {
+        projectId: params.projectId,
+        imageId: params.imageId,
+        kind: params.kind,
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { version: "desc" }],
+    select: ARTIFACT_SELECT,
+  });
+  if (!version) return null;
+
+  return {
+    ...version,
+    approval: await loadApprovalForArtifactVersion(params.db, version.id),
+  };
+}
+
+async function loadLatestCropClassificationVersion(params: {
+  db: ExportDb;
+  projectId: string;
+  imageId: string;
+  sliceInstanceId: string;
+  reviewState?: ArtifactReviewState;
+}) {
+  const version = await params.db.sliceClassificationVersion.findFirst({
+    where: {
+      projectId: params.projectId,
+      imageId: params.imageId,
+      sliceInstanceId: params.sliceInstanceId,
+      ...(params.reviewState ? { reviewState: params.reviewState } : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { version: "desc" }],
+    select: CLASSIFICATION_SELECT,
+  });
+  if (!version) return null;
+
+  return {
+    ...version,
+    approval: await loadApprovalForClassification(params.db, version.id),
+  };
+}
+
 function candidateWarnings(candidate: Omit<ExportCandidate, "warnings" | "eligibleTargets">) {
   const warnings: string[] = [];
   if (!candidate.sampleMetadata?.tNumber) warnings.push("MISSING_T_NUMBER");
@@ -319,6 +568,7 @@ function selectedComponentAvailable(candidate: ExportCandidate, target: ApiExpor
   if (target === "semantic_segmentation") return Boolean(candidate.semanticMask);
   if (target === "support_segmentation") return Boolean(candidate.supportMask);
   if (target === "slice_classification") return Boolean(candidate.classification);
+  if (target === "crop_training") return false;
   return Boolean(candidate.semanticMask || candidate.supportMask || candidate.classification);
 }
 
@@ -332,6 +582,214 @@ function hasValidDimensions(value: { width: number | null; height: number | null
 
 function hasValidArtifactIntegrity(value: ArtifactVersionExport) {
   return hasValidChecksum(value.checksum) && hasValidDimensions(value);
+}
+
+function hasPositiveInteger(value: number | null | undefined) {
+  return Number.isInteger(value) && value! > 0;
+}
+
+function hasValidCropIntegrity(value: CropExportCandidate["crop"]) {
+  return (
+    hasValidChecksum(value.checksum) &&
+    hasPositiveInteger(value.cropWidth) &&
+    hasPositiveInteger(value.cropHeight) &&
+    hasPositiveInteger(value.byteSize)
+  );
+}
+
+function cropVersionLineageMatches(
+  version: ArtifactVersionExport,
+  crop: CropExportCandidate["crop"],
+) {
+  return (
+    version.derivedCropId === crop.id &&
+    version.sliceInstanceId === crop.sliceInstanceId &&
+    version.artifact.imageId === crop.sourceImageId &&
+    version.artifact.projectId === crop.projectId
+  );
+}
+
+function cropVersionCoordinateMatches(
+  version: ArtifactVersionExport,
+  crop: CropExportCandidate["crop"],
+) {
+  return (
+    version.coordinateSpace === "CROP_PIXEL" &&
+    version.width === crop.cropWidth &&
+    version.height === crop.cropHeight
+  );
+}
+
+function cropReadinessStatus(reasons: Set<string>, hasAnyCropWork: boolean): CropReadinessStatus {
+  if (reasons.size === 0) return "READY";
+  return hasAnyCropWork ? "PARTIAL" : "NOT_READY";
+}
+
+function evaluateCropReadiness(params: {
+  crop: CropExportCandidate["crop"];
+  supportAny: ArtifactVersionExport | null;
+  supportApproved: ArtifactVersionExport | null;
+  semanticAny: ArtifactVersionExport | null;
+  semanticApproved: ArtifactVersionExport | null;
+  classificationAny: ClassificationExport | null;
+  classificationApproved: ClassificationExport | null;
+}) {
+  const reasons = new Set<string>();
+  const {
+    crop,
+    supportAny,
+    supportApproved,
+    semanticAny,
+    semanticApproved,
+    classificationAny,
+    classificationApproved,
+  } = params;
+
+  if (!hasValidChecksum(crop.sourceImage.checksum)) reasons.add("MISSING_IMAGE_CHECKSUM");
+  if (!hasValidDimensions(crop.sourceImage)) reasons.add("MISSING_IMAGE_DIMENSIONS");
+  if (!hasValidCropIntegrity(crop)) reasons.add("MISSING_CROP_INTEGRITY_METADATA");
+  if (crop.coordinateSpace !== "CROP_PIXEL") reasons.add("COORDINATE_SPACE_MISMATCH");
+  if (crop.sourceImageId !== crop.sourceImage.id) reasons.add("LINEAGE_MISMATCH");
+
+  if (!supportApproved) reasons.add(supportAny ? "SUPPORT_NOT_APPROVED" : "MISSING_SUPPORT_MASK");
+  if (!semanticApproved) reasons.add(semanticAny ? "SEMANTIC_NOT_APPROVED" : "MISSING_SEMANTIC_MASK");
+  if (!classificationApproved) {
+    reasons.add(classificationAny ? "CLASSIFICATION_NOT_APPROVED" : "MISSING_CLASSIFICATION");
+  }
+
+  if (supportApproved) {
+    if (!hasValidArtifactIntegrity(supportApproved)) {
+      reasons.add("MISSING_SUPPORT_MASK_INTEGRITY_METADATA");
+    }
+    if (!cropVersionCoordinateMatches(supportApproved, crop)) {
+      reasons.add("COORDINATE_SPACE_MISMATCH");
+    }
+    if (!cropVersionLineageMatches(supportApproved, crop)) {
+      reasons.add("LINEAGE_MISMATCH");
+    }
+  }
+
+  if (semanticApproved) {
+    if (!hasValidArtifactIntegrity(semanticApproved)) {
+      reasons.add("MISSING_SEMANTIC_MASK_INTEGRITY_METADATA");
+    }
+    if (!cropVersionCoordinateMatches(semanticApproved, crop)) {
+      reasons.add("COORDINATE_SPACE_MISMATCH");
+    }
+    if (!cropVersionLineageMatches(semanticApproved, crop)) {
+      reasons.add("LINEAGE_MISMATCH");
+    }
+    if (supportApproved && semanticApproved.supportMaskVersionId !== supportApproved.id) {
+      reasons.add("LINEAGE_MISMATCH");
+    }
+  }
+
+  if (classificationApproved) {
+    if (
+      classificationApproved.projectId !== crop.projectId ||
+      classificationApproved.imageId !== crop.sourceImageId ||
+      classificationApproved.sliceInstanceId !== crop.sliceInstanceId ||
+      classificationApproved.derivedFromCropId !== crop.id
+    ) {
+      reasons.add("LINEAGE_MISMATCH");
+    }
+    if (semanticApproved && classificationApproved.derivedFromSemanticMaskVersionId !== semanticApproved.id) {
+      reasons.add("LINEAGE_MISMATCH");
+    }
+    if (supportApproved && classificationApproved.derivedFromSupportMaskVersionId !== supportApproved.id) {
+      reasons.add("LINEAGE_MISMATCH");
+    }
+  }
+
+  const hasAnyCropWork = Boolean(
+    supportAny ||
+      supportApproved ||
+      semanticAny ||
+      semanticApproved ||
+      classificationAny ||
+      classificationApproved,
+  );
+  return {
+    status: cropReadinessStatus(reasons, hasAnyCropWork),
+    reasons: Array.from(reasons).sort(),
+  };
+}
+
+async function resolveCropExportCandidates(db: ExportDb, projectId: string) {
+  const crops = await db.derivedSliceCrop.findMany({
+    where: { projectId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: CROP_SELECT,
+  });
+
+  const candidates: CropExportCandidate[] = [];
+  for (const crop of crops) {
+    const artifactParams = {
+      db,
+      projectId: crop.projectId,
+      imageId: crop.sourceImageId,
+      cropId: crop.id,
+      sliceInstanceId: crop.sliceInstanceId,
+    };
+    const classificationParams = {
+      db,
+      projectId: crop.projectId,
+      imageId: crop.sourceImageId,
+      sliceInstanceId: crop.sliceInstanceId,
+    };
+    const [
+      supportAny,
+      supportApproved,
+      semanticAny,
+      semanticApproved,
+      classificationAny,
+      classificationApproved,
+    ] = await Promise.all([
+      loadLatestCropArtifactVersion({
+        ...artifactParams,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      }),
+      loadLatestCropArtifactVersion({
+        ...artifactParams,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+        reviewState: "APPROVED",
+      }),
+      loadLatestCropArtifactVersion({
+        ...artifactParams,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      }),
+      loadLatestCropArtifactVersion({
+        ...artifactParams,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+        reviewState: "APPROVED",
+      }),
+      loadLatestCropClassificationVersion(classificationParams),
+      loadLatestCropClassificationVersion({
+        ...classificationParams,
+        reviewState: "APPROVED",
+      }),
+    ]);
+
+    const readiness = evaluateCropReadiness({
+      crop,
+      supportAny,
+      supportApproved,
+      semanticAny,
+      semanticApproved,
+      classificationAny,
+      classificationApproved,
+    });
+    candidates.push({
+      crop,
+      supportMask: supportApproved,
+      semanticMask: semanticApproved,
+      classification: classificationApproved,
+      readinessStatus: readiness.status,
+      readinessReasons: readiness.reasons,
+    });
+  }
+
+  return candidates;
 }
 
 function selectedIntegrityWarnings(candidate: ExportCandidate, targets: ApiExportTarget[]) {
@@ -451,6 +909,7 @@ export async function resolveProjectExportReadiness(params: {
       eligibleTargets: eligibleTargets(base),
     });
   }
+  const cropCandidates = await resolveCropExportCandidates(db, project.id);
 
   return {
     project: {
@@ -466,8 +925,14 @@ export async function resolveProjectExportReadiness(params: {
       approvedSupportMasks: candidates.filter((candidate) => candidate.supportMask).length,
       approvedClassifications: candidates.filter((candidate) => candidate.classification).length,
       imagesWithWarnings: candidates.filter((candidate) => candidate.warnings.length > 0).length,
+      totalCropItems: cropCandidates.length,
+      readyCropItems: cropCandidates.filter((candidate) => candidate.readinessStatus === "READY").length,
+      partialCropItems: cropCandidates.filter((candidate) => candidate.readinessStatus === "PARTIAL").length,
+      notReadyCropItems: cropCandidates.filter((candidate) => candidate.readinessStatus === "NOT_READY").length,
+      cropItemsWithWarnings: cropCandidates.filter((candidate) => candidate.readinessReasons.length > 0).length,
     },
     candidates,
+    cropCandidates,
   };
 }
 
@@ -477,6 +942,29 @@ function packagePaths(candidate: ExportCandidate) {
     image: `images/${candidate.image.id}${imageExt}`,
     semanticMask: `masks/semantic/${candidate.image.id}.u8raw`,
     supportMask: `masks/support/${candidate.image.id}.u8raw`,
+  };
+}
+
+function cropPackagePaths(candidate: CropExportCandidate) {
+  const imageExt = safeExtension(
+    candidate.crop.sourceImage.filename,
+    candidate.crop.sourceImage.contentType,
+    ".bin",
+  );
+  const cropExt = candidate.crop.contentType === "image/png" || candidate.crop.format === "png"
+    ? ".png"
+    : ".bin";
+  return {
+    originalImage: `original-images/${candidate.crop.sourceImage.id}${imageExt}`,
+    derivedCrop: `crops/${candidate.crop.id}${cropExt}`,
+    supportMask:
+      candidate.supportMask
+        ? `masks/support-crop/${candidate.crop.sliceInstanceId}_${candidate.supportMask.id}.u8raw`
+        : null,
+    semanticMask:
+      candidate.semanticMask
+        ? `masks/semantic-crop/${candidate.crop.sliceInstanceId}_${candidate.semanticMask.id}.u8raw`
+        : null,
   };
 }
 
@@ -511,11 +999,33 @@ function artifactManifest(version: ArtifactVersionExport, filePath: string) {
   };
 }
 
+function cropArtifactManifest(version: ArtifactVersionExport, filePath: string) {
+  return {
+    ...artifactManifest(version, filePath),
+    reviewState: version.reviewState,
+    derivedCropId: version.derivedCropId,
+    sliceInstanceId: version.sliceInstanceId,
+    supportMaskVersionId: version.supportMaskVersionId,
+    cropSemanticMode: version.cropSemanticMode,
+    approval: approvalManifest(version.approval),
+  };
+}
+
 function collectLabelSchemaIds(candidates: ExportCandidate[]) {
   const ids = new Set<string>();
   for (const candidate of candidates) {
     if (candidate.semanticMask) ids.add(candidate.semanticMask.labelSchemaVersionId);
     if (candidate.supportMask) ids.add(candidate.supportMask.labelSchemaVersionId);
+    if (candidate.classification) ids.add(candidate.classification.labelSchemaVersionId);
+  }
+  return Array.from(ids).sort();
+}
+
+function collectCropLabelSchemaIds(candidates: CropExportCandidate[]) {
+  const ids = new Set<string>();
+  for (const candidate of candidates) {
+    if (candidate.supportMask) ids.add(candidate.supportMask.labelSchemaVersionId);
+    if (candidate.semanticMask) ids.add(candidate.semanticMask.labelSchemaVersionId);
     if (candidate.classification) ids.add(candidate.classification.labelSchemaVersionId);
   }
   return Array.from(ids).sort();
@@ -645,7 +1155,7 @@ async function buildManifest(params: {
   ];
 
   return {
-    manifestVersion: "sapen-annotate-training-export-v1",
+    manifestVersion: TRAINING_EXPORT_MANIFEST_VERSION,
     exportId: params.exportId,
     exportedAt: params.exportedAt.toISOString(),
     exportedBy: params.exportedBy,
@@ -670,6 +1180,174 @@ async function buildManifest(params: {
   };
 }
 
+async function buildCropTrainingManifest(params: {
+  db: ExportDb;
+  exportId: string;
+  exportedAt: Date;
+  exportedBy: { id: string; email: string; name: string | null };
+  project: { id: string; name: string };
+  candidates: CropExportCandidate[];
+}) {
+  const readyCandidates = params.candidates.filter(
+    (candidate) =>
+      candidate.readinessStatus === "READY" &&
+      candidate.supportMask &&
+      candidate.semanticMask &&
+      candidate.classification,
+  );
+  const skippedCandidates = params.candidates.filter(
+    (candidate) => !readyCandidates.some((included) => included.crop.id === candidate.crop.id),
+  );
+  const labelSchemas = await loadLabelSchemas(params.db, collectCropLabelSchemaIds(readyCandidates));
+
+  const cropItems = readyCandidates.flatMap((candidate) => {
+    const paths = cropPackagePaths(candidate);
+    if (!candidate.supportMask || !candidate.semanticMask || !candidate.classification) return [];
+    if (!paths.supportMask || !paths.semanticMask) return [];
+
+    return [
+      {
+        originalImage: {
+          id: candidate.crop.sourceImage.id,
+          filename: candidate.crop.sourceImage.filename,
+          path: paths.originalImage,
+          contentType: candidate.crop.sourceImage.contentType,
+          size: candidate.crop.sourceImage.size,
+          width: candidate.crop.sourceImage.width,
+          height: candidate.crop.sourceImage.height,
+          checksum: candidate.crop.sourceImage.checksum,
+          uploadedAt: candidate.crop.sourceImage.uploadedAt.toISOString(),
+        },
+        acquisitionMetadata: candidate.crop.sourceImage.acquisitionMetadata
+          ? {
+              ...candidate.crop.sourceImage.acquisitionMetadata,
+              capturedAt:
+                candidate.crop.sourceImage.acquisitionMetadata.capturedAt?.toISOString() ?? null,
+            }
+          : null,
+        sampleMetadata: candidate.crop.sourceImage.sampleMetadata,
+        sliceInstanceId: candidate.crop.sliceInstanceId,
+        sliceBoundingBox: {
+          bboxVersionId: candidate.crop.bboxVersionId,
+          version: candidate.crop.bboxVersion.version,
+          x: candidate.crop.bboxVersion.x,
+          y: candidate.crop.bboxVersion.y,
+          width: candidate.crop.bboxVersion.width,
+          height: candidate.crop.bboxVersion.height,
+          coordinateSpace: candidate.crop.bboxVersion.coordinateSpace,
+          status: candidate.crop.bboxVersion.status,
+          createdAt: candidate.crop.bboxVersion.createdAt.toISOString(),
+        },
+        derivedCrop: {
+          id: candidate.crop.id,
+          version: candidate.crop.version,
+          path: paths.derivedCrop,
+          sourceImageId: candidate.crop.sourceImageId,
+          sourceImageChecksum: candidate.crop.sourceImageChecksum,
+          sourceImageWidth: candidate.crop.sourceImageWidth,
+          sourceImageHeight: candidate.crop.sourceImageHeight,
+          sourceRect: {
+            x: candidate.crop.sourceX,
+            y: candidate.crop.sourceY,
+            width: candidate.crop.sourceWidth,
+            height: candidate.crop.sourceHeight,
+          },
+          cropRect: {
+            x: candidate.crop.cropX,
+            y: candidate.crop.cropY,
+            width: candidate.crop.cropWidth,
+            height: candidate.crop.cropHeight,
+          },
+          padding: {
+            requestedPx: candidate.crop.paddingRequestedPx,
+            appliedLeftPx: candidate.crop.paddingAppliedLeftPx,
+            appliedTopPx: candidate.crop.paddingAppliedTopPx,
+            appliedRightPx: candidate.crop.paddingAppliedRightPx,
+            appliedBottomPx: candidate.crop.paddingAppliedBottomPx,
+            clipped: candidate.crop.paddingClipped,
+          },
+          coordinateSpace: candidate.crop.coordinateSpace,
+          transformToSource: candidate.crop.transformToSourceJson,
+          checksum: candidate.crop.checksum,
+          contentType: candidate.crop.contentType,
+          byteSize: candidate.crop.byteSize,
+          format: candidate.crop.format,
+          createdBy: userManifest(candidate.crop.createdBy),
+          createdAt: candidate.crop.createdAt.toISOString(),
+        },
+        supportMask: cropArtifactManifest(candidate.supportMask, paths.supportMask),
+        semanticMask: cropArtifactManifest(candidate.semanticMask, paths.semanticMask),
+        classification: {
+          classificationVersionId: candidate.classification.id,
+          version: candidate.classification.version,
+          class: candidate.classification.class,
+          source: candidate.classification.source,
+          derivationReason: candidate.classification.derivationReason,
+          sliceInstanceId: candidate.classification.sliceInstanceId,
+          labelSchemaVersionId: candidate.classification.labelSchemaVersionId,
+          derivedFromSemanticMaskVersionId:
+            candidate.classification.derivedFromSemanticMaskVersionId,
+          derivedFromSupportMaskVersionId:
+            candidate.classification.derivedFromSupportMaskVersionId,
+          derivedFromCropId: candidate.classification.derivedFromCropId,
+          reviewState: candidate.classification.reviewState,
+          approval: approvalManifest(candidate.classification.approval),
+          createdBy: userManifest(candidate.classification.createdBy),
+          createdAt: candidate.classification.createdAt.toISOString(),
+        },
+        readinessStatus: candidate.readinessStatus,
+        readinessReasons: candidate.readinessReasons,
+      },
+    ];
+  });
+
+  const warnings = skippedCandidates.flatMap((candidate) =>
+    candidate.readinessReasons.map((reason) => ({
+      derivedCropId: candidate.crop.id,
+      sourceImageId: candidate.crop.sourceImageId,
+      sliceInstanceId: candidate.crop.sliceInstanceId,
+      code: reason,
+    })),
+  );
+
+  return {
+    manifestVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
+    exportId: params.exportId,
+    exportedAt: params.exportedAt.toISOString(),
+    exportedBy: params.exportedBy,
+    project: params.project,
+    selection: {
+      targets: ["crop_training"],
+      approvedOnly: true,
+      cropCoordinateSpace: "CROP_PIXEL",
+      originalCoordinateMasks: false,
+    },
+    labelSchemas,
+    cropItems,
+    skippedCropItems: skippedCandidates.map((candidate) => ({
+      derivedCropId: candidate.crop.id,
+      sourceImageId: candidate.crop.sourceImageId,
+      sliceInstanceId: candidate.crop.sliceInstanceId,
+      bboxVersionId: candidate.crop.bboxVersionId,
+      readinessStatus: candidate.readinessStatus,
+      readinessReasons: candidate.readinessReasons,
+      supportMaskVersionId: candidate.supportMask?.id ?? null,
+      semanticMaskVersionId: candidate.semanticMask?.id ?? null,
+      classificationVersionId: candidate.classification?.id ?? null,
+    })),
+    warnings,
+    summary: {
+      cropItemCount: cropItems.length,
+      skippedCropItemCount: skippedCandidates.length,
+      warningCount: warnings.length,
+      totalCropItems: params.candidates.length,
+      readyCropItems: cropItems.length,
+      partialCropItems: params.candidates.filter((candidate) => candidate.readinessStatus === "PARTIAL").length,
+      notReadyCropItems: params.candidates.filter((candidate) => candidate.readinessStatus === "NOT_READY").length,
+    },
+  };
+}
+
 async function buildZipPackage(params: {
   manifest: Awaited<ReturnType<typeof buildManifest>>;
   candidates: ExportCandidate[];
@@ -689,6 +1367,30 @@ async function buildZipPackage(params: {
     if (item.supportMask && candidate.supportMask) {
       zip.file(item.supportMask.path, await getObjectBytes(candidate.supportMask.storageKey));
     }
+  }
+
+  return zip.generateAsync({
+    type: "uint8array",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+}
+
+async function buildCropTrainingZipPackage(params: {
+  manifest: Awaited<ReturnType<typeof buildCropTrainingManifest>>;
+  candidates: CropExportCandidate[];
+}) {
+  const zip = new JSZip();
+  zip.file("manifest.json", JSON.stringify(params.manifest, null, 2));
+
+  for (const item of params.manifest.cropItems) {
+    const candidate = params.candidates.find((entry) => entry.crop.id === item.derivedCrop.id);
+    if (!candidate?.supportMask || !candidate.semanticMask) continue;
+
+    zip.file(item.originalImage.path, await getObjectBytes(candidate.crop.sourceImage.storageKey));
+    zip.file(item.derivedCrop.path, await getObjectBytes(candidate.crop.storageKey));
+    zip.file(item.supportMask.path, await getObjectBytes(candidate.supportMask.storageKey));
+    zip.file(item.semanticMask.path, await getObjectBytes(candidate.semanticMask.storageKey));
   }
 
   return zip.generateAsync({
@@ -761,7 +1463,205 @@ export function sanitizeReadiness(
       eligibleTargets: candidate.eligibleTargets,
       warnings: candidate.warnings,
     })),
+    cropCandidates: readiness.cropCandidates.map((candidate) => ({
+      crop: {
+        id: candidate.crop.id,
+        sourceImageId: candidate.crop.sourceImageId,
+        sliceInstanceId: candidate.crop.sliceInstanceId,
+        bboxVersionId: candidate.crop.bboxVersionId,
+        version: candidate.crop.version,
+        sourceX: candidate.crop.sourceX,
+        sourceY: candidate.crop.sourceY,
+        sourceWidth: candidate.crop.sourceWidth,
+        sourceHeight: candidate.crop.sourceHeight,
+        cropX: candidate.crop.cropX,
+        cropY: candidate.crop.cropY,
+        cropWidth: candidate.crop.cropWidth,
+        cropHeight: candidate.crop.cropHeight,
+        paddingRequestedPx: candidate.crop.paddingRequestedPx,
+        paddingAppliedLeftPx: candidate.crop.paddingAppliedLeftPx,
+        paddingAppliedTopPx: candidate.crop.paddingAppliedTopPx,
+        paddingAppliedRightPx: candidate.crop.paddingAppliedRightPx,
+        paddingAppliedBottomPx: candidate.crop.paddingAppliedBottomPx,
+        paddingClipped: candidate.crop.paddingClipped,
+        coordinateSpace: candidate.crop.coordinateSpace,
+        transformToSource: candidate.crop.transformToSourceJson,
+        checksum: candidate.crop.checksum,
+        contentType: candidate.crop.contentType,
+        byteSize: candidate.crop.byteSize,
+        format: candidate.crop.format,
+        createdAt: candidate.crop.createdAt,
+      },
+      sourceImage: {
+        id: candidate.crop.sourceImage.id,
+        filename: candidate.crop.sourceImage.filename,
+        checksum: candidate.crop.sourceImage.checksum,
+        width: candidate.crop.sourceImage.width,
+        height: candidate.crop.sourceImage.height,
+        uploadedAt: candidate.crop.sourceImage.uploadedAt,
+      },
+      supportMaskVersionId: candidate.supportMask?.id ?? null,
+      semanticMaskVersionId: candidate.semanticMask?.id ?? null,
+      classificationVersionId: candidate.classification?.id ?? null,
+      readinessStatus: candidate.readinessStatus,
+      readinessReasons: candidate.readinessReasons,
+    })),
   };
+}
+
+async function createCropTrainingExportBatch(params: {
+  readiness: Awaited<ReturnType<typeof resolveProjectExportReadiness>>;
+  user: { id: string; email: string; name: string | null };
+}, db: PrismaClient) {
+  const selectionCriteria = {
+    targets: ["crop_training"],
+    approvedOnly: true,
+    cropCoordinateSpace: "CROP_PIXEL",
+    originalCoordinateMasks: false,
+  };
+
+  const batch = await db.exportBatch.create({
+    data: {
+      projectId: params.readiness.project.id,
+      target: ExportTarget.CROP_TRAINING,
+      status: "CREATED",
+      manifestFormatVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
+      selectionCriteria,
+      exportedById: params.user.id,
+    },
+    select: {
+      id: true,
+      exportedAt: true,
+      createdAt: true,
+    },
+  });
+
+  try {
+    const manifest = await buildCropTrainingManifest({
+      db,
+      exportId: batch.id,
+      exportedAt: batch.exportedAt,
+      exportedBy: params.user,
+      project: { id: params.readiness.project.id, name: params.readiness.project.name },
+      candidates: params.readiness.cropCandidates,
+    });
+    const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+    const packageBytes = await buildCropTrainingZipPackage({
+      manifest,
+      candidates: params.readiness.cropCandidates,
+    });
+
+    const exportPrefix = `projects/${params.readiness.project.id}/exports/${batch.id}`;
+    const manifestStorageKey = `${exportPrefix}/manifest.json`;
+    const packageStorageKey = `${exportPrefix}/package.zip`;
+    await putObject(manifestStorageKey, manifestBytes, "application/json");
+    await putObject(packageStorageKey, packageBytes, "application/zip");
+
+    const exportItems = manifest.cropItems.flatMap((item) => {
+      const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
+        {
+          role: "original-image",
+          imageId: item.originalImage.id,
+          derivedCropId: item.derivedCrop.id,
+        },
+        {
+          role: "derived-crop",
+          imageId: item.originalImage.id,
+          derivedCropId: item.derivedCrop.id,
+        },
+        {
+          role: "crop-support-mask",
+          imageId: item.originalImage.id,
+          artifactVersionId: item.supportMask.artifactVersionId,
+          derivedCropId: item.derivedCrop.id,
+        },
+        {
+          role: "crop-semantic-mask",
+          imageId: item.originalImage.id,
+          artifactVersionId: item.semanticMask.artifactVersionId,
+          derivedCropId: item.derivedCrop.id,
+        },
+        {
+          role: "crop-slice-classification",
+          imageId: item.originalImage.id,
+          sliceClassificationVersionId: item.classification.classificationVersionId,
+          derivedCropId: item.derivedCrop.id,
+        },
+      ];
+      return rows;
+    });
+
+    const completed = await db.exportBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: "COMPLETED",
+        manifestStorageKey,
+        manifestChecksum: sha256(manifestBytes),
+        warnings: manifest.warnings,
+        metadataSummary: {
+          itemCount: manifest.summary.cropItemCount,
+          cropItemCount: manifest.summary.cropItemCount,
+          skippedCropItemCount: manifest.summary.skippedCropItemCount,
+          warningCount: manifest.summary.warningCount,
+          packageStorageKey,
+          packageChecksum: sha256(packageBytes),
+          packageSize: packageBytes.byteLength,
+        },
+        ...(exportItems.length
+          ? {
+              items: {
+                createMany: {
+                  data: exportItems,
+                },
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        projectId: true,
+        target: true,
+        status: true,
+        manifestChecksum: true,
+        selectionCriteria: true,
+        warnings: true,
+        metadataSummary: true,
+        exportedAt: true,
+        createdAt: true,
+        _count: { select: { items: true } },
+      },
+    });
+
+    await recordAuditEvent({
+      action: "EXPORT_CREATED",
+      entity: "ExportBatch",
+      entityId: completed.id,
+      actorId: params.user.id,
+      details: {
+        projectId: completed.projectId,
+        target: completed.target,
+        manifestChecksum: completed.manifestChecksum,
+        packageChecksum: sanitizeExportBatch(completed).packageChecksum,
+        manifestFormatVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
+      },
+    }, db);
+
+    return sanitizeExportBatch(completed);
+  } catch (error) {
+    await db.exportBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: "FAILED",
+        warnings: [
+          {
+            code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
+            message: error instanceof Error ? error.message : "Unknown export failure",
+          },
+        ],
+      },
+    }).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function createTrainingExportForUser(params: {
@@ -781,6 +1681,10 @@ export async function createTrainingExportForUser(params: {
   });
   if (!user) throw new TrainingExportError("USER_NOT_FOUND");
 
+  if (isCropTrainingSelection(params.targets)) {
+    return createCropTrainingExportBatch({ readiness, user }, db);
+  }
+
   const selectionCriteria = {
     targets: params.targets,
     approvedOnly: true,
@@ -791,7 +1695,7 @@ export async function createTrainingExportForUser(params: {
       projectId: readiness.project.id,
       target: targetForSelection(params.targets),
       status: "CREATED",
-      manifestFormatVersion: "sapen-annotate-training-export-v1",
+      manifestFormatVersion: TRAINING_EXPORT_MANIFEST_VERSION,
       selectionCriteria,
       exportedById: user.id,
     },

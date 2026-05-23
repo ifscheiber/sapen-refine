@@ -20,6 +20,7 @@
 - `prisma/migrations/20260523081500_crop_support_mask_lineage/migration.sql` - RB-088 crop support-mask lineage from artifact versions to derived crops and slice instances.
 - `prisma/migrations/20260523110000_crop_semantic_mask_lineage/migration.sql` - RB-089 crop semantic-mask support-version lineage and semantic mode persistence.
 - `prisma/migrations/20260523123000_slice_classification_semantic_derivation/migration.sql` - RB-090 slice-classification source/reason and semantic/support/crop lineage persistence.
+- `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 crop training export target and `ExportItem.derivedCropId` provenance links.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -44,11 +45,12 @@
 - Crop support masks are crop-scoped `SLICE_SUPPORT_MASK` artifact versions. `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` link each saved `CROP_PIXEL` mask to the selected `DerivedSliceCrop` and `SliceInstance`.
 - Crop semantic masks are crop-scoped `SEMANTIC_MASK` artifact versions. `AnnotationArtifactVersion.supportMaskVersionId` references the exact crop support-mask version used as the editing constraint, and `cropSemanticMode` records whether the crop semantic draft is `SAP_HEARTWOOD` or `COPPER`.
 - Auto-derived crop classifications are draft `SliceClassificationVersion` rows with `source = AUTO_FROM_SEMANTIC_MASK`, a stable derivation reason, and links to the source semantic mask, support mask, and crop. Manual crop overrides append separate `source = MANUAL` rows.
+- `ExportTarget.CROP_TRAINING` records RB-091 crop ground-truth packages. `ExportItem.derivedCropId` links crop package rows back to the exact `DerivedSliceCrop` used for original image, crop PNG, crop support-mask, crop semantic-mask, and crop classification roles.
 
 ## Known Gaps
 
 - Project/image metadata, default slice support/classification, source-image BBox slice proposals, derived slice crop generation, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export with QA metrics, ZIP batch prediction import, single-host batch worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
-- Crop support-mask editing exists after RB-088, support-constrained crop semantic editing exists after RB-089, and draft auto classification suggestions from crop semantics exist after RB-090. Slice-specific metadata, crop-aware export/review integration, advanced export policy/history, metric dashboards/reports, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
+- Crop support-mask editing exists after RB-088, support-constrained crop semantic editing exists after RB-089, draft auto classification suggestions from crop semantics exist after RB-090, and crop-aware training export exists after RB-091. Slice-specific metadata, crop review integration, advanced export policy/history, metric dashboards/reports, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

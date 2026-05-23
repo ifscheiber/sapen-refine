@@ -234,6 +234,212 @@ describe("training export workflow", () => {
     return classification.id;
   }
 
+  async function createCropFixture(name: string) {
+    const imageId = await createImage(`crop-${name}`);
+    const slice = await prisma.sliceInstance.create({
+      data: { projectId, imageId, createdById: labelerId },
+      select: { id: true },
+    });
+    const bbox = await prisma.sliceBoundingBoxVersion.create({
+      data: {
+        projectId,
+        imageId,
+        sliceInstanceId: slice.id,
+        version: 1,
+        status: "ACTIVE",
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 4,
+        coordinateSpace: "SOURCE_IMAGE_PIXEL",
+        createdById: labelerId,
+      },
+      select: { id: true },
+    });
+    const cropBytes = minimalPng(`crop-${name}`);
+    const cropStorageKey = `tests/export/${suffix}/crop-${name}.png`;
+    await storage.putObject(cropStorageKey, cropBytes, "image/png");
+    const crop = await prisma.derivedSliceCrop.create({
+      data: {
+        projectId,
+        sourceImageId: imageId,
+        sourceImageChecksum: sha256Checksum(minimalPng(`crop-${name}`)),
+        sourceImageWidth: 4,
+        sourceImageHeight: 4,
+        sliceInstanceId: slice.id,
+        bboxVersionId: bbox.id,
+        version: 1,
+        sourceX: 0,
+        sourceY: 0,
+        sourceWidth: 4,
+        sourceHeight: 4,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: 4,
+        cropHeight: 4,
+        paddingRequestedPx: 32,
+        paddingAppliedLeftPx: 0,
+        paddingAppliedTopPx: 0,
+        paddingAppliedRightPx: 0,
+        paddingAppliedBottomPx: 0,
+        paddingClipped: true,
+        coordinateSpace: "CROP_PIXEL",
+        transformToSourceJson: {
+          version: "integer-translation-v1",
+          sourceOrigin: { x: 0, y: 0 },
+          cropCoordinateSpace: "CROP_PIXEL",
+          sourceCoordinateSpace: "SOURCE_IMAGE_PIXEL",
+        },
+        storageKey: cropStorageKey,
+        checksum: sha256Checksum(cropBytes),
+        contentType: "image/png",
+        byteSize: cropBytes.byteLength,
+        format: "png",
+        createdById: labelerId,
+      },
+      select: {
+        id: true,
+        sourceImageId: true,
+        sliceInstanceId: true,
+        cropWidth: true,
+        cropHeight: true,
+      },
+    });
+
+    return { imageId, sliceInstanceId: slice.id, bboxVersionId: bbox.id, crop };
+  }
+
+  async function createCropArtifactVersion(params: {
+    crop: Awaited<ReturnType<typeof createCropFixture>>["crop"];
+    kind: AnnotationArtifactKind;
+    name: string;
+    reviewState?: ArtifactReviewState;
+    supportMaskVersionId?: string;
+    semanticMode?: "SAP_HEARTWOOD" | "COPPER";
+  }) {
+    const scopeKey =
+      params.kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK
+        ? `crop-support:${params.crop.id}`
+        : `crop-semantic:${params.crop.id}:${params.semanticMode ?? "COPPER"}`;
+    const artifact = await prisma.annotationArtifact.upsert({
+      where: {
+        imageId_kind_scopeKey: {
+          imageId: params.crop.sourceImageId,
+          kind: params.kind,
+          scopeKey,
+        },
+      },
+      update: {},
+      create: {
+        projectId,
+        imageId: params.crop.sourceImageId,
+        kind: params.kind,
+        scopeKey,
+        createdById: labelerId,
+      },
+      select: { id: true },
+    });
+    const latest = await prisma.annotationArtifactVersion.aggregate({
+      where: { artifactId: artifact.id },
+      _max: { version: true },
+    });
+    const version = (latest._max.version ?? 0) + 1;
+    const bytes = new Uint8Array(params.crop.cropWidth * params.crop.cropHeight).fill(
+      params.kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK ? 10 : 3,
+    );
+    const storageKey = `tests/export/${suffix}/${params.crop.id}-${params.name}.u8raw`;
+    await storage.putObject(storageKey, bytes, "application/octet-stream");
+
+    const artifactVersion = await prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: artifact.id,
+        version,
+        reviewState: params.reviewState ?? "APPROVED",
+        storageKey,
+        contentType: "application/octet-stream",
+        size: bytes.byteLength,
+        checksum: sha256Checksum(bytes),
+        width: params.crop.cropWidth,
+        height: params.crop.cropHeight,
+        coordinateSpace: "CROP_PIXEL",
+        coordinateTransform: {
+          derivedCropId: params.crop.id,
+          cropCoordinateSpace: "CROP_PIXEL",
+          sourceCoordinateSpace: "SOURCE_IMAGE_PIXEL",
+        },
+        labelSchemaVersionId,
+        derivedCropId: params.crop.id,
+        sliceInstanceId: params.crop.sliceInstanceId,
+        supportMaskVersionId: params.supportMaskVersionId,
+        cropSemanticMode:
+          params.kind === AnnotationArtifactKind.SEMANTIC_MASK ? params.semanticMode ?? "COPPER" : undefined,
+        createdById: labelerId,
+      },
+      select: { id: true },
+    });
+
+    if ((params.reviewState ?? "APPROVED") === "APPROVED") {
+      await prisma.reviewDecision.create({
+        data: {
+          projectId,
+          artifactVersionId: artifactVersion.id,
+          fromState: "SUBMITTED",
+          toState: "APPROVED",
+          reviewedById: ownerId,
+          comments: `Approved crop artifact ${params.name}`,
+        },
+      });
+    }
+
+    return artifactVersion.id;
+  }
+
+  async function createCropClassificationVersion(params: {
+    crop: Awaited<ReturnType<typeof createCropFixture>>["crop"];
+    semanticMaskVersionId: string;
+    supportMaskVersionId: string;
+    reviewState?: ArtifactReviewState;
+    name: string;
+  }) {
+    const latest = await prisma.sliceClassificationVersion.aggregate({
+      where: { sliceInstanceId: params.crop.sliceInstanceId },
+      _max: { version: true },
+    });
+    const classification = await prisma.sliceClassificationVersion.create({
+      data: {
+        projectId,
+        imageId: params.crop.sourceImageId,
+        sliceInstanceId: params.crop.sliceInstanceId,
+        version: (latest._max.version ?? 0) + 1,
+        class: "COPPER_SLICE",
+        reviewState: params.reviewState ?? "APPROVED",
+        source: "AUTO_FROM_SEMANTIC_MASK",
+        derivationReason: "COPPER_PIXELS_PRESENT",
+        derivedFromSemanticMaskVersionId: params.semanticMaskVersionId,
+        derivedFromSupportMaskVersionId: params.supportMaskVersionId,
+        derivedFromCropId: params.crop.id,
+        labelSchemaVersionId,
+        createdById: labelerId,
+      },
+      select: { id: true },
+    });
+
+    if ((params.reviewState ?? "APPROVED") === "APPROVED") {
+      await prisma.reviewDecision.create({
+        data: {
+          projectId,
+          sliceClassificationVersionId: classification.id,
+          fromState: "SUBMITTED",
+          toState: "APPROVED",
+          reviewedById: ownerId,
+          comments: `Approved crop classification ${params.name}`,
+        },
+      });
+    }
+
+    return classification.id;
+  }
+
   it("creates a combined export with exact approved version references and package files", async () => {
     const imageId = await createImage("complete");
     const semanticVersionId = await createArtifactVersion({
@@ -318,6 +524,278 @@ describe("training export workflow", () => {
     expect(auditActions.map((entry) => entry.action)).toEqual(
       expect.arrayContaining(["EXPORT_CREATED", "EXPORT_DOWNLOADED"]),
     );
+  });
+
+  it("creates a crop training export with crop lineage, transform metadata, and package files", async () => {
+    const { crop, bboxVersionId } = await createCropFixture("ready");
+    const supportVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "ready-support",
+    });
+    const semanticVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: supportVersionId,
+      semanticMode: "COPPER",
+      name: "ready-semantic",
+    });
+    const classificationVersionId = await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: semanticVersionId,
+      supportMaskVersionId: supportVersionId,
+      name: "ready-classification",
+    });
+
+    const readiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    const cropCandidate = readiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id);
+    expect(cropCandidate).toMatchObject({
+      readinessStatus: "READY",
+      readinessReasons: [],
+    });
+
+    const exportBatch = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["crop_training"] },
+      prisma,
+    );
+    expect(exportBatch.status).toBe("COMPLETED");
+    expect(exportBatch.target).toBe("CROP_TRAINING");
+    expect(JSON.stringify(exportBatch)).not.toContain("tests/export/");
+
+    const persistedItems = await prisma.exportItem.findMany({
+      where: { exportBatchId: exportBatch.id, derivedCropId: crop.id },
+      select: {
+        role: true,
+        imageId: true,
+        artifactVersionId: true,
+        sliceClassificationVersionId: true,
+        derivedCropId: true,
+      },
+    });
+    expect(persistedItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: "original-image", derivedCropId: crop.id }),
+        expect.objectContaining({ role: "derived-crop", derivedCropId: crop.id }),
+        expect.objectContaining({
+          role: "crop-support-mask",
+          artifactVersionId: supportVersionId,
+          derivedCropId: crop.id,
+        }),
+        expect.objectContaining({
+          role: "crop-semantic-mask",
+          artifactVersionId: semanticVersionId,
+          derivedCropId: crop.id,
+        }),
+        expect.objectContaining({
+          role: "crop-slice-classification",
+          sliceClassificationVersionId: classificationVersionId,
+          derivedCropId: crop.id,
+        }),
+      ]),
+    );
+
+    const manifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    expect(manifest.manifestVersion).toBe("sapen-annotate-crop-training-export-v1");
+    expect(manifest.selection).toMatchObject({
+      targets: ["crop_training"],
+      cropCoordinateSpace: "CROP_PIXEL",
+      originalCoordinateMasks: false,
+    });
+    const item = manifest.cropItems.find(
+      (entry: { derivedCrop: { id: string } }) => entry.derivedCrop.id === crop.id,
+    );
+    expect(item).toMatchObject({
+      sliceInstanceId: crop.sliceInstanceId,
+      sliceBoundingBox: { bboxVersionId },
+      readinessStatus: "READY",
+      readinessReasons: [],
+      derivedCrop: {
+        id: crop.id,
+        path: `crops/${crop.id}.png`,
+        coordinateSpace: "CROP_PIXEL",
+        padding: { requestedPx: 32, clipped: true },
+        transformToSource: {
+          version: "integer-translation-v1",
+          sourceOrigin: { x: 0, y: 0 },
+        },
+      },
+      supportMask: {
+        artifactVersionId: supportVersionId,
+        path: `masks/support-crop/${crop.sliceInstanceId}_${supportVersionId}.u8raw`,
+        coordinateSpace: "CROP_PIXEL",
+        derivedCropId: crop.id,
+        sliceInstanceId: crop.sliceInstanceId,
+        reviewState: "APPROVED",
+      },
+      semanticMask: {
+        artifactVersionId: semanticVersionId,
+        path: `masks/semantic-crop/${crop.sliceInstanceId}_${semanticVersionId}.u8raw`,
+        coordinateSpace: "CROP_PIXEL",
+        derivedCropId: crop.id,
+        sliceInstanceId: crop.sliceInstanceId,
+        supportMaskVersionId: supportVersionId,
+        cropSemanticMode: "COPPER",
+        reviewState: "APPROVED",
+      },
+      classification: {
+        classificationVersionId,
+        source: "AUTO_FROM_SEMANTIC_MASK",
+        derivationReason: "COPPER_PIXELS_PRESENT",
+        derivedFromSemanticMaskVersionId: semanticVersionId,
+        derivedFromSupportMaskVersionId: supportVersionId,
+        derivedFromCropId: crop.id,
+        reviewState: "APPROVED",
+      },
+    });
+    expect(JSON.stringify(manifest)).not.toContain("tests/export/");
+    expect(JSON.stringify(manifest)).not.toContain("storageKey");
+
+    const packageFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "package" },
+      prisma,
+    );
+    const zip = await JSZip.loadAsync(packageFile.bytes);
+    expect(zip.file("manifest.json")).toBeTruthy();
+    expect(zip.file(item.originalImage.path)).toBeTruthy();
+    expect(zip.file(item.derivedCrop.path)).toBeTruthy();
+    expect(zip.file(item.supportMask.path)).toBeTruthy();
+    expect(zip.file(item.semanticMask.path)).toBeTruthy();
+  });
+
+  it("marks incomplete and unapproved crop candidates as non-ground-truth skips", async () => {
+    const incomplete = await createCropFixture("missing-components");
+    const draft = await createCropFixture("draft-components");
+    const draftSupportId = await createCropArtifactVersion({
+      crop: draft.crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      reviewState: "DRAFT",
+      name: "draft-support",
+    });
+    const draftSemanticId = await createCropArtifactVersion({
+      crop: draft.crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      reviewState: "SUBMITTED",
+      supportMaskVersionId: draftSupportId,
+      semanticMode: "COPPER",
+      name: "draft-semantic",
+    });
+    await createCropClassificationVersion({
+      crop: draft.crop,
+      semanticMaskVersionId: draftSemanticId,
+      supportMaskVersionId: draftSupportId,
+      reviewState: "DRAFT",
+      name: "draft-classification",
+    });
+
+    const readiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    const incompleteCandidate = readiness.cropCandidates.find(
+      (candidate) => candidate.crop.id === incomplete.crop.id,
+    );
+    expect(incompleteCandidate).toMatchObject({
+      readinessStatus: "NOT_READY",
+      readinessReasons: expect.arrayContaining([
+        "MISSING_SUPPORT_MASK",
+        "MISSING_SEMANTIC_MASK",
+        "MISSING_CLASSIFICATION",
+      ]),
+    });
+    const draftCandidate = readiness.cropCandidates.find((candidate) => candidate.crop.id === draft.crop.id);
+    expect(draftCandidate).toMatchObject({
+      readinessStatus: "PARTIAL",
+      readinessReasons: expect.arrayContaining([
+        "SUPPORT_NOT_APPROVED",
+        "SEMANTIC_NOT_APPROVED",
+        "CLASSIFICATION_NOT_APPROVED",
+      ]),
+    });
+
+    const exportBatch = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["crop_training"] },
+      prisma,
+    );
+    const manifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    const skippedIds = manifest.skippedCropItems.map((entry: { derivedCropId: string }) => entry.derivedCropId);
+    expect(skippedIds).toContain(incomplete.crop.id);
+    expect(skippedIds).toContain(draft.crop.id);
+    expect(manifest.cropItems.map((entry: { derivedCrop: { id: string } }) => entry.derivedCrop.id)).not.toContain(
+      draft.crop.id,
+    );
+  });
+
+  it("marks crop candidates with selected-version lineage mismatches as partial", async () => {
+    const { crop } = await createCropFixture("lineage-mismatch");
+    const originalSupportId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "lineage-support-v1",
+    });
+    const semanticVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: originalSupportId,
+      semanticMode: "COPPER",
+      name: "lineage-semantic",
+    });
+    await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: semanticVersionId,
+      supportMaskVersionId: originalSupportId,
+      name: "lineage-classification",
+    });
+    await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "lineage-support-v2",
+    });
+
+    const readiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    const cropCandidate = readiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id);
+    expect(cropCandidate).toMatchObject({
+      readinessStatus: "PARTIAL",
+      readinessReasons: expect.arrayContaining(["LINEAGE_MISMATCH"]),
+    });
+
+    const exportBatch = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["crop_training"] },
+      prisma,
+    );
+    const manifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    expect(manifest.skippedCropItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          derivedCropId: crop.id,
+          readinessStatus: "PARTIAL",
+          readinessReasons: expect.arrayContaining(["LINEAGE_MISMATCH"]),
+        }),
+      ]),
+    );
+  });
+
+  it("rejects mixed crop and full-image export target selection", () => {
+    expect(() =>
+      exportsDomain.parseExportTargets(["crop_training", "semantic_segmentation"]),
+    ).toThrowError(expect.objectContaining({ code: "EXPORT_TARGET_COMBINATION_INVALID" }));
   });
 
   it("does not use copper semantic masks as support geometry", async () => {

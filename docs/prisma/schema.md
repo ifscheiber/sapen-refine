@@ -18,6 +18,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260523081500_crop_support_mask_lineage/migration.sql` - RB-088 `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` links for crop support masks.
 - `prisma/migrations/20260523110000_crop_semantic_mask_lineage/migration.sql` - RB-089 `AnnotationArtifactVersion.supportMaskVersionId` and `cropSemanticMode` links for crop semantic masks.
 - `prisma/migrations/20260523123000_slice_classification_semantic_derivation/migration.sql` - RB-090 classification source, derivation reason, and crop semantic/support/crop lineage links.
+- `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 `ExportTarget.CROP_TRAINING` and `ExportItem.derivedCropId` links for crop package provenance.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -32,7 +33,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts, RB-088 links crop support artifact versions to derived crops and slice instances, and RB-089 links crop semantic artifact versions to their exact support-mask constraint and semantic mode.
 - `SliceInstance`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, `SliceClassificationVersion` - physical slice object, BBox proposal history, derived crop versions, classification baseline, and RB-090 manual/auto classification provenance; RB-051 uses one default slice instance per image, RB-086 creates BBox proposal slice instances, and RB-087 creates crop versions from active BBox versions.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
-- `ExportBatch`, `ExportItem` - RB-053 training export and RB-060 prediction-analysis export batch persistence, manifest/package metadata, warnings, actor attribution, exact exported version references, and optional prediction provenance references.
+- `ExportBatch`, `ExportItem` - RB-053 full-image training export, RB-091 crop training export, and RB-060 prediction-analysis export batch persistence, manifest/package metadata, warnings, actor attribution, exact exported version references, crop references, and optional prediction provenance references.
 - `ModelRun` - model/training/checkpoint identity with task type, checkpoint, training dataset/export references, config hash, actor, warnings, and metadata.
 - `PredictionRun` - project-scoped inference execution linked to a model run, source dataset/export/selection, inference id, status, counts, aggregate confidence/uncertainty, actor, warnings, and metadata.
 - `PredictionArtifactProvenance` - per-image prediction proposal metadata linked to a prediction run, optional prediction artifact version, optional slice instance, target type, predicted class, confidence/uncertainty, per-class scores, output stats, and output checksum.
@@ -54,20 +55,22 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `DerivedSliceCrop` records private PNG crop artifacts generated from exact active BBox versions. It uses `CoordinateSpace.CROP_PIXEL`, stores source-image checksum/dimensions, source rectangle, requested/applied padding, clipping state, transform metadata, storage checksum/size/content type, and version per slice instance. It is not a raw `ImageAsset` and does not define support geometry.
 - Crop support masks are `SLICE_SUPPORT_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, support-only bytes, and explicit crop/slice lineage. They define support geometry for the selected crop; crop padding itself remains non-geometry.
 - Crop semantic masks are `SEMANTIC_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, mode-specific semantic bytes, explicit crop/slice lineage, and exact support-mask lineage. They do not define support geometry.
+- `ExportTarget.CROP_TRAINING` is the RB-091 ground-truth crop package target. `ExportItem.derivedCropId` links each original-image, derived-crop, crop support-mask, crop semantic-mask, and crop classification export row to the exact `DerivedSliceCrop`.
 - `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
 - Current image writes persist `ImageValidationStatus.VALIDATED` only after server-side PNG/JPEG validation and object stat verification.
 - Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
 - `PredictionRun` is project-scoped and references exactly one `ModelRun`.
 - `PredictionArtifactProvenance` references exactly one `PredictionRun`, can link one optional `PREDICTION_MASK` `AnnotationArtifactVersion`, and stores prediction target/classification metadata outside human ground-truth rows.
 - `PredictionImportBatchItem` never stores ground-truth state. Successful items link to `AnnotationArtifactVersion` and `PredictionArtifactProvenance` rows created by the RB-057 prediction import service. Staging keys are private and must not be serialized to browser clients. `stagingPurgedAt` means the temporary source object was deleted and the item cannot be retried without re-upload.
-- `ExportTarget.PREDICTION_ANALYSIS` is reserved for RB-060/RB-067 QA/debug exports and must not be accepted by the RB-053 training export target parser.
+- `ExportTarget.PREDICTION_ANALYSIS` is reserved for RB-060/RB-067 QA/debug exports and must not be accepted by the training export target parser.
+- `ExportTarget.CROP_TRAINING` is accepted only through the exclusive `crop_training` training export target and cannot be mixed with full-image export targets.
 - `ExportItem.predictionProvenanceId` records exact prediction items for prediction-analysis exports without making those predictions ground truth. RB-067 QA metric summaries are export metadata, not schema-level labels.
 - `AnnotationTask.predictionRunId` and `AnnotationTask.predictionProvenanceId` are nullable links for future model-prediction correction queues; `modelSource` is not the reproducible source of truth.
 
 ## Known Gaps
 
 - Slice-specific metadata and multi-slice/multi-object support-mask editing remain deferred.
-- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, derived crop generation exists after RB-087, per-crop support masks exist after RB-088, support-constrained per-crop semantic masks exist after RB-089, and draft auto classification suggestions from crop semantic masks exist after RB-090.
+- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, derived crop generation exists after RB-087, per-crop support masks exist after RB-088, support-constrained per-crop semantic masks exist after RB-089, draft auto classification suggestions from crop semantic masks exist after RB-090, and crop training export packages exist after RB-091.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only training export generation. RB-060/RB-067 implement separate synchronous owner/QA prediction-analysis exports with QA metrics. RB-061 implements DB-backed prediction import batches, RB-065 adds single-host worker leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Advanced filters, export history UI, metrics dashboards, cleanup UI, and production-scale workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. RB-066 handles identifiable temporary/orphan cleanup, but committed artifact retention remains out of scope.
