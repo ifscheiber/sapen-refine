@@ -32,6 +32,7 @@
 - Support-mask bytes may contain only `0` and the active `slice_support` byte.
 - Crop support-mask bytes follow the same binary support values and must not interpret crop padding as support geometry.
 - Crop semantic-mask bytes must use mode-specific semantic labels. Sap/Heartwood bytes may be supportless and use non-background semantic foreground as support geometry. Copper bytes may be saved as drafts without support, but Copper readiness/export requires explicit support and rejects foreground outside approved support.
+- Crop editor brush and polygon tools use crop-pixel coordinates. `src/features/editor/cropMaskOperations.ts` wraps the shared `src/mask/tools.ts` mutation helpers so Copper semantic brush and lasso fills can be clipped to explicit support while Sap/Heartwood and support-mask edits remain unconstrained in crop space.
 - RB-070 editor erasing uses existing mask tool mutation paths: semantic erasing writes `Labels.BG`, and support-mask erasing writes the current support background value.
 - Approved ground-truth mask versions must be append-only when review/approval exists.
 

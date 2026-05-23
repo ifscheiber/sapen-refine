@@ -51,6 +51,8 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
   await expect(page.getByLabel("Slice navigator")).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lasso" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Polygon" })).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
 
   const imageMatch = page.url().match(/\/images\/([^/]+)\//);

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import {
   BrushIcon,
   EraserIcon,
+  LassoIcon,
   Maximize2Icon,
+  PentagonIcon,
   Redo2Icon,
   RotateCcwIcon,
   SaveIcon,
@@ -16,7 +18,7 @@ import { MaskBuffer } from "@/mask/maskBuffer";
 import { applyPatch } from "@/mask/patch";
 import type { Patch } from "@/mask/patch";
 import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
-import { applyBrush, applyBrushWithinSupport } from "@/mask/tools";
+import { editorCanvasPreviewStyle } from "@/design/editorCanvas";
 import {
   clampNumber,
   clientPointToImagePoint,
@@ -24,6 +26,7 @@ import {
   getZoomedCanvasDisplaySize,
 } from "./canvasGeometry";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
+import { applyCropBrush, applyCropPolygonFill } from "./cropMaskOperations";
 import {
   API_ARTIFACT_REVIEW,
   API_CLASSIFICATION_REVIEW,
@@ -42,12 +45,13 @@ import { createEditorLoadGuard } from "./editorLoadGuard";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
-import { getPaintLabelForTool } from "./editorTools";
+import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   SLICE_CLASS_OPTIONS,
   type CropReviewActions,
   type CropSemanticMaskState,
   type CropSemanticMode,
+  type Point,
   type ReviewAction,
   type SliceClassValue,
   type Tool,
@@ -165,6 +169,8 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   );
   const draggingRef = useRef(false);
   const lastPtRef = useRef<{ x: number; y: number } | null>(null);
+  const lassoPointsRef = useRef<Point[]>([]);
+  const lassoActiveRef = useRef(false);
   const currentStrokeRef = useRef<Stroke>([]);
   const undoRef = useRef<Stroke[]>([]);
   const redoRef = useRef<Stroke[]>([]);
@@ -188,6 +194,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   const [classificationSaving, setClassificationSaving] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
+  const [lassoPointCount, setLassoPointCount] = useState(0);
 
   const overlayLabels = useMemo(() => semanticOverlayLabels(state, semanticMode), [state, semanticMode]);
   const paintLabels = useMemo(() => semanticPaintLabels(state, semanticMode), [state, semanticMode]);
@@ -300,6 +307,87 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     ctx.putImageData(imageData, 0, 0, x0, y0, x1 - x0, y1 - y0);
   }
 
+  const clearPreview = useCallback(() => {
+    const canvas = previewCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  function setLassoPoints(points: Point[]) {
+    lassoPointsRef.current = points;
+    setLassoPointCount(points.length);
+  }
+
+  function drawLassoPreview(points: Point[], hover?: Point | null, showHandles = false) {
+    const canvas = previewCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (points.length === 0 && !hover) return;
+
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = editorCanvasPreviewStyle.polygonStroke;
+    ctx.fillStyle = editorCanvasPreviewStyle.polygonFill;
+    ctx.shadowColor = editorCanvasPreviewStyle.polygonShadow;
+    ctx.shadowBlur = 2;
+
+    if (points.length >= 3) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x + 0.5, points[0].y + 0.5);
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x + 0.5, points[i].y + 0.5);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    if (points.length > 0) {
+      ctx.moveTo(points[0].x + 0.5, points[0].y + 0.5);
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x + 0.5, points[i].y + 0.5);
+      }
+      if (hover) {
+        ctx.lineTo(hover.x + 0.5, hover.y + 0.5);
+        if (points.length >= 2) {
+          ctx.lineTo(points[0].x + 0.5, points[0].y + 0.5);
+        }
+      }
+    } else if (hover) {
+      ctx.moveTo(hover.x + 0.5, hover.y + 0.5);
+      ctx.lineTo(hover.x + 0.5, hover.y + 0.5);
+    }
+    ctx.stroke();
+
+    if (showHandles) {
+      const radius = 5;
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = editorCanvasPreviewStyle.handleStroke;
+      ctx.fillStyle = editorCanvasPreviewStyle.handleFill;
+      for (const point of points) {
+        ctx.beginPath();
+        ctx.arc(point.x + 0.5, point.y + 0.5, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  const resetLasso = useCallback(() => {
+    lassoActiveRef.current = false;
+    lassoPointsRef.current = [];
+    setLassoPointCount(0);
+    clearPreview();
+  }, [clearPreview]);
+
   const resetEditor = useCallback(() => {
     setEditorReady(false);
     setHasUnsavedChanges(false);
@@ -312,7 +400,11 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     currentStrokeRef.current = [];
     draggingRef.current = false;
     lastPtRef.current = null;
-  }, []);
+    lassoActiveRef.current = false;
+    lassoPointsRef.current = [];
+    setLassoPointCount(0);
+    clearPreview();
+  }, [clearPreview]);
 
   const loadEditor = useCallback(async (signal?: AbortSignal) => {
     const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
@@ -467,6 +559,36 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!editorCanEdit) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+        return;
+      }
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        (event.key.toLowerCase() === "y" || (event.shiftKey && event.key.toLowerCase() === "z"))
+      ) {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (event.key === "Escape") {
+        resetLasso();
+        return;
+      }
+      if (tool === "lasso_poly" && event.key === "Enter") {
+        event.preventDefault();
+        commitLasso(lassoPointsRef.current.slice());
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  useEffect(() => {
     if (paintLabels.length === 0) return;
     if (!paintLabels.some((label) => label.id === activeLabel)) {
       setActiveLabel(paintLabels[0].id);
@@ -503,14 +625,51 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       maskMode: "semantic",
       activeLabel,
     });
-    const patch =
-      semanticMode === "COPPER" && supportMask
-        ? applyBrushWithinSupport(mask, supportMask, x, y, brushRadius, paintLabel)
-        : applyBrush(mask, x, y, brushRadius, paintLabel);
+    const patch = applyCropBrush({
+      mask,
+      supportMask,
+      constrainToSupport: semanticMode === "COPPER" && Boolean(supportMask),
+      x,
+      y,
+      radius: brushRadius,
+      label: paintLabel,
+    });
     if (!patch) return;
     currentStrokeRef.current.push(patch);
     paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
     markDirty();
+  }
+
+  function commitLasso(points: Point[]) {
+    const mask = maskRef.current;
+    const supportMask = supportMaskRef.current;
+    if (!mask || !editorCanEdit) return;
+    if (points.length < 3) {
+      resetLasso();
+      return;
+    }
+
+    const patch = applyCropPolygonFill({
+      mask,
+      supportMask,
+      constrainToSupport: semanticMode === "COPPER" && Boolean(supportMask),
+      points,
+      label: getPaintLabelForTool({
+        tool,
+        maskMode: "semantic",
+        activeLabel,
+      }),
+    });
+    if (!patch) {
+      resetLasso();
+      return;
+    }
+
+    undoRef.current.push([patch]);
+    redoRef.current = [];
+    paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    markDirty();
+    resetLasso();
   }
 
   function onPointerDown(event: PointerEvent<HTMLCanvasElement>) {
@@ -518,35 +677,95 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     event.preventDefault();
     const target = event.currentTarget;
     const point = canvasToCropCoords(event);
-    draggingRef.current = true;
-    currentStrokeRef.current = [];
-    redoRef.current = [];
-    lastPtRef.current = point;
-    capturePointer(target, event.pointerId);
-    stamp(point.x, point.y);
-  }
 
-  function onPointerMove(event: PointerEvent<HTMLCanvasElement>) {
-    if (!editorCanEdit || !draggingRef.current) return;
-    event.preventDefault();
-    const point = canvasToCropCoords(event);
-    const last = lastPtRef.current;
-    lastPtRef.current = point;
-    if (!last) {
+    if (isBrushLikeTool(tool)) {
+      draggingRef.current = true;
+      currentStrokeRef.current = [];
+      redoRef.current = [];
+      lastPtRef.current = point;
+      capturePointer(target, event.pointerId);
       stamp(point.x, point.y);
       return;
     }
 
-    const dx = point.x - last.x;
-    const dy = point.y - last.y;
-    const distance = Math.hypot(dx, dy);
-    const step = Math.max(1, Math.floor(brushRadius / 2));
-    const steps = Math.max(1, Math.ceil(distance / step));
-    for (let i = 1; i <= steps; i += 1) {
-      stamp(
-        Math.round(last.x + (dx * i) / steps),
-        Math.round(last.y + (dy * i) / steps),
-      );
+    if (tool === "lasso_free") {
+      lassoActiveRef.current = true;
+      setLassoPoints([point]);
+      redoRef.current = [];
+      drawLassoPreview(lassoPointsRef.current);
+      capturePointer(target, event.pointerId);
+      return;
+    }
+
+    if (tool === "lasso_poly") {
+      const points = lassoPointsRef.current;
+      const first = points[0];
+      if (first && points.length >= 3) {
+        const dx = point.x - first.x;
+        const dy = point.y - first.y;
+        if (dx * dx + dy * dy <= 36) {
+          commitLasso(points.slice());
+          return;
+        }
+      }
+      if (points.length === 0) redoRef.current = [];
+      setLassoPoints([...points, point]);
+      drawLassoPreview(lassoPointsRef.current, null, true);
+      return;
+    }
+
+    resetLasso();
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (!editorCanEdit) return;
+    event.preventDefault();
+    const point = canvasToCropCoords(event);
+
+    if (isBrushLikeTool(tool)) {
+      if (!draggingRef.current) return;
+      const last = lastPtRef.current;
+      lastPtRef.current = point;
+      if (!last) {
+        stamp(point.x, point.y);
+        return;
+      }
+
+      const dx = point.x - last.x;
+      const dy = point.y - last.y;
+      const distance = Math.hypot(dx, dy);
+      const step = Math.max(1, Math.floor(brushRadius / 2));
+      const steps = Math.max(1, Math.ceil(distance / step));
+      for (let i = 1; i <= steps; i += 1) {
+        stamp(
+          Math.round(last.x + (dx * i) / steps),
+          Math.round(last.y + (dy * i) / steps),
+        );
+      }
+      return;
+    }
+
+    if (tool === "lasso_free") {
+      if (!lassoActiveRef.current) return;
+      const points = lassoPointsRef.current;
+      const last = points[points.length - 1];
+      if (!last) {
+        setLassoPoints([point]);
+        drawLassoPreview(lassoPointsRef.current);
+        return;
+      }
+      const dx = point.x - last.x;
+      const dy = point.y - last.y;
+      if (dx * dx + dy * dy >= 4) {
+        setLassoPoints([...points, point]);
+        drawLassoPreview(lassoPointsRef.current);
+      }
+      return;
+    }
+
+    if (tool === "lasso_poly") {
+      const points = lassoPointsRef.current;
+      if (points.length > 0) drawLassoPreview(points, point, true);
     }
   }
 
@@ -559,25 +778,51 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
 
   function onPointerUp(event: PointerEvent<HTMLCanvasElement>) {
     event.preventDefault();
-    draggingRef.current = false;
-    lastPtRef.current = null;
-    finishStroke();
-    releasePointer(event.currentTarget, event.pointerId);
+    if (isBrushLikeTool(tool)) {
+      draggingRef.current = false;
+      lastPtRef.current = null;
+      finishStroke();
+      releasePointer(event.currentTarget, event.pointerId);
+      return;
+    }
+
+    if (tool === "lasso_free" && lassoActiveRef.current) {
+      lassoActiveRef.current = false;
+      releasePointer(event.currentTarget, event.pointerId);
+      commitLasso(lassoPointsRef.current.slice());
+    }
   }
 
   function onPointerCancel(event: PointerEvent<HTMLCanvasElement>) {
     event.preventDefault();
-    draggingRef.current = false;
-    lastPtRef.current = null;
-    finishStroke();
-    releasePointer(event.currentTarget, event.pointerId);
+    if (isBrushLikeTool(tool)) {
+      draggingRef.current = false;
+      lastPtRef.current = null;
+      finishStroke();
+      releasePointer(event.currentTarget, event.pointerId);
+      return;
+    }
+
+    if (tool === "lasso_free") {
+      releasePointer(event.currentTarget, event.pointerId);
+      resetLasso();
+      return;
+    }
+
+    if (tool === "lasso_poly") {
+      drawLassoPreview(lassoPointsRef.current, null, true);
+    }
   }
 
   function onPointerLeave(event: PointerEvent<HTMLCanvasElement>) {
-    if (!draggingRef.current || event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    draggingRef.current = false;
-    lastPtRef.current = null;
-    finishStroke();
+    if (isBrushLikeTool(tool) && draggingRef.current && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+      draggingRef.current = false;
+      lastPtRef.current = null;
+      finishStroke();
+    }
+    if (tool === "lasso_poly") {
+      drawLassoPreview(lassoPointsRef.current, null, true);
+    }
   }
 
   function undo() {
@@ -610,7 +855,13 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   function switchMode(nextMode: CropSemanticMode) {
     if (nextMode === semanticMode) return;
     if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
+    resetLasso();
     setSemanticMode(nextMode);
+  }
+
+  function selectTool(nextTool: Tool) {
+    if (nextTool !== tool) resetLasso();
+    setTool(nextTool);
   }
 
   async function saveMask() {
@@ -725,6 +976,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   }
 
   const editorStatus = isSaving ? "Saving..." : status || (hasUnsavedChanges ? "Unsaved changes" : "");
+  const canCommitPolygon = editorCanEdit && tool === "lasso_poly" && lassoPointCount >= 3;
   const activeSemanticMask = state?.latestSemanticMasks[semanticMode] ?? null;
   const classificationReviewActions =
     state?.latestClassification &&
@@ -811,7 +1063,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
           <button
             className={tool === "brush" ? activeButtonClass : idleButtonClass}
             aria-pressed={tool === "brush"}
-            onClick={() => setTool("brush")}
+            onClick={() => selectTool("brush")}
             disabled={!editorCanEdit}
             title="Brush"
           >
@@ -821,13 +1073,44 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
           <button
             className={tool === "eraser" ? activeButtonClass : idleButtonClass}
             aria-pressed={tool === "eraser"}
-            onClick={() => setTool("eraser")}
+            onClick={() => selectTool("eraser")}
             disabled={!editorCanEdit}
             title="Eraser"
           >
             <EraserIcon className="size-4" aria-hidden="true" />
             Eraser
           </button>
+          <button
+            className={tool === "lasso_free" ? activeButtonClass : idleButtonClass}
+            aria-pressed={tool === "lasso_free"}
+            onClick={() => selectTool("lasso_free")}
+            disabled={!editorCanEdit}
+            title="Freehand lasso"
+          >
+            <LassoIcon className="size-4" aria-hidden="true" />
+            Lasso
+          </button>
+          <button
+            className={tool === "lasso_poly" ? activeButtonClass : idleButtonClass}
+            aria-pressed={tool === "lasso_poly"}
+            onClick={() => selectTool("lasso_poly")}
+            disabled={!editorCanEdit}
+            title="Polygon lasso"
+          >
+            <PentagonIcon className="size-4" aria-hidden="true" />
+            Polygon
+          </button>
+          {tool === "lasso_poly" && (
+            <button
+              className={idleButtonClass}
+              onClick={() => commitLasso(lassoPointsRef.current.slice())}
+              disabled={!canCommitPolygon}
+              title="Commit polygon"
+            >
+              <SaveIcon className="size-4" aria-hidden="true" />
+              Commit
+            </button>
+          )}
           {paintLabels.map((label) => (
             <button
               key={`${semanticMode}-${label.id}`}
@@ -847,7 +1130,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
               max={80}
               value={brushRadius}
               onChange={(event) => setBrushRadius(Number(event.target.value))}
-              disabled={!editorCanEdit}
+              disabled={!editorCanEdit || tool === "lasso_poly"}
               className="w-32"
             />
           </div>
@@ -998,7 +1281,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onPointerLeave={onPointerLeave}
-        onCommitPolygon={() => undefined}
+        onCommitPolygon={() => commitLasso(lassoPointsRef.current.slice())}
       />
     </div>
   );

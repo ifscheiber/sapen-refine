@@ -11,6 +11,8 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` - RB-095 whole-image slice navigator with BBox overlays, selected-slice URL state, status badges, and crop generation/regeneration action.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/CropSupportEditorPage.tsx` and `src/features/editor/CropSupportEditorClient.tsx` - crop support editor composition and crop-sized binary support mask editing.
+- `src/features/editor/CropSemanticEditorPage.tsx` and `src/features/editor/CropSemanticEditorClient.tsx` - crop semantic editor composition, mode-aware support policy, crop-sized semantic mask editing, and classification/review controls.
+- `src/features/editor/cropMaskOperations.ts` - shared crop editor brush/polygon helpers, including Copper support-constrained mutations.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
 - `src/features/editor/editorTools.ts` - editor tool helpers, including eraser mode/value mapping.
 - `src/features/editor/components/EditorBBoxPanel.tsx` - BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview.
@@ -36,6 +38,8 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - CSS display size is controlled by the current zoom value and fit-to-container logic.
 - Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions via `src/features/editor/canvasGeometry.ts`.
 - Brush, Eraser, freehand lasso, and polygon lasso all use Pointer Events.
+- Crop support and crop semantic editors expose Brush, Eraser, freehand lasso, polygon lasso, undo/redo, fit, zoom, reload, opacity, and save controls against crop-pixel masks. BBox proposal drawing remains limited to the full-image/BBox-stage editor.
+- Crop semantic Brush and lasso operations are mode-aware: Sap/Heartwood edits are unconstrained and use semantic foreground as support geometry, while Copper edits are clipped to explicit support when a support mask exists. Copper drafts can be edited before support exists, but readiness/export still requires approved explicit support.
 - BBox proposal drawing also uses Pointer Events and stores integer source-image pixel rectangles.
 - Eraser is a brush-shaped tool. It uses the same size control as Brush, writes semantic background in `Semantic mask` mode, and writes support background in `Slice support` mode.
 - The `Background` label remains selectable; explicit Eraser is a discoverability and repeated-workflow improvement.

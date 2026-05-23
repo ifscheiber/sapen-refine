@@ -83,7 +83,9 @@ Clicking a slice in the editor rail opens the same editor mode for that slice. I
 
 The crop workbench is the main annotation surface for crop workflow pixel work. It keeps the crop editor on the left and whole-image slice navigation/status on the right so annotators can move between slices without returning to a separate navigator page.
 
-Semantic annotation is presented only after a current support mask exists for the crop. The server-side support-first and outside-support validation rules remain the source of truth.
+Crop support and semantic editors expose the full crop mask tool palette: Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
+
+Semantic annotation follows the mode-aware support policy. Sap/Heartwood can be edited without an explicit support mask and derives support geometry from semantic foreground. Copper can be drafted before support exists, but approved explicit support is required before Copper readiness/export; when support exists, Copper brush and lasso edits are clipped to support.
 
 ### Semantic Family And Classification
 

@@ -17,6 +17,7 @@ Important files:
 - `src/features/editor/EditorClient.tsx`
 - `src/features/editor/components/*`
 - `src/features/editor/canvasGeometry.ts`
+- `src/features/editor/cropMaskOperations.ts`
 - `src/features/editor/editorApi.ts`
 - `src/features/editor/editorFormatters.ts`
 - `src/features/editor/editorMaskUpload.ts`
@@ -99,6 +100,8 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 
 - Brush, eraser, and lasso operations write to a `MaskBuffer` in memory.
 - The eraser uses the same brush radius and pointer path as Brush. In semantic mode it writes `Labels.BG`; in slice-support mode it writes the current support background value.
+- Crop support and crop semantic editors expose the same core pixel tools as the full editor: Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
+- Crop editor brush and polygon mutations go through `src/features/editor/cropMaskOperations.ts`. Sap/Heartwood crop semantic edits and crop support edits are unconstrained crop-space operations. Copper semantic edits are clipped to explicit support when a support mask exists; supportless Copper drafts remain editable but are not export-ready.
 - Painting the explicit `Background` label remains valid. The eraser is a discoverable shortcut for repeated annotation work.
 - Undo/redo stores patch arrays in refs and applies patches back into the mask buffer.
 - Autosave debounces dirty mask writes after edits.
