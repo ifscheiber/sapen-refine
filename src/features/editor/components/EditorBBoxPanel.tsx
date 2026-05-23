@@ -3,6 +3,7 @@ import Link from "next/link";
 import type {
   CropWorkflowReadinessCandidate,
   DerivedSliceCrop,
+  ImageBBoxWorkflowState,
   SliceBoundingBoxProposal,
 } from "../editorTypes";
 import { activeButtonClass, idleButtonClass } from "../editorStyles";
@@ -15,13 +16,33 @@ type EditorBBoxPanelProps = {
   cropReadinessCandidates: CropWorkflowReadinessCandidate[];
   selectedBBoxId: string | null;
   replaceArmed: boolean;
+  bboxWorkflow?: ImageBBoxWorkflowState | null;
+  stageMode?: boolean;
+  editingConfirmedSet?: boolean;
+  confirmBusy?: boolean;
   canEdit: boolean;
   status: string;
   onSelect: (bboxVersionId: string) => void;
   onArmReplace: () => void;
   onDelete: () => void;
   onGenerateCrop: () => void;
+  onConfirmBBoxSet?: () => void;
+  onEditConfirmedSet?: () => void;
+  continueHref?: string;
 };
+
+function formatBBoxSetStatus(status: ImageBBoxWorkflowState["bboxSetStatus"] | undefined) {
+  if (status === "BBOX_CONFIRMED") return "Confirmed";
+  if (status === "BBOX_NEEDS_UPDATE") return "Needs update";
+  if (status === "BBOX_DRAFT") return "Draft";
+  return "No BBoxes";
+}
+
+function formatConfirmedBy(workflow: ImageBBoxWorkflowState | null | undefined) {
+  if (!workflow?.confirmedAt) return null;
+  const actor = workflow.confirmedBy?.name ?? workflow.confirmedBy?.email ?? "unknown user";
+  return `Confirmed by ${actor}`;
+}
 
 export function EditorBBoxPanel({
   projectId,
@@ -31,12 +52,19 @@ export function EditorBBoxPanel({
   cropReadinessCandidates,
   selectedBBoxId,
   replaceArmed,
+  bboxWorkflow,
+  stageMode = false,
+  editingConfirmedSet = false,
+  confirmBusy = false,
   canEdit,
   status,
   onSelect,
   onArmReplace,
   onDelete,
   onGenerateCrop,
+  onConfirmBBoxSet,
+  onEditConfirmedSet,
+  continueHref,
 }: EditorBBoxPanelProps) {
   const selected = boxes.find((box) => box.bboxVersionId === selectedBBoxId) ?? null;
   const selectedCrop =
@@ -46,15 +74,44 @@ export function EditorBBoxPanel({
   const selectedCropReadiness = selectedCrop
     ? cropReadinessCandidates.find((candidate) => candidate.crop.id === selectedCrop.id) ?? null
     : null;
+  const workflowStatus = bboxWorkflow?.bboxSetStatus;
+  const canConfirm = Boolean(onConfirmBBoxSet && bboxWorkflow?.canConfirm && boxes.length > 0 && !confirmBusy);
+  const confirmedBy = formatConfirmedBy(bboxWorkflow);
 
   return (
-    <div className="mt-3 border-t border-border pt-3 text-sm">
+    <div className={stageMode ? "mt-3 rounded-lg border border-border p-4 text-sm" : "mt-3 border-t border-border pt-3 text-sm"}>
+      {stageMode && (
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Step 1: Mark slice work areas</h2>
+            <p className="mt-1 max-w-3xl text-muted-foreground">
+              Draw rough BBoxes around every visible slice. BBoxes seed crop work areas; pixel-perfect support masks remain ground truth.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+              {formatBBoxSetStatus(workflowStatus)}
+            </span>
+            {confirmedBy && (
+              <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+                {confirmedBy}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <div className="text-muted-foreground">
           BBox proposals are rough crop work areas. Pixel-perfect support masks remain ground truth.
         </div>
         {status && <div className="text-muted-foreground">{status}</div>}
       </div>
+
+      {stageMode && boxes.length === 0 && (
+        <div className="mt-3 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
+          No slice work areas have been marked yet. Draw at least one BBox before confirming the set.
+        </div>
+      )}
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {boxes.length === 0 ? (
@@ -88,7 +145,30 @@ export function EditorBBoxPanel({
         </div>
       )}
 
-      {selected && (
+      {stageMode && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {workflowStatus === "BBOX_CONFIRMED" && !editingConfirmedSet ? (
+            <button className={idleButtonClass} onClick={onEditConfirmedSet} disabled={!onEditConfirmedSet}>
+              Edit BBoxes
+            </button>
+          ) : (
+            <button className={activeButtonClass} onClick={onConfirmBBoxSet} disabled={!canConfirm}>
+              {workflowStatus === "BBOX_NEEDS_UPDATE" ? "Re-confirm BBox set" : "Confirm BBox set"}
+            </button>
+          )}
+          {continueHref && workflowStatus === "BBOX_CONFIRMED" ? (
+            <Link className={activeButtonClass} href={continueHref}>
+              Continue to slice annotation
+            </Link>
+          ) : (
+            <button className={idleButtonClass} disabled>
+              Continue to slice annotation
+            </button>
+          )}
+        </div>
+      )}
+
+      {selected && !stageMode && (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-muted-foreground">
           {selectedCrop ? (
             <>

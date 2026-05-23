@@ -26,10 +26,10 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
 
-  await page.getByRole("link", { name: "Open editor" }).click();
-  await expect(page.getByRole("button", { name: "BBox proposal" })).toBeVisible();
-  await page.getByRole("button", { name: "BBox proposal" }).click();
-  await expect(page.getByRole("button", { name: "BBox proposal" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true }),
+  ).toBeVisible();
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await drawingSurface.scrollIntoViewIfNeeded();
@@ -44,6 +44,14 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
 
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
   await expect(page.getByRole("button", { name: /Slice proposal 1:/ })).toBeVisible();
+  await page.getByRole("button", { name: "Confirm BBox set" }).click();
+  await expect(page.getByText("BBox set confirmed")).toBeVisible();
+  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await expect(page).toHaveURL(/\/crop\/slices$/);
+  await expect(page.getByText("BBox set confirmed")).toBeVisible();
+
+  await page.getByRole("link", { name: "Full editor" }).click();
+  await expect(page.getByRole("button", { name: "BBox proposal" })).toBeVisible();
   await page.getByRole("button", { name: "Generate crop" }).click();
   await expect(page.getByText("Derived crop generated")).toBeVisible();
   await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();

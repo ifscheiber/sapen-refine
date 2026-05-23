@@ -18,6 +18,7 @@ import {
 import {
   API_ARTIFACT_REVIEW,
   API_CLASSIFICATION_REVIEW,
+  API_CONFIRM_SLICE_BBOX_SET,
   API_CORRECTION_CONTEXT,
   API_GENERATE_SLICE_CROP,
   API_IMAGE_VIEW,
@@ -47,6 +48,7 @@ import {
   type CropWorkflowReadinessCandidate,
   type DerivedSliceCrop,
   type EditorProps,
+  type ImageBBoxWorkflowState,
   type ImageReviewState,
   type MaskMode,
   type Point,
@@ -84,7 +86,14 @@ function drawBBoxRect(ctx: CanvasRenderingContext2D, rect: ImageRect, selected =
   ctx.restore();
 }
 
-export default function EditorClient({ projectId, imageId, canEdit, correctionTaskId, correctionMode }: EditorProps) {
+export default function EditorClient({
+  projectId,
+  imageId,
+  canEdit,
+  correctionTaskId,
+  correctionMode,
+  workflowMode = "fullEditor",
+}: EditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -119,17 +128,27 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
   const [predictionOverlayEnabled, setPredictionOverlayEnabled] = useState(true);
   const [predictionLoaded, setPredictionLoaded] = useState(false);
   const [bboxProposals, setBBoxProposals] = useState<SliceBoundingBoxProposal[]>([]);
+  const [bboxWorkflow, setBBoxWorkflow] = useState<ImageBBoxWorkflowState | null>(null);
   const [sliceCrops, setSliceCrops] = useState<DerivedSliceCrop[]>([]);
   const [cropReadinessCandidates, setCropReadinessCandidates] = useState<CropWorkflowReadinessCandidate[]>([]);
   const [bboxStatus, setBBoxStatus] = useState("");
+  const [bboxConfirming, setBBoxConfirming] = useState(false);
   const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
   const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
+  const [bboxConfirmedEditUnlocked, setBBoxConfirmedEditUnlocked] = useState(false);
   const [bboxCanvasReadyRevision, setBBoxCanvasReadyRevision] = useState(0);
 
   const [zoom, setZoom] = useState<number>(1);
   const isCorrectionMode = Boolean(correctionTaskId);
+  const isBBoxStageMode = workflowMode === "bboxStage";
   const editorCanEdit = canEdit && editorReady;
   const canEditBBox = editorCanEdit && !isCorrectionMode;
+  const bboxStageLocked =
+    isBBoxStageMode &&
+    bboxWorkflow?.bboxSetStatus === "BBOX_CONFIRMED" &&
+    !bboxConfirmedEditUnlocked;
+  const canMutateBBox = canEditBBox && !bboxStageLocked;
+  const cropWorkflowSlicesHref = `/app/projects/${projectId}/images/${imageId}/crop/slices`;
 
   const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
   const supportBackgroundValue = sliceState?.supportLabels.background ?? Labels.BG;
@@ -218,7 +237,12 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
     }
 
     const boxes = (data.boxes ?? []) as SliceBoundingBoxProposal[];
+    const workflow = (data.bboxWorkflow ?? null) as ImageBBoxWorkflowState | null;
     setBBoxProposals(boxes);
+    setBBoxWorkflow(workflow);
+    if (workflow?.bboxSetStatus === "BBOX_CONFIRMED") {
+      setBBoxConfirmedEditUnlocked(false);
+    }
     setSelectedBBoxId((current) => {
       if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
       return boxes[0]?.bboxVersionId ?? null;
@@ -288,6 +312,11 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
     if (!correctionTaskId) return;
     void loadCorrectionContext(correctionTaskId);
   }, [correctionTaskId, loadCorrectionContext]);
+
+  useEffect(() => {
+    if (!isBBoxStageMode || isCorrectionMode) return;
+    setTool("bbox");
+  }, [isBBoxStageMode, isCorrectionMode]);
 
   // ---------- helpers ----------
   const getPalette = useCallback(() => {
@@ -1015,7 +1044,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
   }
 
   async function saveBBoxProposal(rect: ImageRect) {
-    if (!canEditBBox) return;
+    if (!canMutateBBox) return;
 
     const replacing = bboxReplaceArmed && selectedBBoxId;
     const url = replacing ? API_SLICE_BBOX(selectedBBoxId) : API_SLICE_BBOXES(imageId);
@@ -1045,7 +1074,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
   }
 
   async function deleteSelectedBBoxProposal() {
-    if (!canEditBBox || !selectedBBoxId) return;
+    if (!canMutateBBox || !selectedBBoxId) return;
 
     setBBoxStatus("Deleting BBox proposal");
     try {
@@ -1086,6 +1115,35 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
       setBBoxStatus("Derived crop generated");
     } catch (error) {
       setBBoxStatus(errorMessage(error, "Derived crop generation failed"));
+    }
+  }
+
+  async function confirmBBoxSet() {
+    if (!bboxWorkflow?.canConfirm || bboxProposals.length === 0) return;
+
+    setBBoxConfirming(true);
+    setBBoxStatus("Confirming BBox set");
+    try {
+      const res = await fetch(API_CONFIRM_SLICE_BBOX_SET(imageId), { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `BBOX_CONFIRM_FAILED_${res.status}`);
+      }
+
+      const boxes = (data.boxes ?? []) as SliceBoundingBoxProposal[];
+      const workflow = (data.bboxWorkflow ?? null) as ImageBBoxWorkflowState | null;
+      setBBoxProposals(boxes);
+      setBBoxWorkflow(workflow);
+      setBBoxConfirmedEditUnlocked(false);
+      setSelectedBBoxId((current) => {
+        if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
+        return boxes[0]?.bboxVersionId ?? null;
+      });
+      setBBoxStatus("BBox set confirmed");
+    } catch (error) {
+      setBBoxStatus(errorMessage(error, "BBox set confirmation failed"));
+    } finally {
+      setBBoxConfirming(false);
     }
   }
 
@@ -1168,7 +1226,7 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
     const p = canvasToImageCoords(e);
 
     if (tool === "bbox") {
-      if (!canEditBBox) return;
+      if (!canMutateBBox) return;
       bboxDragStartRef.current = p;
       capturePointer(target, e.pointerId);
       drawBBoxPreview(imageRectFromPoints(p, p));
@@ -1563,33 +1621,35 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
           />
         )}
 
-        <EditorToolbar
-          maskMode={maskMode}
-          isCorrectionMode={isCorrectionMode}
-          latestSupportStatus={latestSupportStatus}
-          latestClassificationLabel={latestClassificationLabel}
-          onSwitchMaskMode={switchMaskMode}
-          tool={tool}
-          onToolChange={setTool}
-          brushRadius={brushRadius}
-          onBrushRadiusChange={setBrushRadius}
-          labels={labels}
-          activeLabel={activeLabel}
-          onActiveLabelChange={setActiveLabel}
-          canEdit={editorCanEdit}
-          opacity={opacity}
-          onOpacityChange={setOpacity}
-          onUndo={undo}
-          onRedo={redo}
-          onFit={fitToContainer}
-          onSave={() => void saveMaskNow({ manual: true })}
-          onExportPng={() => void exportMaskPng()}
-          isSaving={isSaving}
-          hasUnsavedChanges={hasUnsavedChanges}
-          editorStatus={editorStatus}
-          zoom={zoom}
-          onZoomChange={setZoom}
-        />
+        {!isBBoxStageMode && (
+          <EditorToolbar
+            maskMode={maskMode}
+            isCorrectionMode={isCorrectionMode}
+            latestSupportStatus={latestSupportStatus}
+            latestClassificationLabel={latestClassificationLabel}
+            onSwitchMaskMode={switchMaskMode}
+            tool={tool}
+            onToolChange={setTool}
+            brushRadius={brushRadius}
+            onBrushRadiusChange={setBrushRadius}
+            labels={labels}
+            activeLabel={activeLabel}
+            onActiveLabelChange={setActiveLabel}
+            canEdit={editorCanEdit}
+            opacity={opacity}
+            onOpacityChange={setOpacity}
+            onUndo={undo}
+            onRedo={redo}
+            onFit={fitToContainer}
+            onSave={() => void saveMaskNow({ manual: true })}
+            onExportPng={() => void exportMaskPng()}
+            isSaving={isSaving}
+            hasUnsavedChanges={hasUnsavedChanges}
+            editorStatus={editorStatus}
+            zoom={zoom}
+            onZoomChange={setZoom}
+          />
+        )}
 
         <EditorBBoxPanel
           projectId={projectId}
@@ -1599,7 +1659,11 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
           cropReadinessCandidates={cropReadinessCandidates}
           selectedBBoxId={selectedBBoxId}
           replaceArmed={bboxReplaceArmed}
-          canEdit={canEditBBox}
+          bboxWorkflow={bboxWorkflow}
+          stageMode={isBBoxStageMode}
+          editingConfirmedSet={bboxConfirmedEditUnlocked}
+          confirmBusy={bboxConfirming}
+          canEdit={canMutateBBox}
           status={bboxStatus}
           onSelect={(bboxVersionId) => {
             setSelectedBBoxId(bboxVersionId);
@@ -1612,26 +1676,37 @@ export default function EditorClient({ projectId, imageId, canEdit, correctionTa
           }}
           onDelete={() => void deleteSelectedBBoxProposal()}
           onGenerateCrop={() => void generateSelectedSliceCrop()}
+          onConfirmBBoxSet={() => void confirmBBoxSet()}
+          onEditConfirmedSet={() => {
+            setBBoxConfirmedEditUnlocked(true);
+            setTool("bbox");
+            setBBoxStatus("BBox editing enabled. Confirm the set again after changes.");
+          }}
+          continueHref={cropWorkflowSlicesHref}
         />
 
-        <EditorSliceClassificationPanel
-          selectedSliceClass={selectedSliceClass}
-          onSelectedSliceClassChange={setSelectedSliceClass}
-          canEdit={canEdit}
-          classificationSaving={classificationSaving}
-          onSaveClassification={() => void saveSliceClassification()}
-          classificationStatus={classificationStatus}
-        />
+        {!isBBoxStageMode && (
+          <>
+            <EditorSliceClassificationPanel
+              selectedSliceClass={selectedSliceClass}
+              onSelectedSliceClassChange={setSelectedSliceClass}
+              canEdit={canEdit}
+              classificationSaving={classificationSaving}
+              onSaveClassification={() => void saveSliceClassification()}
+              classificationStatus={classificationStatus}
+            />
 
-        <EditorReviewPanel
-          reviewState={reviewState}
-          reviewItems={reviewItems}
-          reviewStatus={reviewStatus}
-          reviewComment={reviewComment}
-          onReviewCommentChange={setReviewComment}
-          reviewBusyKey={reviewBusyKey}
-          onReviewAction={(reviewable, action) => void runReviewAction(reviewable, action)}
-        />
+            <EditorReviewPanel
+              reviewState={reviewState}
+              reviewItems={reviewItems}
+              reviewStatus={reviewStatus}
+              reviewComment={reviewComment}
+              onReviewCommentChange={setReviewComment}
+              reviewBusyKey={reviewBusyKey}
+              onReviewAction={(reviewable, action) => void runReviewAction(reviewable, action)}
+            />
+          </>
+        )}
       </div>
 
       <EditorCanvasStack

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, and RB-086 through RB-092 add the crop-based slice annotation, review/readiness, and crop training export path. Source-image-space crop-mask reprojection and deeper multi-slice metadata remain future extensions.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, RB-086 through RB-092 add the crop-based slice annotation, review/readiness, and crop training export path, and RB-094 adds image-level BBox set confirmation workflow state. Source-image-space crop-mask reprojection and deeper multi-slice metadata remain future extensions.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -18,6 +18,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Legacy/test mask serialization helper: `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current BBox proposal domain/API: `src/server/domain/sliceBboxes.ts`, `src/app/api/images/[imageId]/slice-bboxes/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
+- Current BBox workflow state domain/API: `src/server/domain/imageCropWorkflow.ts`, `src/app/api/images/[imageId]/slice-bboxes/confirm/route.ts`
 - Current derived crop domain/API: `src/server/domain/sliceCrops.ts`, `src/app/api/images/[imageId]/slice-crops/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/crop/route.ts`, `src/app/api/slice-crops/[cropId]/asset/route.ts`
 - Current crop readiness domain/API: `src/server/domain/cropReadiness.ts`, `src/app/api/projects/[projectId]/crop-readiness/route.ts`
 - Current training export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
@@ -218,6 +219,8 @@ RB-051 creates or reuses one default `SliceInstance` per image and links it to t
 RB-086 creates one `SliceInstance` for each new source-image BBox proposal. The BBox history is stored in append-only `SliceBoundingBoxVersion` rows with `SOURCE_IMAGE_PIXEL` geometry. `SliceInstance.boundingBox` is a denormalized current summary and is cleared when the latest BBox version is `DELETED`.
 
 `SliceBoundingBoxVersion` is a planning/provenance artifact for crop generation. It is not physical support geometry and is not exported as ground-truth instance segmentation.
+
+RB-094 adds `ImageCropWorkflowState` as one image-level BBox workflow row per image. It records whether the BBox set is `DRAFT`, `CONFIRMED`, or `NEEDS_UPDATE`, snapshots confirmed active BBox version ids, and records confirmation attribution. BBox confirmation is workflow intent only; it is not ground-truth approval.
 
 RB-087 creates `DerivedSliceCrop` versions from current active BBox versions. A crop records source-image checksum/dimensions, source rectangle, requested/applied padding, clipping, `CROP_PIXEL` dimensions, transform metadata, private PNG storage metadata, creator, and timestamp. Derived crops are not raw uploads and their padding must not be treated as support geometry.
 

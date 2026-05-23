@@ -7,6 +7,7 @@ export type EditorProps = {
   canEdit: boolean;
   correctionTaskId?: string;
   correctionMode?: MaskMode;
+  workflowMode?: "fullEditor" | "bboxStage";
 };
 
 export type Stroke = Patch[];
@@ -28,6 +29,24 @@ export type SliceBoundingBoxProposal = {
   createdAt: string;
   createdBy: { email: string; name: string | null } | null;
   isCurrent: boolean;
+};
+
+export type ImageBBoxWorkflowStatus =
+  | "NO_BBOXES"
+  | "BBOX_DRAFT"
+  | "BBOX_CONFIRMED"
+  | "BBOX_NEEDS_UPDATE";
+
+export type ImageBBoxWorkflowState = {
+  bboxSetStatus: ImageBBoxWorkflowStatus;
+  persistedStatus: "DRAFT" | "CONFIRMED" | "NEEDS_UPDATE" | null;
+  activeBBoxCount: number;
+  confirmedAt: string | null;
+  confirmedBy: { id: string; email: string; name: string | null } | null;
+  lastBBoxChangeAt: string | null;
+  lastBBoxVersionId: string | null;
+  canConfirm: boolean;
+  canEdit: boolean;
 };
 
 export type DerivedSliceCrop = {

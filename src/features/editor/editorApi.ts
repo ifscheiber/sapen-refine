@@ -5,6 +5,8 @@ export const API_SUPPORT_MASK_LATEST = (imageId: string) => `/api/images/${image
 export const API_SUPPORT_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/support-mask/upload`;
 export const API_SLICE_STATE = (imageId: string) => `/api/images/${imageId}/slice`;
 export const API_SLICE_BBOXES = (imageId: string) => `/api/images/${imageId}/slice-bboxes`;
+export const API_CONFIRM_SLICE_BBOX_SET = (imageId: string) =>
+  `/api/images/${imageId}/slice-bboxes/confirm`;
 export const API_SLICE_BBOX = (bboxVersionId: string) => `/api/slice-bboxes/${bboxVersionId}`;
 export const API_SLICE_CROPS = (imageId: string) => `/api/images/${imageId}/slice-crops`;
 export const API_PROJECT_CROP_READINESS = (

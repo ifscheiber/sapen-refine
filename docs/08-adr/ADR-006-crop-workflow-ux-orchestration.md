@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-093 design. RB-094 through RB-098 implement the runtime workflow in later slices.
+Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 through RB-098 implement the remaining runtime workflow slices.
 
 ## Context
 
@@ -66,7 +66,7 @@ Per-slice/crop state:
 
 ## Consequences
 
-- RB-094 owns persisted BBox confirmation and transition UI.
+- RB-094 owns persisted BBox confirmation and transition UI. Implemented through `ImageCropWorkflowState`, `/crop/bboxes`, and `/api/images/[imageId]/slice-bboxes/confirm`.
 - RB-095 owns the whole-image slice navigator and per-slice status badges.
 - RB-096 owns the unified crop workbench.
 - RB-097 owns semantic-family exclusivity and classification guardrails.

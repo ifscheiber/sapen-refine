@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093 crop workflow UX orchestration design. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, and RB-093 defines the staged user-facing route/state model for RB-094 through RB-098.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-094 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model for RB-094 through RB-098, and RB-094 implements image-level BBox set confirmation.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -43,7 +43,14 @@ A BBox proposal is an ergonomic work-area proposal. It gives the system enough i
 
 A support mask is the pixel-perfect physical slice geometry. It is the training target for support/instance segmentation.
 
-RB-093 standardizes user-facing terminology: image-level BBox sets are confirmed, not approved. Confirmation records that the current BBox set is the intended crop work plan. It does not make BBoxes ground-truth geometry and does not replace support-mask, semantic-mask, or classification review.
+RB-093 standardizes user-facing terminology: image-level BBox sets are confirmed, not approved. RB-094 persists that confirmation in `ImageCropWorkflowState`. Confirmation records that the current BBox set is the intended crop work plan. It does not make BBoxes ground-truth geometry and does not replace support-mask, semantic-mask, or classification review.
+
+RB-094 BBox set states:
+
+- `NO_BBOXES` - no active BBox proposals exist.
+- `BBOX_DRAFT` - active BBoxes exist but the image-level set has not been confirmed.
+- `BBOX_CONFIRMED` - the current active BBox version id set matches the confirmed snapshot.
+- `BBOX_NEEDS_UPDATE` - a confirmed set was changed or no longer matches active BBox versions.
 
 RB-086 persists BBox proposals as append-only `SliceBoundingBoxVersion` rows linked to `SliceInstance`. Each saved BBox uses integer `SOURCE_IMAGE_PIXEL` coordinates validated against `ImageAsset.width` and `ImageAsset.height`.
 
@@ -252,7 +259,7 @@ Current implemented behavior:
 
 Planned crop behavior:
 
-- guided crop workflow routes for image-level BBox confirmation, slice navigation, and selected-slice crop workbench are documented by RB-093 and implemented by RB-094 through RB-098,
+- guided crop workflow routes for image-level BBox confirmation are implemented by RB-094; slice navigation and selected-slice crop workbench are implemented by RB-095 through RB-098,
 - source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs

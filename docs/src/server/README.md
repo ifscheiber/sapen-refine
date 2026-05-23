@@ -31,6 +31,7 @@
 - `src/server/domain/predictionAnalysisExports.ts` - RB-060 prediction-analysis export readiness, manifest/package generation, persistence, and owner/QA download authorization.
 - `src/server/domain/predictionAnalysisMetrics.ts` - RB-067 pure semantic/support prediction QA metric helpers.
 - `src/server/domain/sliceBboxes.ts` - RB-086 BBox proposal list/create/replace/delete helpers, source-image geometry validation, append-only versioning, and audit events.
+- `src/server/domain/imageCropWorkflow.ts` - RB-094 image-level BBox set confirmation state, active-version snapshot comparison, and confirmed-set invalidation helpers.
 - `src/server/domain/sliceCrops.ts` - RB-087 derived slice crop geometry, padding validation, source-image crop generation, private PNG storage, sanitized reads, and audit events.
 - `src/server/domain/cropSupportMasks.ts` - RB-088 crop support-mask state, crop-dimension validation, coordinate helper, artifact-version creation, and sanitized latest-version reads.
 - `src/server/domain/cropSemanticMasks.ts` - RB-089 crop semantic-mask state, support-lineage validation, mode label validation, outside-support rejection, artifact-version creation, and sanitized latest-version reads.
@@ -55,7 +56,7 @@
 - `createCorrectionTasksForPredictionRunForUser`, `listProjectCorrectionTasksForUser`, `getCorrectionTaskForUser`, and `updateCorrectionTaskForUser` implement the RB-058 correction task queue service layer.
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.
 - `resolveProjectPredictionAnalysisReadiness`, `createPredictionAnalysisExportForUser`, `getPredictionAnalysisExportForUser`, and `readPredictionAnalysisExportFileForUser` implement the RB-060/RB-067 prediction-analysis export service layer with QA metrics in the manifest.
-- `listSliceBoundingBoxesForUser`, `createSliceBoundingBoxForUser`, `replaceSliceBoundingBoxForUser`, and `deleteSliceBoundingBoxForUser` implement the RB-086 source-image BBox proposal service layer.
+- `listSliceBoundingBoxesForUser`, `createSliceBoundingBoxForUser`, `replaceSliceBoundingBoxForUser`, `deleteSliceBoundingBoxForUser`, and `confirmImageBBoxSetForUser` implement the RB-086/RB-094 source-image BBox proposal and image-level confirmation service layer.
 - `generateCropForSliceBBox`, `listSliceCropsForImageForUser`, `getSliceCropForUser`, and `readSliceCropAssetForUser` implement the RB-087 derived slice crop service layer.
 - `loadCropSupportMaskStateForUser`, `createCropSupportMaskVersionForUser`, and `cropPixelToSourcePixel` implement the RB-088 crop support-mask service layer.
 - `loadCropSemanticMaskStateForUser`, `createCropSemanticMaskVersionForUser`, and `validateSemanticMaskAgainstSupport` implement the RB-089 crop semantic-mask service layer.
@@ -80,6 +81,7 @@
 - Assisted correction services create draft human correction artifact versions only; review/approval is still required before export.
 - Prediction-analysis export services are QA/debug services only; they mark predictions as proposals, keep prediction/human paths separate, store metrics as evaluation metadata only, and do not change training export eligibility.
 - Slice BBox services create crop-planning proposal versions only. They validate source-image pixel bounds, append replacement/deletion versions, and do not create support masks or export-ready ground truth.
+- Image-level BBox confirmation records workflow intent only. It snapshots active BBox version ids, does not approve BBoxes as ground truth, and becomes `NEEDS_UPDATE` after confirmed BBox edits.
 - Slice crop services generate private derived PNG crops from current active BBox versions only. They clamp configurable padding to source-image bounds, record requested/applied padding separately, store `CROP_PIXEL` transform metadata, and do not create support geometry.
 - Crop support-mask services create draft crop-scoped `SLICE_SUPPORT_MASK` artifact versions only after exact crop-dimension validation. They link saved versions to `DerivedSliceCrop` and `SliceInstance`, use `CROP_PIXEL`, and keep private storage keys out of browser responses.
 - Crop semantic-mask services require a current crop support mask, create draft crop-scoped `SEMANTIC_MASK` artifact versions after exact crop-dimension and support-lineage validation, link saved versions to `DerivedSliceCrop`, `SliceInstance`, and `supportMaskVersionId`, use `CROP_PIXEL`, reject non-background semantic bytes outside support, and trigger draft auto slice-classification derivation.

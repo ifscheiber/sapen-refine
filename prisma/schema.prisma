@@ -116,6 +116,12 @@ enum SliceBoundingBoxStatus {
   DELETED
 }
 
+enum ImageCropBBoxSetStatus {
+  DRAFT
+  CONFIRMED
+  NEEDS_UPDATE
+}
+
 enum ExportTarget {
   SEMANTIC_SEGMENTATION
   INSTANCE_SUPPORT_SEGMENTATION
@@ -200,6 +206,7 @@ model User {
   createdArtifactVersions        AnnotationArtifactVersion[]  @relation("ArtifactVersionCreatedBy")
   createdSliceInstances          SliceInstance[]              @relation("SliceInstanceCreatedBy")
   createdSliceBoundingBoxes      SliceBoundingBoxVersion[]    @relation("SliceBoundingBoxCreatedBy")
+  confirmedImageCropWorkflows    ImageCropWorkflowState[]     @relation("ImageCropWorkflowConfirmedBy")
   createdDerivedSliceCrops       DerivedSliceCrop[]           @relation("DerivedSliceCropCreatedBy")
   createdSliceClassifications    SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
   reviewDecisions                ReviewDecision[]             @relation("ReviewDecisionReviewedBy")
@@ -243,6 +250,7 @@ model AnnotationProject {
   artifacts               AnnotationArtifact[]
   sliceInstances          SliceInstance[]
   sliceBoundingBoxes      SliceBoundingBoxVersion[]
+  imageCropWorkflowStates ImageCropWorkflowState[]
   derivedSliceCrops       DerivedSliceCrop[]
   classifications         SliceClassificationVersion[]
   reviewDecisions         ReviewDecision[]
@@ -334,6 +342,7 @@ model ImageAsset {
   artifacts                  AnnotationArtifact[]
   sliceInstances             SliceInstance[]
   sliceBoundingBoxes         SliceBoundingBoxVersion[]
+  cropWorkflowState          ImageCropWorkflowState?
   derivedSliceCrops          DerivedSliceCrop[]             @relation("DerivedSliceCropSourceImage")
   classifications            SliceClassificationVersion[]
   exportItems                ExportItem[]
@@ -577,6 +586,28 @@ model SliceBoundingBoxVersion {
   @@index([imageId, status])
   @@index([sliceInstanceId, status])
   @@index([createdById])
+}
+
+model ImageCropWorkflowState {
+  id                      String                 @id @default(cuid())
+  projectId               String
+  imageId                 String                 @unique
+  bboxSetStatus           ImageCropBBoxSetStatus @default(DRAFT)
+  confirmedBBoxVersionIds Json?
+  confirmedAt             DateTime?
+  confirmedById           String?
+  lastBBoxChangeAt        DateTime?
+  lastBBoxVersionId       String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  project     AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image       ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  confirmedBy User?             @relation("ImageCropWorkflowConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, bboxSetStatus])
+  @@index([confirmedById])
+  @@index([lastBBoxVersionId])
 }
 
 model DerivedSliceCrop {

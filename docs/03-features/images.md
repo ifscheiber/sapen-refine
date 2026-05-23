@@ -36,7 +36,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - The app-mediated upload path accepts PNG and JPEG images only. SVG and other formats are rejected before an image row is created.
 - Uploaded images appear in the image list with validation/readiness hints, T-number state, and links to metadata and the editor.
 - `/app/projects/[projectId]/images/[imageId]` shows immutable technical image metadata and editable image-level acquisition/sample metadata.
-- The editor can maintain one default slice support geometry and slice classification for each uploaded image.
+- The image list and metadata page link to the crop workflow entry route for image-level BBox set confirmation. The editor can maintain one default slice support geometry and slice classification for each uploaded image.
 
 ## Current Data Captured
 
@@ -50,6 +50,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - RB-050 treats `SampleMetadata` as image-level/default metadata only. Slice-specific metadata remains deferred to the future `SliceInstance` workflow.
 - RB-051 creates a default `SliceInstance` when support-mask or classification writes need one.
 - RB-086 creates additional `SliceInstance` rows for source-image BBox slice proposals. Each saved proposal is versioned as `SliceBoundingBoxVersion` in `SOURCE_IMAGE_PIXEL` coordinate space.
+- RB-094 creates `ImageCropWorkflowState` rows for image-level BBox set confirmation. Confirmation snapshots current active BBox version ids and is invalidated to `NEEDS_UPDATE` by later BBox create/replace/delete actions.
 - RB-087 creates `DerivedSliceCrop` rows and private PNG crop objects from active BBox versions. Each crop records source image checksum/dimensions, BBox version, slice instance, padding, clipped source rectangle, `CROP_PIXEL` dimensions, and transform metadata.
 - RB-088 creates crop-scoped support mask versions linked to `DerivedSliceCrop` and `SliceInstance`. These masks use `CROP_PIXEL`, match crop dimensions exactly, and provide the pixel-perfect support geometry for crop workflows.
 - RB-089 creates crop-scoped semantic mask versions linked to the source image, `DerivedSliceCrop`, `SliceInstance`, exact support mask version, and semantic mode. These masks use `CROP_PIXEL`, match crop dimensions exactly, and cannot contain non-background semantic bytes outside support.
@@ -74,6 +75,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `POST /api/slices/[sliceInstanceId]/classification` appends a manual classification override for a crop/BBox slice instance.
 - `GET /api/images/[imageId]/slice-bboxes` lists the current active BBox proposal per slice instance for project members.
 - `POST /api/images/[imageId]/slice-bboxes` creates a new `SliceInstance` plus first active `SliceBoundingBoxVersion` for editable project roles.
+- `POST /api/images/[imageId]/slice-bboxes/confirm` confirms the current active BBox set as workflow planning state for editable project roles.
 - `PATCH /api/slice-bboxes/[bboxVersionId]` appends a replacement BBox version for the same slice instance when the target version is still current.
 - `DELETE /api/slice-bboxes/[bboxVersionId]` appends a `DELETED` BBox version and clears the denormalized current `SliceInstance.boundingBox` summary.
 - `GET /api/images/[imageId]/slice-crops` lists sanitized derived crop metadata for project members.

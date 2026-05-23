@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the staged user-facing crop workflow selected by RB-093. It builds on the implemented crop primitives from RB-086 through RB-092 without changing product behavior in RB-093.
+This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow.
 
 The crop workflow is a route-addressable staged workflow, not a hidden client-only state machine.
 
@@ -24,9 +24,9 @@ The BBox stage uses planning language. BBoxes are rough crop work areas and must
 
 ## Planned Browser Routes
 
-- `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route. It should resolve persisted workflow state and send the user to the right stage.
-- `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - image-level "Step 1: mark slice work areas" stage.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices` - whole-image slice navigator with BBox overlays and status badges.
+- `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route. It resolves persisted workflow state and sends the user to the right stage.
+- `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - implemented image-level "Step 1: mark slice work areas" stage.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices` - implemented confirmed BBox-set workspace scaffold; RB-095 replaces it with the whole-image slice navigator.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - selected-slice workbench with crop status, support status, semantic status, classification status, and next action.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - selected crop workbench.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - support mask tool mode.
@@ -67,9 +67,11 @@ The current readiness values and reason codes remain owned by `src/server/domain
 
 ### BBox Stage
 
-The BBox stage is the first workflow stage. It should show the source image, allow source-image BBox proposal drawing, and provide a clear `Confirm BBox set` action once active BBoxes exist.
+The BBox stage is the first workflow stage. It shows the source image, allows source-image BBox proposal drawing, and provides a clear `Confirm BBox set` action once active BBoxes exist.
 
 Confirming a BBox set records workflow intent only. It does not approve BBoxes as review artifacts and does not make a slice training-ready.
+
+RB-094 stores confirmation in `ImageCropWorkflowState`. BBox creation, replacement, and deletion remain append-only through `SliceBoundingBoxVersion`; when they happen after confirmation, the image-level workflow state becomes `BBOX_NEEDS_UPDATE` until the set is confirmed again.
 
 ### Slice Navigator
 
@@ -96,11 +98,13 @@ Classification follows semantic content. Auto-derived classifications are attrib
 
 ## Current Implementation Boundary
 
-RB-093 documents the target UX architecture only. The current runtime still uses:
+Current runtime ownership:
 
 - `src/features/editor/EditorClient.tsx` for the full-image editor and BBox primitive controls.
+- `src/features/editor/ImageCropBBoxesPage.tsx` for the staged image-level BBox workflow route.
+- `src/server/domain/imageCropWorkflow.ts` for persisted BBox set confirmation state and status resolution.
 - `src/features/editor/CropSupportEditorPage.tsx` for crop support editing.
 - `src/features/editor/CropSemanticEditorPage.tsx` for crop semantic editing and classification override controls.
 - `GET /api/projects/[projectId]/crop-readiness` for crop readiness summaries.
 
-Runtime route, schema, and UI changes are owned by RB-094 through RB-098.
+Slice navigator and crop workbench runtime changes are owned by RB-095 through RB-098.

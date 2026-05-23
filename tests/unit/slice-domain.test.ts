@@ -78,6 +78,43 @@ describe("slice BBox validation", () => {
       validateSliceBoundingBoxInput({ x: 12, y: 0, width: 8, height: 8 }, { width: 16, height: 16 }),
     ).toThrow("BBOX_OUT_OF_BOUNDS");
   });
+
+  it("resolves image-level BBox workflow status from confirmation snapshots", async () => {
+    const { resolveImageBBoxWorkflowStatus } = await import("@/server/domain/imageCropWorkflow");
+
+    expect(resolveImageBBoxWorkflowStatus({ state: null, activeBBoxVersionIds: [] })).toBe("NO_BBOXES");
+    expect(resolveImageBBoxWorkflowStatus({ state: null, activeBBoxVersionIds: ["bbox-1"] })).toBe(
+      "BBOX_DRAFT",
+    );
+    expect(
+      resolveImageBBoxWorkflowStatus({
+        state: {
+          id: "state-1",
+          bboxSetStatus: "CONFIRMED",
+          confirmedBBoxVersionIds: ["bbox-2", "bbox-1"],
+          confirmedAt: new Date(),
+          confirmedBy: null,
+          lastBBoxChangeAt: null,
+          lastBBoxVersionId: null,
+        },
+        activeBBoxVersionIds: ["bbox-1", "bbox-2"],
+      }),
+    ).toBe("BBOX_CONFIRMED");
+    expect(
+      resolveImageBBoxWorkflowStatus({
+        state: {
+          id: "state-1",
+          bboxSetStatus: "CONFIRMED",
+          confirmedBBoxVersionIds: ["bbox-1"],
+          confirmedAt: new Date(),
+          confirmedBy: null,
+          lastBBoxChangeAt: null,
+          lastBBoxVersionId: null,
+        },
+        activeBBoxVersionIds: ["bbox-1", "bbox-2"],
+      }),
+    ).toBe("BBOX_NEEDS_UPDATE");
+  });
 });
 
 describe("derived slice crop helpers", () => {

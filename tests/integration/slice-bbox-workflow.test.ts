@@ -4,6 +4,7 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import type {
+  confirmImageBBoxSetForUser as ConfirmImageBBoxSetForUser,
   createSliceBoundingBoxForUser as CreateSliceBoundingBoxForUser,
   deleteSliceBoundingBoxForUser as DeleteSliceBoundingBoxForUser,
   listSliceBoundingBoxesForUser as ListSliceBoundingBoxesForUser,
@@ -18,6 +19,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 let createSliceBoundingBoxForUser: typeof CreateSliceBoundingBoxForUser;
 let deleteSliceBoundingBoxForUser: typeof DeleteSliceBoundingBoxForUser;
+let confirmImageBBoxSetForUser: typeof ConfirmImageBBoxSetForUser;
 let listSliceBoundingBoxesForUser: typeof ListSliceBoundingBoxesForUser;
 let replaceSliceBoundingBoxForUser: typeof ReplaceSliceBoundingBoxForUser;
 
@@ -31,6 +33,7 @@ describe("slice BBox proposal workflow", () => {
 
   beforeAll(async () => {
     ({
+      confirmImageBBoxSetForUser,
       createSliceBoundingBoxForUser,
       deleteSliceBoundingBoxForUser,
       listSliceBoundingBoxesForUser,
@@ -119,6 +122,12 @@ describe("slice BBox proposal workflow", () => {
     expect(state.canEdit).toBe(true);
     expect(state.boxes).toHaveLength(1);
     expect(state.boxes[0].bboxVersionId).toBe(box.bboxVersionId);
+    expect(state.bboxWorkflow).toMatchObject({
+      bboxSetStatus: "BBOX_DRAFT",
+      persistedStatus: "DRAFT",
+      activeBBoxCount: 1,
+      canConfirm: true,
+    });
 
     const slice = await prisma.sliceInstance.findUniqueOrThrow({
       where: { id: box.sliceInstanceId },
@@ -203,5 +212,70 @@ describe("slice BBox proposal workflow", () => {
       select: { boundingBox: true },
     });
     expect(slice.boundingBox).toBeNull();
+  });
+
+  it("confirms BBox sets and marks confirmed sets as needing update after edits", async () => {
+    const image = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: `tests/bbox/confirm-${suffix}.png`,
+        filename: "bbox-confirm.png",
+        contentType: "image/png",
+        size: 256,
+        checksum: `sha256:confirm-${suffix}`,
+        width: 30,
+        height: 20,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    await expect(confirmImageBBoxSetForUser({ imageId: image.id, userId: ownerId }, prisma)).rejects.toMatchObject({
+      code: "BBOX_SET_EMPTY",
+    });
+
+    const original = await createSliceBoundingBoxForUser(
+      { imageId: image.id, userId: ownerId, box: { x: 2, y: 2, width: 10, height: 8 } },
+      prisma,
+    );
+
+    await expect(confirmImageBBoxSetForUser({ imageId: image.id, userId: viewerId }, prisma)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    const confirmed = await confirmImageBBoxSetForUser({ imageId: image.id, userId: ownerId }, prisma);
+    expect(confirmed.bboxWorkflow).toMatchObject({
+      bboxSetStatus: "BBOX_CONFIRMED",
+      persistedStatus: "CONFIRMED",
+      activeBBoxCount: 1,
+      canConfirm: true,
+    });
+
+    const reloaded = await listSliceBoundingBoxesForUser({ imageId: image.id, userId: ownerId }, prisma);
+    expect(reloaded.bboxWorkflow.bboxSetStatus).toBe("BBOX_CONFIRMED");
+    expect(reloaded.bboxWorkflow.confirmedBy?.id).toBe(ownerId);
+
+    const replacement = await replaceSliceBoundingBoxForUser(
+      {
+        bboxVersionId: original.bboxVersionId,
+        userId: ownerId,
+        box: { x: 4, y: 3, width: 12, height: 8 },
+      },
+      prisma,
+    );
+    expect(replacement.version).toBe(2);
+
+    const needsUpdate = await listSliceBoundingBoxesForUser({ imageId: image.id, userId: ownerId }, prisma);
+    expect(needsUpdate.bboxWorkflow).toMatchObject({
+      bboxSetStatus: "BBOX_NEEDS_UPDATE",
+      persistedStatus: "NEEDS_UPDATE",
+      activeBBoxCount: 1,
+      lastBBoxVersionId: replacement.bboxVersionId,
+    });
+
+    const reconfirmed = await confirmImageBBoxSetForUser({ imageId: image.id, userId: ownerId }, prisma);
+    expect(reconfirmed.bboxWorkflow.bboxSetStatus).toBe("BBOX_CONFIRMED");
+    expect(reconfirmed.bboxWorkflow.confirmedAt).toBeTruthy();
   });
 });

@@ -21,6 +21,7 @@
 - `prisma/migrations/20260523110000_crop_semantic_mask_lineage/migration.sql` - RB-089 crop semantic-mask support-version lineage and semantic mode persistence.
 - `prisma/migrations/20260523123000_slice_classification_semantic_derivation/migration.sql` - RB-090 slice-classification source/reason and semantic/support/crop lineage persistence.
 - `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 crop training export target and `ExportItem.derivedCropId` provenance links.
+- `prisma/migrations/20260523153000_image_crop_workflow_state/migration.sql` - RB-094 image-level BBox set confirmation workflow state.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -41,6 +42,7 @@
 - `PredictionImportBatchItem` leases are for single-host trial background import processing only. `SUCCEEDED` items are terminal and must not be reprocessed into duplicate prediction artifacts.
 - `PredictionImportBatchItem.stagingPurgedAt` marks temporary source objects deleted by cleanup. Purged failed/skipped items cannot be reset for retry without re-uploading source data.
 - `SliceBoundingBoxVersion` rows are append-only proposal history. Replacement appends a new active version; deletion appends a `DELETED` version. BBoxes use `CoordinateSpace.SOURCE_IMAGE_PIXEL` and are not support masks.
+- `ImageCropWorkflowState` stores one image-level BBox set workflow state row per image. It snapshots confirmed active BBox version ids and is marked `NEEDS_UPDATE` when confirmed BBoxes change.
 - `DerivedSliceCrop` rows are append-only crop versions per slice instance. They reference the source image, source checksum/dimensions, exact BBox version, private crop PNG object, `CoordinateSpace.CROP_PIXEL`, requested/applied padding, clipping state, and transform metadata. They are not raw image uploads and not support geometry.
 - Crop support masks are crop-scoped `SLICE_SUPPORT_MASK` artifact versions. `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` link each saved `CROP_PIXEL` mask to the selected `DerivedSliceCrop` and `SliceInstance`.
 - Crop semantic masks are crop-scoped `SEMANTIC_MASK` artifact versions. `AnnotationArtifactVersion.supportMaskVersionId` references the exact crop support-mask version used as the editing constraint, and `cropSemanticMode` records whether the crop semantic draft is `SAP_HEARTWOOD` or `COPPER`.

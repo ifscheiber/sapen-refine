@@ -1,10 +1,16 @@
-import { Prisma, type AnnotationProjectRole } from "@prisma/client";
+import { Prisma, type AnnotationProjectRole, PrismaClient } from "@prisma/client";
 
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  IMAGE_BBOX_WORKFLOW_STATE_SELECT,
+  confirmImageBBoxWorkflowState,
+  markImageBBoxWorkflowChanged,
+  serializeImageBBoxWorkflow,
+} from "@/server/domain/imageCropWorkflow";
 
-type SliceBBoxDb = typeof prisma;
+type SliceBBoxDb = PrismaClient | Prisma.TransactionClient;
 
 const BBOX_MIN_SIZE_PX = 4;
 
@@ -228,11 +234,23 @@ export async function listSliceBoundingBoxesForUser(params: {
   userId: string;
 }, db: SliceBBoxDb = prisma) {
   const { image, membership } = await getImageAndMembership(db, params.imageId, params.userId);
+  const boxes = await latestImageBBoxes(db, image.id);
+  const workflowState = await db.imageCropWorkflowState.findUnique({
+    where: { imageId: image.id },
+    select: IMAGE_BBOX_WORKFLOW_STATE_SELECT,
+  });
+  const canEditBBoxes = canEdit(membership.role);
+
   return {
     image,
     myRole: membership.role,
-    canEdit: canEdit(membership.role),
-    boxes: await latestImageBBoxes(db, image.id),
+    canEdit: canEditBBoxes,
+    boxes,
+    bboxWorkflow: serializeImageBBoxWorkflow({
+      state: workflowState,
+      activeBBoxVersionIds: boxes.map((box) => box.bboxVersionId),
+      canEdit: canEditBBoxes,
+    }),
   };
 }
 
@@ -289,6 +307,14 @@ export async function createSliceBoundingBoxForUser(params: {
     await tx.sliceInstance.update({
       where: { id: sliceInstance.id },
       data: { boundingBox: currentBoundingBoxSummary(bbox) },
+    });
+
+    await markImageBBoxWorkflowChanged({
+      db: tx,
+      projectId: image.projectId,
+      imageId: image.id,
+      bboxVersionId: bbox.id,
+      actorId: params.userId,
     });
 
     await recordAuditEvent(
@@ -363,6 +389,14 @@ export async function replaceSliceBoundingBoxForUser(params: {
       data: { boundingBox: currentBoundingBoxSummary(next) },
     });
 
+    await markImageBBoxWorkflowChanged({
+      db: tx,
+      projectId: bbox.projectId,
+      imageId: bbox.imageId,
+      bboxVersionId: next.id,
+      actorId: params.userId,
+    });
+
     await recordAuditEvent(
       {
         action: "SLICE_BBOX_REPLACED",
@@ -434,6 +468,14 @@ export async function deleteSliceBoundingBoxForUser(params: {
       data: { boundingBox: Prisma.JsonNull },
     });
 
+    await markImageBBoxWorkflowChanged({
+      db: tx,
+      projectId: bbox.projectId,
+      imageId: bbox.imageId,
+      bboxVersionId: next.id,
+      actorId: params.userId,
+    });
+
     await recordAuditEvent(
       {
         action: "SLICE_BBOX_DELETED",
@@ -455,6 +497,38 @@ export async function deleteSliceBoundingBoxForUser(params: {
   });
 
   return serializeBBox(deleted);
+}
+
+export async function confirmImageBBoxSetForUser(params: {
+  imageId: string;
+  userId: string;
+}, db: PrismaClient = prisma) {
+  const { image, membership } = await getImageAndMembership(db, params.imageId, params.userId);
+  if (!canEdit(membership.role)) throw new SliceBoundingBoxWorkflowError("FORBIDDEN");
+
+  const confirmed = await db.$transaction(async (tx) => {
+    const boxes = await latestImageBBoxes(tx, image.id);
+    if (boxes.length === 0) throw new SliceBoundingBoxWorkflowError("BBOX_SET_EMPTY");
+
+    const workflowState = await confirmImageBBoxWorkflowState({
+      db: tx,
+      projectId: image.projectId,
+      imageId: image.id,
+      activeBBoxVersionIds: boxes.map((box) => box.bboxVersionId),
+      actorId: params.userId,
+    });
+
+    return {
+      boxes,
+      bboxWorkflow: serializeImageBBoxWorkflow({
+        state: workflowState,
+        activeBBoxVersionIds: boxes.map((box) => box.bboxVersionId),
+        canEdit: true,
+      }),
+    };
+  });
+
+  return confirmed;
 }
 
 export function sliceBoundingBoxErrorResponse(error: unknown): { error: string; status: number } {

@@ -68,9 +68,9 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
-- Planned crop workflow entry route: `/app/projects/[projectId]/images/[imageId]/crop`.
-- Planned BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
-- Planned slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices`.
+- Crop workflow entry route: `/app/projects/[projectId]/images/[imageId]/crop`.
+- BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
+- Confirmed BBox-set slice workspace scaffold: `/app/projects/[projectId]/images/[imageId]/crop/slices`.
 - Planned selected-slice workbench route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
@@ -78,7 +78,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
 
-RB-093 documents the planned crop routes only. Runtime route implementation remains in later crop workflow UX tickets. The existing crop support and semantic routes remain compatibility deep links while the guided route family is introduced.
+RB-094 implements the crop workflow entry route, BBox stage route, and confirmed BBox-set slice workspace scaffold. The existing crop support and semantic routes remain compatibility deep links while the guided route family is introduced.
 
 ## Current Canvas And Input Model
 
@@ -212,6 +212,15 @@ Current RB-086 behavior:
 - Users can draw source-image rectangles, select a slice proposal, replace its geometry by drawing again, delete the current proposal, and reload persisted proposals.
 - Server validation uses persisted `ImageAsset.width` and `ImageAsset.height`, not browser display size.
 - Viewer roles can list proposals but cannot mutate them.
+
+Current RB-094 behavior:
+
+- Image list and image metadata routes link to `/app/projects/[projectId]/images/[imageId]/crop`.
+- `/crop` redirects to `/crop/bboxes` unless the active BBox set is confirmed, then redirects to `/crop/slices`.
+- `/crop/bboxes` uses the editor canvas in BBox-stage mode: full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and the panel uses "Step 1: Mark slice work areas" wording.
+- `POST /api/images/[imageId]/slice-bboxes/confirm` persists image-level BBox set confirmation in `ImageCropWorkflowState`.
+- Creating, replacing, or deleting a BBox after confirmation keeps append-only BBox history and marks the image-level BBox set as `BBOX_NEEDS_UPDATE`.
+- `/crop/slices` is a confirmed-state scaffold for RB-095 and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
 
 Current RB-087 behavior:
 

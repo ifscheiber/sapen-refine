@@ -6,7 +6,8 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 
 ## Important Files
 
-- `src/features/editor/EditImagePage.tsx` - server-side route composition and RBAC check.
+- `src/features/editor/EditImagePage.tsx` - server-side full-image editor route composition and RBAC check.
+- `src/features/editor/ImageCropBBoxesPage.tsx` - RB-094 staged image-level BBox route composition using the editor canvas in BBox-stage mode.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/CropSupportEditorPage.tsx` and `src/features/editor/CropSupportEditorClient.tsx` - crop support editor composition and crop-sized binary support mask editing.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
@@ -18,6 +19,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 ## Public Interfaces / Routes / Functions
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
+- Crop workflow BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
 - Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.
@@ -45,6 +47,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 
 - Saving a mask must create a new version rather than overwrite a historical artifact.
 - Replacing or deleting a BBox proposal must append a new BBox version rather than overwrite historical proposal geometry.
+- Confirming a BBox set records workflow state only and does not approve BBoxes as support geometry.
 - Review actions must use server APIs; UI control hiding is not the permission boundary.
 - Canvas scaling and coordinate assumptions must be explicit before production iPad/Pencil work.
 - Editor UX should support desktop and tablet screen sizes.
