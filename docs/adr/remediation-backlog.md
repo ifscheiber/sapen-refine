@@ -44,6 +44,48 @@ Owner: Unassigned.
 
 Priority: P1/P2.
 
+## RB-108 - Root Architecture Current-Flow Drift
+
+Context: The 2026-05-23 combined deep review verified that `ARCHITECTURE.md` still lists `/app/projects/[projectId]/images/[imageId]/edit` as the current editor flow after RB-104 removed the legacy full-image editor route. The same root map still says "crop-aware exports/review integration" is a known workflow gap, even though crop training export, crop readiness, and crop review controls now exist. Lower-level docs such as `docs/src/app/routes.md`, `docs/known-gaps.md`, and `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md` are more current.
+
+Impact: Agents and contributors start from `ARCHITECTURE.md`. Stale current-flow text can send future work toward dead routes, duplicate already-implemented crop review/export behavior, or misstate what remains deferred.
+
+Proposed next step: Update `ARCHITECTURE.md` current flows to describe the crop entry, BBox, slice navigator, crop workbench, crop support, crop semantic, and assisted-correction routes. Narrow the known-gap wording to reviewer dashboards, bulk review, export history, advanced filters, async large-job handling, and source-image-space crop-mask reprojection where applicable. Keep removed `/edit` references only in historical ADR/ticket context.
+
+Affected modules: `ARCHITECTURE.md`, `docs/src/app/routes.md`, `docs/known-gaps.md`, `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md`, and future docs route-sync checks.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-109 - DB Constraint Hardening For Review And Export Integrity
+
+Context: The 2026-05-23 combined deep review verified that several important persisted invariants are enforced by service code but not by the database. `ReviewDecision` allows nullable `artifactVersionId` and nullable `sliceClassificationVersionId` without a DB check that exactly one target is present. `ExportItem` stores nullable references plus a free-text `role`, while domain code controls valid role/reference combinations.
+
+Impact: Current application paths are disciplined, but future scripts, migrations, manual maintenance, or new route handlers could create ambiguous review/export rows. Ambiguous records weaken auditability and export reproducibility and are harder to repair after customer data exists.
+
+Proposed next step: Add low-risk raw SQL constraints where Prisma cannot express them directly. Start with an exact-one-target `ReviewDecision` check constraint, then add export item role/reference constraints or introduce a typed export item role enum. Cover invalid inserts with focused DB integration tests and update persisted-domain documentation.
+
+Affected modules: `prisma/schema.prisma`, future Prisma migrations, `src/server/domain/review.ts`, `src/server/domain/exports.ts`, export/review integration tests, and `docs/prisma/README.md`.
+
+Owner: Unassigned.
+
+Priority: P2.
+
+## RB-110 - External Handoff Archive Validation
+
+Context: The ChatGPT deep review inspected an uploaded archive that contained `.env`, `.env.local`, and `.git`. The current git repo does not track those env files, and `scripts/create-handoff-archive.mjs` plus `docs/operations/handoff-zip-checklist.md` already exclude `.git`, `.env*` except examples, `node_modules`, `.next`, build output, reports, traces, and local volumes. The remaining gap is validating arbitrary externally supplied ZIP files that bypass the repo archive command.
+
+Impact: A manually created review or customer archive can leak local credentials, git history/config, build artifacts, or large local state even when the repository itself is clean. This is a process/security issue rather than a tracked source-code defect, but it can become severe if such an archive is shared externally.
+
+Proposed next step: Add a `scripts/validate-handoff-archive.mjs` command that scans a ZIP file for forbidden paths and fails on `.env`, `.env.*` except examples, `.git`, `.next`, `node_modules`, test reports, traces, local storage volumes, logs, and tsbuildinfo. Document it in the handoff checklist and use it for any archive not produced directly by `npm run handoff:archive`.
+
+Affected modules: `scripts/create-handoff-archive.mjs`, new archive validator script, `docs/operations/handoff-zip-checklist.md`, `package.json` scripts, and archive hygiene tests.
+
+Owner: Unassigned.
+
+Priority: P1.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
