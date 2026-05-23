@@ -175,7 +175,7 @@ RB-085  Crop-Based Slice Annotation Workflow ADR / Design  [done]
 RB-086  BBox Slice Proposal Workflow  [done]
 RB-087  Derived Slice Crop Generation  [done]
 RB-088  Crop Support Mask Editor  [done]
-RB-089  Crop-Constrained Semantic Annotation
+RB-089  Crop-Constrained Semantic Annotation  [done]
 RB-090  Auto Slice Classification from Semantic Masks
 RB-091  Crop / Original Coordinate Export Contract
 RB-092  Crop Workflow Review / Approval Integration
@@ -197,7 +197,7 @@ Phase 3 — Support-first annotation:
   RB-088 [done]
 
 Phase 4 — Semantics and classification:
-  RB-089
+  RB-089 [done]
   RB-090
 
 Phase 5 — Export and review integration:

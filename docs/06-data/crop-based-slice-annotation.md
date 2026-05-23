@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. Crop-constrained semantic annotation, auto classification, review integration, and crop-aware export remain planned until later tickets land.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. Auto classification, review integration, and crop-aware export remain planned until later tickets land.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -115,29 +115,45 @@ Semantic annotation for a crop should be blocked, marked incomplete, or exported
 3. Annotate material semantics inside that support.
 4. Classify the slice from semantic content, with human override.
 
-## Semantic Annotation Inside Support
+## Implemented Crop Semantic Mask Concept
 
 Semantic masks classify material pixels. In the crop workflow, semantic editing is constrained by the support mask.
 
-Planned rules:
+RB-089 persists crop semantic masks as crop-scoped `SEMANTIC_MASK` `AnnotationArtifact` / `AnnotationArtifactVersion` rows. The crop editor route is `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`, and the APIs live under `/api/slice-crops/[cropId]/semantic-mask`.
 
-- Pixels outside support are locked, transparent, ignored, or forced to background depending on the editor/export context.
+Each crop semantic mask version records or references:
+
+- the source image artifact through `AnnotationArtifact.imageId`,
+- the slice instance through `AnnotationArtifactVersion.sliceInstanceId`,
+- the derived crop through `AnnotationArtifactVersion.derivedCropId`,
+- the exact support mask version through `AnnotationArtifactVersion.supportMaskVersionId`,
+- `coordinateSpace = CROP_PIXEL`,
+- `cropSemanticMode = SAP_HEARTWOOD` or `COPPER`,
+- crop width and height,
+- `u8raw-v1` bytes stored privately under project-scoped crop semantic-mask keys,
+- checksum, size, content type, creator, creation time, label schema version, and draft review state,
+- a compact coordinate transform snapshot back to the source image.
+
+Rules:
+
+- Semantic save requires a current crop support mask for the same crop and slice.
+- The server loads the referenced support mask version and rejects non-background semantic pixels outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
+- Browser responses include app-mediated mask asset URLs and do not expose private storage keys.
 - Export consumers must not treat outside-support semantic bytes as meaningful slice material.
 - Semantic masks and support masks may share a crop coordinate space, but they remain separate artifact families.
 
 Sapwood/heartwood workflow:
 
-- Sapwood and heartwood should partition the support area when the slice is ready.
-- The editor may support complement fill, for example painting one class and filling the remaining support with the other class.
-- `UNKNOWN` or `REVIEW_REQUIRED` must remain available for ambiguous areas.
+- Sapwood, heartwood, and `UNKNOWN` can be painted manually inside support.
+- Complement fill is explicitly deferred; RB-089 does not silently auto-fill the other class.
 
 Copper workflow:
 
 - Copper semantic pixels represent penetrated or copper-stained material.
 - The complete physical slice support is a separate support mask.
 - Copper semantic annotation alone is never valid support geometry.
-- Non-copper support area should remain explicit in the selected export contract: either background/negative non-copper wood inside support, or unknown where the label schema allows uncertainty.
-- Outside-support Copper bytes must be ignored or rejected by crop-aware save/export code; they must not expand the support geometry.
+- Non-copper support area is represented as background/implicit negative inside support for RB-089, with `UNKNOWN` available where the label schema allows uncertainty.
+- Outside-support Copper bytes are rejected on save and must not expand support geometry.
 
 ## Auto Slice Classification
 
@@ -205,12 +221,12 @@ Current implemented behavior:
 - RB-087 derived crop PNGs generated from active/current BBox versions,
 - crop records in `CROP_PIXEL` with integer translation transforms back to source pixels,
 - RB-088 crop support masks in `CROP_PIXEL` linked to the source image, slice instance, and derived crop,
+- RB-089 crop semantic masks in `CROP_PIXEL` linked to the source image, slice instance, derived crop, exact support mask version, and semantic mode,
 - default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- crop semantic masks use `CROP_PIXEL` and stay constrained by support,
 - crop exports preserve both crop-space artifacts and source-image provenance.
 
 ## Related Docs

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon, LayersIcon } from "lucide-react";
+import { ArrowLeftIcon, ShieldIcon } from "lucide-react";
 
 import { AppMain } from "@/components/shell/AppMain";
 import { AppMissingResource } from "@/components/shell/AppMissingResource";
@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { canAnnotate, PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
-import { CropSupportEditorClient } from "./CropSupportEditorClient";
+import { CropSemanticEditorClient } from "./CropSemanticEditorClient";
 
-export async function CropSupportEditorPage({
+export async function CropSemanticEditorPage({
   projectId,
   imageId,
   sliceInstanceId,
@@ -62,7 +62,7 @@ export async function CropSupportEditorPage({
   return (
     <AppMain className="max-w-none">
       <AppPageHeader
-        title={`Support mask: ${crop.sourceImage.filename ?? crop.id}`}
+        title={`Semantic crop mask: ${crop.sourceImage.filename ?? crop.id}`}
         description={
           `${crop.sourceImage.contentType ?? "unknown type"} · crop v${crop.version} · ` +
           `${crop.cropWidth} x ${crop.cropHeight} · source x ${crop.sourceX}, y ${crop.sourceY}, ` +
@@ -78,16 +78,16 @@ export async function CropSupportEditorPage({
             </Button>
             <Button asChild variant="outline">
               <Link
-                href={`/app/projects/${projectId}/images/${imageId}/slices/${sliceInstanceId}/crops/${cropId}/semantic`}
+                href={`/app/projects/${projectId}/images/${imageId}/slices/${sliceInstanceId}/crops/${cropId}/support`}
               >
-                <LayersIcon className="size-4" aria-hidden="true" />
-                Semantic
+                <ShieldIcon className="size-4" aria-hidden="true" />
+                Support
               </Link>
             </Button>
           </div>
         }
       />
-      <CropSupportEditorClient cropId={cropId} canEdit={canAnnotate(membership.role)} />
+      <CropSemanticEditorClient cropId={cropId} canEdit={canAnnotate(membership.role)} />
     </AppMain>
   );
 }

@@ -82,7 +82,7 @@ function supportReadiness(
   return {
     status: latestSupportMask.reviewState,
     label: `${latestSupportMask.reviewState.toLowerCase()} support v${latestSupportMask.version}`,
-    semanticCropAnnotation: "SUPPORT_READY_SEMANTIC_DEFERRED_RB089",
+    semanticCropAnnotation: "SUPPORT_READY",
     exportReady: latestSupportMask.reviewState === "APPROVED",
   };
 }

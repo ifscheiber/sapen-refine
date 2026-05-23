@@ -11,6 +11,9 @@ export const API_GENERATE_SLICE_CROP = (bboxVersionId: string) => `/api/slice-bb
 export const API_CROP_SUPPORT_MASK = (cropId: string) => `/api/slice-crops/${cropId}/support-mask`;
 export const API_CROP_SUPPORT_MASK_UPLOAD = (cropId: string) =>
   `/api/slice-crops/${cropId}/support-mask/upload`;
+export const API_CROP_SEMANTIC_MASK = (cropId: string) => `/api/slice-crops/${cropId}/semantic-mask`;
+export const API_CROP_SEMANTIC_MASK_UPLOAD = (cropId: string) =>
+  `/api/slice-crops/${cropId}/semantic-mask/upload`;
 export const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imageId}/slice/classification`;
 export const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-state`;
 export const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;

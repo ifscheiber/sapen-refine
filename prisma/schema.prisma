@@ -86,6 +86,11 @@ enum CoordinateSpace {
   TRANSFORMED
 }
 
+enum CropSemanticMode {
+  SAP_HEARTWOOD
+  COPPER
+}
+
 enum SliceClass {
   SAP_HEARTWOOD_SLICE
   COPPER_SLICE
@@ -464,6 +469,8 @@ model AnnotationArtifactVersion {
   labelSchemaVersionId String
   derivedCropId        String?
   sliceInstanceId      String?
+  supportMaskVersionId String?
+  cropSemanticMode     CropSemanticMode?
   taskId               String?
   sessionId            String?
   parentVersionId      String?
@@ -478,6 +485,8 @@ model AnnotationArtifactVersion {
   session                    AnnotationSession?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   parentVersion              AnnotationArtifactVersion?    @relation("ArtifactVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
   childVersions              AnnotationArtifactVersion[]   @relation("ArtifactVersionParent")
+  supportMaskVersion         AnnotationArtifactVersion?    @relation("CropSemanticMaskSupportVersion", fields: [supportMaskVersionId], references: [id], onDelete: SetNull)
+  cropSemanticMaskVersions   AnnotationArtifactVersion[]   @relation("CropSemanticMaskSupportVersion")
   createdBy                  User?                         @relation("ArtifactVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   supportForSlices           SliceInstance[]               @relation("SliceSupportArtifactVersion")
   reviewDecisions            ReviewDecision[]
@@ -491,8 +500,10 @@ model AnnotationArtifactVersion {
   @@index([reviewState])
   @@index([createdById])
   @@index([derivedCropId, createdAt])
+  @@index([derivedCropId, cropSemanticMode, createdAt])
   @@index([sliceInstanceId, createdAt])
   @@index([parentVersionId])
+  @@index([supportMaskVersionId, createdAt])
 }
 
 model SliceInstance {

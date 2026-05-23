@@ -4,17 +4,31 @@ Deferred work discovered during repository hygiene should be recorded here inste
 
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation
 
-Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. The runtime still does not provide crop-constrained semantic editing, crop-aware exports, or crop review integration.
+Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089 adds support-constrained crop semantic editing. The runtime still does not provide auto classification, crop-aware exports, or crop review integration.
 
 Impact: Large images can still stress browser/iPad memory and server request buffering during full-image annotation. Crop-based annotation is needed for scalable multi-slice workflows while preserving source-image coordinate provenance.
 
-Proposed next step: Continue the planned sprint sequence: RB-089 crop-constrained semantics, RB-090 auto classification, RB-091 crop/original-coordinate export, and RB-092 crop review/approval.
+Proposed next step: Continue the planned sprint sequence: RB-090 auto classification, RB-091 crop/original-coordinate export, and RB-092 crop review/approval.
 
 Affected modules: `src/features/editor`, `src/app/api`, `src/server/domain`, `src/mask`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
 
 Owner: Codex.
 
 Priority: P1.
+
+## RB-089-A - Explicit Sap/Heartwood Complement Fill
+
+Context: RB-089 implements manual Sapwood/Heartwood/Unknown painting inside the crop support mask and documents complement fill as deferred. Complement fill was intentionally not added because the sprint slice focused on support-constrained persistence, lineage, server validation, and the first crop semantic editor.
+
+Impact: Annotators must paint both Sapwood and Heartwood manually in crop semantic mode. This is correct but less efficient when one class is best represented as the complement of the other inside support.
+
+Proposed next step: Add an explicit, user-triggered complement fill action in the crop semantic editor that fills remaining support pixels with the selected complementary class while preserving existing Unknown pixels and continuing to reject outside-support semantic foreground server-side.
+
+Affected modules: `src/features/editor/CropSemanticEditorClient.tsx`, `src/mask/tools.ts`, `src/server/domain/cropSemanticMasks.ts`, crop semantic editor tests, and docs under `docs/03-features` and `docs/06-data`.
+
+Owner: Unassigned.
+
+Priority: P2.
 
 ## RB-040-A - Baseline Validation Is Not Green
 

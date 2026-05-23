@@ -4,7 +4,7 @@
 
 This page defines the coordinate-space vocabulary for crop-based slice annotation.
 
-Current runtime behavior saves default full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. RB-087 adds persisted `CROP_PIXEL` derived crop metadata. RB-088 adds crop support-mask versions in `CROP_PIXEL`; crop semantic mask editing remains planned for later schema/API/editor/export tickets.
+Current runtime behavior saves default full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. RB-087 adds persisted `CROP_PIXEL` derived crop metadata. RB-088 adds crop support-mask versions in `CROP_PIXEL`; RB-089 adds support-constrained crop semantic-mask versions in `CROP_PIXEL`.
 
 ## Coordinate Spaces
 
@@ -24,7 +24,7 @@ Properties:
 
 ### CROP_PIXEL
 
-`CROP_PIXEL` means pixel coordinates inside a derived crop image. RB-087 persists this coordinate value for `DerivedSliceCrop.coordinateSpace`; RB-088 persists crop support-mask artifact versions in the same coordinate space.
+`CROP_PIXEL` means pixel coordinates inside a derived crop image. RB-087 persists this coordinate value for `DerivedSliceCrop.coordinateSpace`; RB-088 persists crop support-mask artifact versions in the same coordinate space; RB-089 persists crop semantic-mask artifact versions in the same coordinate space.
 
 Properties:
 
@@ -79,6 +79,8 @@ Rules:
 - Empty crops are invalid.
 - The crop rectangle must satisfy `0 <= cropOriginX < sourceWidth`, `0 <= cropOriginY < sourceHeight`, `cropOriginX + cropWidth <= sourceWidth`, and `cropOriginY + cropHeight <= sourceHeight`.
 - Masks in `CROP_PIXEL` must match the derived crop dimensions exactly.
+- Crop semantic masks in `CROP_PIXEL` must reference the exact crop support-mask version used as the editing constraint.
+- Non-background crop semantic pixels outside support are invalid and rejected on save with `SEMANTIC_OUTSIDE_SUPPORT`.
 - Reprojection to `SOURCE_IMAGE_PIXEL` must clip to source image bounds.
 - Padding pixels in the crop are not support geometry. Crop support masks explicitly mark physical slice support in `CROP_PIXEL`.
 

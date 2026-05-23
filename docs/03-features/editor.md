@@ -6,10 +6,13 @@ Important files:
 
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx`
 - `src/features/editor/EditImagePage.tsx`
 - `src/features/editor/CropSupportEditorPage.tsx`
 - `src/features/editor/CropSupportEditorClient.tsx`
+- `src/features/editor/CropSemanticEditorPage.tsx`
+- `src/features/editor/CropSemanticEditorClient.tsx`
 - `src/features/editor/CorrectionTaskEditorPage.tsx`
 - `src/features/editor/EditorClient.tsx`
 - `src/features/editor/components/*`
@@ -64,6 +67,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
+- Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
@@ -116,6 +120,8 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Generating a derived crop calls `POST /api/slice-bboxes/[bboxVersionId]/crop`. The response contains sanitized metadata and an app-mediated preview URL; it does not expose private object storage keys.
 - Crop support-mask state is loaded from `GET /api/slice-crops/[cropId]/support-mask`.
 - Crop support-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/support-mask/upload`.
+- Crop semantic-mask state is loaded from `GET /api/slice-crops/[cropId]/semantic-mask`.
+- Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-support-mask-version-id` and `x-semantic-mode`. The server rejects missing support, stale support lineage, invalid mode labels, wrong dimensions, and semantic foreground outside support.
 
 ## Current Domain Model
 
@@ -132,6 +138,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
 - Derived slice crops are persisted as `DerivedSliceCrop` rows in `CROP_PIXEL` coordinate space. They reference the immutable source image, source checksum, slice instance, and exact BBox version. Crop PNG bytes are private derived artifacts and are read through `/api/slice-crops/[cropId]/asset`.
 - Crop support masks are persisted as crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL`. They link to the source image through `AnnotationArtifact.imageId`, to the slice through `AnnotationArtifactVersion.sliceInstanceId`, and to the crop through `AnnotationArtifactVersion.derivedCropId`.
+- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, exact support mask version, and semantic mode. The editor exposes Sap/Heartwood and Copper modes, and brush strokes mutate only support pixels.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -143,7 +150,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 
 Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
-Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful default support saves record `SUPPORT_MASK_COMMITTED`; successful crop support saves record `CROP_SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
+Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful default support saves record `SUPPORT_MASK_COMMITTED`; successful crop support saves record `CROP_SUPPORT_MASK_COMMITTED`; successful crop semantic saves record `CROP_SEMANTIC_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
 For byte-length failures after RB-080/RB-081, authenticated audit details may include safe diagnostics: expected bytes, received bytes, declared client bytes, content length, width, height, and format. They do not include mask payload bytes, storage keys, private URLs, credentials, or tokens.
 
@@ -199,6 +206,16 @@ Current RB-088 behavior:
 - The saved version is linked to the source image, slice instance, and derived crop, and can be reloaded from the crop editor.
 - Crop support-mask saves validate exact crop dimensions and reject Copper semantic bytes as support geometry.
 
+Current RB-089 behavior:
+
+- The selected derived crop links to a deep-linkable crop semantic editor.
+- The crop semantic editor soft-blocks when no crop support mask exists and links back to the support editor.
+- The editor displays the crop PNG with a read-only support overlay and editable semantic overlay.
+- Sap/Heartwood mode allows manual Sapwood, Heartwood, and Unknown painting inside support. Complement fill is deferred.
+- Copper mode allows Copper and Unknown painting inside support; background inside support is the implicit non-copper negative.
+- Saving creates a new draft `SEMANTIC_MASK` artifact version with `coordinateSpace = CROP_PIXEL`, the selected semantic mode, and the exact support-mask version id.
+- The browser clamps brush writes to support pixels, and the server rejects any non-background semantic byte outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
+
 The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 
 Editor-specific crop rules:
@@ -206,7 +223,7 @@ Editor-specific crop rules:
 - BBox drawing is a proposal workflow, not ground-truth instance annotation.
 - Derived crop padding is visual workspace and must not be treated as support geometry.
 - Crop support-mask editing is the source of physical slice geometry for crop workflows.
-- Semantic editing should be constrained to support once support exists.
+- Semantic editing is constrained to support once support exists.
 - Copper semantic pixels remain material labels and must not be treated as support geometry.
 - Sapwood/heartwood workflows may support complement fill inside support while preserving `UNKNOWN` or review-required options.
 - Crop-aware saves must carry explicit coordinate-space metadata and transforms rather than pretending crop masks are full-image masks.

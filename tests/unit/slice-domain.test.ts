@@ -201,3 +201,70 @@ describe("crop support mask helpers", () => {
     ).toThrow("MASK_DIMENSIONS_MISMATCH");
   });
 });
+
+describe("crop semantic mask helpers", () => {
+  it("requires crop semantic mask dimensions to match the derived crop", async () => {
+    const { validateCropSemanticMaskDimensions } = await import("@/server/domain/cropSemanticMasks");
+
+    expect(() =>
+      validateCropSemanticMaskDimensions({
+        width: 20,
+        height: 10,
+        size: 200,
+        cropWidth: 20,
+        cropHeight: 10,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      validateCropSemanticMaskDimensions({
+        width: 20,
+        height: 9,
+        size: 180,
+        cropWidth: 20,
+        cropHeight: 10,
+      }),
+    ).toThrow("MASK_DIMENSIONS_MISMATCH");
+  });
+
+  it("rejects semantic labels outside support pixels", async () => {
+    const { validateSemanticMaskAgainstSupport } = await import("@/server/domain/cropSemanticMasks");
+    const semantic = new Uint8Array([0, 1, 0, 2]);
+    const support = new Uint8Array([0, 10, 0, 10]);
+
+    expect(() =>
+      validateSemanticMaskAgainstSupport({
+        semanticBytes: semantic,
+        supportBytes: support,
+        allowedValues: new Set([0, 1, 2, 4]),
+      }),
+    ).not.toThrow();
+
+    semantic[0] = 1;
+    expect(() =>
+      validateSemanticMaskAgainstSupport({
+        semanticBytes: semantic,
+        supportBytes: support,
+        allowedValues: new Set([0, 1, 2, 4]),
+      }),
+    ).toThrow("SEMANTIC_OUTSIDE_SUPPORT");
+  });
+
+  it("validates semantic mode values", async () => {
+    const { parseCropSemanticMode, validateSemanticMaskAgainstSupport } = await import(
+      "@/server/domain/cropSemanticMasks"
+    );
+
+    expect(parseCropSemanticMode("SAP_HEARTWOOD")).toBe("SAP_HEARTWOOD");
+    expect(parseCropSemanticMode("COPPER")).toBe("COPPER");
+    expect(() => parseCropSemanticMode("SUPPORT")).toThrow("SEMANTIC_MODE_INVALID");
+
+    expect(() =>
+      validateSemanticMaskAgainstSupport({
+        semanticBytes: new Uint8Array([3]),
+        supportBytes: new Uint8Array([10]),
+        allowedValues: new Set([0, 1, 2, 4]),
+      }),
+    ).toThrow("SEMANTIC_MASK_VALUES_INVALID");
+  });
+});

@@ -85,12 +85,13 @@ export async function uploadEditorMask(
     width: number;
     height: number;
     format?: MaskUploadFormat;
+    headers?: Record<string, string>;
   },
 ) {
   const request = buildEditorMaskUploadRequest(params);
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: request.headers,
+    headers: { ...request.headers, ...(params.headers ?? {}) },
     body: request.body,
   });
 

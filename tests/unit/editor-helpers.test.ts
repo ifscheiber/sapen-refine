@@ -4,6 +4,8 @@ import type React from "react";
 import {
   API_ARTIFACT_REVIEW,
   API_CORRECTION_CONTEXT,
+  API_CROP_SEMANTIC_MASK,
+  API_CROP_SEMANTIC_MASK_UPLOAD,
   API_CROP_SUPPORT_MASK,
   API_CROP_SUPPORT_MASK_UPLOAD,
   API_IMAGE_VIEW,
@@ -25,7 +27,7 @@ import {
 } from "@/features/editor/editorMaskUpload";
 import { Labels } from "@/mask/labels";
 import { MaskBuffer } from "@/mask/maskBuffer";
-import { applyBrush } from "@/mask/tools";
+import { applyBrush, applyBrushWithinSupport } from "@/mask/tools";
 import {
   formatCorrectionModel,
   formatCorrectionScore,
@@ -44,6 +46,8 @@ describe("editor helpers", () => {
     expect(API_SUPPORT_MASK_UPLOAD("img_1")).toBe("/api/images/img_1/support-mask/upload");
     expect(API_CROP_SUPPORT_MASK("crop_1")).toBe("/api/slice-crops/crop_1/support-mask");
     expect(API_CROP_SUPPORT_MASK_UPLOAD("crop_1")).toBe("/api/slice-crops/crop_1/support-mask/upload");
+    expect(API_CROP_SEMANTIC_MASK("crop_1")).toBe("/api/slice-crops/crop_1/semantic-mask");
+    expect(API_CROP_SEMANTIC_MASK_UPLOAD("crop_1")).toBe("/api/slice-crops/crop_1/semantic-mask/upload");
     expect(API_ARTIFACT_REVIEW("version_1")).toBe("/api/artifact-versions/version_1/review");
     expect(API_CORRECTION_CONTEXT("task_1")).toBe("/api/correction-tasks/task_1/correction-context");
   });
@@ -154,6 +158,21 @@ describe("editor helpers", () => {
     }));
     expect(support.get(2, 2)).toBe(Labels.BG);
     expect(support.get(0, 0)).toBe(Labels.SLICE_SUPPORT);
+  });
+
+  it("constrains crop semantic brush strokes to support pixels", () => {
+    const semantic = new MaskBuffer(5, 5, Labels.BG);
+    const support = new MaskBuffer(5, 5, Labels.BG);
+    support.set(2, 2, Labels.SLICE_SUPPORT);
+    support.set(3, 2, Labels.SLICE_SUPPORT);
+
+    const patch = applyBrushWithinSupport(semantic, support, 2, 2, 2, Labels.SAPWOOD);
+
+    expect(patch).not.toBeNull();
+    expect(semantic.get(2, 2)).toBe(Labels.SAPWOOD);
+    expect(semantic.get(3, 2)).toBe(Labels.SAPWOOD);
+    expect(semantic.get(1, 2)).toBe(Labels.BG);
+    expect(semantic.get(2, 1)).toBe(Labels.BG);
   });
 
   it("builds exact raw mask upload requests for full-resolution masks", () => {

@@ -42,6 +42,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/slice-crops/[cropId]/asset` - streams the private derived crop PNG through the app after membership check.
 - `GET /api/slice-crops/[cropId]/support-mask` - returns crop support-mask readiness, support label bytes, crop metadata, and latest crop support-mask metadata for project members.
 - `POST /api/slice-crops/[cropId]/support-mask/upload` - uploads crop-sized support-mask bytes, verifies `CROP_PIXEL` dimensions and support-only values, and records a draft crop-linked `SLICE_SUPPORT_MASK` artifact version.
+- `GET /api/slice-crops/[cropId]/semantic-mask` - returns crop semantic-mask readiness, current support-mask metadata, mode label options, and latest crop semantic-mask metadata for project members.
+- `POST /api/slice-crops/[cropId]/semantic-mask/upload` - uploads crop-sized semantic-mask bytes, verifies `CROP_PIXEL` dimensions, validates `x-support-mask-version-id` and `x-semantic-mode`, rejects semantic foreground outside support, and records a draft crop-linked `SEMANTIC_MASK` artifact version.
 - `GET /api/images/[imageId]/support-mask/latest` - returns latest support-mask version metadata and app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server, verifies image-sized `u8raw-v1` bytes and support-only values, and records a draft `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
@@ -88,6 +90,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Slice BBox proposal APIs must validate integer source-image pixel geometry against persisted image dimensions and must not treat BBoxes as support geometry.
 - Slice crop APIs must generate crops server-side from stored source images, clamp padding to source-image bounds, return sanitized metadata only, and never expose private crop storage keys.
 - Crop support-mask APIs must require `CROP_PIXEL`, validate exact crop dimensions, link saved versions to `DerivedSliceCrop` and `SliceInstance`, reject Copper semantic bytes as support geometry, and never expose private mask storage keys.
+- Crop semantic-mask APIs require a current crop support mask, validate exact crop dimensions and support lineage, link saved versions to `DerivedSliceCrop`, `SliceInstance`, and the exact support mask version, reject non-background semantic bytes outside support, and never expose private mask storage keys.
 - Review APIs enforce server-side permissions: `OWNER`/`QA` can approve/reject, `OWNER`/`QA`/`LABELER` can submit, and `VIEWER` cannot mutate review state.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
@@ -113,6 +116,7 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-086 BBox proposal error codes include `FORBIDDEN`, `IMAGE_NOT_FOUND`, `BBOX_NOT_FOUND`, `BBOX_VERSION_STALE`, `IMAGE_DIMENSIONS_REQUIRED`, `BBOX_TOO_SMALL`, `BBOX_OUT_OF_BOUNDS`, and integer-field errors such as `X_INTEGER_REQUIRED`.
 - RB-087 slice crop error codes include `FORBIDDEN`, `IMAGE_NOT_FOUND`, `CROP_NOT_FOUND`, `BBOX_NOT_FOUND`, `BBOX_VERSION_STALE`, `BBOX_DELETED`, `IMAGE_DIMENSIONS_REQUIRED`, `BBOX_OUT_OF_BOUNDS`, `CROP_PADDING_INVALID`, `CROP_SOURCE_IMAGE_UNSUPPORTED`, and `CROP_IMAGE_GENERATION_FAILED`.
 - RB-088 crop support-mask error codes include `FORBIDDEN`, `CROP_NOT_FOUND`, `CROP_COORDINATE_SPACE_INVALID`, `CROP_LINEAGE_INVALID`, `MASK_SIZE_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
+- RB-089 crop semantic-mask error codes include `FORBIDDEN`, `CROP_NOT_FOUND`, `CROP_COORDINATE_SPACE_INVALID`, `CROP_LINEAGE_INVALID`, `SUPPORT_MASK_REQUIRED`, `SUPPORT_MASK_LINEAGE_MISMATCH`, `SEMANTIC_MODE_INVALID`, `SEMANTIC_MASK_VALUES_INVALID`, `SEMANTIC_OUTSIDE_SUPPORT`, `MASK_SIZE_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
 ## Known Gaps
 

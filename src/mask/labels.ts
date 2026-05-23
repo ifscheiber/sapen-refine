@@ -5,6 +5,7 @@ export const Labels = {
   SAPWOOD: 1,
   HEARTWOOD: 2,
   COPPER: 3,
+  UNKNOWN: 4,
   SLICE_SUPPORT: 10,
 } as const satisfies Record<string, LabelId>;
 
@@ -23,6 +24,7 @@ export const DEFAULT_LABELS: LabelDef[] = [
   { id: Labels.SAPWOOD,  key: "SAPWOOD",  name: "Sapwood",    rgb: [255, 170, 0], alpha: 0.45 },
   { id: Labels.HEARTWOOD,key: "HEARTWOOD",name: "Heartwood",  rgb: [255, 70, 70], alpha: 0.45 },
   { id: Labels.COPPER,   key: "COPPER",   name: "Copper",     rgb: [40, 120, 255], alpha: 0.55 },
+  { id: Labels.UNKNOWN,  key: "UNKNOWN",  name: "Unknown",    rgb: [150, 120, 255], alpha: 0.45 },
 ];
 
 export function supportMaskLabels(sliceSupportValue: LabelId = Labels.SLICE_SUPPORT): LabelDef[] {

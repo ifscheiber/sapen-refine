@@ -1,0 +1,766 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  BrushIcon,
+  EraserIcon,
+  Maximize2Icon,
+  Redo2Icon,
+  RotateCcwIcon,
+  SaveIcon,
+  Undo2Icon,
+} from "lucide-react";
+
+import { Labels, supportMaskLabels, type LabelDef, type LabelId } from "@/mask/labels";
+import { MaskBuffer } from "@/mask/maskBuffer";
+import { applyPatch } from "@/mask/patch";
+import type { Patch } from "@/mask/patch";
+import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
+import { applyBrushWithinSupport } from "@/mask/tools";
+import {
+  clampNumber,
+  clientPointToImagePoint,
+  getFitZoom,
+  getZoomedCanvasDisplaySize,
+} from "./canvasGeometry";
+import { EditorCanvasStack } from "./components/EditorCanvasStack";
+import { API_CROP_SEMANTIC_MASK, API_CROP_SEMANTIC_MASK_UPLOAD } from "./editorApi";
+import { errorMessage } from "./editorFormatters";
+import { uploadEditorMask } from "./editorMaskUpload";
+import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
+import { activeButtonClass, idleButtonClass } from "./editorStyles";
+import { getPaintLabelForTool } from "./editorTools";
+import type { CropSemanticMaskState, CropSemanticMode, Tool } from "./editorTypes";
+
+type CropSemanticEditorClientProps = {
+  cropId: string;
+  canEdit: boolean;
+};
+
+type Stroke = Patch[];
+
+const MODE_LABELS: Record<CropSemanticMode, string> = {
+  SAP_HEARTWOOD: "Sap/Heartwood",
+  COPPER: "Copper",
+};
+
+const LABEL_COLORS: Record<string, Pick<LabelDef, "rgb" | "alpha">> = {
+  background: { rgb: [0, 0, 0], alpha: 0 },
+  sapwood: { rgb: [255, 170, 0], alpha: 0.45 },
+  heartwood: { rgb: [255, 70, 70], alpha: 0.45 },
+  copper: { rgb: [40, 120, 255], alpha: 0.55 },
+  unknown: { rgb: [150, 120, 255], alpha: 0.45 },
+};
+
+function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("CROP_IMAGE_LOAD_FAILED"));
+    img.src = src;
+  });
+}
+
+function semanticOverlayLabels(state: CropSemanticMaskState | null, semanticMode: CropSemanticMode): LabelDef[] {
+  const labels = state?.semanticLabels[semanticMode]?.labels ?? [];
+  return labels.map((label) => {
+    const color = LABEL_COLORS[label.stableId] ?? LABEL_COLORS.unknown;
+    return {
+      id: label.value,
+      key: label.stableId.toUpperCase(),
+      name: label.name,
+      rgb: color.rgb,
+      alpha: color.alpha,
+    };
+  });
+}
+
+function semanticPaintLabels(state: CropSemanticMaskState | null, semanticMode: CropSemanticMode) {
+  const mode = state?.semanticLabels[semanticMode];
+  if (!mode) return [];
+  return mode.labels
+    .filter((label) => label.value !== mode.backgroundValue)
+    .map((label) => ({ id: label.value as LabelId, name: label.name, stableId: label.stableId }));
+}
+
+function supportReadinessLabel(state: CropSemanticMaskState | null) {
+  if (!state?.currentSupportMask) return "Support required";
+  return `${state.currentSupportMask.reviewState.toLowerCase()} support v${state.currentSupportMask.version}`;
+}
+
+function semanticVersionLabel(state: CropSemanticMaskState | null, semanticMode: CropSemanticMode) {
+  const latest = state?.latestSemanticMasks[semanticMode];
+  if (!latest) return "No semantic draft";
+  return `${latest.reviewState.toLowerCase()} ${MODE_LABELS[semanticMode]} v${latest.version}`;
+}
+
+function displaySupportMask(source: MaskBuffer) {
+  const display = new MaskBuffer(source.width, source.height, Labels.BG);
+  for (let index = 0; index < source.data.length; index += 1) {
+    display.data[index] = source.data[index] === 0 ? Labels.BG : Labels.SLICE_SUPPORT;
+  }
+  return display;
+}
+
+export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditorClientProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const supportCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bboxCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const supportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const overlayCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const supportOverlayImageRef = useRef<ImageData | null>(null);
+  const overlayImageRef = useRef<ImageData | null>(null);
+  const supportMaskRef = useRef<MaskBuffer | null>(null);
+  const maskRef = useRef<MaskBuffer | null>(null);
+  const draggingRef = useRef(false);
+  const lastPtRef = useRef<{ x: number; y: number } | null>(null);
+  const currentStrokeRef = useRef<Stroke>([]);
+  const undoRef = useRef<Stroke[]>([]);
+  const redoRef = useRef<Stroke[]>([]);
+  const opacityRef = useRef(0.5);
+  const supportOpacityRef = useRef(0.3);
+
+  const [state, setState] = useState<CropSemanticMaskState | null>(null);
+  const [status, setStatus] = useState("");
+  const [editorReady, setEditorReady] = useState(false);
+  const [tool, setTool] = useState<Tool>("brush");
+  const [semanticMode, setSemanticMode] = useState<CropSemanticMode>("SAP_HEARTWOOD");
+  const [activeLabel, setActiveLabel] = useState<LabelId>(Labels.SAPWOOD);
+  const [brushRadius, setBrushRadius] = useState(8);
+  const [opacity, setOpacity] = useState(0.5);
+  const [supportOpacity, setSupportOpacity] = useState(0.3);
+  const [zoom, setZoom] = useState(1);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const overlayLabels = useMemo(() => semanticOverlayLabels(state, semanticMode), [state, semanticMode]);
+  const paintLabels = useMemo(() => semanticPaintLabels(state, semanticMode), [state, semanticMode]);
+  const palette = useMemo(() => buildPalette(overlayLabels, opacity), [overlayLabels, opacity]);
+  const supportPalette = useMemo(
+    () => buildPalette(supportMaskLabels(Labels.SLICE_SUPPORT), supportOpacity),
+    [supportOpacity],
+  );
+  const editorCanEdit =
+    canEdit && Boolean(state?.canEdit) && editorReady && Boolean(state?.currentSupportMask);
+
+  const applyZoom = useCallback((z: number) => {
+    const canvases = [
+      baseCanvasRef.current,
+      supportCanvasRef.current,
+      overlayCanvasRef.current,
+      bboxCanvasRef.current,
+      previewCanvasRef.current,
+    ];
+    const base = baseCanvasRef.current;
+    if (!base || canvases.some((canvas) => !canvas)) return;
+
+    const { width, height } = getZoomedCanvasDisplaySize(base.width, base.height, z);
+    for (const canvas of canvases) {
+      if (!canvas) continue;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+    }
+  }, []);
+
+  const fitToContainer = useCallback(() => {
+    const wrap = containerRef.current;
+    const base = baseCanvasRef.current;
+    if (!wrap || !base || !base.width || !base.height) return;
+
+    const nextZoom = getFitZoom({
+      containerWidth: wrap.clientWidth,
+      containerHeight: wrap.clientHeight,
+      imageWidth: base.width,
+      imageHeight: base.height,
+    });
+    setZoom(nextZoom);
+    applyZoom(nextZoom);
+  }, [applyZoom]);
+
+  function ensureOverlayBuffer(width: number, height: number) {
+    const ctx = overlayCtxRef.current;
+    const current = overlayImageRef.current;
+    if (!current || current.width !== width || current.height !== height) {
+      overlayImageRef.current = ctx?.createImageData(width, height) ?? new ImageData(width, height);
+    }
+  }
+
+  function ensureSupportOverlayBuffer(width: number, height: number) {
+    const ctx = supportCtxRef.current;
+    const current = supportOverlayImageRef.current;
+    if (!current || current.width !== width || current.height !== height) {
+      supportOverlayImageRef.current = ctx?.createImageData(width, height) ?? new ImageData(width, height);
+    }
+  }
+
+  const renderOverlayFull = useCallback(() => {
+    const mask = maskRef.current;
+    const ctx = overlayCtxRef.current;
+    if (!mask || !ctx) return;
+
+    ensureOverlayBuffer(mask.width, mask.height);
+    const imageData = overlayImageRef.current;
+    if (!imageData) return;
+    updateOverlayRegionWithPalette(imageData, mask, palette, 0, 0, mask.width, mask.height);
+    ctx.putImageData(imageData, 0, 0);
+  }, [palette]);
+
+  const renderSupportOverlayFull = useCallback(() => {
+    const support = supportMaskRef.current;
+    const ctx = supportCtxRef.current;
+    if (!support || !ctx) return;
+
+    const displayMask = displaySupportMask(support);
+    ensureSupportOverlayBuffer(displayMask.width, displayMask.height);
+    const imageData = supportOverlayImageRef.current;
+    if (!imageData) return;
+    updateOverlayRegionWithPalette(
+      imageData,
+      displayMask,
+      supportPalette,
+      0,
+      0,
+      displayMask.width,
+      displayMask.height,
+    );
+    ctx.putImageData(imageData, 0, 0);
+  }, [supportPalette]);
+
+  function paintOverlayRect(x: number, y: number, width: number, height: number) {
+    const mask = maskRef.current;
+    const ctx = overlayCtxRef.current;
+    if (!mask || !ctx) return;
+
+    ensureOverlayBuffer(mask.width, mask.height);
+    const imageData = overlayImageRef.current;
+    if (!imageData) return;
+
+    const x0 = clampNumber(x, 0, mask.width);
+    const y0 = clampNumber(y, 0, mask.height);
+    const x1 = clampNumber(x + width, 0, mask.width);
+    const y1 = clampNumber(y + height, 0, mask.height);
+    updateOverlayRegionWithPalette(imageData, mask, palette, x0, y0, x1 - x0, y1 - y0);
+    ctx.putImageData(imageData, 0, 0, x0, y0, x1 - x0, y1 - y0);
+  }
+
+  const resetEditor = useCallback(() => {
+    setEditorReady(false);
+    setHasUnsavedChanges(false);
+    maskRef.current = null;
+    supportMaskRef.current = null;
+    overlayImageRef.current = null;
+    supportOverlayImageRef.current = null;
+    undoRef.current = [];
+    redoRef.current = [];
+    currentStrokeRef.current = [];
+    draggingRef.current = false;
+    lastPtRef.current = null;
+  }, []);
+
+  const loadEditor = useCallback(async () => {
+    resetEditor();
+    setStatus("Loading crop semantic mask");
+    try {
+      const response = await fetch(API_CROP_SEMANTIC_MASK(cropId), {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? `CROP_SEMANTIC_MASK_FAILED_${response.status}`);
+      }
+      const nextState = data as CropSemanticMaskState;
+      setState(nextState);
+
+      if (!nextState.currentSupportMask) {
+        setEditorReady(false);
+        setStatus("");
+        return;
+      }
+
+      const supportResponse = await fetch(nextState.currentSupportMask.url, { cache: "no-store" });
+      if (!supportResponse.ok) throw new Error(`CROP_SUPPORT_MASK_ASSET_FAILED_${supportResponse.status}`);
+      const supportBytes = new Uint8Array(await supportResponse.arrayBuffer());
+
+      let latestBytes: Uint8Array | null = null;
+      const latestSemantic = nextState.latestSemanticMasks[semanticMode];
+      if (latestSemantic?.url && latestSemantic.supportMaskVersionId === nextState.currentSupportMask.id) {
+        const assetResponse = await fetch(latestSemantic.url, { cache: "no-store" });
+        if (!assetResponse.ok) throw new Error(`CROP_SEMANTIC_MASK_ASSET_FAILED_${assetResponse.status}`);
+        latestBytes = new Uint8Array(await assetResponse.arrayBuffer());
+      }
+
+      const img = await loadImageElement(nextState.crop.assetUrl);
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      if (width !== nextState.crop.cropWidth || height !== nextState.crop.cropHeight) {
+        throw new Error("CROP_IMAGE_DIMENSIONS_MISMATCH");
+      }
+      if (supportBytes.byteLength !== width * height) {
+        throw new Error("SUPPORT_MASK_DIMENSIONS_MISMATCH");
+      }
+
+      const canvases = [
+        baseCanvasRef.current,
+        supportCanvasRef.current,
+        overlayCanvasRef.current,
+        bboxCanvasRef.current,
+        previewCanvasRef.current,
+      ];
+      if (canvases.some((canvas) => !canvas)) throw new Error("EDITOR_CANVAS_NOT_READY");
+      for (const canvas of canvases) {
+        if (!canvas) continue;
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const base = baseCanvasRef.current;
+      const supportCanvas = supportCanvasRef.current;
+      const overlay = overlayCanvasRef.current;
+      if (!base || !supportCanvas || !overlay) throw new Error("EDITOR_CANVAS_NOT_READY");
+      const baseCtx = base.getContext("2d");
+      const supportCtx = supportCanvas.getContext("2d");
+      const overlayCtx = overlay.getContext("2d");
+      if (!baseCtx || !supportCtx || !overlayCtx) throw new Error("EDITOR_CONTEXT_NOT_READY");
+      supportCtxRef.current = supportCtx;
+      overlayCtxRef.current = overlayCtx;
+      baseCtx.clearRect(0, 0, width, height);
+      supportCtx.clearRect(0, 0, width, height);
+      overlayCtx.clearRect(0, 0, width, height);
+      baseCtx.drawImage(img, 0, 0);
+
+      const supportMask = new MaskBuffer(width, height, Labels.BG);
+      supportMask.data.set(supportBytes);
+      supportMaskRef.current = supportMask;
+
+      const semanticMask = new MaskBuffer(
+        width,
+        height,
+        nextState.semanticLabels[semanticMode].backgroundValue as LabelId,
+      );
+      if (latestBytes) {
+        if (latestBytes.byteLength !== width * height) throw new Error("SAVED_MASK_DIMENSIONS_MISMATCH");
+        semanticMask.data.set(latestBytes);
+      }
+      maskRef.current = semanticMask;
+
+      renderSupportOverlayFull();
+      renderOverlayFull();
+      setEditorReady(true);
+      setHasUnsavedChanges(false);
+      setStatus("");
+      requestAnimationFrame(() => {
+        fitToContainer();
+      });
+    } catch (error) {
+      setEditorReady(false);
+      setStatus(errorMessage(error, "Crop semantic editor failed"));
+    }
+  }, [cropId, fitToContainer, renderOverlayFull, renderSupportOverlayFull, resetEditor, semanticMode]);
+
+  useEffect(() => {
+    void loadEditor();
+  }, [loadEditor]);
+
+  useEffect(() => {
+    opacityRef.current = opacity;
+    renderOverlayFull();
+  }, [opacity, renderOverlayFull]);
+
+  useEffect(() => {
+    supportOpacityRef.current = supportOpacity;
+    renderSupportOverlayFull();
+  }, [supportOpacity, renderSupportOverlayFull]);
+
+  useEffect(() => {
+    applyZoom(zoom);
+  }, [applyZoom, zoom]);
+
+  useEffect(() => {
+    const onResize = () => fitToContainer();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [fitToContainer]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (paintLabels.length === 0) return;
+    if (!paintLabels.some((label) => label.id === activeLabel)) {
+      setActiveLabel(paintLabels[0].id);
+    }
+  }, [activeLabel, paintLabels]);
+
+  function canvasToCropCoords(event: PointerEvent<HTMLCanvasElement>) {
+    const overlay = overlayCanvasRef.current;
+    if (!overlay) return { x: 0, y: 0 };
+    const rect = overlay.getBoundingClientRect();
+    return clientPointToImagePoint({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      canvasWidth: overlay.width,
+      canvasHeight: overlay.height,
+      rect,
+    });
+  }
+
+  function markDirty() {
+    setHasUnsavedChanges(true);
+  }
+
+  function stamp(x: number, y: number) {
+    const mask = maskRef.current;
+    const supportMask = supportMaskRef.current;
+    if (!mask || !supportMask || !editorCanEdit) return;
+    const patch = applyBrushWithinSupport(
+      mask,
+      supportMask,
+      x,
+      y,
+      brushRadius,
+      getPaintLabelForTool({
+        tool,
+        maskMode: "semantic",
+        activeLabel,
+      }),
+    );
+    if (!patch) return;
+    currentStrokeRef.current.push(patch);
+    paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    markDirty();
+  }
+
+  function onPointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    if (!editorCanEdit || shouldIgnorePointerDown(event)) return;
+    event.preventDefault();
+    const target = event.currentTarget;
+    const point = canvasToCropCoords(event);
+    draggingRef.current = true;
+    currentStrokeRef.current = [];
+    redoRef.current = [];
+    lastPtRef.current = point;
+    capturePointer(target, event.pointerId);
+    stamp(point.x, point.y);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (!editorCanEdit || !draggingRef.current) return;
+    event.preventDefault();
+    const point = canvasToCropCoords(event);
+    const last = lastPtRef.current;
+    lastPtRef.current = point;
+    if (!last) {
+      stamp(point.x, point.y);
+      return;
+    }
+
+    const dx = point.x - last.x;
+    const dy = point.y - last.y;
+    const distance = Math.hypot(dx, dy);
+    const step = Math.max(1, Math.floor(brushRadius / 2));
+    const steps = Math.max(1, Math.ceil(distance / step));
+    for (let i = 1; i <= steps; i += 1) {
+      stamp(
+        Math.round(last.x + (dx * i) / steps),
+        Math.round(last.y + (dy * i) / steps),
+      );
+    }
+  }
+
+  function finishStroke() {
+    if (currentStrokeRef.current.length > 0) {
+      undoRef.current.push(currentStrokeRef.current);
+      currentStrokeRef.current = [];
+    }
+  }
+
+  function onPointerUp(event: PointerEvent<HTMLCanvasElement>) {
+    event.preventDefault();
+    draggingRef.current = false;
+    lastPtRef.current = null;
+    finishStroke();
+    releasePointer(event.currentTarget, event.pointerId);
+  }
+
+  function onPointerCancel(event: PointerEvent<HTMLCanvasElement>) {
+    event.preventDefault();
+    draggingRef.current = false;
+    lastPtRef.current = null;
+    finishStroke();
+    releasePointer(event.currentTarget, event.pointerId);
+  }
+
+  function onPointerLeave(event: PointerEvent<HTMLCanvasElement>) {
+    if (!draggingRef.current || event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    draggingRef.current = false;
+    lastPtRef.current = null;
+    finishStroke();
+  }
+
+  function undo() {
+    const mask = maskRef.current;
+    if (!mask || !editorCanEdit) return;
+    const stroke = undoRef.current.pop();
+    if (!stroke) return;
+    for (let i = stroke.length - 1; i >= 0; i -= 1) {
+      const patch = stroke[i];
+      applyPatch(mask, patch, "before");
+      paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    }
+    redoRef.current.push(stroke);
+    markDirty();
+  }
+
+  function redo() {
+    const mask = maskRef.current;
+    if (!mask || !editorCanEdit) return;
+    const stroke = redoRef.current.pop();
+    if (!stroke) return;
+    for (const patch of stroke) {
+      applyPatch(mask, patch, "after");
+      paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    }
+    undoRef.current.push(stroke);
+    markDirty();
+  }
+
+  function switchMode(nextMode: CropSemanticMode) {
+    if (nextMode === semanticMode) return;
+    if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
+    setSemanticMode(nextMode);
+  }
+
+  async function saveMask() {
+    const mask = maskRef.current;
+    const supportMask = state?.currentSupportMask;
+    if (!mask || !supportMask || !editorCanEdit || !hasUnsavedChanges) return;
+    setIsSaving(true);
+    setStatus("Saving crop semantic mask");
+    try {
+      const response = await uploadEditorMask(API_CROP_SEMANTIC_MASK_UPLOAD(cropId), {
+        data: mask.data,
+        width: mask.width,
+        height: mask.height,
+        headers: {
+          "x-support-mask-version-id": supportMask.id,
+          "x-semantic-mode": semanticMode,
+        },
+      });
+      const data = await response.json().catch(() => null);
+      if (!data?.ok) throw new Error(data?.error ?? "CROP_SEMANTIC_MASK_SAVE_FAILED");
+      setState(data as CropSemanticMaskState);
+      setHasUnsavedChanges(false);
+      setStatus("Saved");
+      setTimeout(() => setStatus(""), 800);
+    } catch (error) {
+      setStatus(errorMessage(error, "Crop semantic mask save failed"));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function reloadLatest() {
+    if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
+    await loadEditor();
+  }
+
+  const editorStatus = isSaving ? "Saving..." : status || (hasUnsavedChanges ? "Unsaved changes" : "");
+  const supportHref = state
+    ? `/app/projects/${state.crop.projectId}/images/${state.crop.sourceImageId}/slices/${state.crop.sliceInstanceId}/crops/${state.crop.id}/support`
+    : null;
+
+  if (state && !state.currentSupportMask) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-4 text-card-foreground">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <div className="font-medium">Support mask required before semantic annotation.</div>
+            <div className="text-sm text-muted-foreground">
+              Crop semantic masks are constrained by the current crop support mask.
+            </div>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {supportHref && (
+              <Link className={idleButtonClass} href={supportHref}>
+                Open support editor
+              </Link>
+            )}
+            <button className={idleButtonClass} onClick={() => void reloadLatest()}>
+              <RotateCcwIcon className="size-4" aria-hidden="true" />
+              Reload
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
+      <div className="border-b border-border bg-muted p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>{supportReadinessLabel(state)}</span>
+          <span>{semanticVersionLabel(state, semanticMode)}</span>
+          <span>Outside-support pixels are locked.</span>
+          {semanticMode === "COPPER" && <span>Non-copper wood remains background inside support.</span>}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className={semanticMode === "SAP_HEARTWOOD" ? activeButtonClass : idleButtonClass}
+            aria-pressed={semanticMode === "SAP_HEARTWOOD"}
+            onClick={() => switchMode("SAP_HEARTWOOD")}
+            disabled={isSaving}
+          >
+            Sap/Heartwood
+          </button>
+          <button
+            className={semanticMode === "COPPER" ? activeButtonClass : idleButtonClass}
+            aria-pressed={semanticMode === "COPPER"}
+            onClick={() => switchMode("COPPER")}
+            disabled={isSaving}
+          >
+            Copper
+          </button>
+          <button
+            className={tool === "brush" ? activeButtonClass : idleButtonClass}
+            aria-pressed={tool === "brush"}
+            onClick={() => setTool("brush")}
+            disabled={!editorCanEdit}
+            title="Brush"
+          >
+            <BrushIcon className="size-4" aria-hidden="true" />
+            Brush
+          </button>
+          <button
+            className={tool === "eraser" ? activeButtonClass : idleButtonClass}
+            aria-pressed={tool === "eraser"}
+            onClick={() => setTool("eraser")}
+            disabled={!editorCanEdit}
+            title="Eraser"
+          >
+            <EraserIcon className="size-4" aria-hidden="true" />
+            Eraser
+          </button>
+          {paintLabels.map((label) => (
+            <button
+              key={`${semanticMode}-${label.id}`}
+              className={activeLabel === label.id ? activeButtonClass : idleButtonClass}
+              aria-pressed={activeLabel === label.id}
+              onClick={() => setActiveLabel(label.id)}
+              disabled={!editorCanEdit}
+            >
+              {label.name}
+            </button>
+          ))}
+          <div className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
+            <span>Size {brushRadius}px</span>
+            <input
+              type="range"
+              min={1}
+              max={80}
+              value={brushRadius}
+              onChange={(event) => setBrushRadius(Number(event.target.value))}
+              disabled={!editorCanEdit}
+              className="w-32"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <button className={idleButtonClass} onClick={undo} disabled={!editorCanEdit} title="Undo">
+            <Undo2Icon className="size-4" aria-hidden="true" />
+            Undo
+          </button>
+          <button className={idleButtonClass} onClick={redo} disabled={!editorCanEdit} title="Redo">
+            <Redo2Icon className="size-4" aria-hidden="true" />
+            Redo
+          </button>
+          <button className={idleButtonClass} onClick={fitToContainer} title="Fit">
+            <Maximize2Icon className="size-4" aria-hidden="true" />
+            Fit
+          </button>
+          <button className={idleButtonClass} onClick={reloadLatest} disabled={isSaving} title="Reload latest">
+            <RotateCcwIcon className="size-4" aria-hidden="true" />
+            Reload latest
+          </button>
+          <button
+            className={idleButtonClass}
+            onClick={() => void saveMask()}
+            disabled={!editorCanEdit || isSaving || !hasUnsavedChanges}
+            title="Save"
+          >
+            <SaveIcon className="size-4" aria-hidden="true" />
+            Save semantic mask
+          </button>
+          <div className="ml-auto flex min-h-11 flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>Semantic opacity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(opacity * 100)}
+                onChange={(event) => setOpacity(Number(event.target.value) / 100)}
+                className="w-28"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span>Support opacity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(supportOpacity * 100)}
+                onChange={(event) => setSupportOpacity(Number(event.target.value) / 100)}
+                className="w-28"
+              />
+            </div>
+            {editorStatus && <div>{editorStatus}</div>}
+            <div className="flex items-center gap-2">
+              <span>Zoom</span>
+              <input
+                type="range"
+                min={5}
+                max={300}
+                value={Math.round(zoom * 100)}
+                onChange={(event) => setZoom(clampNumber(Number(event.target.value) / 100, 0.05, 3))}
+                className="w-28"
+              />
+              <span className="tabular-nums w-10">{Math.round(zoom * 100)}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <EditorCanvasStack
+        containerRef={containerRef}
+        baseCanvasRef={baseCanvasRef}
+        predictionCanvasRef={supportCanvasRef}
+        overlayCanvasRef={overlayCanvasRef}
+        bboxCanvasRef={bboxCanvasRef}
+        previewCanvasRef={previewCanvasRef}
+        tool={tool}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onPointerLeave={onPointerLeave}
+        onCommitPolygon={() => undefined}
+      />
+    </div>
+  );
+}

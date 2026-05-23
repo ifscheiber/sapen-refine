@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Depends on RB-088
+Done
 
 ## Priority
 

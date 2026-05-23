@@ -125,6 +125,77 @@ export type CropSupportMaskState = {
   };
 };
 
+export type CropSemanticMode = "SAP_HEARTWOOD" | "COPPER";
+
+export type CropSemanticMaskState = {
+  crop: DerivedSliceCrop & { projectId: string };
+  myRole: string;
+  canEdit: boolean;
+  labelSchemaVersionId: string;
+  supportRequired: boolean;
+  semanticLabels: Record<
+    CropSemanticMode,
+    {
+      labels: Array<{
+        stableId: string;
+        value: number;
+        name: string;
+        colorToken: string | null;
+        isTrainable: boolean;
+      }>;
+      allowedValues: number[];
+      backgroundValue: number;
+      primaryValues: Record<string, number | null>;
+    }
+  >;
+  currentSupportMask: {
+    id: string;
+    version: number;
+    size: number;
+    checksum: string | null;
+    contentType: string | null;
+    width: number;
+    height: number;
+    format: string;
+    reviewState: string;
+    coordinateSpace: "CROP_PIXEL";
+    derivedCropId: string | null;
+    sliceInstanceId: string | null;
+    createdAt: string;
+    createdBy: { email: string; name: string | null } | null;
+    url: string;
+  } | null;
+  latestSemanticMasks: Record<
+    CropSemanticMode,
+    {
+      id: string;
+      version: number;
+      size: number;
+      checksum: string | null;
+      contentType: string | null;
+      width: number;
+      height: number;
+      format: string;
+      reviewState: string;
+      coordinateSpace: "CROP_PIXEL";
+      derivedCropId: string | null;
+      sliceInstanceId: string | null;
+      supportMaskVersionId: string | null;
+      semanticMode: CropSemanticMode | null;
+      createdAt: string;
+      createdBy: { email: string; name: string | null } | null;
+      url: string;
+    } | null
+  >;
+  semanticReadiness: {
+    status: string;
+    label: string;
+    supportMaskVersionId: string | null;
+    canSaveDraft: boolean;
+    latestSemanticVersions?: Record<CropSemanticMode, number | null>;
+  };
+};
+
 export type ReviewVersion = {
   id: string;
   version: number;

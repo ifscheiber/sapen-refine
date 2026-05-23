@@ -13,6 +13,7 @@ describe("mask upload route contracts", () => {
       "src/app/api/images/[imageId]/mask/upload/route.ts",
       "src/app/api/images/[imageId]/support-mask/upload/route.ts",
       "src/app/api/slice-crops/[cropId]/support-mask/upload/route.ts",
+      "src/app/api/slice-crops/[cropId]/semantic-mask/upload/route.ts",
       "src/app/api/correction-tasks/[taskId]/corrections/route.ts",
     ];
 
