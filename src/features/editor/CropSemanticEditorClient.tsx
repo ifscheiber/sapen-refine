@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
   BrushIcon,
@@ -17,7 +16,7 @@ import { MaskBuffer } from "@/mask/maskBuffer";
 import { applyPatch } from "@/mask/patch";
 import type { Patch } from "@/mask/patch";
 import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
-import { applyBrushWithinSupport } from "@/mask/tools";
+import { applyBrush, applyBrushWithinSupport } from "@/mask/tools";
 import {
   clampNumber,
   clientPointToImagePoint,
@@ -116,7 +115,7 @@ function semanticPaintLabels(state: CropSemanticMaskState | null, semanticMode: 
 }
 
 function supportReadinessLabel(state: CropSemanticMaskState | null) {
-  if (!state?.currentSupportMask) return "Support required";
+  if (!state?.currentSupportMask) return "No explicit support mask";
   return `${state.currentSupportMask.reviewState.toLowerCase()} support v${state.currentSupportMask.version}`;
 }
 
@@ -198,7 +197,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     [supportOpacity],
   );
   const editorCanEdit =
-    canEdit && Boolean(state?.canEdit) && editorReady && Boolean(state?.currentSupportMask);
+    canEdit && Boolean(state?.canEdit) && editorReady;
   const classificationCanEdit = canEdit && Boolean(state?.canEdit) && Boolean(state);
 
   const applyZoom = useCallback((z: number) => {
@@ -338,20 +337,17 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
         supportOpacityRef.current,
       );
 
-      if (!nextState.currentSupportMask) {
-        setEditorReady(false);
-        setStatus("");
-        return;
+      let supportBytes: Uint8Array | null = null;
+      if (nextState.currentSupportMask) {
+        const supportResponse = await fetch(nextState.currentSupportMask.url, { cache: "no-store", signal });
+        if (!supportResponse.ok) throw new Error(`CROP_SUPPORT_MASK_ASSET_FAILED_${supportResponse.status}`);
+        supportBytes = new Uint8Array(await supportResponse.arrayBuffer());
+        if (!loadGuard.isCurrent()) return;
       }
-
-      const supportResponse = await fetch(nextState.currentSupportMask.url, { cache: "no-store", signal });
-      if (!supportResponse.ok) throw new Error(`CROP_SUPPORT_MASK_ASSET_FAILED_${supportResponse.status}`);
-      const supportBytes = new Uint8Array(await supportResponse.arrayBuffer());
-      if (!loadGuard.isCurrent()) return;
 
       let latestBytes: Uint8Array | null = null;
       const latestSemantic = nextState.latestSemanticMasks[semanticMode];
-      if (latestSemantic?.url && latestSemantic.supportMaskVersionId === nextState.currentSupportMask.id) {
+      if (latestSemantic?.url) {
         const assetResponse = await fetch(latestSemantic.url, { cache: "no-store", signal });
         if (!assetResponse.ok) throw new Error(`CROP_SEMANTIC_MASK_ASSET_FAILED_${assetResponse.status}`);
         latestBytes = new Uint8Array(await assetResponse.arrayBuffer());
@@ -365,7 +361,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       if (width !== nextState.crop.cropWidth || height !== nextState.crop.cropHeight) {
         throw new Error("CROP_IMAGE_DIMENSIONS_MISMATCH");
       }
-      if (supportBytes.byteLength !== width * height) {
+      if (supportBytes && supportBytes.byteLength !== width * height) {
         throw new Error("SUPPORT_MASK_DIMENSIONS_MISMATCH");
       }
 
@@ -398,8 +394,10 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       overlayCtx.clearRect(0, 0, width, height);
       baseCtx.drawImage(img, 0, 0);
 
-      const supportMask = new MaskBuffer(width, height, Labels.BG);
-      supportMask.data.set(supportBytes);
+      const supportMask = supportBytes ? new MaskBuffer(width, height, Labels.BG) : null;
+      if (supportMask && supportBytes) {
+        supportMask.data.set(supportBytes);
+      }
       supportMaskRef.current = supportMask;
 
       const semanticMask = new MaskBuffer(
@@ -413,7 +411,8 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       }
       maskRef.current = semanticMask;
 
-      renderSupportOverlayFull();
+      supportCtx.clearRect(0, 0, width, height);
+      if (supportMask) renderSupportOverlayFull();
       renderOverlayFull();
       setEditorReady(true);
       setHasUnsavedChanges(false);
@@ -498,19 +497,16 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   function stamp(x: number, y: number) {
     const mask = maskRef.current;
     const supportMask = supportMaskRef.current;
-    if (!mask || !supportMask || !editorCanEdit) return;
-    const patch = applyBrushWithinSupport(
-      mask,
-      supportMask,
-      x,
-      y,
-      brushRadius,
-      getPaintLabelForTool({
-        tool,
-        maskMode: "semantic",
-        activeLabel,
-      }),
-    );
+    if (!mask || !editorCanEdit) return;
+    const paintLabel = getPaintLabelForTool({
+      tool,
+      maskMode: "semantic",
+      activeLabel,
+    });
+    const patch =
+      semanticMode === "COPPER" && supportMask
+        ? applyBrushWithinSupport(mask, supportMask, x, y, brushRadius, paintLabel)
+        : applyBrush(mask, x, y, brushRadius, paintLabel);
     if (!patch) return;
     currentStrokeRef.current.push(patch);
     paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
@@ -620,18 +616,21 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   async function saveMask() {
     const mask = maskRef.current;
     const supportMask = state?.currentSupportMask;
-    if (!mask || !supportMask || !editorCanEdit || !hasUnsavedChanges) return;
+    if (!mask || !editorCanEdit || !hasUnsavedChanges) return;
     setIsSaving(true);
     setStatus("Saving crop semantic mask");
     try {
+      const headers: Record<string, string> = {
+        "x-semantic-mode": semanticMode,
+      };
+      if (semanticMode === "COPPER" && supportMask) {
+        headers["x-support-mask-version-id"] = supportMask.id;
+      }
       const response = await uploadEditorMask(API_CROP_SEMANTIC_MASK_UPLOAD(cropId), {
         data: mask.data,
         width: mask.width,
         height: mask.height,
-        headers: {
-          "x-support-mask-version-id": supportMask.id,
-          "x-semantic-mode": semanticMode,
-        },
+        headers,
       });
       const data = await response.json().catch(() => null);
       if (!data?.ok) throw new Error(data?.error ?? "CROP_SEMANTIC_MASK_SAVE_FAILED");
@@ -726,9 +725,6 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   }
 
   const editorStatus = isSaving ? "Saving..." : status || (hasUnsavedChanges ? "Unsaved changes" : "");
-  const supportHref = state
-    ? `/app/projects/${state.crop.projectId}/images/${state.crop.sourceImageId}/slices/${state.crop.sliceInstanceId}/crops/${state.crop.id}/support`
-    : null;
   const activeSemanticMask = state?.latestSemanticMasks[semanticMode] ?? null;
   const classificationReviewActions =
     state?.latestClassification &&
@@ -777,32 +773,6 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       : []),
   ];
 
-  if (state && !state.currentSupportMask) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-4 text-card-foreground">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <div className="font-medium">Support mask required before semantic annotation.</div>
-            <div className="text-sm text-muted-foreground">
-              Crop semantic masks are constrained by the current crop support mask.
-            </div>
-          </div>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {supportHref && (
-              <Link className={idleButtonClass} href={supportHref}>
-                Open support editor
-              </Link>
-            )}
-            <button className={idleButtonClass} onClick={() => void reloadLatest()}>
-              <RotateCcwIcon className="size-4" aria-hidden="true" />
-              Reload
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
       <div className="border-b border-border bg-muted p-3">
@@ -813,7 +783,11 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
           {state?.cropReadiness && (
             <span>Export readiness: {state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}</span>
           )}
-          <span>Outside-support pixels are locked.</span>
+          {semanticMode === "SAP_HEARTWOOD" && <span>Support geometry derives from semantic foreground.</span>}
+          {semanticMode === "COPPER" && state?.currentSupportMask && <span>Outside-support pixels are locked.</span>}
+          {semanticMode === "COPPER" && !state?.currentSupportMask && (
+            <span>Copper drafts can save now; support is required before export.</span>
+          )}
           {semanticMode === "COPPER" && <span>Non-copper wood remains background inside support.</span>}
         </div>
 

@@ -149,7 +149,7 @@ Each crop semantic mask version records or references:
 - the source image artifact through `AnnotationArtifact.imageId`,
 - the slice instance through `AnnotationArtifactVersion.sliceInstanceId`,
 - the derived crop through `AnnotationArtifactVersion.derivedCropId`,
-- the exact support mask version through `AnnotationArtifactVersion.supportMaskVersionId`,
+- the optional support mask version through `AnnotationArtifactVersion.supportMaskVersionId`,
 - `coordinateSpace = CROP_PIXEL`,
 - `cropSemanticMode = SAP_HEARTWOOD` or `COPPER`,
 - crop width and height,
@@ -159,15 +159,16 @@ Each crop semantic mask version records or references:
 
 Rules:
 
-- Semantic save requires a current crop support mask for the same crop and slice.
-- The server loads the referenced support mask version and rejects non-background semantic pixels outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
+- Sap/Heartwood semantic save does not require an explicit support mask. Its non-background semantic foreground is the support geometry source for readiness/export.
+- Copper semantic draft save does not require an explicit support mask, but Copper readiness/export requires an approved crop support mask for the same crop.
+- When a Copper semantic save references support, the server loads that support mask version and rejects non-background semantic pixels outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
 - Browser responses include app-mediated mask asset URLs and do not expose private storage keys.
-- Export consumers must not treat outside-support semantic bytes as meaningful slice material.
+- Export consumers must inspect `supportGeometrySource`: Sap/Heartwood may use `SEMANTIC_FOREGROUND`, while Copper uses `EXPLICIT_SUPPORT_MASK`.
 - Semantic masks and support masks may share a crop coordinate space, but they remain separate artifact families.
 
 Sapwood/heartwood workflow:
 
-- Sapwood, heartwood, and `UNKNOWN` can be painted manually inside support.
+- Sapwood, heartwood, and `UNKNOWN` can be painted manually in crop space; non-background semantic pixels define support geometry.
 - Complement fill is explicitly deferred; RB-089 does not silently auto-fill the other class.
 
 Copper workflow:
@@ -188,7 +189,7 @@ Sapwood/heartwood present  -> SAP_HEARTWOOD_SLICE
 Insufficient semantics     -> UNKNOWN or REVIEW_REQUIRED
 ```
 
-The implementation is save-time and uses the human user who saved the semantic mask as the attributable actor. It reads the saved semantic mask bytes, semantic mode, active label schema values, derived crop id, slice instance id, and exact support mask version id. It does not infer classification from BBoxes, crops alone, support masks alone, predictions, or Copper semantic masks as support geometry.
+The implementation is save-time and uses the human user who saved the semantic mask as the attributable actor. It reads the saved semantic mask bytes, semantic mode, active label schema values, derived crop id, slice instance id, and optional support mask version id. It does not infer classification from BBoxes, crops alone, support masks alone, predictions, or Copper semantic masks as support geometry.
 
 RB-090 classification persistence:
 
@@ -250,7 +251,7 @@ Current implemented behavior:
 - RB-087 derived crop PNGs generated from active/current BBox versions,
 - crop records in `CROP_PIXEL` with integer translation transforms back to source pixels,
 - RB-088 crop support masks in `CROP_PIXEL` linked to the source image, slice instance, and derived crop,
-- RB-089 crop semantic masks in `CROP_PIXEL` linked to the source image, slice instance, derived crop, exact support mask version, and semantic mode,
+- RB-089/RB-100 crop semantic masks in `CROP_PIXEL` linked to the source image, slice instance, derived crop, optional support mask version, and semantic mode,
 - RB-090 draft slice classifications derived from crop semantic masks and manual crop workflow overrides linked to the slice instance,
 - RB-091 crop training exports for ready crop candidates with approved support, semantic, and classification lineage,
 - RB-092 crop readiness and review actions in the project export panel, BBox crop panel, crop support editor, and crop semantic editor,

@@ -128,7 +128,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - Crop support-mask state is loaded from `GET /api/slice-crops/[cropId]/support-mask`.
 - Crop support-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/support-mask/upload`.
 - Crop semantic-mask state is loaded from `GET /api/slice-crops/[cropId]/semantic-mask`.
-- Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-support-mask-version-id` and `x-semantic-mode`. The server rejects missing support, stale support lineage, invalid mode labels, wrong dimensions, and semantic foreground outside support.
+- Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-semantic-mode` and optional `x-support-mask-version-id`. Sap/Heartwood can save without support and derives support from semantic foreground. Copper can save supportless drafts, but Copper readiness/export requires approved explicit support.
 - Crop support and semantic editors surface submit/approve/reject actions for the latest crop support mask, active crop semantic mask, and latest slice classification through the existing review APIs.
 
 ## Current Domain Model
@@ -146,7 +146,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
 - Derived slice crops are persisted as `DerivedSliceCrop` rows in `CROP_PIXEL` coordinate space. They reference the immutable source image, source checksum, slice instance, and exact BBox version. Crop PNG bytes are private derived artifacts and are read through `/api/slice-crops/[cropId]/asset`.
 - Crop support masks are persisted as crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL`. They link to the source image through `AnnotationArtifact.imageId`, to the slice through `AnnotationArtifactVersion.sliceInstanceId`, and to the crop through `AnnotationArtifactVersion.derivedCropId`.
-- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, exact support mask version, and semantic mode. The editor exposes Sap/Heartwood and Copper modes, and brush strokes mutate only support pixels.
+- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, optional support mask version, and semantic mode. The editor exposes Sap/Heartwood and Copper modes.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -186,7 +186,7 @@ Original image
 -> BBox proposal
 -> derived slice crop
 -> pixel-perfect crop support mask
--> semantic annotation constrained by support
+-> semantic annotation with mode-aware support policy
 -> auto-suggested slice classification
 -> review/approval
 -> export with crop/source-image provenance
@@ -247,12 +247,12 @@ Current RB-088 behavior:
 Current RB-089 behavior:
 
 - The selected derived crop links to a deep-linkable crop semantic editor.
-- The crop semantic editor soft-blocks when no crop support mask exists and links back to the support editor.
+- The crop semantic editor no longer soft-blocks when support is missing. Sap/Heartwood support is derived from semantic foreground; Copper drafts can save before support exists but remain not export-ready until support is approved.
 - The editor displays the crop PNG with a read-only support overlay and editable semantic overlay.
 - Sap/Heartwood mode allows manual Sapwood, Heartwood, and Unknown painting inside support. Complement fill is deferred.
 - Copper mode allows Copper and Unknown painting inside support; background inside support is the implicit non-copper negative.
-- Saving creates a new draft `SEMANTIC_MASK` artifact version with `coordinateSpace = CROP_PIXEL`, the selected semantic mode, and the exact support-mask version id.
-- The browser clamps brush writes to support pixels, and the server rejects any non-background semantic byte outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
+- Saving creates a new draft `SEMANTIC_MASK` artifact version with `coordinateSpace = CROP_PIXEL`, the selected semantic mode, and optional support-mask version id.
+- Copper edits are constrained to support when support is present; Sap/Heartwood foreground is allowed to define support geometry directly.
 
 Current RB-090 behavior:
 

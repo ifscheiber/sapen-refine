@@ -102,9 +102,11 @@ Crop candidates are classified as:
 - `PARTIAL` - some crop work exists but selected approved versions are missing, unapproved, mismatched, or incomplete.
 - `NOT_READY` - no exportable crop annotation components exist for the crop.
 
-Readiness reasons include `MISSING_SUPPORT_MASK`, `MISSING_SEMANTIC_MASK`, `MISSING_CLASSIFICATION`, `SUPPORT_NOT_APPROVED`, `SEMANTIC_NOT_APPROVED`, `CLASSIFICATION_NOT_APPROVED`, `LINEAGE_MISMATCH`, `COORDINATE_SPACE_MISMATCH`, and integrity metadata warnings such as missing checksums or dimensions. Only `READY` crop candidates are included as ground truth. `PARTIAL` and `NOT_READY` candidates are listed in `skippedCropItems`.
+Readiness reasons include `MISSING_SUPPORT_MASK`, `MISSING_SEMANTIC_MASK`, `MISSING_CLASSIFICATION`, `SUPPORT_NOT_APPROVED`, `SEMANTIC_NOT_APPROVED`, `CLASSIFICATION_NOT_APPROVED`, `LINEAGE_MISMATCH`, `COORDINATE_SPACE_MISMATCH`, and integrity metadata warnings such as missing checksums or dimensions. `MISSING_SUPPORT_MASK` applies to Copper crop candidates, not supportless Sap/Heartwood candidates. Only `READY` crop candidates are included as ground truth. `PARTIAL` and `NOT_READY` candidates are listed in `skippedCropItems`.
 
 Copper-specific export rule: Copper semantic masks remain semantic material targets. They are not slice support geometry. A crop training item for a Copper slice still requires an approved support mask for the complete physical slice crop.
+
+Sap/Heartwood-specific export rule: Supportless Sap/Heartwood crop items record `supportGeometrySource = SEMANTIC_FOREGROUND`. Non-background Sap/Heartwood semantic pixels define the support geometry; background crop padding is not support.
 
 Prediction-analysis exports remain separate from ground-truth training exports. RB-085 does not add crop-aware model QA package semantics; that must be designed explicitly if a later crop-prediction workflow needs it.
 

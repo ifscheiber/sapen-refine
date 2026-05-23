@@ -21,7 +21,7 @@ Original image
 -> BBox proposal
 -> derived slice crop
 -> pixel-perfect slice support mask in crop coordinates
--> semantic annotation constrained by support
+-> semantic annotation with mode-aware support policy
 -> auto-suggested slice classification
 -> review/approval
 -> export with crop and source-image coordinate provenance
@@ -45,7 +45,7 @@ sourceY = cropY + cropOriginY
 
 Padding is part of the crop artifact metadata. Implementations must clip padded crop regions at source-image boundaries and must document how out-of-source crop pixels are represented if they exist.
 
-Every training-ready slice instance requires a support mask. Copper semantic masks remain material labels only and must never be treated as complete slice support geometry. Sapwood/heartwood workflows may use complement fill inside support, but unknown/review-required semantics must remain possible.
+Copper training-ready slice instances require explicit support masks. Sap/Heartwood crop semantics may be supportless; non-background Sap/Heartwood semantic foreground is the support geometry source. Copper semantic masks remain material labels only and must never be treated as complete slice support geometry. Sapwood/heartwood workflows may use complement fill inside support or foreground-derived support, but unknown/review-required semantics must remain possible.
 
 Slice classification can be auto-suggested from semantic content, but the suggestion must be auditable and overridable by a human reviewer. Auto-derived classifications do not silently become approved training labels unless a later implementation defines an explicit accepted-auto policy.
 
@@ -55,7 +55,7 @@ Slice classification can be auto-suggested from semantic content, but the sugges
 - RB-086 introduces BBox proposal versions without weakening existing ground-truth rules. RB-087 introduces derived crop versions without treating crop padding as support geometry. RB-088 through RB-090 introduce crop support masks, crop-constrained semantics, and auditable auto classification suggestions. RB-091 implements crop training export, and RB-092 implements shared crop readiness plus review integration.
 - Export manifests must preserve enough transform and provenance data to map crop masks back to source-image pixels.
 - Review state must stay artifact-specific. A reviewed crop does not automatically approve its support mask, semantic mask, or classification.
-- Export readiness must reject or flag stale lineage, such as a semantic mask derived from an older crop/support version than the selected training support mask.
+- Export readiness must reject or flag stale lineage. Copper uses explicit support lineage and support/semantic validation; supportless Sap/Heartwood records `SEMANTIC_FOREGROUND` support geometry in the export contract.
 - Current `IMAGE_PIXEL` mask coordinate-space behavior remains implemented for semantic/support masks. RB-086 persists `SOURCE_IMAGE_PIXEL` for BBox proposal versions; RB-087 persists `CROP_PIXEL` for derived crop artifacts.
 - Prediction-analysis exports remain separate from ground-truth training exports; RB-085 does not add crop-aware model QA export semantics.
 
@@ -64,7 +64,7 @@ Slice classification can be auto-suggested from semantic content, but the sugges
 - RB-086: BBox slice proposal workflow. Implemented first runtime slice: source-image BBox proposal versions.
 - RB-087: Derived slice crop generation and persistence. Implemented server-side PNG generation, 32 px default configurable padding, source-bound clipping, app-mediated reads, and editor preview.
 - RB-088: Crop support mask editor. Implemented crop-scoped support artifact versions.
-- RB-089: Crop-constrained semantic annotation. Implemented support-constrained crop semantic masks.
+- RB-089/RB-100: Crop semantic annotation. Implemented mode-aware crop semantic masks: Sap/Heartwood supportless foreground geometry and Copper explicit-support readiness/export.
 - RB-090: Auto slice classification from semantic masks. Implemented draft auto suggestions and manual override provenance.
 - RB-091: Crop/original-coordinate export contract implementation. Implemented crop training manifest/package export with crop/source provenance; source-image-space reprojection remains deferred.
 - RB-092: Crop workflow review/approval integration. Implemented central crop readiness, review actions in crop editors, and project/export readiness integration.

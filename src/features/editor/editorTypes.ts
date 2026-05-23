@@ -91,6 +91,7 @@ export type SliceClassValue =
 export type ReviewStateValue = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 export type ReviewAction = "submit" | "approve" | "reject";
 export type CropWorkflowReadinessStatus = "READY" | "PARTIAL" | "NOT_READY" | "REVIEW_REQUIRED";
+export type CropSupportGeometrySource = "EXPLICIT_SUPPORT_MASK" | "SEMANTIC_FOREGROUND";
 export type CropWorkflowNextAction =
   | "OPEN_SUPPORT_EDITOR"
   | "OPEN_SEMANTIC_EDITOR"
@@ -168,6 +169,7 @@ export type CropWorkflowReadinessCandidate = {
   latestSupportMaskVersionId: string | null;
   latestSemanticMaskVersionId: string | null;
   latestClassificationVersionId: string | null;
+  supportGeometrySource: CropSupportGeometrySource | null;
   readinessStatus: CropWorkflowReadinessStatus;
   readinessReasons: string[];
   nextActions: CropWorkflowNextAction[];
@@ -239,6 +241,14 @@ export type CropSupportMaskState = {
 };
 
 export type CropSemanticMode = "SAP_HEARTWOOD" | "COPPER";
+export type CropSemanticSupportPolicy = Record<
+  CropSemanticMode,
+  {
+    supportRequiredForDraftSave: boolean;
+    supportRequiredForReadinessExport: boolean;
+    supportGeometrySource: CropSupportGeometrySource;
+  }
+>;
 
 export type CropSemanticMaskState = {
   crop: DerivedSliceCrop & { projectId: string };
@@ -246,6 +256,7 @@ export type CropSemanticMaskState = {
   canEdit: boolean;
   labelSchemaVersionId: string;
   supportRequired: boolean;
+  supportPolicy: CropSemanticSupportPolicy;
   semanticLabels: Record<
     CropSemanticMode,
     {
@@ -307,6 +318,7 @@ export type CropSemanticMaskState = {
     label: string;
     supportMaskVersionId: string | null;
     canSaveDraft: boolean;
+    supportPolicy: CropSemanticSupportPolicy;
     latestSemanticVersions?: Record<CropSemanticMode, number | null>;
   };
   latestClassification: SerializedSliceClassification | null;

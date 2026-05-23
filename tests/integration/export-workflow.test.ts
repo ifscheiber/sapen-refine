@@ -397,7 +397,8 @@ describe("training export workflow", () => {
   async function createCropClassificationVersion(params: {
     crop: Awaited<ReturnType<typeof createCropFixture>>["crop"];
     semanticMaskVersionId: string;
-    supportMaskVersionId: string;
+    supportMaskVersionId?: string | null;
+    class?: "SAP_HEARTWOOD_SLICE" | "COPPER_SLICE";
     reviewState?: ArtifactReviewState;
     name: string;
   }) {
@@ -411,10 +412,11 @@ describe("training export workflow", () => {
         imageId: params.crop.sourceImageId,
         sliceInstanceId: params.crop.sliceInstanceId,
         version: (latest._max.version ?? 0) + 1,
-        class: "COPPER_SLICE",
+        class: params.class ?? "COPPER_SLICE",
         reviewState: params.reviewState ?? "APPROVED",
         source: "AUTO_FROM_SEMANTIC_MASK",
-        derivationReason: "COPPER_PIXELS_PRESENT",
+        derivationReason:
+          params.class === "SAP_HEARTWOOD_SLICE" ? "SAP_HEARTWOOD_PIXELS_PRESENT" : "COPPER_PIXELS_PRESENT",
         derivedFromSemanticMaskVersionId: params.semanticMaskVersionId,
         derivedFromSupportMaskVersionId: params.supportMaskVersionId,
         derivedFromCropId: params.crop.id,
@@ -676,6 +678,11 @@ describe("training export workflow", () => {
         sliceInstanceId: crop.sliceInstanceId,
         reviewState: "APPROVED",
       },
+      supportGeometry: {
+        source: "EXPLICIT_SUPPORT_MASK",
+        supportMaskVersionId: supportVersionId,
+        semanticMaskVersionId: null,
+      },
       semanticMask: {
         artifactVersionId: semanticVersionId,
         path: `masks/semantic-crop/${crop.sliceInstanceId}_${semanticVersionId}.u8raw`,
@@ -708,6 +715,80 @@ describe("training export workflow", () => {
     expect(zip.file(item.originalImage.path)).toBeTruthy();
     expect(zip.file(item.derivedCrop.path)).toBeTruthy();
     expect(zip.file(item.supportMask.path)).toBeTruthy();
+    expect(zip.file(item.semanticMask.path)).toBeTruthy();
+  });
+
+  it("exports supportless Sap/Heartwood crops with semantic foreground support geometry", async () => {
+    const { crop } = await createCropFixture("supportless-sap");
+    const semanticVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      semanticMode: "SAP_HEARTWOOD",
+      name: "supportless-sap-semantic",
+    });
+    const classificationVersionId = await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: semanticVersionId,
+      supportMaskVersionId: null,
+      class: "SAP_HEARTWOOD_SLICE",
+      name: "supportless-sap-classification",
+    });
+
+    const readiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    const cropCandidate = readiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id);
+    expect(cropCandidate).toMatchObject({
+      readinessStatus: "READY",
+      readinessReasons: [],
+      supportMask: null,
+      supportGeometrySource: "SEMANTIC_FOREGROUND",
+    });
+
+    const exportBatch = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["crop_training"] },
+      prisma,
+    );
+    const manifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    const item = manifest.cropItems.find(
+      (entry: { derivedCrop: { id: string } }) => entry.derivedCrop.id === crop.id,
+    );
+    expect(item).toMatchObject({
+      supportGeometry: {
+        source: "SEMANTIC_FOREGROUND",
+        supportMaskVersionId: null,
+        semanticMaskVersionId: semanticVersionId,
+      },
+      supportMask: null,
+      semanticMask: {
+        artifactVersionId: semanticVersionId,
+        supportMaskVersionId: null,
+        cropSemanticMode: "SAP_HEARTWOOD",
+      },
+      classification: {
+        classificationVersionId,
+        derivedFromSemanticMaskVersionId: semanticVersionId,
+        derivedFromSupportMaskVersionId: null,
+        derivedFromCropId: crop.id,
+      },
+    });
+
+    const persistedItems = await prisma.exportItem.findMany({
+      where: { exportBatchId: exportBatch.id, derivedCropId: crop.id },
+      select: { role: true },
+    });
+    expect(persistedItems.map((entry) => entry.role)).not.toContain("crop-support-mask");
+
+    const packageFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: exportBatch.id, userId: ownerId, file: "package" },
+      prisma,
+    );
+    const zip = await JSZip.loadAsync(packageFile.bytes);
     expect(zip.file(item.semanticMask.path)).toBeTruthy();
   });
 
@@ -746,7 +827,6 @@ describe("training export workflow", () => {
     expect(incompleteCandidate).toMatchObject({
       readinessStatus: "NOT_READY",
       readinessReasons: expect.arrayContaining([
-        "MISSING_SUPPORT_MASK",
         "MISSING_SEMANTIC_MASK",
         "MISSING_CLASSIFICATION",
       ]),

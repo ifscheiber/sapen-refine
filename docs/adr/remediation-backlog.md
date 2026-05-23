@@ -4,7 +4,7 @@ Deferred work discovered during repository hygiene should be recorded here inste
 
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
-Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089 adds support-constrained crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
+Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
 
 Impact: Large images can still stress browser/iPad memory and server request buffering during full-image annotation. Crop-based annotation is needed for scalable multi-slice workflows while preserving source-image coordinate provenance.
 

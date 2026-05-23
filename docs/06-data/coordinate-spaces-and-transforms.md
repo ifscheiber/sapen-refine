@@ -4,7 +4,7 @@
 
 This page defines the coordinate-space vocabulary for crop-based slice annotation.
 
-Current runtime behavior saves default full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. RB-087 adds persisted `CROP_PIXEL` derived crop metadata. RB-088 adds crop support-mask versions in `CROP_PIXEL`; RB-089 adds support-constrained crop semantic-mask versions in `CROP_PIXEL`; RB-090 links auto-derived classifications to the semantic/support/crop versions that define their coordinate lineage.
+Current runtime behavior saves default full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. RB-087 adds persisted `CROP_PIXEL` derived crop metadata. RB-088 adds crop support-mask versions in `CROP_PIXEL`; RB-089/RB-100 adds mode-aware crop semantic-mask versions in `CROP_PIXEL`; RB-090 links auto-derived classifications to the semantic/optional-support/crop versions that define their coordinate lineage.
 
 ## Coordinate Spaces
 

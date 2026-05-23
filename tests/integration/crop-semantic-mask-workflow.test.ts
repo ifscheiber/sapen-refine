@@ -206,7 +206,7 @@ describe("crop semantic mask workflow", () => {
 
   async function saveSemantic(params: {
     crop: Awaited<ReturnType<typeof createCrop>>["crop"];
-    supportMaskVersionId: string;
+    supportMaskVersionId?: string | null;
     semanticMode: "SAP_HEARTWOOD" | "COPPER";
     bytes: Uint8Array;
     name: string;
@@ -240,24 +240,45 @@ describe("crop semantic mask workflow", () => {
     );
   }
 
-  it("requires support before crop semantic masks can be saved", async () => {
+  it("saves Sap/Heartwood crop semantic masks without explicit support", async () => {
     const { crop } = await createCrop();
     const state = await loadCropSemanticMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
-    expect(state.supportRequired).toBe(true);
+    expect(state.supportRequired).toBe(false);
     expect(state.currentSupportMask).toBeNull();
+    expect(state.semanticReadiness).toMatchObject({
+      status: "DRAFT_READY",
+      canSaveDraft: true,
+      supportMaskVersionId: null,
+    });
 
-    await expect(
-      saveSemantic({
-        crop,
-        supportMaskVersionId: "missing-support",
-        semanticMode: "SAP_HEARTWOOD",
-        bytes: new Uint8Array(crop.cropWidth * crop.cropHeight),
-        name: "missing-support",
-      }),
-    ).rejects.toMatchObject({ code: "SUPPORT_MASK_REQUIRED" });
+    const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    bytes[0] = Labels.SAPWOOD;
+    bytes[crop.cropWidth + 1] = Labels.HEARTWOOD;
+
+    const saved = await saveSemantic({
+      crop,
+      semanticMode: "SAP_HEARTWOOD",
+      bytes,
+      name: "supportless-sap-heartwood",
+    });
+    const latest = saved.latestSemanticMasks.SAP_HEARTWOOD;
+    expect(latest).toMatchObject({
+      supportMaskVersionId: null,
+      semanticMode: "SAP_HEARTWOOD",
+      coordinateSpace: "CROP_PIXEL",
+    });
+    expect(saved.classificationDerivation).toMatchObject({
+      ok: true,
+      classification: {
+        class: "SAP_HEARTWOOD_SLICE",
+        derivedFromSemanticMaskVersionId: latest?.id,
+        derivedFromSupportMaskVersionId: null,
+        derivedFromCropId: crop.id,
+      },
+    });
   });
 
-  it("saves and reloads a support-constrained Sap/Heartwood crop semantic mask", async () => {
+  it("saves and reloads a Sap/Heartwood crop semantic mask with semantic-derived support geometry", async () => {
     const { crop } = await createCrop();
     const { supportMask } = await saveSupport(crop);
     const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
@@ -268,7 +289,7 @@ describe("crop semantic mask workflow", () => {
 
     const state = await saveSemantic({
       crop,
-      supportMaskVersionId: supportMask.id,
+      supportMaskVersionId: null,
       semanticMode: "SAP_HEARTWOOD",
       bytes,
       name: "sap-heartwood",
@@ -282,7 +303,7 @@ describe("crop semantic mask workflow", () => {
       coordinateSpace: "CROP_PIXEL",
       derivedCropId: crop.id,
       sliceInstanceId: crop.sliceInstanceId,
-      supportMaskVersionId: supportMask.id,
+      supportMaskVersionId: null,
       semanticMode: "SAP_HEARTWOOD",
       reviewState: "DRAFT",
       format: "u8raw-v1",
@@ -312,13 +333,13 @@ describe("crop semantic mask workflow", () => {
     expect(persisted.coordinateSpace).toBe("CROP_PIXEL");
     expect(persisted.coordinateTransform).toMatchObject({
       derivedCropId: crop.id,
-      supportMaskVersionId: supportMask.id,
+      supportMaskVersionId: null,
       semanticMode: "SAP_HEARTWOOD",
       cropCoordinateSpace: "CROP_PIXEL",
     });
     expect(persisted.derivedCropId).toBe(crop.id);
     expect(persisted.sliceInstanceId).toBe(crop.sliceInstanceId);
-    expect(persisted.supportMaskVersionId).toBe(supportMask.id);
+    expect(persisted.supportMaskVersionId).toBeNull();
     expect(persisted.cropSemanticMode).toBe("SAP_HEARTWOOD");
     expect(persisted.labelSchemaVersionId).toBe(labelSchemaVersionId);
     expect(persisted.createdById).toBe(ownerId);
@@ -332,7 +353,7 @@ describe("crop semantic mask workflow", () => {
         source: "AUTO_FROM_SEMANTIC_MASK",
         derivationReason: "SAP_HEARTWOOD_PIXELS_PRESENT",
         derivedFromSemanticMaskVersionId: latest.id,
-        derivedFromSupportMaskVersionId: supportMask.id,
+        derivedFromSupportMaskVersionId: null,
         derivedFromCropId: crop.id,
         reviewState: "DRAFT",
       },
@@ -342,7 +363,7 @@ describe("crop semantic mask workflow", () => {
       source: "AUTO_FROM_SEMANTIC_MASK",
       derivationReason: "SAP_HEARTWOOD_PIXELS_PRESENT",
       derivedFromSemanticMaskVersionId: latest.id,
-      derivedFromSupportMaskVersionId: supportMask.id,
+      derivedFromSupportMaskVersionId: null,
       derivedFromCropId: crop.id,
       reviewState: "DRAFT",
     });
@@ -408,6 +429,43 @@ describe("crop semantic mask workflow", () => {
       select: { supportArtifactVersionId: true },
     });
     expect(slice.supportArtifactVersionId).toBe(supportMask.id);
+  });
+
+  it("allows Copper semantic drafts before explicit support exists", async () => {
+    const { crop } = await createCrop();
+    const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    bytes[crop.cropWidth + 1] = Labels.COPPER;
+
+    const state = await saveSemantic({
+      crop,
+      semanticMode: "COPPER",
+      bytes,
+      name: "copper-before-support",
+    });
+
+    const latest = state.latestSemanticMasks.COPPER;
+    expect(latest).toMatchObject({
+      supportMaskVersionId: null,
+      semanticMode: "COPPER",
+      coordinateSpace: "CROP_PIXEL",
+    });
+    expect(state.latestClassification).toMatchObject({
+      class: "COPPER_SLICE",
+      source: "AUTO_FROM_SEMANTIC_MASK",
+      derivedFromSemanticMaskVersionId: latest?.id,
+      derivedFromSupportMaskVersionId: null,
+      derivedFromCropId: crop.id,
+      reviewState: "DRAFT",
+    });
+    expect(state.cropReadiness).toMatchObject({
+      readinessStatus: "PARTIAL",
+      readinessReasons: expect.arrayContaining([
+        "MISSING_SUPPORT_MASK",
+        "SEMANTIC_NOT_APPROVED",
+        "AUTO_CLASSIFICATION_NEEDS_REVIEW",
+      ]),
+      supportGeometrySource: "EXPLICIT_SUPPORT_MASK",
+    });
   });
 
   it("keeps auto classification as a draft suggestion and appends manual overrides", async () => {
@@ -501,12 +559,12 @@ describe("crop semantic mask workflow", () => {
     const { supportMask } = await saveSupport(crop);
 
     const outsideSupport = new Uint8Array(crop.cropWidth * crop.cropHeight);
-    outsideSupport[0] = Labels.SAPWOOD;
+    outsideSupport[0] = Labels.COPPER;
     await expect(
       saveSemantic({
         crop,
         supportMaskVersionId: supportMask.id,
-        semanticMode: "SAP_HEARTWOOD",
+        semanticMode: "COPPER",
         bytes: outsideSupport,
         name: "outside-support",
       }),

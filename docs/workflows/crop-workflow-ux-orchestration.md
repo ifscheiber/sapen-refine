@@ -15,7 +15,7 @@ Open crop workflow for an image
 -> navigate slices with whole-image context
 -> open the selected slice crop workbench
 -> draw or verify support mask
--> draw semantic mask after support exists
+-> draw semantic mask with mode-aware support policy
 -> derive or review classification
 -> review readiness and export eligibility
 ```

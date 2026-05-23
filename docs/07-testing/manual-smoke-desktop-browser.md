@@ -70,7 +70,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - Advanced export filters/history, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default pixel-perfect slice/support geometry per image.
-- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092 support source-image BBox slice proposals, derived crop previews, crop support-mask editing, support-constrained crop semantic editing, draft auto classification suggestions/manual overrides, crop training export, and crop-aware review/readiness integration.
+- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092/RB-100 support source-image BBox slice proposals, derived crop previews, crop support-mask editing, mode-aware crop semantic editing, draft auto classification suggestions/manual overrides, crop training export, and crop-aware review/readiness integration.
 - RB-070 adds explicit Eraser UX for semantic and support masks; background-label painting remains valid.
 - RB-080/RB-081 keep full-resolution editing as the current model and verify 6000x4000 mask upload payloads plus the real semantic save route in automated desktop Chrome. Tiled/downscaled working masks remain deferred unless real iPad Safari or customer hardware proves full-resolution editing unreliable.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.

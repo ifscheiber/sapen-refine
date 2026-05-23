@@ -786,7 +786,8 @@ async function buildCropTrainingManifest(params: {
   const readyCandidates = params.candidates.filter(
     (candidate) =>
       candidate.readinessStatus === "READY" &&
-      candidate.supportMask &&
+      candidate.supportGeometrySource &&
+      (candidate.supportGeometrySource === "SEMANTIC_FOREGROUND" || candidate.supportMask) &&
       candidate.semanticMask &&
       candidate.classification,
   );
@@ -797,8 +798,12 @@ async function buildCropTrainingManifest(params: {
 
   const cropItems = readyCandidates.flatMap((candidate) => {
     const paths = cropPackagePaths(candidate);
-    if (!candidate.supportMask || !candidate.semanticMask || !candidate.classification) return [];
-    if (!paths.supportMask || !paths.semanticMask) return [];
+    if (!candidate.semanticMask || !candidate.classification) return [];
+    if (!paths.semanticMask) return [];
+    if (candidate.supportGeometrySource === "EXPLICIT_SUPPORT_MASK" && !paths.supportMask) return [];
+    if (candidate.supportGeometrySource === "SEMANTIC_FOREGROUND") {
+      paths.supportMask = null;
+    }
 
     return [
       {
@@ -870,7 +875,19 @@ async function buildCropTrainingManifest(params: {
           createdBy: userManifest(candidate.crop.createdBy),
           createdAt: candidate.crop.createdAt.toISOString(),
         },
-        supportMask: cropArtifactManifest(candidate.supportMask, paths.supportMask),
+        supportGeometry: {
+          source: candidate.supportGeometrySource,
+          supportMaskVersionId:
+            candidate.supportGeometrySource === "EXPLICIT_SUPPORT_MASK"
+              ? candidate.supportMask?.id ?? null
+              : null,
+          semanticMaskVersionId:
+            candidate.supportGeometrySource === "SEMANTIC_FOREGROUND" ? candidate.semanticMask.id : null,
+        },
+        supportMask:
+          candidate.supportMask && paths.supportMask
+            ? cropArtifactManifest(candidate.supportMask, paths.supportMask)
+            : null,
         semanticMask: cropArtifactManifest(candidate.semanticMask, paths.semanticMask),
         classification: {
           classificationVersionId: candidate.classification.id,
@@ -927,6 +944,7 @@ async function buildCropTrainingManifest(params: {
       readinessStatus: candidate.readinessStatus,
       readinessReasons: candidate.readinessReasons,
       supportMaskVersionId: candidate.supportMask?.id ?? null,
+      supportGeometrySource: candidate.supportGeometrySource,
       semanticMaskVersionId: candidate.semanticMask?.id ?? null,
       classificationVersionId: candidate.classification?.id ?? null,
     })),
@@ -983,11 +1001,13 @@ async function buildCropTrainingZipPackage(params: {
 
   for (const item of params.manifest.cropItems) {
     const candidate = params.candidates.find((entry) => entry.crop.id === item.derivedCrop.id);
-    if (!candidate?.supportMask || !candidate.semanticMask) continue;
+    if (!candidate?.semanticMask) continue;
 
     zip.file(item.originalImage.path, await getObjectBytes(candidate.crop.sourceImage.storageKey));
     zip.file(item.derivedCrop.path, await getObjectBytes(candidate.crop.storageKey));
-    zip.file(item.supportMask.path, await getObjectBytes(candidate.supportMask.storageKey));
+    if (item.supportMask && candidate.supportMask) {
+      zip.file(item.supportMask.path, await getObjectBytes(candidate.supportMask.storageKey));
+    }
     zip.file(item.semanticMask.path, await getObjectBytes(candidate.semanticMask.storageKey));
   }
 
@@ -1126,12 +1146,6 @@ async function createCropTrainingExportBatch(params: {
           derivedCropId: item.derivedCrop.id,
         },
         {
-          role: "crop-support-mask",
-          imageId: item.originalImage.id,
-          artifactVersionId: item.supportMask.artifactVersionId,
-          derivedCropId: item.derivedCrop.id,
-        },
-        {
           role: "crop-semantic-mask",
           imageId: item.originalImage.id,
           artifactVersionId: item.semanticMask.artifactVersionId,
@@ -1144,6 +1158,14 @@ async function createCropTrainingExportBatch(params: {
           derivedCropId: item.derivedCrop.id,
         },
       ];
+      if (item.supportMask) {
+        rows.splice(2, 0, {
+          role: "crop-support-mask",
+          imageId: item.originalImage.id,
+          artifactVersionId: item.supportMask.artifactVersionId,
+          derivedCropId: item.derivedCrop.id,
+        });
+      }
       return rows;
     });
 

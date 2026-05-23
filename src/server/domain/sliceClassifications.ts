@@ -410,7 +410,6 @@ export async function deriveSliceClassificationForSemanticMaskVersionForUser(par
     semanticVersion.coordinateSpace !== "CROP_PIXEL" ||
     !derivedCropId ||
     !sliceInstanceId ||
-    !supportMaskVersionId ||
     !cropSemanticMode ||
     semanticVersion.size !== semanticVersion.width * semanticVersion.height
   ) {
@@ -516,7 +515,7 @@ export async function recordSliceClassificationDerivationFailure(params: {
   imageId: string;
   sliceInstanceId: string;
   semanticMaskVersionId: string;
-  supportMaskVersionId: string;
+  supportMaskVersionId: string | null;
   derivedCropId: string;
   error: string;
 }, db: SliceClassificationDb = prisma) {

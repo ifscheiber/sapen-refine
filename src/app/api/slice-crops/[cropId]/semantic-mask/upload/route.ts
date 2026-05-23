@@ -29,11 +29,8 @@ export async function POST(
     if (!preflight.canEdit) {
       return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
     }
-    if (!preflight.currentSupportMask) {
-      return NextResponse.json({ ok: false, error: "SUPPORT_MASK_REQUIRED" }, { status: 409 });
-    }
 
-    const supportMaskVersionId = req.headers.get("x-support-mask-version-id")?.trim() || "";
+    const supportMaskVersionId = req.headers.get("x-support-mask-version-id")?.trim() || null;
     const semanticMode = parseCropSemanticMode(req.headers.get("x-semantic-mode")?.trim());
 
     let upload;
@@ -53,7 +50,7 @@ export async function POST(
           sliceInstanceId: preflight.crop.sliceInstanceId,
           artifactKind: "SEMANTIC_MASK",
           coordinateSpace: "CROP_PIXEL",
-          supportMaskVersionId: preflight.currentSupportMask.id,
+          supportMaskVersionId,
           semanticMode,
           route: "crop-semantic-mask-upload",
           error: payload.body.error,

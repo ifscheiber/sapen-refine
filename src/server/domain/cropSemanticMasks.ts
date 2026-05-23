@@ -37,6 +37,28 @@ const SEMANTIC_LABEL_STABLE_IDS = [
 
 export const CROP_SEMANTIC_MASK_SCOPE_PREFIX = "crop-semantic:";
 
+export type CropSemanticSupportGeometrySource = "SEMANTIC_FOREGROUND" | "EXPLICIT_SUPPORT_MASK";
+
+export const CROP_SEMANTIC_SUPPORT_POLICY = {
+  SAP_HEARTWOOD: {
+    supportRequiredForDraftSave: false,
+    supportRequiredForReadinessExport: false,
+    supportGeometrySource: "SEMANTIC_FOREGROUND",
+  },
+  COPPER: {
+    supportRequiredForDraftSave: false,
+    supportRequiredForReadinessExport: true,
+    supportGeometrySource: "EXPLICIT_SUPPORT_MASK",
+  },
+} satisfies Record<
+  CropSemanticMode,
+  {
+    supportRequiredForDraftSave: boolean;
+    supportRequiredForReadinessExport: boolean;
+    supportGeometrySource: CropSemanticSupportGeometrySource;
+  }
+>;
+
 export class CropSemanticMaskWorkflowError extends Error {
   constructor(
     public readonly code: string,
@@ -93,11 +115,38 @@ export function validateSemanticMaskAgainstSupport(params: {
     throw new CropSemanticMaskWorkflowError("SUPPORT_MASK_LINEAGE_MISMATCH");
   }
 
+  validateSemanticMaskValues({
+    semanticBytes: params.semanticBytes,
+    allowedValues: params.allowedValues,
+  });
+  validateSemanticForegroundWithinSupport({
+    semanticBytes: params.semanticBytes,
+    supportBytes: params.supportBytes,
+  });
+}
+
+export function validateSemanticMaskValues(params: {
+  semanticBytes: Uint8Array;
+  allowedValues: ReadonlySet<number>;
+}) {
   for (let index = 0; index < params.semanticBytes.byteLength; index += 1) {
     const semanticValue = params.semanticBytes[index];
     if (!params.allowedValues.has(semanticValue)) {
       throw new CropSemanticMaskWorkflowError("SEMANTIC_MASK_VALUES_INVALID");
     }
+  }
+}
+
+export function validateSemanticForegroundWithinSupport(params: {
+  semanticBytes: Uint8Array;
+  supportBytes: Uint8Array;
+}) {
+  if (params.semanticBytes.byteLength !== params.supportBytes.byteLength) {
+    throw new CropSemanticMaskWorkflowError("SUPPORT_MASK_LINEAGE_MISMATCH");
+  }
+
+  for (let index = 0; index < params.semanticBytes.byteLength; index += 1) {
+    const semanticValue = params.semanticBytes[index];
     if (params.supportBytes[index] === 0 && semanticValue !== 0) {
       throw new CropSemanticMaskWorkflowError("SEMANTIC_OUTSIDE_SUPPORT");
     }
@@ -108,20 +157,14 @@ function semanticReadiness(
   supportMask: SerializedSupportMask | null,
   masks: Record<CropSemanticMode, SerializedSemanticMask | null>,
 ) {
-  if (!supportMask) {
-    return {
-      status: "SUPPORT_REQUIRED",
-      label: "Support required",
-      supportMaskVersionId: null,
-      canSaveDraft: false,
-    };
-  }
-
   return {
     status: "DRAFT_READY",
-    label: `Constrained by ${supportMask.reviewState.toLowerCase()} support v${supportMask.version}`,
-    supportMaskVersionId: supportMask.id,
+    label: supportMask
+      ? `Explicit support available: ${supportMask.reviewState.toLowerCase()} support v${supportMask.version}`
+      : "Support optional for Sap/Heartwood; Copper support required before export",
+    supportMaskVersionId: supportMask?.id ?? null,
     canSaveDraft: true,
+    supportPolicy: CROP_SEMANTIC_SUPPORT_POLICY,
     latestSemanticVersions: {
       SAP_HEARTWOOD: masks.SAP_HEARTWOOD?.version ?? null,
       COPPER: masks.COPPER?.version ?? null,
@@ -480,22 +523,24 @@ function assertSupportLineage(crop: CropRecord, support: SupportMaskVersionRecor
   }
 }
 
-async function requireCurrentSupportMaskVersion(params: {
+async function getValidatedCurrentSupportMaskVersion(params: {
   db: CropSemanticDb;
   crop: CropRecord;
   supportMaskVersionId?: string | null;
 }) {
   const latest = await getLatestCropSupportMaskVersion(params.db, params.crop);
-  if (!latest) throw new CropSemanticMaskWorkflowError("SUPPORT_MASK_REQUIRED");
+  if (!latest) {
+    if (params.supportMaskVersionId) {
+      throw new CropSemanticMaskWorkflowError("SUPPORT_MASK_LINEAGE_MISMATCH");
+    }
+    return null;
+  }
   assertSupportLineage(params.crop, latest);
 
   if (params.supportMaskVersionId && params.supportMaskVersionId !== latest.id) {
     throw new CropSemanticMaskWorkflowError("SUPPORT_MASK_LINEAGE_MISMATCH");
   }
-  if (!params.supportMaskVersionId) {
-    throw new CropSemanticMaskWorkflowError("SUPPORT_MASK_REQUIRED");
-  }
-  return latest;
+  return params.supportMaskVersionId ? latest : null;
 }
 
 async function getLatestCropSemanticMaskVersion(
@@ -529,14 +574,16 @@ async function getLatestCropSemanticMaskVersion(
 
 function cropSemanticCoordinateTransform(
   crop: CropRecord,
-  supportMaskVersionId: string,
+  supportMaskVersionId: string | null,
   semanticMode: CropSemanticMode,
 ) {
+  const supportGeometrySource = CROP_SEMANTIC_SUPPORT_POLICY[semanticMode].supportGeometrySource;
   return {
-    version: "crop-semantic-transform-ref-v1",
+    version: "crop-semantic-transform-ref-v2",
     derivedCropId: crop.id,
     derivedCropVersion: crop.version,
     supportMaskVersionId,
+    supportGeometrySource,
     semanticMode,
     cropTransformVersion:
       typeof crop.transformToSourceJson === "object" &&
@@ -596,7 +643,8 @@ export async function loadCropSemanticMaskStateForUser(params: {
     canEdit: canEdit(membership.role),
     labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
     semanticLabels: semanticLabels.modes,
-    supportRequired: !serializedSupportMask,
+    supportRequired: false,
+    supportPolicy: CROP_SEMANTIC_SUPPORT_POLICY,
     currentSupportMask: serializedSupportMask,
     latestSemanticMasks: serializedMasks,
     semanticReadiness: semanticReadiness(serializedSupportMask, serializedMasks),
@@ -608,7 +656,7 @@ export async function loadCropSemanticMaskStateForUser(params: {
 export async function createCropSemanticMaskVersionForUser(params: {
   cropId: string;
   userId: string;
-  supportMaskVersionId: string;
+  supportMaskVersionId?: string | null;
   semanticMode: CropSemanticMode | string;
   storageKey: string;
   contentType?: string | null;
@@ -635,17 +683,25 @@ export async function createCropSemanticMaskVersionForUser(params: {
   }
 
   const semanticLabels = await semanticLabelsForProject(db, crop.projectId);
-  const supportMaskVersion = await requireCurrentSupportMaskVersion({
+  const requestedSupportMaskVersion = await getValidatedCurrentSupportMaskVersion({
     db,
     crop,
     supportMaskVersionId: params.supportMaskVersionId,
   });
-  const supportBytes = await getObjectBytes(supportMaskVersion.storageKey);
-  validateSemanticMaskAgainstSupport({
+  const supportMaskVersion =
+    semanticMode === CropSemanticMode.COPPER ? requestedSupportMaskVersion : null;
+  const allowedValues = new Set(semanticLabels.modes[semanticMode].allowedValues);
+  validateSemanticMaskValues({
     semanticBytes: params.semanticBytes,
-    supportBytes,
-    allowedValues: new Set(semanticLabels.modes[semanticMode].allowedValues),
+    allowedValues,
   });
+  if (supportMaskVersion && semanticMode === CropSemanticMode.COPPER) {
+    const supportBytes = await getObjectBytes(supportMaskVersion.storageKey);
+    validateSemanticForegroundWithinSupport({
+      semanticBytes: params.semanticBytes,
+      supportBytes,
+    });
+  }
 
   const scopeKey = cropSemanticMaskScopeKey(crop.id, semanticMode);
 
@@ -688,12 +744,12 @@ export async function createCropSemanticMaskVersionForUser(params: {
         width: params.width,
         height: params.height,
         coordinateSpace: "CROP_PIXEL",
-        coordinateTransform: cropSemanticCoordinateTransform(crop, supportMaskVersion.id, semanticMode),
+        coordinateTransform: cropSemanticCoordinateTransform(crop, supportMaskVersion?.id ?? null, semanticMode),
         format: params.format?.trim() || "u8raw-v1",
         labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
         derivedCropId: crop.id,
         sliceInstanceId: crop.sliceInstanceId,
-        supportMaskVersionId: supportMaskVersion.id,
+        supportMaskVersionId: supportMaskVersion?.id ?? null,
         cropSemanticMode: semanticMode,
         createdById: params.userId,
       },
@@ -730,7 +786,7 @@ export async function createCropSemanticMaskVersionForUser(params: {
           imageId: crop.sourceImageId,
           sliceInstanceId: crop.sliceInstanceId,
           semanticMaskVersionId,
-          supportMaskVersionId: supportMaskVersion.id,
+          supportMaskVersionId: supportMaskVersion?.id ?? null,
           derivedCropId: crop.id,
           error: errorCode,
         },

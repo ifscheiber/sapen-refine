@@ -22,7 +22,7 @@ Relevant labels include:
 
 Semantic masks must reference one label schema version. The current editor save path writes `AnnotationArtifact.kind = SEMANTIC_MASK` and appends `AnnotationArtifactVersion` rows with `reviewState = DRAFT`.
 
-RB-089 adds crop semantic masks as crop-scoped `SEMANTIC_MASK` artifact versions with `scopeKey = "crop-semantic:{cropId}:{semanticMode}"`, `coordinateSpace = CROP_PIXEL`, `AnnotationArtifactVersion.derivedCropId`, `sliceInstanceId`, `supportMaskVersionId`, and `cropSemanticMode`. The exact support-mask version is the constraint source; saves reject non-background semantic pixels outside that support with `SEMANTIC_OUTSIDE_SUPPORT`. RB-090 uses successful crop semantic saves to append draft `SliceClassificationVersion` suggestions with source/reason and links back to the semantic mask, support mask, and crop.
+RB-089 adds crop semantic masks as crop-scoped `SEMANTIC_MASK` artifact versions with `scopeKey = "crop-semantic:{cropId}:{semanticMode}"`, `coordinateSpace = CROP_PIXEL`, `AnnotationArtifactVersion.derivedCropId`, `sliceInstanceId`, optional `supportMaskVersionId`, and `cropSemanticMode`. RB-100 makes support mode-aware: Sap/Heartwood may save supportless and uses semantic foreground as support geometry, while Copper may save supportless drafts but requires explicit approved support before readiness/export. RB-090 uses successful crop semantic saves to append draft `SliceClassificationVersion` suggestions with source/reason and links back to the semantic mask, optional support mask, and crop.
 
 ### Slice Support / Instance Masks
 
@@ -60,7 +60,7 @@ Derived crop metadata includes:
 - creator and timestamp,
 - storage key, checksum, byte size, content type, and PNG format.
 
-RB-088 crop support masks are versioned like other artifacts. They remain traceable to the immutable source image and to the crop transform that produced their coordinate space. RB-089 crop semantic masks now record the exact support mask version and semantic mode used for the crop edit so stale support references can be detected when a BBox, crop, or support mask is superseded.
+RB-088 crop support masks are versioned like other artifacts. They remain traceable to the immutable source image and to the crop transform that produced their coordinate space. RB-089/RB-100 crop semantic masks record semantic mode and optional support lineage; Copper readiness/export checks explicit support, while Sap/Heartwood support geometry is derived from semantic foreground.
 
 The 32 px default crop padding is an editing workspace only. Padding pixels must never be interpreted as physical slice support; future support masks remain the pixel-perfect source of truth.
 

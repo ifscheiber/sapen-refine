@@ -319,7 +319,7 @@ describe("derived slice crop workflow", () => {
       supportStatus: "MISSING",
       semanticStatus: "MISSING",
       classificationStatus: "MISSING",
-      readinessReasons: expect.arrayContaining(["MISSING_SUPPORT_MASK"]),
+      readinessReasons: expect.arrayContaining(["MISSING_SEMANTIC_MASK", "MISSING_CLASSIFICATION"]),
     });
     expect(firstSlice?.currentCrop?.id).toBe(crop.id);
     expect(firstSlice?.supportHref).toContain(`/slices/${first.sliceInstanceId}/crops/${crop.id}/support`);
