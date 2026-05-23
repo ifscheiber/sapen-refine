@@ -25,7 +25,6 @@ type EditorToolbarProps = {
   onRedo: () => void;
   onFit: () => void;
   onSave: () => void;
-  onExportPng: () => void;
   isSaving: boolean;
   hasUnsavedChanges: boolean;
   editorStatus: string;
@@ -53,7 +52,6 @@ export function EditorToolbar({
   onRedo,
   onFit,
   onSave,
-  onExportPng,
   isSaving,
   hasUnsavedChanges,
   editorStatus,
@@ -196,9 +194,6 @@ export function EditorToolbar({
           disabled={!canEdit || isSaving || !hasUnsavedChanges}
         >
           {isCorrectionMode ? "Save correction draft" : maskMode === "support" ? "Save support mask" : "Save now"}
-        </button>
-        <button className={idleButtonClass} onClick={onExportPng}>
-          Export PNG
         </button>
         <div className="ml-auto flex min-h-11 items-center gap-3">
           {editorStatus && <div className="text-xs text-muted-foreground">{editorStatus}</div>}

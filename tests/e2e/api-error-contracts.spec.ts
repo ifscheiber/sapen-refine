@@ -63,7 +63,7 @@ test("workspace routes with stale sessions redirect to login", async ({ page }) 
     },
   ]);
 
-  const requestedPath = "/app/projects/demo_project/images/stale-session-image/edit";
+  const requestedPath = "/app/projects/demo_project/images/stale-session-image/crop";
   await page.goto(requestedPath);
 
   await expect(page).toHaveURL(/\/login\?next=/);

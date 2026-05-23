@@ -1,15 +1,13 @@
 # Editor Feature
 
-The current editor is prototype-level but useful for drawing, saving, submitting, and approving MVP annotation artifacts. RB-045 established the browser/iPad trial baseline before domain expansion; RB-052 adds the first review/approval controls; RB-059 adds the first prediction-assisted correction entry.
+The current editor surfaces are crop-first. RB-104 removed the legacy full-image annotation route; source-image editing now means BBox-stage planning for the crop workflow, while mask annotation happens in crop support/semantic editors. RB-059 keeps the prediction-assisted correction editor as a dedicated task route.
 
 Important files:
 
-- `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx`
-- `src/features/editor/EditImagePage.tsx`
 - `src/features/editor/CropWorkbenchPage.tsx`
 - `src/features/editor/CropSupportEditorPage.tsx`
 - `src/features/editor/CropSupportEditorClient.tsx`
@@ -39,12 +37,12 @@ Before decomposition, `src/features/editor/EditorClient.tsx` owns all client-sid
 - pointer-event handling for brush, freehand lasso, polygon lasso, polygon-handle dragging, pointer capture, cancel behavior, and coordinate conversion;
 - undo/redo patch history and keyboard shortcuts;
 - semantic/support mode switching and label palette selection;
-- toolbar controls for tools, brush size, opacity, fit/zoom, save, export, and status display;
+- toolbar controls for tools, brush size, opacity, fit/zoom, save, and status display;
 - slice classification select/save workflow;
 - review state cards, submit/approve/reject actions, comments, and export-readiness display;
 - assisted correction panel, prediction overlay toggle, prediction-mask loading, and explicit prediction-to-editable-mask copy behavior.
 
-RB-068 decomposes these concerns without changing editor routes, APIs, mask bytes, review semantics, assisted-correction semantics, or iPad pointer assumptions.
+RB-068 decomposed these concerns without changing APIs, mask bytes, review semantics, assisted-correction semantics, or iPad pointer assumptions. RB-104 later removed the legacy full-image route while preserving the shared canvas for BBox-stage and assisted-correction surfaces.
 
 ## RB-068 Module Structure
 
@@ -58,7 +56,7 @@ Extracted ownership:
 - `src/features/editor/editorPointer.ts` owns pointer ignore/capture/release helpers.
 - `src/features/editor/editorStyles.ts` owns shared editor button class constants based on existing design tokens.
 - `src/features/editor/editorTools.ts` owns editor tool helpers such as brush-like tool detection and mode-specific eraser values.
-- `src/features/editor/components/EditorToolbar.tsx` owns mode, tool, label, opacity, undo/redo, save, export, and zoom controls.
+- `src/features/editor/components/EditorToolbar.tsx` owns mode, tool, label, opacity, undo/redo, save, and zoom controls for the assisted-correction surface.
 - `src/features/editor/components/EditorCanvasStack.tsx` owns the stacked canvas DOM and pointer-handler wiring.
 - `src/features/editor/components/EditorReviewPanel.tsx` owns review/export-readiness display and submit/approve/reject controls.
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
@@ -67,9 +65,8 @@ Extracted ownership:
 
 RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit eraser tool without changing mask serialization, server API semantics, review/export behavior, or prediction provenance.
 
-## Current Entry Route
+## Current Entry Routes
 
-- Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Crop workflow entry route: `/app/projects/[projectId]/images/[imageId]/crop`.
@@ -81,11 +78,9 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Crop workflow semantic route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
-- Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
-- Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
-- Client editor surface: `src/features/editor/EditorClient.tsx`.
+- Shared source-image canvas surface: `src/features/editor/EditorClient.tsx`, used by `src/features/editor/ImageCropBBoxesPage.tsx` and `src/features/editor/CorrectionTaskEditorPage.tsx`.
 
-RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implements the selected crop workbench and crop-prefixed support/semantic tool routes. RB-097 adds semantic-family exclusivity and explicit reset guardrails in the crop semantic editor. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. The existing non-crop-prefixed crop support and semantic routes remain compatibility deep links.
+RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implements the selected crop workbench and crop-prefixed support/semantic tool routes. RB-097 adds semantic-family exclusivity and explicit reset guardrails in the crop semantic editor. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. RB-104 removes `/app/projects/[projectId]/images/[imageId]/edit`; old links now fall through to workspace not-found behavior. The existing non-crop-prefixed crop support and semantic routes remain compatibility deep links.
 
 ## Current Canvas And Input Model
 
@@ -286,7 +281,7 @@ Current RB-090 behavior:
 - Auto suggestions and manual overrides are separate `SliceClassificationVersion` rows. Auto suggestions remain draft and are not export-ready until reviewed through the classification review flow.
 - Manual overrides remain possible, but a class that contradicts the active semantic family surfaces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` in crop readiness and is not export-ready.
 
-The legacy full-resolution editor route remains present until RB-104 removes it as a user-facing product surface. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
+The crop workflow is now the product annotation path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 
 Editor-specific crop rules:
 

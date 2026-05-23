@@ -23,18 +23,17 @@ async function createProject(page: Page, name: string) {
   return projectId!;
 }
 
-async function uploadFixtureAndOpenEditor(page: Page, projectId: string) {
+async function uploadFixtureAndGetImageId(page: Page, projectId: string) {
   await page.goto(`/app/projects/${projectId}/images`);
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
-  await page.getByRole("link", { name: "Open editor" }).click();
-  await expect(page.getByRole("button", { name: "Brush" })).toBeVisible();
-  const imageId = page.url().match(/\/images\/([^/]+)\/edit$/)?.[1];
+  const metadataHref = await page.getByRole("link", { name: "Metadata" }).getAttribute("href");
+  const imageId = metadataHref?.match(/\/images\/([^/]+)$/)?.[1];
   expect(imageId).toBeTruthy();
   return imageId!;
 }
 
-test("stale image editor URLs render a project-aware soft landing", async ({ page }) => {
+test("removed legacy image editor URLs render workspace not-found UX", async ({ page }) => {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   page.on("console", (message) => {
@@ -44,16 +43,8 @@ test("stale image editor URLs render a project-aware soft landing", async ({ pag
   await login(page);
   await page.goto("/app/projects/demo_project/images/stale-image-id/edit");
 
-  await expect(page.getByRole("heading", { name: "Image not found" })).toBeVisible();
-  await expect(page.getByText("Image not found or no longer available")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Project images" })).toHaveAttribute(
-    "href",
-    "/app/projects/demo_project/images",
-  );
-  await expect(page.getByRole("link", { name: "Project overview" })).toHaveAttribute(
-    "href",
-    "/app/projects/demo_project",
-  );
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await expect(page.getByText("This workspace page is not available")).toBeVisible();
   expect(browserErrors.filter((message) => /IMAGE_NOT_FOUND|PROJECT_NOT_FOUND|TASK_NOT_FOUND/.test(message))).toEqual([]);
 });
 
@@ -69,14 +60,14 @@ test("unknown workspace routes render SaPen Annotate not-found UX", async ({ pag
   );
 });
 
-test("project/image mismatches soft land without breaking valid editor links", async ({ page }) => {
+test("project/image mismatches soft land without breaking valid metadata links", async ({ page }) => {
   await login(page);
 
   const projectA = await createProject(page, `RB-082 A ${Date.now()}`);
-  const imageId = await uploadFixtureAndOpenEditor(page, projectA);
+  const imageId = await uploadFixtureAndGetImageId(page, projectA);
 
   const projectB = await createProject(page, `RB-082 B ${Date.now()}`);
-  await page.goto(`/app/projects/${projectB}/images/${imageId}/edit`);
+  await page.goto(`/app/projects/${projectB}/images/${imageId}`);
 
   await expect(page.getByRole("heading", { name: "Image not found" })).toBeVisible();
   await expect(page.getByText("Image not found or no longer available")).toBeVisible();

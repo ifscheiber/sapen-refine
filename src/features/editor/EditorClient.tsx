@@ -92,7 +92,7 @@ export default function EditorClient({
   canEdit,
   correctionTaskId,
   correctionMode,
-  workflowMode = "fullEditor",
+  workflowMode,
 }: EditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1556,42 +1556,6 @@ export default function EditorClient({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ---------- Export (PNG indexed-style: label in RGB) ----------
-  async function exportMaskPng() {
-    const mask = maskRef.current;
-    if (!mask) return;
-
-    const c = document.createElement("canvas");
-    c.width = mask.width;
-    c.height = mask.height;
-
-    const ctx = c.getContext("2d")!;
-    const id = new ImageData(mask.width, mask.height);
-    const d = id.data;
-
-    for (let i = 0; i < mask.data.length; i++) {
-      const v = mask.data[i] ?? 0;
-      const o = i * 4;
-      d[o + 0] = v;
-      d[o + 1] = v;
-      d[o + 2] = v;
-      d[o + 3] = 255;
-    }
-
-    ctx.putImageData(id, 0, 0);
-
-    const blob: Blob = await new Promise((resolve, reject) => {
-      c.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG_EXPORT_FAILED"))), "image/png");
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mask-${imageId}.png`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   // ---------- UI ----------
   const editorStatus = isSaving ? "Saving…" : status || (hasUnsavedChanges ? "Unsaved changes" : "");
   const latestClassificationLabel = formatSliceClassLabel(sliceState?.latestClassification?.class);
@@ -1642,7 +1606,6 @@ export default function EditorClient({
             onRedo={redo}
             onFit={fitToContainer}
             onSave={() => void saveMaskNow({ manual: true })}
-            onExportPng={() => void exportMaskPng()}
             isSaving={isSaving}
             hasUnsavedChanges={hasUnsavedChanges}
             editorStatus={editorStatus}

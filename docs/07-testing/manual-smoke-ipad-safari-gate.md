@@ -70,9 +70,9 @@ Evidence should include short notes and, when practical, a screenshot, photo, sc
 | Open project list and project. | Project navigation fits the viewport. | Yes |  |  |
 | Open image metadata. | Technical metadata, readiness, T-number, and acquisition fields are reachable. | Yes |  |  |
 | Save or inspect T-number and metadata. | Save/reload persists values without overlap. | Yes |  |  |
-| Open editor. | Image, canvas, toolbar, semantic labels, support mode, review controls, and save controls render. | Yes |  |  |
-| Open a larger full-resolution image if available. | For images above `6000x4000` and no larger than `8000x6000`, the large-image warning is visible, editor readiness completes, controls remain usable, and no `MASK_BYTE_LENGTH_MISMATCH` appears during save. | Yes if large images are part of pilot |  |  |
-| Select `BBox proposal` and draw a rough slice box with finger. | A BBox proposal appears in the slice proposal list, persists after reload, and the canvas does not scroll page while drawing. | Yes if crop workflow is part of pilot |  |  |
+| Open crop workflow. | The BBox stage opens, source image/canvas controls render, and no legacy full-image editor link is visible. | Yes |  |  |
+| Open a larger full-resolution image if available. | For images above `6000x4000` and no larger than `8000x6000`, the large-image warning is visible and crop workflow BBox planning remains usable. | Yes if large images are part of pilot |  |  |
+| Draw a rough slice box with finger. | A BBox proposal appears in the slice proposal list, persists after reload, and the canvas does not scroll page while drawing. | Yes if crop workflow is part of pilot |  |  |
 | Tap `Generate crop` for the selected BBox proposal. | A crop preview appears and reloads with crop readiness showing missing downstream artifacts rather than export-ready. | Yes if crop workflow is part of pilot |  |  |
 | Continue to slice annotation. | The crop workbench opens with crop preview, mode-aware Sap/Heartwood/Copper actions, status badges, readiness guidance, and whole-image slice navigation without layout overlap. | Yes if crop workflow is part of pilot |  |  |
 | Tap `Open support editor` for the generated crop. | The crop support editor opens, displays the crop image, and keeps drawing in crop coordinates. | Yes if crop workflow is part of pilot |  |  |
@@ -80,12 +80,12 @@ Evidence should include short notes and, when practical, a screenshot, photo, sc
 | Open the generated crop semantic editor. | The crop semantic editor opens, shows the support overlay, and mode/tool controls fit the viewport. | Yes if crop workflow is part of pilot |  |  |
 | Draw and save a crop semantic mask inside support. | Brush strokes stay constrained to support pixels, save succeeds, reload preserves the draft, a draft auto classification suggestion appears, and support/semantic/classification review controls fit. | Yes if crop workflow is part of pilot |  |  |
 | Draw a BBox proposal with Apple Pencil if available. | Pencil input creates a BBox through Pointer Events. | Yes if Pencil and crop workflow are part of pilot |  |  |
-| Draw semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
-| Select Eraser and erase semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |
-| Draw semantic mask with Apple Pencil if available. | Pencil input draws through Pointer Events. | Yes if Pencil is part of pilot |  |  |
+| Draw crop semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
+| Select Eraser and erase crop semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |
+| Draw crop semantic mask with Apple Pencil if available. | Pencil input draws through Pointer Events. | Yes if Pencil is part of pilot |  |  |
 | Touch outside canvas and scroll. | Page/editor container scrolls outside the drawing surface. | Yes |  |  |
 | Switch labels/tools by touch. | Touch targets are usable and active state is visible. | Yes |  |  |
-| Switch to slice support mode. | Support mode is distinct from semantic labels and controls fit. | Yes |  |  |
+| Open crop support mode. | Support mode is distinct from semantic labels and controls fit. | Yes |  |  |
 | Draw and save support mask. | Support mask save completes and persists after reload. | Yes |  |  |
 | Erase part of the support mask. | Eraser writes support background, not semantic Copper/background confusion. | Yes |  |  |
 | Set slice classification. | Classification persists after save and reload. | Yes |  |  |

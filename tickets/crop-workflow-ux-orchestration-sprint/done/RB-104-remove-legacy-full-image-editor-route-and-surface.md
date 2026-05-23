@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done / Implemented
 
 ## Priority
 
@@ -219,3 +219,11 @@ Docs must state that crop workflow is the annotation workflow and the old full-i
 8. Docs updated.
 9. Ticket is moved to done.
 10. Full validation gate passes.
+
+## 9. Implementation Notes
+
+- Removed `/app/projects/[projectId]/images/[imageId]/edit` by deleting the App Router page and `EditImagePage`.
+- Image list and metadata pages now expose `Crop workflow` as the annotation entry point and no longer link to the legacy full-image editor.
+- `EditorClient` now has explicit non-legacy props for BBox-stage and assisted-correction use, with no `fullEditor` workflow mode.
+- Full-image mask APIs and historical artifacts remain intact for compatibility/history; RB-104 removes product UI and route surface only.
+- E2E smoke coverage was updated to exercise crop workflow annotation paths and old `/edit` workspace not-found behavior.

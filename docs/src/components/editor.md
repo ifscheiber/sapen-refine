@@ -2,15 +2,14 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw source-image BBox slice proposals, generate derived slice crop previews, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, review the MVP ground-truth state, and edit crop support masks. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode; RB-087 adds derived crop generation/preview; RB-088 adds the crop support editor; RB-095 adds the whole-image crop slice navigator; RB-103 adds BBox-stage re-entry from crop editors.
+The current editor surfaces support the crop workflow and assisted correction. Users draw source-image BBox slice proposals in the BBox stage, generate derived slice crop previews, edit crop support/semantic masks, classify/review crop artifacts, and correct prediction-backed tasks. RB-104 removed the legacy full-image annotation route.
 
 ## Important Files
 
-- `src/features/editor/EditImagePage.tsx` - server-side full-image editor route composition and RBAC check.
 - `src/features/editor/ImageCropBBoxesPage.tsx` - RB-094 staged image-level BBox route composition using the editor canvas in BBox-stage mode.
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` - RB-095 whole-image slice navigator with BBox overlays, selected-slice URL state, status badges, and crop generation/regeneration action.
 - `src/features/editor/CropWorkbenchPage.tsx` - RB-096 selected crop workbench with mode-aware guidance, crop preview, readiness/status summaries, and embedded slice navigation.
-- `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
+- `src/features/editor/EditorClient.tsx` - shared full-image canvas surface for BBox-stage planning and assisted correction only.
 - `src/features/editor/CropSupportEditorPage.tsx` and `src/features/editor/CropSupportEditorClient.tsx` - crop support editor composition and crop-sized binary support mask editing.
 - `src/features/editor/CropSemanticEditorPage.tsx` and `src/features/editor/CropSemanticEditorClient.tsx` - crop semantic editor composition, mode-aware support policy, semantic-family reset guardrails, crop-sized semantic mask editing, and classification/review controls.
 - `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` - embedded right-rail slice navigation and BBox-stage re-entry action for crop editors.
@@ -23,7 +22,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 
 ## Public Interfaces / Routes / Functions
 
-- Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
+- Crop workflow entry route: `/app/projects/[projectId]/images/[imageId]/crop`.
 - Crop workflow BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
 - Crop workflow slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
 - Crop workbench route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]`.
@@ -31,7 +30,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Crop workflow semantic route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
-- Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
+- Full-image mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`; these remain for compatibility/history and assisted-correction backing behavior, but no longer have a general full-image annotation product route.
 - Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.
 - BBox proposal APIs: `/api/images/[imageId]/slice-bboxes`, `/api/slice-bboxes/[bboxVersionId]`.
 - Derived crop APIs: `/api/images/[imageId]/slice-crops`, `/api/slice-bboxes/[bboxVersionId]/crop`, `/api/slice-crops/[cropId]/asset`.
@@ -44,7 +43,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - CSS display size is controlled by the current zoom value and fit-to-container logic.
 - Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions via `src/features/editor/canvasGeometry.ts`.
 - Brush, Eraser, freehand lasso, and polygon lasso all use Pointer Events.
-- Crop support and crop semantic editors expose Brush, Eraser, freehand lasso, polygon lasso, undo/redo, fit, zoom, reload, opacity, and save controls against crop-pixel masks. BBox proposal drawing remains limited to the full-image/BBox-stage editor. The crop semantic editor keeps opposite-family modes read-only until reset is explicitly confirmed.
+- Crop support and crop semantic editors expose Brush, Eraser, freehand lasso, polygon lasso, undo/redo, fit, zoom, reload, opacity, and save controls against crop-pixel masks. BBox proposal drawing remains limited to the BBox-stage source-image canvas. The crop semantic editor keeps opposite-family modes read-only until reset is explicitly confirmed.
 - Crop semantic Brush and lasso operations are mode-aware: Sap/Heartwood edits are unconstrained and use semantic foreground as support geometry, while Copper edits are clipped to explicit support when a support mask exists. Copper drafts can be edited before support exists, but readiness/export still requires approved explicit support.
 - BBox proposal drawing also uses Pointer Events and stores integer source-image pixel rectangles.
 - Crop support and semantic editor headers and the embedded slice navigator rail expose `Edit BBoxes`, linking back to `/crop/bboxes` instead of the legacy full-image editor route.
@@ -66,7 +65,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Review actions must use server APIs; UI control hiding is not the permission boundary.
 - Canvas scaling and coordinate assumptions must be explicit before production iPad/Pencil work.
 - Editor UX should support desktop and tablet screen sizes.
-- Default full-image mask coordinates remain tied to the source image dimensions. BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops, crop support masks, and crop semantic masks use `CROP_PIXEL`; default semantic/support masks still use `IMAGE_PIXEL`.
+- BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops, crop support masks, and crop semantic masks use `CROP_PIXEL`. Historical/default full-image mask APIs still use `IMAGE_PIXEL`, but the legacy product route was removed by RB-104.
 
 ## Known Gaps
 

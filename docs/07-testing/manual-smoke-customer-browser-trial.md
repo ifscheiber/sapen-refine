@@ -42,8 +42,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open workspace and project list. | Project navigation renders. |  |  |
 | Create or open a project. | Project page and image list render. |  |  |
 | Upload a normal representative PNG/JPEG image. | Image uploads through the app and appears in the list. |  |  |
-| Upload a representative full-resolution image near `6000x4000`, if available. | Editor readiness waits for actual image/canvas/mask dimensions, and saving a tiny semantic stroke succeeds without `MASK_BYTE_LENGTH_MISMATCH`. |  |  |
-| Upload a large image above `6000x4000` but no larger than `8000x6000`, if available. | Image is accepted with a visible large-image/iPad memory warning; save still succeeds. |  |  |
+| Upload a representative full-resolution image near `6000x4000`, if available. | Crop workflow BBox planning loads the full source image and saving a crop-sized semantic mask succeeds. |  |  |
+| Upload a large image above `6000x4000` but no larger than `8000x6000`, if available. | Image is accepted with a visible large-image/iPad memory warning; crop workflow remains reachable. |  |  |
 | Upload an intentionally unsupported-dimension image if available. | Request fails with `IMAGE_DIMENSIONS_UNSUPPORTED`; proxy/Caddy limits are not hit first. |  |  |
 | Upload an unsupported file type if available. | Request fails with `UNSUPPORTED_CONTENT_TYPE`; no image row or private storage URL is exposed. |  |  |
 | Open image metadata. | Technical metadata, checksum, dimensions, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
@@ -112,12 +112,10 @@ Blocking failure criteria:
 | Log in as named tester. | Session persists across reload and Home-Screen launch. |  |  |
 | Open project and image metadata. | Metadata form controls remain reachable without overlap. |  |  |
 | Enter or inspect T-number and acquisition metadata. | Metadata fields fit the viewport and save/reload works. |  |  |
-| Open editor. | Editor controls remain reachable without overlap. |  |  |
-| Select `BBox proposal` and draw a rough slice box by touch. | BBox drawing works through Pointer Events without scrolling the page while drawing. |  |  |
-| Draw with finger using Brush. | Canvas draws and page does not scroll while drawing. |  |  |
-| Select Eraser by touch and erase. | Eraser control is reachable and erasing uses the same brush-size workflow. |  |  |
-| Switch to `Slice support`. | Mode switch and support controls fit the iPad viewport. |  |  |
-| Save support mask and set classification. | Support state and classification persist after reload. |  |  |
+| Open crop workflow. | BBox-stage controls remain reachable without overlap and no legacy editor action is visible. |  |  |
+| Select or keep BBox drawing and draw a rough slice box by touch. | BBox drawing works through Pointer Events without scrolling the page while drawing. |  |  |
+| Open crop support or semantic editor. | Brush, Eraser, lasso, polygon, save, review, and navigation controls fit the iPad viewport. |  |  |
+| Save a crop support or semantic mask and set/review classification where applicable. | Crop artifact state and classification persist after reload. |  |  |
 | Inspect review controls. | Review state fits the iPad viewport without blocking normal editor controls. |  |  |
 | Inspect project export panel. | Readiness counts and export controls fit the iPad viewport; owner-only behavior is clear. |  |  |
 | If a prediction fixture exists, inspect prediction analysis export controls. | Proposal warning, metric availability counts, target checkboxes, prediction-run selector, and download links fit the iPad viewport. |  |  |

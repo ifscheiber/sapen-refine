@@ -102,31 +102,17 @@ function ImageListItem({ image, projectId }: { image: ImageRow; projectId: strin
           </Link>
         </Button>
         {editability.status === "unsupported" ? (
-          <>
-            <Button variant="outline" size="sm" disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
+          <Button variant="outline" size="sm" disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
+            <PencilLineIcon className="size-4" aria-hidden="true" />
+            Crop workflow
+          </Button>
+        ) : (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/app/projects/${projectId}/images/${image.id}/crop`}>
               <PencilLineIcon className="size-4" aria-hidden="true" />
               Crop workflow
-            </Button>
-            <Button variant="outline" size="sm" disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
-              <PencilLineIcon className="size-4" aria-hidden="true" />
-              Open editor
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/app/projects/${projectId}/images/${image.id}/crop`}>
-                <PencilLineIcon className="size-4" aria-hidden="true" />
-                Crop workflow
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/app/projects/${projectId}/images/${image.id}/edit`}>
-                <PencilLineIcon className="size-4" aria-hidden="true" />
-                Open editor
-              </Link>
-            </Button>
-          </>
+            </Link>
+          </Button>
         )}
       </div>
     </div>

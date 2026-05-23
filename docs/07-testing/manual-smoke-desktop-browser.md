@@ -28,7 +28,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Open image metadata. | Technical metadata includes content type, size, checksum, dimensions, validation status, T-number state, and readiness summary without exposing private storage URLs. |  |  |
 | Enter T-number and basic acquisition metadata. | Metadata saves successfully. |  |  |
 | Reload image metadata. | T-number and acquisition fields persist. |  |  |
-| Open editor. | Image, canvas stack, tools, labels, zoom, and save controls render. |  |  |
+| Open crop workflow. | The image-level BBox stage opens; no `Open editor` or `Full editor` action is visible. |  |  |
 | Select `BBox proposal` and draw a rough rectangle around a slice. | A slice proposal appears in the BBox list and is clearly labeled as a proposal, not ground truth. |  |  |
 | Click `Generate crop` for the selected BBox proposal. | A crop preview appears with crop dimensions, padding metadata, and crop readiness showing missing support/semantic/classification rather than export-ready. |  |  |
 | Continue to slice annotation. | The selected crop workbench opens, shows crop preview, Sap/Heartwood and Copper actions, support/semantic/classification/readiness status, and the whole-image slice navigator. |  |  |
@@ -44,17 +44,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Override the crop slice classification. | A new manual classification version is saved without replacing the auto suggestion. |  |  |
 | Paint near the support boundary. | Brush changes are constrained to support pixels; outside-support semantic foreground cannot be saved. |  |  |
 | Reload the editor after creating the BBox proposal and crop. | The BBox proposal, crop preview, and crop readiness remain visible; no support mask or export-ready state is implied by the BBox/crop alone. |  |  |
-| Draw with Brush. | Overlay changes and dirty state becomes visible. |  |  |
-| Select Eraser and erase part of the semantic mask. | Eraser uses the brush size, writes background, and dirty state remains visible. |  |  |
-| Click `Save now`. | Semantic mask save completes, dirty state clears, and a draft artifact version exists. |  |  |
-| Switch to `Slice support`. | Support mode loads separately from semantic mask mode. |  |  |
-| Draw a support mask and save. | Support-mask status shows a draft version after save. |  |  |
-| Select Eraser in support mode and erase part of the support mask. | Eraser writes support background rather than a semantic label. |  |  |
-| Set slice classification. | Classification persists and is visible after save. |  |  |
-| Submit semantic mask, support mask, and slice classification. | Each latest version moves from draft to submitted. |  |  |
-| Approve semantic mask, support mask, and slice classification as `OWNER`/`QA`. | Each reviewable unit shows an approved version and export-ready becomes yes. |  |  |
-| Reload editor. | Latest saved mask reloads without runtime errors. |  |  |
-| Confirm semantic/support/review distinction. | Semantic latest mask, support latest mask, slice classification, and review-state APIs report separate approved versions. |  |  |
+| Confirm legacy editor route removal. | Opening an old `/images/[imageId]/edit` link shows the workspace not-found page rather than a full-image annotation editor. |  |  |
 | Open project exports. | `/app/projects/[projectId]/exports` shows approved semantic, support, classification, crop readiness, and crop reason counts. |  |  |
 | Select export targets and create export as `OWNER`. | Export completes and shows manifest/package download links; integrity warnings block export when selected inputs lack checksum/dimensions. |  |  |
 | Download or open manifest/package links. | Downloads are served through `/api/exports/[exportId]/download` without exposing MinIO URLs. |  |  |

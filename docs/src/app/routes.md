@@ -18,7 +18,6 @@ This page lists current browser routes backed by `src/app`.
 - `/app/projects/[projectId]/tasks/[taskId]/correct` - assisted correction editor for prediction-backed tasks from `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx` and `src/features/editor/CorrectionTaskEditorPage.tsx`.
 - `/app/projects/[projectId]/images` - project image list/upload page from `src/app/(workspace)/app/projects/[projectId]/images/page.tsx` and `src/features/images/ProjectImagesPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]` - image metadata page from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/page.tsx` and `src/features/images/ImageMetadataPage.tsx`.
-- `/app/projects/[projectId]/images/[imageId]/edit` - image editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx` and `src/features/editor/EditImagePage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/page.tsx` and `src/features/editor/ImageCropWorkflowEntryPage.tsx`; it redirects to the BBox stage or slice navigator based on persisted BBox workflow state.
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - image-level BBox stage from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/bboxes/page.tsx` and `src/features/editor/ImageCropBBoxesPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - compatibility slice navigator entry from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/page.tsx` and `src/features/editor/ImageCropSlicesPage.tsx`; it requires a confirmed BBox set and redirects toward the selected crop editor when a current crop exists.
@@ -30,16 +29,16 @@ This page lists current browser routes backed by `src/app`.
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic` - compatibility crop semantic-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`.
 - Unknown workspace routes are caught by `src/app/(workspace)/app/[...missing]/page.tsx` and render the SaPen Annotate workspace not-found fallback from `src/app/(workspace)/app/not-found.tsx`; unknown non-workspace routes render `src/app/not-found.tsx`.
 
-## Planned Crop Workflow Routes
+## Crop Workflow Route Notes
 
 RB-094 implements the crop workflow entry and BBox stage. RB-095 implements the slice navigator. RB-096 implements the selected crop workbench and crop-prefixed support/semantic tool routes.
 
-The existing `/edit` route remains a current compatibility route until RB-104 removes the legacy full-image editor surface. The existing crop support and semantic routes remain current deep-link editor routes while the guided crop workbench route family is completed.
+RB-104 removes the legacy `/app/projects/[projectId]/images/[imageId]/edit` product route. Unknown old editor links now use normal workspace not-found behavior. Image list and metadata pages route annotation work to `/crop`.
 
 Post-hotfix ticket updates:
 
 - RB-103 implements explicit crop-editor navigation back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes` so users can revise a confirmed BBox set after crop inspection. Re-entry alone keeps the set confirmed; mutation requires an explicit `Edit BBoxes` unlock and later re-confirmation.
-- RB-104 plans to remove `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route and remove visible `Open editor` / `Full editor` links.
+- RB-104 removed visible `Open editor` / `Full editor` links and keeps BBox-stage plus assisted-correction editor surfaces as the only shared full-image canvas users.
 
 ## Invariants And Constraints
 

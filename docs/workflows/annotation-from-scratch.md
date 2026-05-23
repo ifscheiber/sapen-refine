@@ -10,17 +10,17 @@ This is the current primary workflow for SaPen Annotate.
 2. User opens `/app` or `/app/projects`.
 3. User creates or selects a project.
 4. User uploads a PNG/JPEG image through project image routes; the server validates checksum, dimensions, size, and object metadata before recording the image.
-5. User opens `/app/projects/[projectId]/images/[imageId]/edit`.
-6. User can draw rough BBox slice proposals in `BBox proposal` mode. These proposals are planning artifacts only, not support-mask ground truth.
-7. User can generate a derived crop from an active BBox proposal. The crop is a private derived PNG with source-image lineage, not a raw uploaded image and not support geometry.
-8. User can open the crop support editor from the crop preview and draw the pixel-perfect physical slice support mask in `CROP_PIXEL`.
-9. User draws semantic mask labels in the default full-image editor. Crop-constrained semantic editing remains a later workflow slice.
-10. User can switch to slice-support mode in the default editor and draw the image-sized physical slice support mask separately from semantic labels.
-11. User can set the slice classification.
-12. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
-13. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
-14. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest`, `/api/images/[imageId]/support-mask/latest`, and `/api/slice-crops/[cropId]/support-mask`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; derived crops reload through `/api/images/[imageId]/slice-crops`; review readiness is read through `/api/images/[imageId]/review-state`.
-15. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a training export from latest approved versions, and download the generated manifest/package through app routes.
+5. User opens `/app/projects/[projectId]/images/[imageId]/crop`.
+6. User draws rough BBox slice proposals in the BBox stage. These proposals are planning artifacts only, not support-mask ground truth.
+7. User confirms the BBox set and the app generates current derived crops. Each crop is a private derived PNG with source-image lineage, not a raw uploaded image and not support geometry.
+8. User opens the crop workbench for a selected slice.
+9. User draws crop semantic labels with mode-aware support policy. Sap/Heartwood can save without explicit support and derives support from semantic foreground; Copper drafts can save before support but require approved explicit support for readiness/export.
+10. User can open the crop support editor and draw the pixel-perfect physical slice support mask in `CROP_PIXEL`.
+11. User reviews the auto-derived slice classification or appends a manual override.
+12. Crop editors upload serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, coordinate space, lineage, and appends `AnnotationArtifactVersion` rows.
+13. User submits and, with `OWNER`/`QA` permission, approves crop semantic mask, crop support mask where required, and classification versions.
+14. Latest crop masks can be reloaded through `/api/slice-crops/[cropId]/semantic-mask` and `/api/slice-crops/[cropId]/support-mask`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; derived crops reload through `/api/images/[imageId]/slice-crops`; crop readiness is read through `/api/projects/[projectId]/crop-readiness`.
+15. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a crop training export from ready approved crop artifacts, and download the generated manifest/package through app routes.
 
 ## Important Files
 

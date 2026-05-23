@@ -1,18 +1,28 @@
 import type { LabelId } from "@/mask/labels";
 import type { Patch } from "@/mask/patch";
 
-export type EditorProps = {
+export type MaskMode = "semantic" | "support";
+
+type BaseEditorProps = {
   projectId: string;
   imageId: string;
   canEdit: boolean;
-  correctionTaskId?: string;
-  correctionMode?: MaskMode;
-  workflowMode?: "fullEditor" | "bboxStage";
 };
+
+export type EditorProps =
+  | (BaseEditorProps & {
+      workflowMode: "bboxStage";
+      correctionTaskId?: never;
+      correctionMode?: never;
+    })
+  | (BaseEditorProps & {
+      correctionTaskId: string;
+      correctionMode: MaskMode;
+      workflowMode?: never;
+    });
 
 export type Stroke = Patch[];
 export type Tool = "brush" | "eraser" | "lasso_free" | "lasso_poly" | "bbox";
-export type MaskMode = "semantic" | "support";
 export type Point = { x: number; y: number };
 
 export type SliceBoundingBoxProposal = {

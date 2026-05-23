@@ -18,7 +18,7 @@ Current stable browser routes:
 - `/app/projects/new`
 - `/app/projects/[projectId]`
 - `/app/projects/[projectId]/images`
-- `/app/projects/[projectId]/images/[imageId]/edit`
+- `/app/projects/[projectId]/images/[imageId]`
 - `/app/projects/[projectId]/images/[imageId]/crop`
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes`
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]`

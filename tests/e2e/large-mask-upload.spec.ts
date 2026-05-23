@@ -44,12 +44,11 @@ function grayscalePng(width: number, height: number) {
   ]);
 }
 
-test("large full-resolution editor mask upload reaches the real route intact", async ({ page }) => {
+test("large image enters the crop workflow and saves a crop-sized semantic mask", async ({ page }) => {
   test.setTimeout(90_000);
 
   const width = 6000;
   const height = 4000;
-  const expectedBytes = width * height;
   const projectName = `E2E Large Mask ${Date.now()}`;
   const imageBuffer = grayscalePng(width, height);
   const browserErrors: string[] = [];
@@ -83,12 +82,12 @@ test("large full-resolution editor mask upload reaches the real route intact", a
   await expect(page.getByText("large-6000x4000.png")).toBeVisible();
   await expect(page.getByText("6000 x 4000")).toBeVisible();
 
-  await page.getByRole("link", { name: "Open editor" }).click();
-  await expect(page).toHaveURL(/\/images\/[^/]+\/edit$/);
-  const editorUrl = new URL(page.url());
-  const imageId = editorUrl.pathname.match(/\/images\/([^/]+)\/edit$/)?.[1];
+  await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await expect(page).toHaveURL(/\/images\/[^/]+\/crop\/bboxes$/);
+  const cropUrl = new URL(page.url());
+  const imageId = cropUrl.pathname.match(/\/images\/([^/]+)\/crop\/bboxes$/)?.[1];
   expect(imageId).toBeTruthy();
-  await expect(page.getByRole("button", { name: "Brush" })).toBeEnabled({ timeout: 30_000 });
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await expect(drawingSurface).toBeVisible();
@@ -106,23 +105,44 @@ test("large full-resolution editor mask upload reaches the real route intact", a
   expect(box).not.toBeNull();
   if (!box) return;
 
-  await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.5);
+  await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.48);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.5, { steps: 2 });
+  await page.mouse.move(box.x + box.width * 0.53, box.y + box.height * 0.54, { steps: 4 });
+  await page.mouse.up();
+
+  await expect(page.getByText("BBox proposal saved")).toBeVisible();
+  await page.getByRole("button", { name: "Confirm BBox set" }).click();
+  await expect(page.getByText("BBox set confirmed")).toBeVisible();
+  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
+  await page.getByRole("link", { name: "Start Sap/Heartwood semantic" }).click();
+  await expect(page).toHaveURL(/\/semantic\?mode=SAP_HEARTWOOD$/);
+
+  const semanticSurface = page.getByLabel("Mask drawing surface");
+  await expect(semanticSurface).toBeVisible();
+  await semanticSurface.scrollIntoViewIfNeeded();
+  const semanticBox = await semanticSurface.boundingBox();
+  expect(semanticBox).not.toBeNull();
+  if (!semanticBox) return;
+
+  await page.mouse.move(semanticBox.x + semanticBox.width * 0.4, semanticBox.y + semanticBox.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(semanticBox.x + semanticBox.width * 0.6, semanticBox.y + semanticBox.height * 0.5, { steps: 6 });
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save now" }).click();
-
+  await page.getByRole("button", { name: "Save semantic mask" }).click();
+  await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
   await expect
-    .poll(async () => {
-      return page.evaluate(async (id) => {
-        const response = await fetch(`/api/images/${id}/mask/latest`, { cache: "no-store" });
+    .poll(async () =>
+      page.evaluate(async (id) => {
+        const response = await fetch(`/api/images/${id}/slice-crops`, { cache: "no-store" });
         if (!response.ok) return null;
         const data = await response.json();
-        return data?.size ?? null;
-      }, imageId);
-    }, { timeout: 60_000 })
-    .toBe(expectedBytes);
+        const crop = data.crops?.[0];
+        return crop ? crop.cropWidth * crop.cropHeight : null;
+      }, imageId),
+    )
+    .toBeLessThan(width * height);
   expect(browserErrors.filter((message) => /AbortError|operation was aborted/i.test(message))).toEqual([]);
 });

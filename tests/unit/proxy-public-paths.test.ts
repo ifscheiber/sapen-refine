@@ -39,7 +39,7 @@ describe("proxy public paths", () => {
 
   it("forwards the requested workspace path when a session cookie exists", () => {
     const response = proxy(
-      new NextRequest("http://localhost/app/projects/demo_project/images/image-1/edit?tool=brush", {
+      new NextRequest("http://localhost/app/projects/demo_project/images/image-1/crop?stage=bboxes", {
         headers: { cookie: `${SESSION_COOKIE_NAME}=stale-session` },
       }),
     );
@@ -47,7 +47,7 @@ describe("proxy public paths", () => {
     expect(response.status).toBe(200);
     expect(
       response.headers.get(`x-middleware-request-${WORKSPACE_REQUEST_PATH_HEADER}`),
-    ).toBe("/app/projects/demo_project/images/image-1/edit?tool=brush");
+    ).toBe("/app/projects/demo_project/images/image-1/crop?stage=bboxes");
   });
 
   it("keeps same-origin mutation guard ahead of api authentication", async () => {

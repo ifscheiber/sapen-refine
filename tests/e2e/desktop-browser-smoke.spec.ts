@@ -61,147 +61,116 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByLabel("T-number")).toHaveValue(tNumber);
   await expect(page.getByLabel("Camera/device")).toHaveValue("Desktop browser camera");
 
-  await page.getByRole("link", { name: "Open editor" }).click();
-  await expect(page.getByRole("button", { name: "Brush" })).toBeVisible();
+  const imageMatch = page.url().match(/\/images\/([^/?#]+)$/);
+  expect(imageMatch).not.toBeNull();
+  const imageId = imageMatch?.[1];
+  expect(imageId).toBeTruthy();
+
+  await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true }),
+  ).toBeVisible();
   expect(abortErrors()).toEqual([]);
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await expect(drawingSurface).toBeVisible();
+  await expect
+    .poll(async () =>
+      drawingSurface.evaluate((node) => {
+        const canvas = node as HTMLCanvasElement;
+        return { height: canvas.height, width: canvas.width };
+      }),
+    )
+    .toEqual({ height: 180, width: 180 });
   await drawingSurface.scrollIntoViewIfNeeded();
   const box = await drawingSurface.boundingBox();
   expect(box).not.toBeNull();
   if (!box) return;
 
-  await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5);
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5, { steps: 8 });
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.72, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(page.getByText("BBox proposal saved")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Slice proposal 1:/ })).toBeVisible();
+  await page.getByRole("button", { name: "Confirm BBox set" }).click();
+  await expect(page.getByText("BBox set confirmed")).toBeVisible();
+  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: /Crop workbench:/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start Sap/Heartwood semantic" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Start Sap/Heartwood semantic" }).click();
+  await expect(page).toHaveURL(/\/semantic\?mode=SAP_HEARTWOOD$/);
+  await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
+  await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
+
+  const semanticSurface = page.getByLabel("Mask drawing surface");
+  await expect(semanticSurface).toBeVisible();
+  await semanticSurface.scrollIntoViewIfNeeded();
+  const semanticBox = await semanticSurface.boundingBox();
+  expect(semanticBox).not.toBeNull();
+  if (!semanticBox) return;
+
+  await page.mouse.move(semanticBox.x + semanticBox.width * 0.35, semanticBox.y + semanticBox.height * 0.45);
+  await page.mouse.down();
+  await page.mouse.move(semanticBox.x + semanticBox.width * 0.65, semanticBox.y + semanticBox.height * 0.55, { steps: 8 });
   await page.mouse.up();
 
   await page.getByRole("button", { name: "Eraser" }).click();
   await expect(page.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Eraser: semantic background")).toBeVisible();
-  await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5);
+  await page.mouse.move(semanticBox.x + semanticBox.width * 0.45, semanticBox.y + semanticBox.height * 0.5);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.5, { steps: 4 });
+  await page.mouse.move(semanticBox.x + semanticBox.width * 0.5, semanticBox.y + semanticBox.height * 0.5, { steps: 4 });
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save now" }).click();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save semantic mask" }).click();
+  await expect(page.getByText(/Saved; suggested Sap\/Heartwood slice|Saved/)).toBeVisible();
+  await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
 
-  const match = page.url().match(/\/images\/([^/]+)\/edit/);
-  expect(match).not.toBeNull();
-  const imageId = match?.[1];
-  expect(imageId).toBeTruthy();
+  const reviewRows = page.locator("div.flex.min-h-11.items-center.gap-1");
+  const semanticReview = reviewRows.filter({ hasText: /Sap\/Heartwood: Draft v\d+/ }).first();
+  await expect(semanticReview).toBeVisible();
+  await semanticReview.getByRole("button", { name: "Submit" }).click();
+  const submittedSemanticReview = reviewRows.filter({ hasText: /Sap\/Heartwood: Submitted v\d+/ }).first();
+  await expect(submittedSemanticReview).toBeVisible();
+  await submittedSemanticReview.getByRole("button", { name: "Approve" }).click();
+  await expect(reviewRows.filter({ hasText: /Sap\/Heartwood: Approved v\d+/ }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Slice support" }).first().click();
-  await expect(page.getByRole("button", { name: "Slice support" }).first()).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-
-  await page.getByRole("button", { name: "Brush" }).click();
-  await drawingSurface.scrollIntoViewIfNeeded();
-  const supportBox = await drawingSurface.boundingBox();
-  expect(supportBox).not.toBeNull();
-  if (!supportBox) return;
-
-  await page.mouse.move(supportBox.x + supportBox.width * 0.3, supportBox.y + supportBox.height * 0.35);
-  await page.mouse.down();
-  await page.mouse.move(supportBox.x + supportBox.width * 0.7, supportBox.y + supportBox.height * 0.65, { steps: 8 });
-  await page.mouse.up();
-
-  await page.getByRole("button", { name: "Eraser" }).click();
-  await expect(page.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Eraser: support background")).toBeVisible();
-  await page.mouse.move(supportBox.x + supportBox.width * 0.45, supportBox.y + supportBox.height * 0.5);
-  await page.mouse.down();
-  await page.mouse.move(supportBox.x + supportBox.width * 0.55, supportBox.y + supportBox.height * 0.5, { steps: 4 });
-  await page.mouse.up();
-
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save support mask" }).click();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-
-  await page.getByRole("combobox", { name: "Slice classification" }).selectOption("COPPER_SLICE");
-  await page.getByRole("button", { name: "Save classification" }).click();
-  await expect(page.getByText("Classification saved")).toBeVisible();
-
-  await expect(page.getByRole("button", { name: "Submit Semantic mask" })).toBeEnabled();
-  await page.getByRole("button", { name: "Submit Semantic mask" }).click();
-  await expect(page.getByText("Semantic mask Submitted")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve Semantic mask" })).toBeEnabled();
-  await page.getByRole("button", { name: "Approve Semantic mask" }).click();
-  await expect(page.getByText("Semantic mask Approved")).toBeVisible();
-
-  await expect(page.getByRole("button", { name: "Submit Slice support mask" })).toBeEnabled();
-  await page.getByRole("button", { name: "Submit Slice support mask" }).click();
-  await expect(page.getByText("Slice support mask Submitted")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve Slice support mask" })).toBeEnabled();
-  await page.getByRole("button", { name: "Approve Slice support mask" }).click();
-  await expect(page.getByText("Slice support mask Approved")).toBeVisible();
-
-  await expect(page.getByRole("button", { name: "Submit Slice classification" })).toBeEnabled();
-  await page.getByRole("button", { name: "Submit Slice classification" }).click();
-  await expect(page.getByText("Slice classification Submitted")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve Slice classification" })).toBeEnabled();
-  await page.getByRole("button", { name: "Approve Slice classification" }).click();
-  await expect(page.getByText("Slice classification Approved")).toBeVisible();
-  await expect(page.getByText("Export-ready: Yes")).toBeVisible();
-
-  await page.reload();
-  await expect(page.getByLabel("Mask drawing surface")).toBeVisible();
-  await expect(page.getByText(/Support mask: Approved v\d+ saved/)).toBeVisible();
-  await expect(page.getByText("Classification: Copper slice")).toBeVisible();
-  await expect(page.getByText("Export-ready: Yes")).toBeVisible();
+  const classificationReview = reviewRows.filter({ hasText: /Classification: Draft v\d+/ }).first();
+  await expect(classificationReview).toBeVisible();
+  await classificationReview.getByRole("button", { name: "Submit" }).click();
+  const submittedClassificationReview = reviewRows.filter({ hasText: /Classification: Submitted v\d+/ }).first();
+  await expect(submittedClassificationReview).toBeVisible();
+  await submittedClassificationReview.getByRole("button", { name: "Approve" }).click();
+  await expect(reviewRows.filter({ hasText: /Classification: Approved v\d+/ }).first()).toBeVisible();
+  await expect(page.getByText("Export readiness: ready")).toBeVisible();
 
   await expect.poll(async () => {
     return page.evaluate(async (id) => {
-      const response = await fetch(`/api/images/${id}/mask/latest`, {
+      const response = await fetch(`/api/images/${id}/slice-crops`, {
         credentials: "include",
       });
       if (!response.ok) return false;
       const body = await response.json();
-      return body.exists === true;
+      return (body.crops?.length ?? 0) > 0;
     }, imageId);
   }).toBe(true);
 
   await expect.poll(async () => {
-    return page.evaluate(async (id) => {
-      const support = await fetch(`/api/images/${id}/support-mask/latest`, {
-        credentials: "include",
-      });
-      if (!support.ok) return false;
-      const body = await support.json();
-      return body.exists === true;
-    }, imageId);
-  }).toBe(true);
-
-  await expect.poll(async () => {
-    return page.evaluate(async (id) => {
-      const slice = await fetch(`/api/images/${id}/slice`, {
-        credentials: "include",
-      });
-      if (!slice.ok) return null;
-      const body = await slice.json();
-      return body.latestClassification?.class ?? null;
-    }, imageId);
-  }).toBe("COPPER_SLICE");
-
-  await expect.poll(async () => {
-    return page.evaluate(async (id) => {
-      const response = await fetch(`/api/images/${id}/review-state`, {
+    return page.evaluate(async ({ projectId, imageId }) => {
+      const response = await fetch(`/api/projects/${projectId}/crop-readiness?imageId=${imageId}`, {
         credentials: "include",
       });
       if (!response.ok) return false;
       const body = await response.json();
-      return (
-        body.exportReady === true &&
-        Boolean(body.reviewables?.semanticMask?.latestApprovedVersion?.id) &&
-        Boolean(body.reviewables?.supportMask?.latestApprovedVersion?.id) &&
-        Boolean(body.reviewables?.sliceClassification?.latestApprovedVersion?.id)
-      );
-    }, imageId);
+      return body.summary?.readyCropItems === 1;
+    }, { projectId: projectId!, imageId: imageId! });
   }).toBe(true);
 
   await page.goto(`/app/projects/${projectId}`);
@@ -216,8 +185,9 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByRole("heading", { name: "Project exports" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Training export" })).toBeVisible();
   await expect(page.getByText("Semantic approved")).toBeVisible();
-  await expect(page.getByText("Support approved")).toBeVisible();
   await expect(page.getByText("Classifications approved")).toBeVisible();
+  await expect(page.getByText("Crop ready")).toBeVisible();
+  await page.getByLabel("Crop training").check();
   await expect(page.getByRole("button", { name: "Create export" })).toBeEnabled();
   await page.getByRole("button", { name: "Create export" }).click();
   await expect(page.getByText("Export COMPLETED")).toBeVisible({ timeout: 30_000 });

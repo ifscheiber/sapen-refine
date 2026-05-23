@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-103 implements BBox-stage re-entry from crop editors. RB-104 is the planned follow-up that removes the legacy full-image editor surface.
+This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor surface.
 
 The crop workflow is a route-addressable staged workflow, not a hidden client-only state machine.
 
@@ -32,13 +32,12 @@ The BBox stage uses planning language. BBoxes are rough crop work areas and must
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - implemented crop workflow support mask tool route.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - implemented crop workflow semantic mask tool route.
 
-Current compatibility routes remain deep-linkable until later tickets replace or redirect them:
+Compatibility crop routes remain deep-linkable:
 
-- `/app/projects/[projectId]/images/[imageId]/edit`
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`
 
-RB-103 replaces crop-editor escape hatches to `/edit` with an explicit `Edit BBoxes` action that returns to `/crop/bboxes`. RB-104 plans to remove `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route.
+RB-103 replaces crop-editor escape hatches to the old full-image editor with an explicit `Edit BBoxes` action that returns to `/crop/bboxes`. RB-104 removes `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route.
 
 ## State Model
 
@@ -106,7 +105,7 @@ Classification follows semantic content. Auto-derived classifications are attrib
 
 Current runtime ownership:
 
-- `src/features/editor/EditorClient.tsx` for the full-image editor and BBox primitive controls.
+- `src/features/editor/EditorClient.tsx` for BBox-stage source-image controls and assisted correction.
 - `src/features/editor/ImageCropBBoxesPage.tsx` for the staged image-level BBox workflow route.
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` for the whole-image slice navigator route.
 - `src/features/editor/CropWorkbenchPage.tsx` for the selected crop workbench route.
@@ -116,9 +115,4 @@ Current runtime ownership:
 - `src/features/editor/CropSemanticEditorPage.tsx` for crop semantic editing and classification override controls.
 - `GET /api/projects/[projectId]/crop-readiness` for crop readiness summaries.
 
-The unified selected-slice crop workbench and semantic-family guardrails are owned by RB-096 and RB-097. Final smoke/closeout is owned by RB-098 after RB-103 and RB-104 land.
-
-Planned post-hotfix ownership:
-
-- RB-103 owns explicit navigation from crop editors back to the BBox stage and smoke coverage for editing/re-confirming BBoxes after crop inspection.
-- RB-104 owns removal of the legacy full-image editor route and full-image annotation surface. BBox-stage drawing and assisted correction must be preserved through non-legacy surfaces if still required.
+The unified selected-slice crop workbench and semantic-family guardrails are owned by RB-096 and RB-097. RB-103 owns explicit navigation from crop editors back to the BBox stage and smoke coverage for editing/re-confirming BBoxes after crop inspection. RB-104 owns removal of the legacy full-image editor route while preserving BBox-stage drawing and assisted correction through non-legacy surfaces. Final smoke/closeout is owned by RB-098.
