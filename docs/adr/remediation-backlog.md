@@ -2,6 +2,48 @@
 
 Deferred work discovered during repository hygiene should be recorded here instead of expanding active ticket scope.
 
+## RB-105 - Presigned Compatibility Upload Immutability Gap
+
+Context: The legacy/internal image and semantic-mask presign/commit routes return presigned `PutObject` URLs for the final object keys that are later persisted in `ImageAsset.storageKey` or `AnnotationArtifactVersion.storageKey`. The app validates the object at commit time, but the presigned URL can still overwrite the same key until it expires. Export packaging then reads current object bytes from storage without recomputing the bytes against the persisted checksum before writing the ZIP package.
+
+Impact: A client holding a still-valid presigned URL can mutate a committed raw image or committed mask object after database persistence. This violates raw-image/artifact immutability and can make DB checksums, export manifests, and ZIP package bytes disagree.
+
+Proposed next step: Disable or feature-flag presign/commit compatibility routes before production use. If compatibility remains required, presign only staging keys, validate on commit, copy/write validated bytes to a fresh non-presigned final key, persist that final key, delete the staging object, and add export-time checksum verification for packaged object bytes.
+
+Affected modules: `src/app/api/projects/[projectId]/images/presign`, `src/app/api/projects/[projectId]/images/commit`, `src/app/api/images/[imageId]/mask/presign`, `src/app/api/images/[imageId]/mask/commit`, `src/server/storage/s3.ts`, `src/server/domain/exports.ts`, storage docs, and compatibility-route tests.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-106 - Protected API Error Contract Completion
+
+Context: RB-072 added flat JSON API error helpers and representative route coverage, but many protected routes still call `requireUser()` or `requireProjectRole()` before a route-level `try/catch` or without `withApiErrorHandling`. A stale but present session cookie bypasses proxy missing-cookie handling and can still throw outside the stable API error contract.
+
+Impact: Some customer-facing fetch/XHR failures can return generic framework errors instead of stable `{ ok: false, error: "UNAUTHENTICATED" }` or `FORBIDDEN` JSON responses. This weakens client error handling and makes production troubleshooting inconsistent.
+
+Proposed next step: Wrap every non-public `src/app/api/**/route.ts` handler in `withApiErrorHandling` or a shared authenticated route helper. Add a static/unit guard that identifies protected route files missing the wrapper unless explicitly exempted.
+
+Affected modules: `src/app/api/**/route.ts`, `src/server/http/apiErrors.ts`, API docs, and route/API contract tests.
+
+Owner: Unassigned.
+
+Priority: P1.
+
+## RB-107 - Artifact Version Allocation Concurrency Hardening
+
+Context: Multiple save paths allocate artifact or classification version numbers by reading the latest version and inserting `latest + 1`. This pattern appears in full-image semantic masks, default support masks, crop support masks, crop semantic masks, slice classifications, assisted corrections, and prediction imports.
+
+Impact: Two saves for the same artifact family or slice instance can race on unique constraints such as `@@unique([artifactId, version])` and `@@unique([sliceInstanceId, version])`. One save may fail after object storage writes have occurred, causing confusing save failures and storage churn. This risk increases with multi-tab editing or multiple annotators.
+
+Proposed next step: Use a transaction-level advisory lock, atomic per-artifact/per-slice counters, or bounded retry on Prisma `P2002` for version creation. Pair this with the deferred edit-session/multi-tab warning so users can see when they are editing a stale or concurrently edited target.
+
+Affected modules: `src/app/api/images/[imageId]/mask/upload`, `src/server/domain/slices.ts`, `src/server/domain/cropSupportMasks.ts`, `src/server/domain/cropSemanticMasks.ts`, `src/server/domain/sliceClassifications.ts`, `src/server/domain/assistedCorrection.ts`, `src/server/domain/predictionImport.ts`, editor save UX, and save/versioning tests.
+
+Owner: Unassigned.
+
+Priority: P1/P2.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
