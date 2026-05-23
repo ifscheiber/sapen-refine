@@ -34,6 +34,7 @@
 - `src/server/domain/sliceCrops.ts` - RB-087 derived slice crop geometry, padding validation, source-image crop generation, private PNG storage, sanitized reads, and audit events.
 - `src/server/domain/cropSupportMasks.ts` - RB-088 crop support-mask state, crop-dimension validation, coordinate helper, artifact-version creation, and sanitized latest-version reads.
 - `src/server/domain/cropSemanticMasks.ts` - RB-089 crop semantic-mask state, support-lineage validation, mode label validation, outside-support rejection, artifact-version creation, and sanitized latest-version reads.
+- `src/server/domain/sliceClassifications.ts` - RB-090 slice-instance manual override APIs, semantic-mask classification derivation, provenance serialization, and audit events.
 - `src/server/http/apiErrors.ts` - RB-072 flat JSON API error helpers for auth/RBAC/domain route failures.
 - `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helpers, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
 
@@ -57,6 +58,7 @@
 - `generateCropForSliceBBox`, `listSliceCropsForImageForUser`, `getSliceCropForUser`, and `readSliceCropAssetForUser` implement the RB-087 derived slice crop service layer.
 - `loadCropSupportMaskStateForUser`, `createCropSupportMaskVersionForUser`, and `cropPixelToSourcePixel` implement the RB-088 crop support-mask service layer.
 - `loadCropSemanticMaskStateForUser`, `createCropSemanticMaskVersionForUser`, and `validateSemanticMaskAgainstSupport` implement the RB-089 crop semantic-mask service layer.
+- `deriveSliceClassificationFromSemanticMask`, `deriveSliceClassificationForSemanticMaskVersionForUser`, `loadSliceClassificationStateForUser`, and `setSliceInstanceClassificationForUser` implement the RB-090 auto/manual crop workflow classification service layer.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 - `apiError`, `apiErrorFromPayload`, `apiErrorFromUnknown`, and `withApiErrorHandling` implement the RB-072 route-level JSON error contract.
 
@@ -78,7 +80,8 @@
 - Slice BBox services create crop-planning proposal versions only. They validate source-image pixel bounds, append replacement/deletion versions, and do not create support masks or export-ready ground truth.
 - Slice crop services generate private derived PNG crops from current active BBox versions only. They clamp configurable padding to source-image bounds, record requested/applied padding separately, store `CROP_PIXEL` transform metadata, and do not create support geometry.
 - Crop support-mask services create draft crop-scoped `SLICE_SUPPORT_MASK` artifact versions only after exact crop-dimension validation. They link saved versions to `DerivedSliceCrop` and `SliceInstance`, use `CROP_PIXEL`, and keep private storage keys out of browser responses.
-- Crop semantic-mask services require a current crop support mask, create draft crop-scoped `SEMANTIC_MASK` artifact versions after exact crop-dimension and support-lineage validation, link saved versions to `DerivedSliceCrop`, `SliceInstance`, and `supportMaskVersionId`, use `CROP_PIXEL`, and reject non-background semantic bytes outside support.
+- Crop semantic-mask services require a current crop support mask, create draft crop-scoped `SEMANTIC_MASK` artifact versions after exact crop-dimension and support-lineage validation, link saved versions to `DerivedSliceCrop`, `SliceInstance`, and `supportMaskVersionId`, use `CROP_PIXEL`, reject non-background semantic bytes outside support, and trigger draft auto slice-classification derivation.
+- Slice-classification derivation uses semantic mask bytes and label-schema values only; it stores `AUTO_FROM_SEMANTIC_MASK` provenance, exact semantic/support/crop lineage, stable derivation reasons, and draft review state. Manual overrides append separate `MANUAL` versions.
 
 ## Known Gaps
 

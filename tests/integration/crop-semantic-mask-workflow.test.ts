@@ -16,6 +16,10 @@ import type {
   createCropSemanticMaskVersionForUser as CreateCropSemanticMaskVersionForUser,
   loadCropSemanticMaskStateForUser as LoadCropSemanticMaskStateForUser,
 } from "@/server/domain/cropSemanticMasks";
+import type {
+  loadSliceClassificationStateForUser as LoadSliceClassificationStateForUser,
+  setSliceInstanceClassificationForUser as SetSliceInstanceClassificationForUser,
+} from "@/server/domain/sliceClassifications";
 
 loadEnv({ path: ".env.local" });
 
@@ -28,6 +32,8 @@ let generateCropForSliceBBox: typeof GenerateCropForSliceBBox;
 let createCropSupportMaskVersionForUser: typeof CreateCropSupportMaskVersionForUser;
 let createCropSemanticMaskVersionForUser: typeof CreateCropSemanticMaskVersionForUser;
 let loadCropSemanticMaskStateForUser: typeof LoadCropSemanticMaskStateForUser;
+let loadSliceClassificationStateForUser: typeof LoadSliceClassificationStateForUser;
+let setSliceInstanceClassificationForUser: typeof SetSliceInstanceClassificationForUser;
 let storage: typeof import("@/server/storage/s3");
 
 describe("crop semantic mask workflow", () => {
@@ -49,6 +55,10 @@ describe("crop semantic mask workflow", () => {
       createCropSemanticMaskVersionForUser,
       loadCropSemanticMaskStateForUser,
     } = await import("@/server/domain/cropSemanticMasks"));
+    ({
+      loadSliceClassificationStateForUser,
+      setSliceInstanceClassificationForUser,
+    } = await import("@/server/domain/sliceClassifications"));
     storage = await import("@/server/storage/s3");
 
     const labelSchema = await prisma.labelSchemaVersion.findFirstOrThrow({
@@ -313,10 +323,34 @@ describe("crop semantic mask workflow", () => {
     expect(persisted.labelSchemaVersionId).toBe(labelSchemaVersionId);
     expect(persisted.createdById).toBe(ownerId);
     expect(persisted.reviewState).toBe("DRAFT");
+    expect(state.classificationDerivation).toMatchObject({
+      ok: true,
+      semanticMaskVersionId: latest.id,
+      reason: "SAP_HEARTWOOD_PIXELS_PRESENT",
+      classification: {
+        class: "SAP_HEARTWOOD_SLICE",
+        source: "AUTO_FROM_SEMANTIC_MASK",
+        derivationReason: "SAP_HEARTWOOD_PIXELS_PRESENT",
+        derivedFromSemanticMaskVersionId: latest.id,
+        derivedFromSupportMaskVersionId: supportMask.id,
+        derivedFromCropId: crop.id,
+        reviewState: "DRAFT",
+      },
+    });
+    expect(state.latestClassification).toMatchObject({
+      class: "SAP_HEARTWOOD_SLICE",
+      source: "AUTO_FROM_SEMANTIC_MASK",
+      derivationReason: "SAP_HEARTWOOD_PIXELS_PRESENT",
+      derivedFromSemanticMaskVersionId: latest.id,
+      derivedFromSupportMaskVersionId: supportMask.id,
+      derivedFromCropId: crop.id,
+      reviewState: "DRAFT",
+    });
 
     const reloaded = await loadCropSemanticMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
     expect(reloaded.latestSemanticMasks.SAP_HEARTWOOD?.id).toBe(latest.id);
     expect(reloaded.currentSupportMask?.id).toBe(supportMask.id);
+    expect(reloaded.latestClassification?.id).toBe(state.latestClassification?.id);
   });
 
   it("saves Copper as a semantic mask without mutating support geometry", async () => {
@@ -354,6 +388,15 @@ describe("crop semantic mask workflow", () => {
     expect(persisted.artifact.kind).toBe("SEMANTIC_MASK");
     expect(persisted.artifact.scopeKey).toBe(`crop-semantic:${crop.id}:COPPER`);
     expect(persisted.cropSemanticMode).toBe("COPPER");
+    expect(state.latestClassification).toMatchObject({
+      class: "COPPER_SLICE",
+      source: "AUTO_FROM_SEMANTIC_MASK",
+      derivationReason: "COPPER_PIXELS_PRESENT",
+      derivedFromSemanticMaskVersionId: latest.id,
+      derivedFromSupportMaskVersionId: supportMask.id,
+      derivedFromCropId: crop.id,
+      reviewState: "DRAFT",
+    });
 
     const supportVersionCountAfter = await prisma.annotationArtifactVersion.count({
       where: { derivedCropId: crop.id, artifact: { kind: "SLICE_SUPPORT_MASK" } },
@@ -365,6 +408,92 @@ describe("crop semantic mask workflow", () => {
       select: { supportArtifactVersionId: true },
     });
     expect(slice.supportArtifactVersionId).toBe(supportMask.id);
+  });
+
+  it("keeps auto classification as a draft suggestion and appends manual overrides", async () => {
+    const { crop } = await createCrop();
+    const { supportMask } = await saveSupport(crop);
+    const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    bytes[crop.cropWidth + 1] = Labels.COPPER;
+
+    const autoState = await saveSemantic({
+      crop,
+      supportMaskVersionId: supportMask.id,
+      semanticMode: "COPPER",
+      bytes,
+      name: "manual-override-source",
+    });
+    const autoClassification = autoState.latestClassification;
+    if (!autoClassification) throw new Error("AUTO_CLASSIFICATION_MISSING");
+    expect(autoClassification).toMatchObject({
+      class: "COPPER_SLICE",
+      source: "AUTO_FROM_SEMANTIC_MASK",
+      reviewState: "DRAFT",
+    });
+
+    const approvedAuto = await prisma.sliceClassificationVersion.findFirst({
+      where: { id: autoClassification.id, reviewState: "APPROVED" },
+      select: { id: true },
+    });
+    expect(approvedAuto).toBeNull();
+
+    await expect(
+      setSliceInstanceClassificationForUser(
+        { sliceInstanceId: crop.sliceInstanceId, userId: viewerId, class: "UNKNOWN" },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const manualState = await setSliceInstanceClassificationForUser(
+      { sliceInstanceId: crop.sliceInstanceId, userId: ownerId, class: "SAP_HEARTWOOD_SLICE" },
+      prisma,
+    );
+    expect(manualState.latestClassification).toMatchObject({
+      class: "SAP_HEARTWOOD_SLICE",
+      source: "MANUAL",
+      derivationReason: null,
+      reviewState: "DRAFT",
+    });
+    expect(manualState.latestClassification?.version).toBe(autoClassification.version + 1);
+
+    const persistedVersions = await prisma.sliceClassificationVersion.findMany({
+      where: { sliceInstanceId: crop.sliceInstanceId },
+      orderBy: { version: "asc" },
+      select: {
+        id: true,
+        version: true,
+        class: true,
+        source: true,
+        derivationReason: true,
+        derivedFromSemanticMaskVersionId: true,
+        derivedFromSupportMaskVersionId: true,
+        derivedFromCropId: true,
+        reviewState: true,
+      },
+    });
+    expect(persistedVersions).toEqual([
+      expect.objectContaining({
+        id: autoClassification.id,
+        source: "AUTO_FROM_SEMANTIC_MASK",
+        derivedFromSemanticMaskVersionId: autoClassification.derivedFromSemanticMaskVersionId,
+        derivedFromSupportMaskVersionId: supportMask.id,
+        derivedFromCropId: crop.id,
+        reviewState: "DRAFT",
+      }),
+      expect.objectContaining({
+        class: "SAP_HEARTWOOD_SLICE",
+        source: "MANUAL",
+        derivationReason: null,
+        derivedFromSemanticMaskVersionId: null,
+        reviewState: "DRAFT",
+      }),
+    ]);
+
+    const loaded = await loadSliceClassificationStateForUser(
+      { sliceInstanceId: crop.sliceInstanceId, userId: ownerId },
+      prisma,
+    );
+    expect(loaded.latestClassification?.id).toBe(manualState.latestClassification?.id);
   });
 
   it("rejects invalid crop semantic saves", async () => {

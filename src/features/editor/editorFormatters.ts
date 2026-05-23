@@ -4,6 +4,8 @@ import {
   type CorrectionContext,
   type ReviewStateValue,
   type ReviewVersion,
+  type SliceClassificationDerivationReasonValue,
+  type SliceClassificationSourceValue,
   type SliceClassValue,
 } from "./editorTypes";
 
@@ -27,6 +29,25 @@ export function formatVersion(version: ReviewVersion | ClassificationReviewVersi
 
 export function formatSliceClassLabel(value: SliceClassValue | null | undefined) {
   return SLICE_CLASS_OPTIONS.find((option) => option.value === value)?.label ?? "Missing";
+}
+
+export function formatSliceClassificationSource(
+  value: SliceClassificationSourceValue | null | undefined,
+) {
+  if (value === "AUTO_FROM_SEMANTIC_MASK") return "Auto from semantic mask";
+  if (value === "MANUAL") return "Manual";
+  return "Unknown source";
+}
+
+export function formatSliceClassificationReason(
+  value: SliceClassificationDerivationReasonValue | null | undefined,
+) {
+  if (value === "COPPER_PIXELS_PRESENT") return "Copper pixels present";
+  if (value === "SAP_HEARTWOOD_PIXELS_PRESENT") return "Sapwood/heartwood pixels present";
+  if (value === "NO_CLASSIFYING_PIXELS") return "No classifying pixels";
+  if (value === "UNKNOWN_PIXELS_PRESENT") return "Unknown pixels present";
+  if (value === "SEMANTIC_MODE_LABEL_CONFLICT") return "Semantic mode label conflict";
+  return null;
 }
 
 export function formatCorrectionModel(context: CorrectionContext | null) {

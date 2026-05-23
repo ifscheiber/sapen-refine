@@ -98,6 +98,19 @@ enum SliceClass {
   REVIEW_REQUIRED
 }
 
+enum SliceClassificationSource {
+  MANUAL
+  AUTO_FROM_SEMANTIC_MASK
+}
+
+enum SliceClassificationDerivationReason {
+  COPPER_PIXELS_PRESENT
+  SAP_HEARTWOOD_PIXELS_PRESENT
+  NO_CLASSIFYING_PIXELS
+  UNKNOWN_PIXELS_PRESENT
+  SEMANTIC_MODE_LABEL_CONFLICT
+}
+
 enum SliceBoundingBoxStatus {
   ACTIVE
   DELETED
@@ -487,6 +500,8 @@ model AnnotationArtifactVersion {
   childVersions              AnnotationArtifactVersion[]   @relation("ArtifactVersionParent")
   supportMaskVersion         AnnotationArtifactVersion?    @relation("CropSemanticMaskSupportVersion", fields: [supportMaskVersionId], references: [id], onDelete: SetNull)
   cropSemanticMaskVersions   AnnotationArtifactVersion[]   @relation("CropSemanticMaskSupportVersion")
+  classificationSemanticUses SliceClassificationVersion[]  @relation("SliceClassificationSemanticSource")
+  classificationSupportUses  SliceClassificationVersion[]  @relation("SliceClassificationSupportSource")
   createdBy                  User?                         @relation("ArtifactVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   supportForSlices           SliceInstance[]               @relation("SliceSupportArtifactVersion")
   reviewDecisions            ReviewDecision[]
@@ -598,12 +613,13 @@ model DerivedSliceCrop {
   createdById            String?
   createdAt              DateTime        @default(now())
 
-  project       AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sourceImage   ImageAsset                  @relation("DerivedSliceCropSourceImage", fields: [sourceImageId], references: [id], onDelete: Cascade)
-  sliceInstance SliceInstance               @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
-  bboxVersion   SliceBoundingBoxVersion     @relation(fields: [bboxVersionId], references: [id], onDelete: Cascade)
-  createdBy     User?                       @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  supportMasks  AnnotationArtifactVersion[] @relation("CropSupportMaskVersions")
+  project         AnnotationProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceImage     ImageAsset                   @relation("DerivedSliceCropSourceImage", fields: [sourceImageId], references: [id], onDelete: Cascade)
+  sliceInstance   SliceInstance                @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  bboxVersion     SliceBoundingBoxVersion      @relation(fields: [bboxVersionId], references: [id], onDelete: Cascade)
+  createdBy       User?                        @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  supportMasks    AnnotationArtifactVersion[]  @relation("CropSupportMaskVersions")
+  classifications SliceClassificationVersion[] @relation("SliceClassificationCropSource")
 
   @@unique([sliceInstanceId, version])
   @@index([projectId, createdAt])
@@ -613,31 +629,44 @@ model DerivedSliceCrop {
 }
 
 model SliceClassificationVersion {
-  id                   String              @id @default(cuid())
-  projectId            String
-  imageId              String
-  sliceInstanceId      String
-  version              Int
-  class                SliceClass
-  labelSchemaVersionId String
-  reviewState          ArtifactReviewState @default(DRAFT)
-  taskId               String?
-  createdById          String?
-  createdAt            DateTime            @default(now())
+  id                               String                               @id @default(cuid())
+  projectId                        String
+  imageId                          String
+  sliceInstanceId                  String
+  version                          Int
+  class                            SliceClass
+  labelSchemaVersionId             String
+  reviewState                      ArtifactReviewState                  @default(DRAFT)
+  source                           SliceClassificationSource            @default(MANUAL)
+  derivationReason                 SliceClassificationDerivationReason?
+  derivedFromSemanticMaskVersionId String?
+  derivedFromSupportMaskVersionId  String?
+  derivedFromCropId                String?
+  metadataJson                     Json?
+  taskId                           String?
+  createdById                      String?
+  createdAt                        DateTime                             @default(now())
 
-  project            AnnotationProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  image              ImageAsset         @relation(fields: [imageId], references: [id], onDelete: Cascade)
-  sliceInstance      SliceInstance      @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
-  labelSchemaVersion LabelSchemaVersion @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
-  task               AnnotationTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  createdBy          User?              @relation("SliceClassificationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  reviewDecisions    ReviewDecision[]
-  exportItems        ExportItem[]
+  project                 AnnotationProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image                   ImageAsset                 @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance           SliceInstance              @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  labelSchemaVersion      LabelSchemaVersion         @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
+  derivedFromSemanticMask AnnotationArtifactVersion? @relation("SliceClassificationSemanticSource", fields: [derivedFromSemanticMaskVersionId], references: [id], onDelete: SetNull)
+  derivedFromSupportMask  AnnotationArtifactVersion? @relation("SliceClassificationSupportSource", fields: [derivedFromSupportMaskVersionId], references: [id], onDelete: SetNull)
+  derivedFromCrop         DerivedSliceCrop?          @relation("SliceClassificationCropSource", fields: [derivedFromCropId], references: [id], onDelete: SetNull)
+  task                    AnnotationTask?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy               User?                      @relation("SliceClassificationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewDecisions         ReviewDecision[]
+  exportItems             ExportItem[]
 
   @@unique([sliceInstanceId, version])
+  @@unique([derivedFromSemanticMaskVersionId])
   @@index([projectId, class])
   @@index([imageId])
   @@index([reviewState])
+  @@index([source, derivationReason])
+  @@index([derivedFromSupportMaskVersionId])
+  @@index([derivedFromCropId])
   @@index([labelSchemaVersionId])
 }
 

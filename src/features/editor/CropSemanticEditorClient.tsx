@@ -25,13 +25,28 @@ import {
   getZoomedCanvasDisplaySize,
 } from "./canvasGeometry";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
-import { API_CROP_SEMANTIC_MASK, API_CROP_SEMANTIC_MASK_UPLOAD } from "./editorApi";
-import { errorMessage } from "./editorFormatters";
+import {
+  API_CROP_SEMANTIC_MASK,
+  API_CROP_SEMANTIC_MASK_UPLOAD,
+  API_SLICE_INSTANCE_CLASSIFICATION,
+} from "./editorApi";
+import {
+  errorMessage,
+  formatSliceClassificationReason,
+  formatSliceClassificationSource,
+  formatSliceClassLabel,
+} from "./editorFormatters";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
 import { getPaintLabelForTool } from "./editorTools";
-import type { CropSemanticMaskState, CropSemanticMode, Tool } from "./editorTypes";
+import {
+  SLICE_CLASS_OPTIONS,
+  type CropSemanticMaskState,
+  type CropSemanticMode,
+  type SliceClassValue,
+  type Tool,
+} from "./editorTypes";
 
 type CropSemanticEditorClientProps = {
   cropId: string;
@@ -96,6 +111,19 @@ function semanticVersionLabel(state: CropSemanticMaskState | null, semanticMode:
   return `${latest.reviewState.toLowerCase()} ${MODE_LABELS[semanticMode]} v${latest.version}`;
 }
 
+function classificationLabel(state: CropSemanticMaskState | null) {
+  const latest = state?.latestClassification;
+  if (!latest) return "Classification: missing";
+  const reason = formatSliceClassificationReason(latest.derivationReason);
+  return [
+    `Classification: ${formatSliceClassLabel(latest.class)} v${latest.version}`,
+    formatSliceClassificationSource(latest.source),
+    reason,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
 function displaySupportMask(source: MaskBuffer) {
   const display = new MaskBuffer(source.width, source.height, Labels.BG);
   for (let index = 0; index < source.data.length; index += 1) {
@@ -137,6 +165,8 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   const [zoom, setZoom] = useState(1);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedSliceClass, setSelectedSliceClass] = useState<SliceClassValue | "">("");
+  const [classificationSaving, setClassificationSaving] = useState(false);
 
   const overlayLabels = useMemo(() => semanticOverlayLabels(state, semanticMode), [state, semanticMode]);
   const paintLabels = useMemo(() => semanticPaintLabels(state, semanticMode), [state, semanticMode]);
@@ -147,6 +177,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   );
   const editorCanEdit =
     canEdit && Boolean(state?.canEdit) && editorReady && Boolean(state?.currentSupportMask);
+  const classificationCanEdit = canEdit && Boolean(state?.canEdit) && Boolean(state);
 
   const applyZoom = useCallback((z: number) => {
     const canvases = [
@@ -404,6 +435,10 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     }
   }, [activeLabel, paintLabels]);
 
+  useEffect(() => {
+    setSelectedSliceClass(state?.latestClassification?.class ?? "");
+  }, [state?.latestClassification?.class]);
+
   function canvasToCropCoords(event: PointerEvent<HTMLCanvasElement>) {
     const overlay = overlayCanvasRef.current;
     if (!overlay) return { x: 0, y: 0 };
@@ -561,14 +596,55 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
       });
       const data = await response.json().catch(() => null);
       if (!data?.ok) throw new Error(data?.error ?? "CROP_SEMANTIC_MASK_SAVE_FAILED");
-      setState(data as CropSemanticMaskState);
+      const nextState = data as CropSemanticMaskState;
+      setState(nextState);
       setHasUnsavedChanges(false);
-      setStatus("Saved");
-      setTimeout(() => setStatus(""), 800);
+      if (nextState.classificationDerivation?.ok === false) {
+        setStatus(`Saved; classification derivation failed: ${nextState.classificationDerivation.error}`);
+      } else if (nextState.classificationDerivation?.classification) {
+        setStatus(
+          `Saved; suggested ${formatSliceClassLabel(nextState.classificationDerivation.classification.class)}`,
+        );
+        setTimeout(() => setStatus(""), 800);
+      } else {
+        setStatus("Saved");
+        setTimeout(() => setStatus(""), 800);
+      }
     } catch (error) {
       setStatus(errorMessage(error, "Crop semantic mask save failed"));
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function saveManualClassification() {
+    if (!state || !classificationCanEdit || !selectedSliceClass) return;
+    setClassificationSaving(true);
+    setStatus("Saving classification");
+    try {
+      const response = await fetch(API_SLICE_INSTANCE_CLASSIFICATION(state.crop.sliceInstanceId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ class: selectedSliceClass }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? `SLICE_CLASSIFICATION_SAVE_FAILED_${response.status}`);
+      }
+      setState((current) =>
+        current
+          ? {
+              ...current,
+              latestClassification: data.latestClassification ?? null,
+            }
+          : current,
+      );
+      setStatus("Classification saved");
+      setTimeout(() => setStatus(""), 800);
+    } catch (error) {
+      setStatus(errorMessage(error, "Classification save failed"));
+    } finally {
+      setClassificationSaving(false);
     }
   }
 
@@ -614,6 +690,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
         <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>{supportReadinessLabel(state)}</span>
           <span>{semanticVersionLabel(state, semanticMode)}</span>
+          <span>{classificationLabel(state)}</span>
           <span>Outside-support pixels are locked.</span>
           {semanticMode === "COPPER" && <span>Non-copper wood remains background inside support.</span>}
         </div>
@@ -705,6 +782,32 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
           >
             <SaveIcon className="size-4" aria-hidden="true" />
             Save semantic mask
+          </button>
+          <label className="flex min-h-11 items-center gap-2">
+            <span className="text-xs text-muted-foreground">Slice classification</span>
+            <select
+              aria-label="Slice classification"
+              value={selectedSliceClass}
+              disabled={!classificationCanEdit || classificationSaving}
+              onChange={(event) => setSelectedSliceClass(event.target.value as SliceClassValue | "")}
+              className="min-h-11 rounded-md border border-border bg-input-background px-3 py-2 text-sm"
+            >
+              <option value="">No classification</option>
+              {SLICE_CLASS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className={idleButtonClass}
+            onClick={() => void saveManualClassification()}
+            disabled={!classificationCanEdit || classificationSaving || !selectedSliceClass}
+            title="Save classification"
+          >
+            <SaveIcon className="size-4" aria-hidden="true" />
+            {classificationSaving ? "Saving classification..." : "Save classification"}
           </button>
           <div className="ml-auto flex min-h-11 flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">

@@ -77,7 +77,7 @@ Evidence should include short notes and, when practical, a screenshot, photo, sc
 | Tap `Open support editor` for the generated crop. | The crop support editor opens, displays the crop image, and keeps drawing in crop coordinates. | Yes if crop workflow is part of pilot |  |  |
 | Draw and erase a crop support mask, then save. | A draft crop support mask saves and reloads; only support/background labels are available. | Yes if crop workflow is part of pilot |  |  |
 | Open the generated crop semantic editor. | The crop semantic editor opens, shows the support overlay, and mode/tool controls fit the viewport. | Yes if crop workflow is part of pilot |  |  |
-| Draw and save a crop semantic mask inside support. | Brush strokes stay constrained to support pixels, save succeeds, and reload preserves the draft. | Yes if crop workflow is part of pilot |  |  |
+| Draw and save a crop semantic mask inside support. | Brush strokes stay constrained to support pixels, save succeeds, reload preserves the draft, and a draft auto classification suggestion appears. | Yes if crop workflow is part of pilot |  |  |
 | Draw a BBox proposal with Apple Pencil if available. | Pencil input creates a BBox through Pointer Events. | Yes if Pencil and crop workflow are part of pilot |  |  |
 | Draw semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
 | Select Eraser and erase semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |

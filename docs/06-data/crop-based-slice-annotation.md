@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. Auto classification, review integration, and crop-aware export remain planned until later tickets land.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. Review integration and crop-aware export remain planned until later tickets land.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -157,7 +157,7 @@ Copper workflow:
 
 ## Auto Slice Classification
 
-Slice classification may be suggested from semantic content:
+RB-090 suggests slice classification from saved crop semantic-mask content:
 
 ```text
 Copper pixels present      -> COPPER_SLICE
@@ -165,13 +165,17 @@ Sapwood/heartwood present  -> SAP_HEARTWOOD_SLICE
 Insufficient semantics     -> UNKNOWN or REVIEW_REQUIRED
 ```
 
-The suggestion must be attributable to a system actor or derivation rule. Human override must preserve provenance, including who overrode the class, when, and from which suggested value.
+The implementation is save-time and uses the human user who saved the semantic mask as the attributable actor. It reads the saved semantic mask bytes, semantic mode, active label schema values, derived crop id, slice instance id, and exact support mask version id. It does not infer classification from BBoxes, crops alone, support masks alone, predictions, or Copper semantic masks as support geometry.
 
-Recommended default for RB-090:
+RB-090 classification persistence:
 
-- auto-derived classifications start as draft or submitted suggestions,
-- a human review/approval decision or an explicit accepted-auto policy is required before export readiness,
-- manual overrides create new classification versions instead of mutating the auto-derived version.
+- `SliceClassificationVersion.source = AUTO_FROM_SEMANTIC_MASK` for generated suggestions,
+- `SliceClassificationVersion.source = MANUAL` for user overrides,
+- auto suggestions store `derivationReason`, `derivedFromSemanticMaskVersionId`, `derivedFromSupportMaskVersionId`, `derivedFromCropId`, and compact derivation metadata,
+- auto suggestions start with `reviewState = DRAFT` and are not export-ready until the normal classification review flow approves them,
+- manual overrides create new classification versions instead of mutating auto-derived rows.
+
+The default threshold is one classifying pixel. Copper mode with a Copper pixel derives `COPPER_SLICE`. Sap/Heartwood mode with a Sapwood or Heartwood pixel derives `SAP_HEARTWOOD_SLICE`. Background-only masks derive `UNKNOWN`. Unknown-only masks and mode-label conflicts derive `REVIEW_REQUIRED`.
 
 ## Review And Approval
 
@@ -222,6 +226,7 @@ Current implemented behavior:
 - crop records in `CROP_PIXEL` with integer translation transforms back to source pixels,
 - RB-088 crop support masks in `CROP_PIXEL` linked to the source image, slice instance, and derived crop,
 - RB-089 crop semantic masks in `CROP_PIXEL` linked to the source image, slice instance, derived crop, exact support mask version, and semantic mode,
+- RB-090 draft slice classifications derived from crop semantic masks and manual crop workflow overrides linked to the slice instance,
 - default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 

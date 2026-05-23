@@ -81,7 +81,7 @@ Combined exports keep each target type explicit. They include any approved selec
 
 ## Planned Crop-Aware Export Extension
 
-RB-085 defines a crop-based slice annotation workflow, RB-086 persists BBox proposal versions, and RB-087 persists derived crop versions from those BBoxes. The current RB-053 export implementation remains image-level/full-resolution and does not yet emit crop-aware manifest entries.
+RB-085 defines a crop-based slice annotation workflow, RB-086 persists BBox proposal versions, RB-087 persists derived crop versions from those BBoxes, RB-088/RB-089 persist crop support/semantic masks, and RB-090 persists draft auto/manual crop workflow classifications. The current RB-053 export implementation remains image-level/full-resolution and does not yet emit crop-aware manifest entries.
 
 For RB-091 and later, crop-aware exports must keep the existing target separation:
 
@@ -90,7 +90,7 @@ For RB-091 and later, crop-aware exports must keep the existing target separatio
 - Slice classification exports may classify each slice instance and must preserve auto-derived versus human-overridden provenance.
 - Combined manifest exports may bundle crop images, support masks, semantic masks, classifications, source-image references, transforms, and checksums without conflating target types.
 
-Crop-aware training exports must only include versions that satisfy the selected target readiness policy. For the recommended RB-085 default, support masks and semantic masks require approved versions, and classifications require approved versions or an explicit accepted-auto policy.
+Crop-aware training exports must only include versions that satisfy the selected target readiness policy. For the recommended RB-085/RB-090 default, support masks and semantic masks require approved versions, and classifications require approved versions or an explicit accepted-auto policy. RB-090 auto-derived classification rows start as `DRAFT` and are not export-ready by themselves.
 
 Each crop-aware item must include enough metadata to map every crop artifact back to the immutable source image:
 

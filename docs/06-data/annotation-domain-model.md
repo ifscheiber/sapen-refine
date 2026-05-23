@@ -220,7 +220,7 @@ RB-086 creates one `SliceInstance` for each new source-image BBox proposal. The 
 
 RB-087 creates `DerivedSliceCrop` versions from current active BBox versions. A crop records source-image checksum/dimensions, source rectangle, requested/applied padding, clipping, `CROP_PIXEL` dimensions, transform metadata, private PNG storage metadata, creator, and timestamp. Derived crops are not raw uploads and their padding must not be treated as support geometry.
 
-RB-088 creates crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL` for a `DerivedSliceCrop` and `SliceInstance`. RB-089 creates crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL` that reference the exact crop support-mask version used as the constraint and record `cropSemanticMode` as `SAP_HEARTWOOD` or `COPPER`. Crop semantic masks are material annotations only; they must not define or expand support geometry.
+RB-088 creates crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL` for a `DerivedSliceCrop` and `SliceInstance`. RB-089 creates crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL` that reference the exact crop support-mask version used as the constraint and record `cropSemanticMode` as `SAP_HEARTWOOD` or `COPPER`. RB-090 derives draft `SliceClassificationVersion` suggestions from saved crop semantic masks and stores source/reason plus semantic/support/crop lineage. Crop semantic masks are material annotations only; they must not define or expand support geometry.
 
 `SliceClassificationVersion` stores draft classification versions with actor attribution and label schema version. RB-051 supports `SAP_HEARTWOOD_SLICE`, `COPPER_SLICE`, `UNKNOWN`, and `REVIEW_REQUIRED`.
 

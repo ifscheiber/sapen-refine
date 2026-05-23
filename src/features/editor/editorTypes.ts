@@ -71,6 +71,28 @@ export type SliceClassValue =
   | "REVIEW_REQUIRED";
 export type ReviewStateValue = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 export type ReviewAction = "submit" | "approve" | "reject";
+export type SliceClassificationSourceValue = "MANUAL" | "AUTO_FROM_SEMANTIC_MASK";
+export type SliceClassificationDerivationReasonValue =
+  | "COPPER_PIXELS_PRESENT"
+  | "SAP_HEARTWOOD_PIXELS_PRESENT"
+  | "NO_CLASSIFYING_PIXELS"
+  | "UNKNOWN_PIXELS_PRESENT"
+  | "SEMANTIC_MODE_LABEL_CONFLICT";
+
+export type SerializedSliceClassification = {
+  id: string;
+  version: number;
+  class: SliceClassValue;
+  reviewState: string;
+  source: SliceClassificationSourceValue;
+  derivationReason: SliceClassificationDerivationReasonValue | null;
+  derivedFromSemanticMaskVersionId: string | null;
+  derivedFromSupportMaskVersionId: string | null;
+  derivedFromCropId: string | null;
+  labelSchemaVersionId: string;
+  createdAt: string;
+  createdBy: { email: string; name: string | null } | null;
+};
 
 export type SliceState = {
   canEdit: boolean;
@@ -88,6 +110,11 @@ export type SliceState = {
     version: number;
     class: SliceClassValue;
     reviewState: string;
+    source?: SliceClassificationSourceValue;
+    derivationReason?: SliceClassificationDerivationReasonValue | null;
+    derivedFromSemanticMaskVersionId?: string | null;
+    derivedFromSupportMaskVersionId?: string | null;
+    derivedFromCropId?: string | null;
     createdAt: string;
     createdBy: { email: string; name: string | null } | null;
   } | null;
@@ -194,6 +221,15 @@ export type CropSemanticMaskState = {
     canSaveDraft: boolean;
     latestSemanticVersions?: Record<CropSemanticMode, number | null>;
   };
+  latestClassification: SerializedSliceClassification | null;
+  classificationDerivation?: {
+    ok: boolean;
+    semanticMaskVersionId: string | null;
+    error?: string;
+    reason?: SliceClassificationDerivationReasonValue;
+    classifyingPixelThreshold?: number;
+    classification?: SerializedSliceClassification;
+  } | null;
 };
 
 export type ReviewVersion = {

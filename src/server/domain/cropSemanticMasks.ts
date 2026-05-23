@@ -12,6 +12,12 @@ import {
   getProjectLabelSchemaVersionId,
   SliceWorkflowError,
 } from "@/server/domain/slices";
+import {
+  deriveSliceClassificationForSemanticMaskVersionForUser,
+  getLatestSliceClassificationForSliceInstance,
+  recordSliceClassificationDerivationFailure,
+  sliceClassificationDerivationErrorCode,
+} from "@/server/domain/sliceClassifications";
 import { CROP_SUPPORT_MASK_SCOPE_PREFIX } from "./cropSupportMasks";
 
 type CropSemanticDb = typeof prisma;
@@ -563,6 +569,7 @@ export async function loadCropSemanticMaskStateForUser(params: {
       : null,
     COPPER: latestMasks.COPPER ? serializeSemanticMask(latestMasks.COPPER, crop.sourceImageId) : null,
   };
+  const latestClassification = await getLatestSliceClassificationForSliceInstance(db, crop.sliceInstanceId);
 
   return {
     crop: serializeCrop(crop),
@@ -574,6 +581,7 @@ export async function loadCropSemanticMaskStateForUser(params: {
     currentSupportMask: serializedSupportMask,
     latestSemanticMasks: serializedMasks,
     semanticReadiness: semanticReadiness(serializedSupportMask, serializedMasks),
+    latestClassification,
   };
 }
 
@@ -621,6 +629,8 @@ export async function createCropSemanticMaskVersionForUser(params: {
 
   const scopeKey = cropSemanticMaskScopeKey(crop.id, semanticMode);
 
+  let semanticMaskVersionId: string | null = null;
+
   await db.$transaction(async (tx) => {
     const artifact = await tx.annotationArtifact.upsert({
       where: {
@@ -647,7 +657,7 @@ export async function createCropSemanticMaskVersionForUser(params: {
       select: { version: true },
     });
 
-    await tx.annotationArtifactVersion.create({
+    const semanticVersion = await tx.annotationArtifactVersion.create({
       data: {
         artifactId: artifact.id,
         version: (last?.version ?? 0) + 1,
@@ -669,9 +679,50 @@ export async function createCropSemanticMaskVersionForUser(params: {
       },
       select: { id: true },
     });
+    semanticMaskVersionId = semanticVersion.id;
   });
 
-  return loadCropSemanticMaskStateForUser(params, db);
+  let classificationDerivation:
+    | Awaited<ReturnType<typeof deriveSliceClassificationForSemanticMaskVersionForUser>>
+    | { ok: false; semanticMaskVersionId: string | null; error: string }
+    | null = null;
+  if (semanticMaskVersionId) {
+    try {
+      classificationDerivation = await deriveSliceClassificationForSemanticMaskVersionForUser(
+        {
+          semanticMaskVersionId,
+          userId: params.userId,
+          semanticBytes: params.semanticBytes,
+        },
+        db,
+      );
+    } catch (error) {
+      const errorCode = sliceClassificationDerivationErrorCode(error);
+      classificationDerivation = {
+        ok: false,
+        semanticMaskVersionId,
+        error: errorCode,
+      };
+      await recordSliceClassificationDerivationFailure(
+        {
+          userId: params.userId,
+          projectId: crop.projectId,
+          imageId: crop.sourceImageId,
+          sliceInstanceId: crop.sliceInstanceId,
+          semanticMaskVersionId,
+          supportMaskVersionId: supportMaskVersion.id,
+          derivedCropId: crop.id,
+          error: errorCode,
+        },
+        db,
+      ).catch(() => undefined);
+    }
+  }
+
+  return {
+    ...(await loadCropSemanticMaskStateForUser(params, db)),
+    classificationDerivation,
+  };
 }
 
 export function cropSemanticMaskErrorResponse(error: unknown): { error: string; status: number } {

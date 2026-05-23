@@ -2,6 +2,7 @@ import {
   AnnotationArtifactKind,
   Prisma,
   SliceClass,
+  SliceClassificationSource,
   type AnnotationProjectRole,
 } from "@prisma/client";
 
@@ -210,6 +211,11 @@ async function getLatestClassification(db: SliceDb, sliceInstanceId: string) {
       version: true,
       class: true,
       reviewState: true,
+      source: true,
+      derivationReason: true,
+      derivedFromSemanticMaskVersionId: true,
+      derivedFromSupportMaskVersionId: true,
+      derivedFromCropId: true,
       labelSchemaVersionId: true,
       createdAt: true,
       createdBy: { select: { id: true, email: true, name: true } },
@@ -366,6 +372,7 @@ export async function setSliceClassificationForUser(params: {
       version: (last?.version ?? 0) + 1,
       class: params.class,
       labelSchemaVersionId,
+      source: SliceClassificationSource.MANUAL,
       createdById: params.userId,
     },
     select: { id: true, version: true, class: true },

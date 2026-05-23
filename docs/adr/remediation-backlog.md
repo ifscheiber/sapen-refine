@@ -4,11 +4,11 @@ Deferred work discovered during repository hygiene should be recorded here inste
 
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation
 
-Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089 adds support-constrained crop semantic editing. The runtime still does not provide auto classification, crop-aware exports, or crop review integration.
+Context: RB-085 documents the support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089 adds support-constrained crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. The runtime still does not provide crop-aware exports or crop review integration.
 
 Impact: Large images can still stress browser/iPad memory and server request buffering during full-image annotation. Crop-based annotation is needed for scalable multi-slice workflows while preserving source-image coordinate provenance.
 
-Proposed next step: Continue the planned sprint sequence: RB-090 auto classification, RB-091 crop/original-coordinate export, and RB-092 crop review/approval.
+Proposed next step: Continue the planned sprint sequence: RB-091 crop/original-coordinate export and RB-092 crop review/approval.
 
 Affected modules: `src/features/editor`, `src/app/api`, `src/server/domain`, `src/mask`, `prisma/schema.prisma`, docs under `docs/03-features` and `docs/06-data`.
 

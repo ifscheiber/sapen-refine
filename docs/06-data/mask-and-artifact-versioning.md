@@ -22,7 +22,7 @@ Relevant labels include:
 
 Semantic masks must reference one label schema version. The current editor save path writes `AnnotationArtifact.kind = SEMANTIC_MASK` and appends `AnnotationArtifactVersion` rows with `reviewState = DRAFT`.
 
-RB-089 adds crop semantic masks as crop-scoped `SEMANTIC_MASK` artifact versions with `scopeKey = "crop-semantic:{cropId}:{semanticMode}"`, `coordinateSpace = CROP_PIXEL`, `AnnotationArtifactVersion.derivedCropId`, `sliceInstanceId`, `supportMaskVersionId`, and `cropSemanticMode`. The exact support-mask version is the constraint source; saves reject non-background semantic pixels outside that support with `SEMANTIC_OUTSIDE_SUPPORT`.
+RB-089 adds crop semantic masks as crop-scoped `SEMANTIC_MASK` artifact versions with `scopeKey = "crop-semantic:{cropId}:{semanticMode}"`, `coordinateSpace = CROP_PIXEL`, `AnnotationArtifactVersion.derivedCropId`, `sliceInstanceId`, `supportMaskVersionId`, and `cropSemanticMode`. The exact support-mask version is the constraint source; saves reject non-background semantic pixels outside that support with `SEMANTIC_OUTSIDE_SUPPORT`. RB-090 uses successful crop semantic saves to append draft `SliceClassificationVersion` suggestions with source/reason and links back to the semantic mask, support mask, and crop.
 
 ### Slice Support / Instance Masks
 
@@ -75,7 +75,7 @@ Expected classes include:
 - `UNKNOWN`
 - `REVIEW_REQUIRED`
 
-Classification versions reference the relevant image, default slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows; RB-052 adds submit/approve/reject state transitions for those versions.
+Classification versions reference the relevant image, slice instance, actor, and label schema version. RB-051 writes draft `SliceClassificationVersion` rows for the default slice instance; RB-052 adds submit/approve/reject state transitions for those versions. RB-090 adds `source`, `derivationReason`, optional derivation metadata, and optional semantic/support/crop lineage links so auto-derived crop suggestions and manual overrides remain auditable separate versions.
 
 ### Prediction Artifacts
 
@@ -101,7 +101,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
 - RB-086 BBox proposal edits are also append-only: replacement appends the next active `SliceBoundingBoxVersion`, and deletion appends a `DELETED` version rather than erasing proposal history.
-- RB-087 crop-derived versions record their source image, BBox version, crop transform, and source-image checksum. RB-088 crop support masks reference a specific crop version rather than infer coordinates from the latest crop. RB-089 crop semantic masks additionally reference the exact crop support-mask version used as the constraint.
+- RB-087 crop-derived versions record their source image, BBox version, crop transform, and source-image checksum. RB-088 crop support masks reference a specific crop version rather than infer coordinates from the latest crop. RB-089 crop semantic masks additionally reference the exact crop support-mask version used as the constraint. RB-090 auto classifications reference the semantic mask, support mask, and crop that produced the suggestion.
 - RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Human correction versions from RB-059 use `parentVersionId` for the source prediction and keep prediction bytes immutable.

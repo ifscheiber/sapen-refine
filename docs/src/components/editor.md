@@ -48,7 +48,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Review actions must use server APIs; UI control hiding is not the permission boundary.
 - Canvas scaling and coordinate assumptions must be explicit before production iPad/Pencil work.
 - Editor UX should support desktop and tablet screen sizes.
-- Default full-image mask coordinates remain tied to the source image dimensions. BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops and crop support masks use `CROP_PIXEL`; default semantic/support masks still use `IMAGE_PIXEL`.
+- Default full-image mask coordinates remain tied to the source image dimensions. BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops, crop support masks, and crop semantic masks use `CROP_PIXEL`; default semantic/support masks still use `IMAGE_PIXEL`.
 
 ## Known Gaps
 
@@ -57,7 +57,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
 - Advanced multi-touch zoom/pan remains deferred.
 - Review controls are minimal; reviewer dashboards, bulk review, and multi-reviewer policy are deferred.
-- BBox proposals and derived crops are crop-planning/editing artifacts only. Crop support-mask editing exists, while crop semantic editing remains deferred.
+- BBox proposals and derived crops are crop-planning/editing artifacts only. Crop support-mask editing, crop semantic editing, and crop semantic classification suggestion/override controls exist; crop-aware review/export UI remains deferred.
 
 ## Related Tickets / Docs
 

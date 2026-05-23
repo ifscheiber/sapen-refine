@@ -15,6 +15,8 @@ export const API_CROP_SEMANTIC_MASK = (cropId: string) => `/api/slice-crops/${cr
 export const API_CROP_SEMANTIC_MASK_UPLOAD = (cropId: string) =>
   `/api/slice-crops/${cropId}/semantic-mask/upload`;
 export const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imageId}/slice/classification`;
+export const API_SLICE_INSTANCE_CLASSIFICATION = (sliceInstanceId: string) =>
+  `/api/slices/${sliceInstanceId}/classification`;
 export const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-state`;
 export const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;
 export const API_CLASSIFICATION_REVIEW = (versionId: string) =>

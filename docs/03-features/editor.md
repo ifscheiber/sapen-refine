@@ -150,7 +150,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 
 Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
-Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful default support saves record `SUPPORT_MASK_COMMITTED`; successful crop support saves record `CROP_SUPPORT_MASK_COMMITTED`; successful crop semantic saves record `CROP_SEMANTIC_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
+Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful default support saves record `SUPPORT_MASK_COMMITTED`; successful crop support saves record `CROP_SUPPORT_MASK_COMMITTED`; successful crop semantic saves record `CROP_SEMANTIC_MASK_COMMITTED`; RB-090 classification derivation records `SLICE_CLASSIFICATION_DERIVED_FROM_SEMANTIC_MASK` or `SLICE_CLASSIFICATION_DERIVATION_FAILED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
 For byte-length failures after RB-080/RB-081, authenticated audit details may include safe diagnostics: expected bytes, received bytes, declared client bytes, content length, width, height, and format. They do not include mask payload bytes, storage keys, private URLs, credentials, or tokens.
 
@@ -216,6 +216,13 @@ Current RB-089 behavior:
 - Saving creates a new draft `SEMANTIC_MASK` artifact version with `coordinateSpace = CROP_PIXEL`, the selected semantic mode, and the exact support-mask version id.
 - The browser clamps brush writes to support pixels, and the server rejects any non-background semantic byte outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
 
+Current RB-090 behavior:
+
+- Successful crop semantic saves append a draft slice-classification suggestion derived from the saved semantic bytes.
+- Copper mode with Copper pixels suggests `COPPER_SLICE`; Sap/Heartwood mode with Sapwood or Heartwood pixels suggests `SAP_HEARTWOOD_SLICE`; empty/ambiguous masks produce `UNKNOWN` or `REVIEW_REQUIRED` according to the stored derivation reason.
+- The crop semantic editor shows the latest classification source/reason and lets editable users append a manual override for the same slice instance.
+- Auto suggestions and manual overrides are separate `SliceClassificationVersion` rows. Auto suggestions remain draft and are not export-ready until reviewed through the classification review flow.
+
 The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 
 Editor-specific crop rules:
@@ -227,7 +234,7 @@ Editor-specific crop rules:
 - Copper semantic pixels remain material labels and must not be treated as support geometry.
 - Sapwood/heartwood workflows may support complement fill inside support while preserving `UNKNOWN` or review-required options.
 - Crop-aware saves must carry explicit coordinate-space metadata and transforms rather than pretending crop masks are full-image masks.
-- Auto-suggested slice classifications must be shown as provenance-bearing suggestions until a human review/approval or accepted-auto policy makes them export-ready.
+- Auto-suggested slice classifications are provenance-bearing draft suggestions until a human review/approval or accepted-auto policy makes them export-ready.
 
 ## Prediction-Assisted Correction
 

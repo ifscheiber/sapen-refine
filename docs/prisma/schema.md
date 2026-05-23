@@ -17,6 +17,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260522223000_derived_slice_crops/migration.sql` - RB-087 `DerivedSliceCrop` and `CROP_PIXEL` coordinate-space extension.
 - `prisma/migrations/20260523081500_crop_support_mask_lineage/migration.sql` - RB-088 `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` links for crop support masks.
 - `prisma/migrations/20260523110000_crop_semantic_mask_lineage/migration.sql` - RB-089 `AnnotationArtifactVersion.supportMaskVersionId` and `cropSemanticMode` links for crop semantic masks.
+- `prisma/migrations/20260523123000_slice_classification_semantic_derivation/migration.sql` - RB-090 classification source, derivation reason, and crop semantic/support/crop lineage links.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -29,7 +30,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `ImageAsset`, `ImageAcquisitionMetadata`, `SampleMetadata` - immutable image asset references plus RB-050 image-level acquisition/default sample metadata workflow storage.
 - `AnnotationTask`, `AnnotationSession` - assignment/edit context baseline with priority, confidence/uncertainty, and model-source placeholders.
 - `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts, RB-088 links crop support artifact versions to derived crops and slice instances, and RB-089 links crop semantic artifact versions to their exact support-mask constraint and semantic mode.
-- `SliceInstance`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, `SliceClassificationVersion` - physical slice object, BBox proposal history, derived crop versions, and classification baseline; RB-051 uses one default slice instance per image, RB-086 creates BBox proposal slice instances, and RB-087 creates crop versions from active BBox versions.
+- `SliceInstance`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, `SliceClassificationVersion` - physical slice object, BBox proposal history, derived crop versions, classification baseline, and RB-090 manual/auto classification provenance; RB-051 uses one default slice instance per image, RB-086 creates BBox proposal slice instances, and RB-087 creates crop versions from active BBox versions.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
 - `ExportBatch`, `ExportItem` - RB-053 training export and RB-060 prediction-analysis export batch persistence, manifest/package metadata, warnings, actor attribution, exact exported version references, and optional prediction provenance references.
 - `ModelRun` - model/training/checkpoint identity with task type, checkpoint, training dataset/export references, config hash, actor, warnings, and metadata.
@@ -45,6 +46,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `AnnotationArtifact` is unique by `(imageId, kind, scopeKey)` so the current editor has one default semantic mask artifact and one default slice-support artifact per image.
 - Crop support masks use crop-specific scope keys and nullable `AnnotationArtifactVersion.derivedCropId` / `sliceInstanceId` links so each `CROP_PIXEL` support version is traceable to a derived crop and physical slice instance.
 - Crop semantic masks use crop/mode-specific scope keys and nullable `AnnotationArtifactVersion.derivedCropId`, `sliceInstanceId`, `supportMaskVersionId`, and `cropSemanticMode` links so each `CROP_PIXEL` semantic version is traceable to the selected crop, physical slice instance, and exact support-mask constraint.
+- Auto-derived crop classifications are `SliceClassificationVersion` rows with `source = AUTO_FROM_SEMANTIC_MASK`, a stable `derivationReason`, `reviewState = DRAFT`, and nullable links to `derivedFromSemanticMaskVersionId`, `derivedFromSupportMaskVersionId`, and `derivedFromCropId`. Manual overrides append separate rows with `source = MANUAL`.
 - Every annotation artifact version references exactly one `LabelSchemaVersion`.
 - `AnnotationArtifactKind.SEMANTIC_MASK` is separate from `SLICE_SUPPORT_MASK` and `INSTANCE_MASK`.
 - Copper is a semantic label in the default label schema and is not support geometry.
@@ -65,7 +67,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 ## Known Gaps
 
 - Slice-specific metadata and multi-slice/multi-object support-mask editing remain deferred.
-- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, derived crop generation exists after RB-087, per-crop support masks exist after RB-088, and support-constrained per-crop semantic masks exist after RB-089.
+- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, derived crop generation exists after RB-087, per-crop support masks exist after RB-088, support-constrained per-crop semantic masks exist after RB-089, and draft auto classification suggestions from crop semantic masks exist after RB-090.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only training export generation. RB-060/RB-067 implement separate synchronous owner/QA prediction-analysis exports with QA metrics. RB-061 implements DB-backed prediction import batches, RB-065 adds single-host worker leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Advanced filters, export history UI, metrics dashboards, cleanup UI, and production-scale workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. RB-066 handles identifiable temporary/orphan cleanup, but committed artifact retention remains out of scope.

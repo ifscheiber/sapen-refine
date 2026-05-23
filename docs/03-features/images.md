@@ -53,6 +53,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - RB-087 creates `DerivedSliceCrop` rows and private PNG crop objects from active BBox versions. Each crop records source image checksum/dimensions, BBox version, slice instance, padding, clipped source rectangle, `CROP_PIXEL` dimensions, and transform metadata.
 - RB-088 creates crop-scoped support mask versions linked to `DerivedSliceCrop` and `SliceInstance`. These masks use `CROP_PIXEL`, match crop dimensions exactly, and provide the pixel-perfect support geometry for crop workflows.
 - RB-089 creates crop-scoped semantic mask versions linked to the source image, `DerivedSliceCrop`, `SliceInstance`, exact support mask version, and semantic mode. These masks use `CROP_PIXEL`, match crop dimensions exactly, and cannot contain non-background semantic bytes outside support.
+- RB-090 derives draft slice-classification suggestions from saved crop semantic masks and stores source/reason plus links back to the semantic mask, support mask, and crop. Manual overrides append separate `MANUAL` classification versions for the slice instance.
 - Support geometry is stored as separate `SLICE_SUPPORT_MASK` artifact versions; it is not inferred from semantic masks.
 - BBox proposals are rough crop planning artifacts only. They are not support geometry and are not exported as pixel-perfect instance ground truth.
 - Derived crop padding is editing context only and must not be interpreted as support geometry.
@@ -69,6 +70,8 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `GET /api/images/[imageId]/slice` returns default-slice state, latest support mask, latest classification, and support label byte values.
 - `POST /api/images/[imageId]/slice/ensure` creates the default slice instance for editable roles.
 - `PATCH /api/images/[imageId]/slice/classification` appends a slice classification version.
+- `GET /api/slices/[sliceInstanceId]/classification` returns latest classification state for a crop/BBox slice instance.
+- `POST /api/slices/[sliceInstanceId]/classification` appends a manual classification override for a crop/BBox slice instance.
 - `GET /api/images/[imageId]/slice-bboxes` lists the current active BBox proposal per slice instance for project members.
 - `POST /api/images/[imageId]/slice-bboxes` creates a new `SliceInstance` plus first active `SliceBoundingBoxVersion` for editable project roles.
 - `PATCH /api/slice-bboxes/[bboxVersionId]` appends a replacement BBox version for the same slice instance when the target version is still current.
@@ -80,7 +83,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `GET /api/slice-crops/[cropId]/support-mask` returns crop support-mask readiness and latest version metadata for project members.
 - `POST /api/slice-crops/[cropId]/support-mask/upload` uploads crop-sized support bytes through the app server and records a crop-linked `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/slice-crops/[cropId]/semantic-mask` returns crop semantic-mask readiness, current support version metadata, mode label options, and latest Sap/Heartwood and Copper semantic versions for project members.
-- `POST /api/slice-crops/[cropId]/semantic-mask/upload` uploads crop-sized semantic bytes through the app server and records a crop-linked `SEMANTIC_MASK` artifact version constrained by `x-support-mask-version-id` and `x-semantic-mode`.
+- `POST /api/slice-crops/[cropId]/semantic-mask/upload` uploads crop-sized semantic bytes through the app server, records a crop-linked `SEMANTIC_MASK` artifact version constrained by `x-support-mask-version-id` and `x-semantic-mode`, and appends a draft auto classification suggestion.
 - `GET /api/images/[imageId]/support-mask/latest` returns latest support-mask metadata and an app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` uploads support-mask bytes through the app server and records a `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` returns latest and latest-approved review state for semantic mask, support mask, and slice classification.
@@ -105,5 +108,5 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - One default pixel-perfect slice/support geometry per image exists for full-image editing. Crop workflows can also save crop-scoped support geometry per derived crop.
 - Tiling, downscaled working masks, sparse/patch uploads, hard multi-tab locking, and large-image edit-session soft locks remain deferred.
-- RB-086/RB-087/RB-088/RB-089 support multiple BBox slice proposals, derived crop generation, crop support-mask editing, and support-constrained crop semantic editing. Slice-specific metadata, crop-aware export/review integration, and multi-object pixel-perfect support editing remain deferred.
+- RB-086/RB-087/RB-088/RB-089/RB-090 support multiple BBox slice proposals, derived crop generation, crop support-mask editing, support-constrained crop semantic editing, and draft semantic-derived classification suggestions. Slice-specific metadata, crop-aware export/review integration, and multi-object pixel-perfect support editing remain deferred.
 - RB-053 exports approved semantic/support/classification data only and warns about missing metadata or missing approved components.

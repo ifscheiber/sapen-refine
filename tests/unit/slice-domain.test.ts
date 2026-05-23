@@ -3,6 +3,7 @@ import { config as loadEnv } from "dotenv";
 import { AnnotationArtifactKind } from "@prisma/client";
 import type * as SliceModule from "@/server/domain/slices";
 
+import { Labels } from "@/mask/labels";
 import {
   assertSupportArtifactKind,
   isSupportArtifactKind,
@@ -266,5 +267,103 @@ describe("crop semantic mask helpers", () => {
         allowedValues: new Set([0, 1, 2, 4]),
       }),
     ).toThrow("SEMANTIC_MASK_VALUES_INVALID");
+  });
+});
+
+describe("crop semantic classification derivation", () => {
+  const labelValues = {
+    background: Labels.BG,
+    sapwood: Labels.SAPWOOD,
+    heartwood: Labels.HEARTWOOD,
+    copper: Labels.COPPER,
+    unknown: Labels.UNKNOWN,
+  };
+
+  it("classifies Copper mode from one copper pixel", async () => {
+    const { deriveSliceClassificationFromSemanticMask } = await import(
+      "@/server/domain/sliceClassifications"
+    );
+
+    expect(
+      deriveSliceClassificationFromSemanticMask({
+        semanticMode: "COPPER",
+        semanticBytes: new Uint8Array([Labels.BG, Labels.COPPER]),
+        labelValues,
+      }),
+    ).toMatchObject({
+      class: "COPPER_SLICE",
+      reason: "COPPER_PIXELS_PRESENT",
+      classifyingPixelThreshold: 1,
+      counts: { copper: 1, conflict: 0 },
+    });
+  });
+
+  it("classifies Sap/Heartwood mode from one sapwood or heartwood pixel", async () => {
+    const { deriveSliceClassificationFromSemanticMask } = await import(
+      "@/server/domain/sliceClassifications"
+    );
+
+    expect(
+      deriveSliceClassificationFromSemanticMask({
+        semanticMode: "SAP_HEARTWOOD",
+        semanticBytes: new Uint8Array([Labels.HEARTWOOD]),
+        labelValues,
+      }),
+    ).toMatchObject({
+      class: "SAP_HEARTWOOD_SLICE",
+      reason: "SAP_HEARTWOOD_PIXELS_PRESENT",
+      counts: { heartwood: 1, conflict: 0 },
+    });
+
+    expect(
+      deriveSliceClassificationFromSemanticMask({
+        semanticMode: "SAP_HEARTWOOD",
+        semanticBytes: new Uint8Array([Labels.SAPWOOD]),
+        labelValues,
+      }),
+    ).toMatchObject({
+      class: "SAP_HEARTWOOD_SLICE",
+      reason: "SAP_HEARTWOOD_PIXELS_PRESENT",
+      counts: { sapwood: 1, conflict: 0 },
+    });
+  });
+
+  it("marks background, unknown, and mode-conflict masks with stable reasons", async () => {
+    const { deriveSliceClassificationFromSemanticMask } = await import(
+      "@/server/domain/sliceClassifications"
+    );
+
+    expect(
+      deriveSliceClassificationFromSemanticMask({
+        semanticMode: "COPPER",
+        semanticBytes: new Uint8Array([Labels.BG, Labels.BG]),
+        labelValues,
+      }),
+    ).toMatchObject({
+      class: "UNKNOWN",
+      reason: "NO_CLASSIFYING_PIXELS",
+    });
+
+    expect(
+      deriveSliceClassificationFromSemanticMask({
+        semanticMode: "SAP_HEARTWOOD",
+        semanticBytes: new Uint8Array([Labels.UNKNOWN]),
+        labelValues,
+      }),
+    ).toMatchObject({
+      class: "REVIEW_REQUIRED",
+      reason: "UNKNOWN_PIXELS_PRESENT",
+    });
+
+    expect(
+      deriveSliceClassificationFromSemanticMask({
+        semanticMode: "COPPER",
+        semanticBytes: new Uint8Array([Labels.SAPWOOD]),
+        labelValues,
+      }),
+    ).toMatchObject({
+      class: "REVIEW_REQUIRED",
+      reason: "SEMANTIC_MODE_LABEL_CONFLICT",
+    });
   });
 });
