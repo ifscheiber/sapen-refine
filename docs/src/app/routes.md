@@ -35,7 +35,12 @@ RB-094 implements the crop workflow entry and BBox stage. RB-095 implements the 
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - planned support tool route.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - planned semantic tool route.
 
-The existing `/edit`, `/slices/[sliceInstanceId]/crops/[cropId]/support`, and `/slices/[sliceInstanceId]/crops/[cropId]/semantic` routes remain current compatibility routes until RB-096 through RB-098 implement or redirect the guided crop workbench.
+The existing `/edit`, `/slices/[sliceInstanceId]/crops/[cropId]/support`, and `/slices/[sliceInstanceId]/crops/[cropId]/semantic` routes remain current compatibility routes until the adjusted crop workflow tickets replace or redirect them.
+
+Post-hotfix ticket updates:
+
+- RB-103 plans explicit crop-editor navigation back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes` so users can revise a confirmed BBox set after crop inspection.
+- RB-104 plans to remove `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route and remove visible `Open editor` / `Full editor` links.
 
 ## Invariants And Constraints
 

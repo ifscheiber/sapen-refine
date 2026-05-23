@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 implements the whole-image slice navigator. RB-096 through RB-098 implement the remaining runtime workflow slices.
+Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 implements the whole-image slice navigator. RB-096 through RB-098 implement the remaining runtime workflow slices. RB-103 and RB-104 are planned post-hotfix adjustments for BBox-stage re-entry and legacy full-image editor removal.
 
 ## Context
 
@@ -40,9 +40,11 @@ The existing crop editor routes remain valid deep links and compatibility routes
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`
 
-The existing full-image editor route remains valid for default/full-image workflows and compatibility:
+The existing full-image editor route remains valid at the current implementation point:
 
 - `/app/projects/[projectId]/images/[imageId]/edit`
+
+RB-104 supersedes the original compatibility assumption and plans to remove this route as a user-facing product surface. RB-103 plans to replace crop workflow links to `/edit` with explicit BBox-stage re-entry.
 
 The planned crop entry route should resolve state from persisted backend data rather than a client-only state machine. RB-094 should add lightweight persisted BBox set state because the current append-only BBox rows can prove that active BBoxes exist, but they cannot prove that a user intentionally confirmed the complete image-level set.
 
@@ -70,8 +72,10 @@ Per-slice/crop state:
 - RB-095 owns the whole-image slice navigator and per-slice status badges. It is implemented through `/crop/slices/[sliceInstanceId]`, `src/features/editor/ImageCropSliceNavigatorClient.tsx`, and `src/server/domain/cropSliceNavigator.ts`.
 - RB-096 owns the unified crop workbench.
 - RB-097 owns semantic-family exclusivity and classification guardrails.
-- RB-098 owns smoke coverage and the final full-image editor boundary polish.
-- Full-image mask editing is not removed by this decision, but crop-based annotation becomes the preferred staged workflow for multi-slice crop work.
+- RB-103 owns explicit re-entry from crop editors to the BBox stage, including confirmed-set edit/re-confirm smoke coverage.
+- RB-104 owns removal of the legacy full-image editor route and full-image annotation surface while preserving BBox-stage and assisted-correction functionality through non-legacy surfaces if still required.
+- RB-098 owns smoke coverage and final workflow closeout after RB-103/RB-104.
+- Crop-based annotation is the primary staged workflow for multi-slice crop work. Full-image mask editing is planned for removal from the product UI.
 
 ## Evidence
 
@@ -79,6 +83,6 @@ Per-slice/crop state:
 - Current RB-093 ticket: `tickets/crop-workflow-ux-orchestration-sprint/done/RB-093-crop-workflow-ux-state-machine-route-design.md`
 - Crop workflow design: `docs/06-data/crop-based-slice-annotation.md`
 - Current crop readiness resolver: `src/server/domain/cropReadiness.ts`
-- Current full-image editor route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
+- Current full-image editor route, planned for RB-104 removal: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
 - Current crop support route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
 - Current crop semantic route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
