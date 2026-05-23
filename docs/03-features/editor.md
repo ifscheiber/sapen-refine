@@ -5,8 +5,11 @@ The current editor is prototype-level but useful for drawing, saving, submitting
 Important files:
 
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx`
 - `src/features/editor/EditImagePage.tsx`
+- `src/features/editor/CropSupportEditorPage.tsx`
+- `src/features/editor/CropSupportEditorClient.tsx`
 - `src/features/editor/CorrectionTaskEditorPage.tsx`
 - `src/features/editor/EditorClient.tsx`
 - `src/features/editor/components/*`
@@ -60,6 +63,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 ## Current Entry Route
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
+- Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
@@ -110,6 +114,8 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Creating a BBox proposal posts source-image integer geometry to `POST /api/images/[imageId]/slice-bboxes`.
 - Replacing or deleting the current BBox proposal version calls `PATCH /api/slice-bboxes/[bboxVersionId]` or `DELETE /api/slice-bboxes/[bboxVersionId]`. RB-086 uses an append-only rule: replacement creates the next active `SliceBoundingBoxVersion`, and deletion creates the next `DELETED` version instead of erasing history.
 - Generating a derived crop calls `POST /api/slice-bboxes/[bboxVersionId]/crop`. The response contains sanitized metadata and an app-mediated preview URL; it does not expose private object storage keys.
+- Crop support-mask state is loaded from `GET /api/slice-crops/[cropId]/support-mask`.
+- Crop support-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/support-mask/upload`.
 
 ## Current Domain Model
 
@@ -125,6 +131,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - `SliceInstance.boundingBox` is a denormalized current summary only; `SliceBoundingBoxVersion` is the proposal history source of truth.
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
 - Derived slice crops are persisted as `DerivedSliceCrop` rows in `CROP_PIXEL` coordinate space. They reference the immutable source image, source checksum, slice instance, and exact BBox version. Crop PNG bytes are private derived artifacts and are read through `/api/slice-crops/[cropId]/asset`.
+- Crop support masks are persisted as crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL`. They link to the source image through `AnnotationArtifact.imageId`, to the slice through `AnnotationArtifactVersion.sliceInstanceId`, and to the crop through `AnnotationArtifactVersion.derivedCropId`.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -136,7 +143,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 
 Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
-Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful support saves record `SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
+Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful default support saves record `SUPPORT_MASK_COMMITTED`; successful crop support saves record `CROP_SUPPORT_MASK_COMMITTED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
 For byte-length failures after RB-080/RB-081, authenticated audit details may include safe diagnostics: expected bytes, received bytes, declared client bytes, content length, width, height, and format. They do not include mask payload bytes, storage keys, private URLs, credentials, or tokens.
 
@@ -182,7 +189,15 @@ Current RB-087 behavior:
 - The editor shows the latest crop for the selected BBox version with dimensions, requested padding, clipping state, and a private app-mediated preview image.
 - The default requested padding is 32 px. Runtime/API presets are `0`, `16`, `32`, and `64`, but the current editor button uses the runtime default.
 - Replacing a BBox does not mutate existing crops; it creates a new BBox version, and generating again creates the next crop version for the same slice instance.
-- Crop support-mask editing remains deferred to RB-088.
+
+Current RB-088 behavior:
+
+- The selected derived crop links to a deep-linkable crop support editor.
+- The crop support editor displays the private crop PNG in crop coordinates and edits a crop-sized support mask.
+- Brush and eraser tools write only background or the active `slice_support` byte.
+- Saving creates a new draft `SLICE_SUPPORT_MASK` artifact version with `coordinateSpace = CROP_PIXEL`.
+- The saved version is linked to the source image, slice instance, and derived crop, and can be reloaded from the crop editor.
+- Crop support-mask saves validate exact crop dimensions and reject Copper semantic bytes as support geometry.
 
 The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 
@@ -190,7 +205,7 @@ Editor-specific crop rules:
 
 - BBox drawing is a proposal workflow, not ground-truth instance annotation.
 - Derived crop padding is visual workspace and must not be treated as support geometry.
-- Support-mask editing remains the source of physical slice geometry.
+- Crop support-mask editing is the source of physical slice geometry for crop workflows.
 - Semantic editing should be constrained to support once support exists.
 - Copper semantic pixels remain material labels and must not be treated as support geometry.
 - Sapwood/heartwood workflows may support complement fill inside support while preserving `UNKNOWN` or review-required options.

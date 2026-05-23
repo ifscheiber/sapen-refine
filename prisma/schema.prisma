@@ -315,7 +315,7 @@ model ImageAsset {
   artifacts                  AnnotationArtifact[]
   sliceInstances             SliceInstance[]
   sliceBoundingBoxes         SliceBoundingBoxVersion[]
-  derivedSliceCrops          DerivedSliceCrop[]              @relation("DerivedSliceCropSourceImage")
+  derivedSliceCrops          DerivedSliceCrop[]             @relation("DerivedSliceCropSourceImage")
   classifications            SliceClassificationVersion[]
   exportItems                ExportItem[]
   predictionProvenances      PredictionArtifactProvenance[]
@@ -462,6 +462,8 @@ model AnnotationArtifactVersion {
   coordinateTransform  Json?
   format               String              @default("u8raw-v1")
   labelSchemaVersionId String
+  derivedCropId        String?
+  sliceInstanceId      String?
   taskId               String?
   sessionId            String?
   parentVersionId      String?
@@ -470,6 +472,8 @@ model AnnotationArtifactVersion {
 
   artifact                   AnnotationArtifact            @relation(fields: [artifactId], references: [id], onDelete: Cascade)
   labelSchemaVersion         LabelSchemaVersion            @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
+  derivedCrop                DerivedSliceCrop?             @relation("CropSupportMaskVersions", fields: [derivedCropId], references: [id], onDelete: SetNull)
+  sliceInstance              SliceInstance?                @relation("SliceArtifactVersions", fields: [sliceInstanceId], references: [id], onDelete: SetNull)
   task                       AnnotationTask?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
   session                    AnnotationSession?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   parentVersion              AnnotationArtifactVersion?    @relation("ArtifactVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
@@ -486,6 +490,8 @@ model AnnotationArtifactVersion {
   @@index([labelSchemaVersionId])
   @@index([reviewState])
   @@index([createdById])
+  @@index([derivedCropId, createdAt])
+  @@index([sliceInstanceId, createdAt])
   @@index([parentVersionId])
 }
 
@@ -506,6 +512,7 @@ model SliceInstance {
   tasks                  AnnotationTask[]
   boundingBoxVersions    SliceBoundingBoxVersion[]
   derivedCrops           DerivedSliceCrop[]
+  artifactVersions       AnnotationArtifactVersion[]    @relation("SliceArtifactVersions")
   classifications        SliceClassificationVersion[]
   predictionProvenances  PredictionArtifactProvenance[]
 
@@ -532,11 +539,11 @@ model SliceBoundingBoxVersion {
   createdById     String?
   createdAt       DateTime               @default(now())
 
-  project       AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  image         ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
-  sliceInstance SliceInstance     @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
-  createdBy     User?             @relation("SliceBoundingBoxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  derivedCrops   DerivedSliceCrop[]
+  project       AnnotationProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image         ImageAsset         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance SliceInstance      @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  createdBy     User?              @relation("SliceBoundingBoxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  derivedCrops  DerivedSliceCrop[]
 
   @@unique([sliceInstanceId, version])
   @@index([projectId, status])
@@ -580,11 +587,12 @@ model DerivedSliceCrop {
   createdById            String?
   createdAt              DateTime        @default(now())
 
-  project       AnnotationProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sourceImage   ImageAsset              @relation("DerivedSliceCropSourceImage", fields: [sourceImageId], references: [id], onDelete: Cascade)
-  sliceInstance SliceInstance           @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
-  bboxVersion   SliceBoundingBoxVersion @relation(fields: [bboxVersionId], references: [id], onDelete: Cascade)
-  createdBy     User?                   @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  project       AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceImage   ImageAsset                  @relation("DerivedSliceCropSourceImage", fields: [sourceImageId], references: [id], onDelete: Cascade)
+  sliceInstance SliceInstance               @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  bboxVersion   SliceBoundingBoxVersion     @relation(fields: [bboxVersionId], references: [id], onDelete: Cascade)
+  createdBy     User?                       @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  supportMasks  AnnotationArtifactVersion[] @relation("CropSupportMaskVersions")
 
   @@unique([sliceInstanceId, version])
   @@index([projectId, createdAt])

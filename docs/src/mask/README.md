@@ -19,15 +19,17 @@
 - Current editor upload bodies are exactly `width * height` raw bytes with no `MSK1` header. `src/features/editor/editorMaskUpload.ts` owns the browser upload payload/header construction.
 - Semantic mask latest/commit routes live under `src/app/api/images/[imageId]/mask`.
 - Support-mask latest/upload routes live under `src/app/api/images/[imageId]/support-mask`.
+- Crop support-mask latest/upload routes live under `src/app/api/slice-crops/[cropId]/support-mask`.
 - Both paths persist `AnnotationArtifactVersion` records with explicit artifact kind and label schema version.
 - RB-055 upload helpers validate `u8raw-v1` byte length, checksum, dimensions, and support-mask label values before persisting version rows.
 
 ## Invariants And Constraints
 
 - Mask dimensions must match the target image or an explicitly documented coordinate space.
-- Current runtime mask coordinate space is `IMAGE_PIXEL`; crop-mask editing remains future work. RB-086 BBox proposals use `SOURCE_IMAGE_PIXEL`, and RB-087 derived crops use `CROP_PIXEL`, but neither is a mask artifact or support geometry.
+- Default full-image mask coordinate space is `IMAGE_PIXEL`. RB-086 BBox proposals use `SOURCE_IMAGE_PIXEL`, RB-087 derived crops use `CROP_PIXEL`, and RB-088 crop support-mask artifacts use `CROP_PIXEL` with dimensions matching their selected crop.
 - Semantic mask labels and support/instance masks must remain conceptually separate.
 - Support-mask bytes may contain only `0` and the active `slice_support` byte.
+- Crop support-mask bytes follow the same binary support values and must not interpret crop padding as support geometry.
 - RB-070 editor erasing uses existing mask tool mutation paths: semantic erasing writes `Labels.BG`, and support-mask erasing writes the current support background value.
 - Approved ground-truth mask versions must be append-only when review/approval exists.
 

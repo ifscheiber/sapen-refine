@@ -93,6 +93,38 @@ export type SliceState = {
   } | null;
 };
 
+export type CropSupportMaskState = {
+  crop: DerivedSliceCrop & { projectId: string };
+  myRole: string;
+  canEdit: boolean;
+  labelSchemaVersionId: string;
+  supportLabels: { background: number; sliceSupport: number };
+  exists: boolean;
+  latestSupportMask: {
+    id: string;
+    version: number;
+    size: number;
+    checksum: string | null;
+    contentType: string | null;
+    width: number;
+    height: number;
+    format: string;
+    reviewState: string;
+    coordinateSpace: "CROP_PIXEL";
+    derivedCropId: string | null;
+    sliceInstanceId: string | null;
+    createdAt: string;
+    createdBy: { email: string; name: string | null } | null;
+    url: string;
+  } | null;
+  supportReadiness: {
+    status: string;
+    label: string;
+    semanticCropAnnotation: string;
+    exportReady: boolean;
+  };
+};
+
 export type ReviewVersion = {
   id: string;
   version: number;

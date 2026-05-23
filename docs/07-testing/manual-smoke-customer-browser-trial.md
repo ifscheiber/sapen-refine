@@ -51,6 +51,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
 | Select `BBox proposal` and draw a rough slice box. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth. |  |  |
 | Click `Generate crop` for the selected BBox proposal. | A crop preview appears with dimensions and padding metadata; no support mask or export-ready state is implied by the crop alone. |  |  |
+| Click `Open support editor` for the generated crop. | The crop support editor opens at a deep link and displays the crop image in crop coordinates. |  |  |
+| Draw and erase in the crop support editor, then save. | A draft crop support mask saves, reloads, and uses only support/background labels. |  |  |
 | Reload after creating the BBox proposal and crop. | The BBox proposal and crop preview reload; no support mask or export-ready state is implied by the BBox/crop alone. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |
 | Select Eraser and erase part of the semantic mask. | Eraser is discoverable, uses brush size, writes background, and can be saved. |  |  |
@@ -144,6 +146,6 @@ Blocking failure criteria:
 - RB-068 is an internal editor decomposition; visible customer-trial editor behavior should remain unchanged.
 - Image-level/default sample metadata exists; slice-specific metadata remains deferred.
 - RB-051 supports one default pixel-perfect slice/support geometry per image; multi-object editing remains deferred.
-- RB-086/RB-087 support source-image BBox slice proposals and derived crop previews as crop-planning artifacts only; crop support-mask editing remains deferred.
+- RB-086/RB-087/RB-088 support source-image BBox slice proposals, derived crop previews, and crop support-mask editing. Crop semantic editing remains deferred.
 - RB-053 training export and RB-060/RB-067 prediction-analysis export generation are synchronous and trial-sized. RB-061/RB-065 prediction batch imports use bounded explicit or optional worker process passes. RB-066 storage cleanup is admin-only and dry-run first. Cleanup UI, production-scale queue infrastructure, advanced export filters/history, metrics dashboards, and large export job handling remain deferred.
 - Assisted correction supports semantic/support mask predictions only; slice-classification correction remains deferred.

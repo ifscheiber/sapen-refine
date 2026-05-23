@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. Crop support-mask editing, crop-constrained semantic annotation, auto classification, review integration, and crop-aware export remain planned until later tickets land.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. Crop-constrained semantic annotation, auto classification, review integration, and crop-aware export remain planned until later tickets land.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -77,7 +77,7 @@ Each crop records:
 
 The crop service uses a default `paddingRequestedPx` of `32`, configurable with `SLICE_CROP_DEFAULT_PADDING_PX`. The accepted runtime/API presets are `0`, `16`, `32`, and `64`. Padding is clamped to source-image bounds and recorded separately as `paddingAppliedLeftPx`, `paddingAppliedTopPx`, `paddingAppliedRightPx`, and `paddingAppliedBottomPx`.
 
-The padding area is visual/context workspace only. It is never support geometry. The future pixel-perfect support mask remains the source of truth for physical slice geometry.
+The padding area is visual/context workspace only. It is never support geometry. The pixel-perfect support mask remains the source of truth for physical slice geometry.
 
 Crop image bytes are stored privately under:
 
@@ -86,6 +86,23 @@ projects/{projectId}/derived-crops/{imageId}/{sliceInstanceId}/{uuid}.png
 ```
 
 Browser clients receive sanitized metadata and app-mediated asset URLs such as `/api/slice-crops/[cropId]/asset`; private storage keys are not serialized.
+
+## Implemented Crop Support Mask Concept
+
+RB-088 persists crop support masks as `SLICE_SUPPORT_MASK` `AnnotationArtifact` / `AnnotationArtifactVersion` rows rather than a parallel mask table. The crop editor route is `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`, and the APIs live under `/api/slice-crops/[cropId]/support-mask`.
+
+Each crop support mask version records or references:
+
+- the source image artifact through `AnnotationArtifact.imageId`,
+- the slice instance through `AnnotationArtifactVersion.sliceInstanceId`,
+- the derived crop through `AnnotationArtifactVersion.derivedCropId`,
+- `coordinateSpace = CROP_PIXEL`,
+- crop width and height,
+- `u8raw-v1` bytes stored privately under project-scoped crop support-mask keys,
+- checksum, size, content type, creator, creation time, label schema version, and draft review state,
+- a compact coordinate transform snapshot back to the source image.
+
+The crop support editor displays the private crop PNG through `/api/slice-crops/[cropId]/asset`, edits only background/support bytes, and saves through `POST /api/slice-crops/[cropId]/support-mask/upload`. Uploaded support masks must match the selected crop dimensions exactly and may contain only `0` plus the active `slice_support` label byte. Copper semantic bytes are rejected as support geometry.
 
 ## Mandatory Support-First Rule
 
@@ -187,12 +204,12 @@ Current implemented behavior:
 - BBox proposal versions in `SOURCE_IMAGE_PIXEL`,
 - RB-087 derived crop PNGs generated from active/current BBox versions,
 - crop records in `CROP_PIXEL` with integer translation transforms back to source pixels,
-- current saved mask coordinate space is `IMAGE_PIXEL`,
+- RB-088 crop support masks in `CROP_PIXEL` linked to the source image, slice instance, and derived crop,
+- default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- crop support masks use `CROP_PIXEL`,
 - crop semantic masks use `CROP_PIXEL` and stay constrained by support,
 - crop exports preserve both crop-space artifacts and source-image provenance.
 

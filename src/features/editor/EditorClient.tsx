@@ -82,7 +82,7 @@ function drawBBoxRect(ctx: CanvasRenderingContext2D, rect: ImageRect, selected =
   ctx.restore();
 }
 
-export default function EditorClient({ imageId, canEdit, correctionTaskId, correctionMode }: EditorProps) {
+export default function EditorClient({ projectId, imageId, canEdit, correctionTaskId, correctionMode }: EditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1569,6 +1569,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
         />
 
         <EditorBBoxPanel
+          projectId={projectId}
+          imageId={imageId}
           boxes={bboxProposals}
           crops={sliceCrops}
           selectedBBoxId={selectedBBoxId}

@@ -1,7 +1,11 @@
+import Link from "next/link";
+
 import type { DerivedSliceCrop, SliceBoundingBoxProposal } from "../editorTypes";
 import { activeButtonClass, idleButtonClass } from "../editorStyles";
 
 type EditorBBoxPanelProps = {
+  projectId: string;
+  imageId: string;
   boxes: SliceBoundingBoxProposal[];
   crops: DerivedSliceCrop[];
   selectedBBoxId: string | null;
@@ -15,6 +19,8 @@ type EditorBBoxPanelProps = {
 };
 
 export function EditorBBoxPanel({
+  projectId,
+  imageId,
   boxes,
   crops,
   selectedBBoxId,
@@ -95,9 +101,18 @@ export function EditorBBoxPanel({
           <button className={idleButtonClass} onClick={onGenerateCrop} disabled={!canEdit || replaceArmed}>
             {selectedCrop ? "Regenerate crop" : "Generate crop"}
           </button>
-          <button className={idleButtonClass} disabled>
-            Support editor coming next
-          </button>
+          {selectedCrop ? (
+            <Link
+              className={idleButtonClass}
+              href={`/app/projects/${projectId}/images/${imageId}/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/support`}
+            >
+              Open support editor
+            </Link>
+          ) : (
+            <button className={idleButtonClass} disabled>
+              Support editor needs crop
+            </button>
+          )}
         </div>
       )}
     </div>

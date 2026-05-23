@@ -17,6 +17,7 @@
 - `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 batch staging purge markers.
 - `prisma/migrations/20260522214000_slice_bbox_proposals/migration.sql` - RB-086 source-image slice BBox proposal persistence.
 - `prisma/migrations/20260522223000_derived_slice_crops/migration.sql` - RB-087 derived slice crop persistence and `CROP_PIXEL` coordinate-space extension.
+- `prisma/migrations/20260523081500_crop_support_mask_lineage/migration.sql` - RB-088 crop support-mask lineage from artifact versions to derived crops and slice instances.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -38,11 +39,12 @@
 - `PredictionImportBatchItem.stagingPurgedAt` marks temporary source objects deleted by cleanup. Purged failed/skipped items cannot be reset for retry without re-uploading source data.
 - `SliceBoundingBoxVersion` rows are append-only proposal history. Replacement appends a new active version; deletion appends a `DELETED` version. BBoxes use `CoordinateSpace.SOURCE_IMAGE_PIXEL` and are not support masks.
 - `DerivedSliceCrop` rows are append-only crop versions per slice instance. They reference the source image, source checksum/dimensions, exact BBox version, private crop PNG object, `CoordinateSpace.CROP_PIXEL`, requested/applied padding, clipping state, and transform metadata. They are not raw image uploads and not support geometry.
+- Crop support masks are crop-scoped `SLICE_SUPPORT_MASK` artifact versions. `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` link each saved `CROP_PIXEL` mask to the selected `DerivedSliceCrop` and `SliceInstance`.
 
 ## Known Gaps
 
 - Project/image metadata, default slice support/classification, source-image BBox slice proposals, derived slice crop generation, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export with QA metrics, ZIP batch prediction import, single-host batch worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
-- Crop support-mask editing, slice-specific metadata, advanced export policy/history, metric dashboards/reports, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
+- Crop support-mask editing exists after RB-088. Slice-specific metadata, crop semantic editing, advanced export policy/history, metric dashboards/reports, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 
 ## Related Tickets / Docs

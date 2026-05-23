@@ -112,6 +112,6 @@ Blocking: yes/no
 
 - Advanced multi-touch zoom/pan gestures are not implemented.
 - RB-070 adds explicit eraser UX; real iPad Safari/Pencil behavior still needs the manual gate.
-- RB-086/RB-087 BBox proposals and derived crops are crop-planning artifacts only; crop support-mask editing remains a later workflow slice.
+- RB-086/RB-087/RB-088 BBox proposals, derived crops, and crop support-mask editing are available; crop semantic editing remains a later workflow slice.
 - Current editor review controls are minimal; reviewer dashboards and bulk review remain separate follow-up slices. RB-053 export testing is covered by the desktop/customer browser smoke checklists through the project exports route.
 - This checklist does not replace automated browser tests; it is the current customer-trial smoke baseline.

@@ -42,11 +42,11 @@ Persisted entities today:
 - `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` for image references and metadata structures.
 - `AnnotationTask` and `AnnotationSession` for assignment/edit context.
 - `AnnotationArtifact` and `AnnotationArtifactVersion` for semantic/support/instance/prediction/derived artifacts.
-- `SliceInstance`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, and `SliceClassificationVersion` for physical slice proposals, BBox planning history, derived crop persistence, and classification persistence.
+- `SliceInstance`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, and `SliceClassificationVersion` for physical slice proposals, BBox planning history, derived crop persistence, crop support-mask lineage, and classification persistence.
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, `PredictionImportBatchJob`, and `PredictionImportBatchItem` for model-assisted correction provenance and trial-sized batch prediction import bookkeeping.
 
-Known workflow gaps include crop support-mask editing, crop-constrained semantic editing, crop-aware exports/review integration, advanced export filters/history/async large-job handling, reviewer dashboards/bulk review, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial worker. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include crop-constrained semantic editing, crop-aware exports/review integration, advanced export filters/history/async large-job handling, reviewer dashboards/bulk review, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial worker. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -57,6 +57,7 @@ Known workflow gaps include crop support-mask editing, crop-constrained semantic
 - Editor open: `/app/projects/[projectId]/images/[imageId]/edit` checks project role and renders `src/features/editor/EditorClient.tsx`.
 - BBox slice proposals: the editor BBox mode stores source-image pixel rectangles through `/api/images/[imageId]/slice-bboxes` and `/api/slice-bboxes/[bboxVersionId]`. BBoxes are append-only proposal versions linked to `SliceInstance`; they are not support masks or export-ready ground truth.
 - Derived slice crops: editable roles generate private PNG crops from current active BBox versions through `/api/slice-bboxes/[bboxVersionId]/crop`; crop metadata and assets are read through `/api/images/[imageId]/slice-crops` and `/api/slice-crops/[cropId]/asset` without exposing storage keys.
+- Crop support masks: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support` edits crop-sized binary support masks through `/api/slice-crops/[cropId]/support-mask`; saved versions use `CROP_PIXEL` and link to the source image, slice instance, and derived crop.
 - Mask/classification save/reload: the editor posts semantic bytes to `/api/images/[imageId]/mask/upload`, support bytes to `/api/images/[imageId]/support-mask/upload`, and classifications to `/api/images/[imageId]/slice/classification`; latest artifacts are streamed through app-mediated version asset routes.
 - Review/approval: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, and `/api/slice-classification-versions/[versionId]/review` implement minimal draft/submitted/approved/rejected transitions and export-readiness state.
 - Training export: `/app/projects/[projectId]/exports` uses `/api/projects/[projectId]/export/readiness` and `/api/projects/[projectId]/exports` to create owner-only approved-version exports; `/api/exports/[exportId]/download` streams manifest and ZIP package downloads through the app.

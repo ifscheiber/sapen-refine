@@ -4,6 +4,8 @@ import type React from "react";
 import {
   API_ARTIFACT_REVIEW,
   API_CORRECTION_CONTEXT,
+  API_CROP_SUPPORT_MASK,
+  API_CROP_SUPPORT_MASK_UPLOAD,
   API_IMAGE_VIEW,
   API_MASK_LATEST,
   API_SUPPORT_MASK_UPLOAD,
@@ -40,6 +42,8 @@ describe("editor helpers", () => {
     expect(API_IMAGE_VIEW("img_1")).toBe("/api/images/img_1/view");
     expect(API_MASK_LATEST("img_1")).toBe("/api/images/img_1/mask/latest");
     expect(API_SUPPORT_MASK_UPLOAD("img_1")).toBe("/api/images/img_1/support-mask/upload");
+    expect(API_CROP_SUPPORT_MASK("crop_1")).toBe("/api/slice-crops/crop_1/support-mask");
+    expect(API_CROP_SUPPORT_MASK_UPLOAD("crop_1")).toBe("/api/slice-crops/crop_1/support-mask/upload");
     expect(API_ARTIFACT_REVIEW("version_1")).toBe("/api/artifact-versions/version_1/review");
     expect(API_CORRECTION_CONTEXT("task_1")).toBe("/api/correction-tasks/task_1/correction-context");
   });

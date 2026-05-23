@@ -15,6 +15,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 batch staging purge markers.
 - `prisma/migrations/20260522214000_slice_bbox_proposals/migration.sql` - RB-086 `SliceBoundingBoxVersion`, `SliceBoundingBoxStatus`, and `SOURCE_IMAGE_PIXEL` coordinate-space extension.
 - `prisma/migrations/20260522223000_derived_slice_crops/migration.sql` - RB-087 `DerivedSliceCrop` and `CROP_PIXEL` coordinate-space extension.
+- `prisma/migrations/20260523081500_crop_support_mask_lineage/migration.sql` - RB-088 `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` links for crop support masks.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -26,7 +27,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `LabelSchemaVersion`, `LabelDefinition` - versioned label definitions with stable machine-readable ids.
 - `ImageAsset`, `ImageAcquisitionMetadata`, `SampleMetadata` - immutable image asset references plus RB-050 image-level acquisition/default sample metadata workflow storage.
 - `AnnotationTask`, `AnnotationSession` - assignment/edit context baseline with priority, confidence/uncertainty, and model-source placeholders.
-- `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts.
+- `AnnotationArtifact`, `AnnotationArtifactVersion` - semantic/support/instance/prediction/derived artifact baseline; RB-051 uses semantic and default slice-support artifacts, and RB-088 links crop support artifact versions to derived crops and slice instances.
 - `SliceInstance`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, `SliceClassificationVersion` - physical slice object, BBox proposal history, derived crop versions, and classification baseline; RB-051 uses one default slice instance per image, RB-086 creates BBox proposal slice instances, and RB-087 creates crop versions from active BBox versions.
 - `ReviewDecision` - review/approval decisions for artifact versions and slice classification versions.
 - `ExportBatch`, `ExportItem` - RB-053 training export and RB-060 prediction-analysis export batch persistence, manifest/package metadata, warnings, actor attribution, exact exported version references, and optional prediction provenance references.
@@ -41,11 +42,13 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `ImageAsset.storageKey` and `AnnotationArtifactVersion.storageKey` are unique.
 - `AnnotationArtifactVersion` is versioned per `AnnotationArtifact`.
 - `AnnotationArtifact` is unique by `(imageId, kind, scopeKey)` so the current editor has one default semantic mask artifact and one default slice-support artifact per image.
+- Crop support masks use crop-specific scope keys and nullable `AnnotationArtifactVersion.derivedCropId` / `sliceInstanceId` links so each `CROP_PIXEL` support version is traceable to a derived crop and physical slice instance.
 - Every annotation artifact version references exactly one `LabelSchemaVersion`.
 - `AnnotationArtifactKind.SEMANTIC_MASK` is separate from `SLICE_SUPPORT_MASK` and `INSTANCE_MASK`.
 - Copper is a semantic label in the default label schema and is not support geometry.
 - `SliceBoundingBoxVersion` records source-image proposal rectangles only. It uses `CoordinateSpace.SOURCE_IMAGE_PIXEL`, appends new versions for replacement/deletion, and does not make the BBox export-ready support geometry.
 - `DerivedSliceCrop` records private PNG crop artifacts generated from exact active BBox versions. It uses `CoordinateSpace.CROP_PIXEL`, stores source-image checksum/dimensions, source rectangle, requested/applied padding, clipping state, transform metadata, storage checksum/size/content type, and version per slice instance. It is not a raw `ImageAsset` and does not define support geometry.
+- Crop support masks are `SLICE_SUPPORT_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, support-only bytes, and explicit crop/slice lineage. They define support geometry for the selected crop; crop padding itself remains non-geometry.
 - `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
 - Current image writes persist `ImageValidationStatus.VALIDATED` only after server-side PNG/JPEG validation and object stat verification.
 - Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
@@ -59,7 +62,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 ## Known Gaps
 
 - Slice-specific metadata and multi-slice/multi-object support-mask editing remain deferred.
-- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, and derived crop generation exists after RB-087. Per-crop support masks remain deferred.
+- One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, derived crop generation exists after RB-087, and per-crop support masks exist after RB-088.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
 - RB-053 implements synchronous owner-only training export generation. RB-060/RB-067 implement separate synchronous owner/QA prediction-analysis exports with QA metrics. RB-061 implements DB-backed prediction import batches, RB-065 adds single-host worker leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Advanced filters, export history UI, metrics dashboards, cleanup UI, and production-scale workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. RB-066 handles identifiable temporary/orphan cleanup, but committed artifact retention remains out of scope.

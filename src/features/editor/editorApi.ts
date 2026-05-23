@@ -8,6 +8,9 @@ export const API_SLICE_BBOXES = (imageId: string) => `/api/images/${imageId}/sli
 export const API_SLICE_BBOX = (bboxVersionId: string) => `/api/slice-bboxes/${bboxVersionId}`;
 export const API_SLICE_CROPS = (imageId: string) => `/api/images/${imageId}/slice-crops`;
 export const API_GENERATE_SLICE_CROP = (bboxVersionId: string) => `/api/slice-bboxes/${bboxVersionId}/crop`;
+export const API_CROP_SUPPORT_MASK = (cropId: string) => `/api/slice-crops/${cropId}/support-mask`;
+export const API_CROP_SUPPORT_MASK_UPLOAD = (cropId: string) =>
+  `/api/slice-crops/${cropId}/support-mask/upload`;
 export const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imageId}/slice/classification`;
 export const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-state`;
 export const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;

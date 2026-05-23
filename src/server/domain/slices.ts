@@ -49,7 +49,7 @@ async function getImageAndMembership(db: SliceDb, imageId: string, userId: strin
   return { image, membership };
 }
 
-async function getProjectLabelSchemaVersionId(db: SliceDb, projectId: string) {
+export async function getProjectLabelSchemaVersionId(db: SliceDb, projectId: string) {
   const project = await db.annotationProject.findUnique({
     where: { id: projectId },
     select: { labelSchemaVersionId: true },
@@ -65,7 +65,7 @@ async function getProjectLabelSchemaVersionId(db: SliceDb, projectId: string) {
   return fallback.id;
 }
 
-async function getSupportLabelValues(db: SliceDb, labelSchemaVersionId: string) {
+export async function getSupportLabelValues(db: SliceDb, labelSchemaVersionId: string) {
   const support = await db.labelDefinition.findUnique({
     where: {
       schemaVersionId_stableId: {

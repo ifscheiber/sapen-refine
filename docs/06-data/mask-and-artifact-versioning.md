@@ -4,7 +4,7 @@
 
 This page defines the distinction between semantic masks, support/instance masks, prediction artifacts, reviewed ground-truth artifacts, and the planned crop-derived artifact model.
 
-Current mask code lives in `src/mask/*`, semantic mask APIs live in `src/app/api/images/[imageId]/mask/*`, support-mask APIs live in `src/app/api/images/[imageId]/support-mask/*`, and persisted mask artifacts are `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
+Current mask code lives in `src/mask/*`, semantic mask APIs live in `src/app/api/images/[imageId]/mask/*`, default image-sized support-mask APIs live in `src/app/api/images/[imageId]/support-mask/*`, crop support-mask APIs live in `src/app/api/slice-crops/[cropId]/support-mask/*`, and persisted mask artifacts are `AnnotationArtifact`/`AnnotationArtifactVersion` in `prisma/schema.prisma`.
 
 ## Artifact Families
 
@@ -35,7 +35,9 @@ Copper-specific rule:
 
 A copper semantic mask is not a support mask. Copper regions may be smaller than the physical slice, especially for copper penetration/staining workflows.
 
-RB-051 support masks are draft `SLICE_SUPPORT_MASK` artifact versions with default `scopeKey = "default"`. The first workflow supports one default support geometry per image; multi-object instance masks remain deferred.
+RB-051 support masks are draft `SLICE_SUPPORT_MASK` artifact versions with default `scopeKey = "default"`. The first workflow supports one default support geometry per image.
+
+RB-088 adds crop support masks as crop-scoped `SLICE_SUPPORT_MASK` artifact versions with `scopeKey = "crop-support:{cropId}"`, `coordinateSpace = CROP_PIXEL`, `AnnotationArtifactVersion.derivedCropId`, and `AnnotationArtifactVersion.sliceInstanceId`. They are the pixel-perfect physical slice geometry for the selected derived crop. Multi-object instance masks remain deferred.
 
 RB-085 defines the crop-based workflow for later sprint slices. RB-086 implements BBox proposals as append-only `SliceBoundingBoxVersion` rows linked to `SliceInstance`. A BBox proposal is only an ergonomic crop seed. The pixel-perfect support mask remains the physical slice geometry and an approved support mask is mandatory for a training-ready slice instance.
 
@@ -56,7 +58,7 @@ Derived crop metadata includes:
 - creator and timestamp,
 - storage key, checksum, byte size, content type, and PNG format.
 
-Crop masks in future implementation should be versioned like other artifacts. They must remain traceable to the immutable source image and to the crop transform that produced their coordinate space. Semantic mask and classification versions created from a crop should also record enough lineage to detect stale references when a BBox, crop, or support mask is superseded.
+RB-088 crop support masks are versioned like other artifacts. They remain traceable to the immutable source image and to the crop transform that produced their coordinate space. Semantic mask and classification versions created from a crop should also record enough lineage to detect stale references when a BBox, crop, or support mask is superseded.
 
 The 32 px default crop padding is an editing workspace only. Padding pixels must never be interpreted as physical slice support; future support masks remain the pixel-perfect source of truth.
 
@@ -97,7 +99,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
 - RB-086 BBox proposal edits are also append-only: replacement appends the next active `SliceBoundingBoxVersion`, and deletion appends a `DELETED` version rather than erasing proposal history.
-- RB-087 crop-derived versions record their source image, BBox version, crop transform, and source-image checksum. Future crop masks must reference a specific crop version rather than infer coordinates from the latest crop.
+- RB-087 crop-derived versions record their source image, BBox version, crop transform, and source-image checksum. RB-088 crop support masks reference a specific crop version rather than infer coordinates from the latest crop.
 - RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Human correction versions from RB-059 use `parentVersionId` for the source prediction and keep prediction bytes immutable.
@@ -128,12 +130,12 @@ Each mask artifact records either:
 - image pixel coordinate space with matching width/height, or
 - a declared transform to the image coordinate space.
 
-The current runtime accepts only `IMAGE_PIXEL` mask coordinate space. Semantic and support masks are rejected when declared dimensions do not match the target image dimensions.
+The default full-image runtime accepts `IMAGE_PIXEL` mask coordinate space. Full-image semantic and support masks are rejected when declared dimensions do not match the target image dimensions. RB-088 crop support masks accept `CROP_PIXEL` only when declared dimensions match the selected `DerivedSliceCrop.cropWidth` and `DerivedSliceCrop.cropHeight`.
 
 Crop workflow terms:
 
 - `SOURCE_IMAGE_PIXEL` - source-image pixel coordinates on the immutable upload. RB-086 persists this value for `SliceBoundingBoxVersion`.
-- `CROP_PIXEL` - pixel coordinates inside a derived slice crop. RB-087 persists this value for `DerivedSliceCrop`; future crop mask artifacts must match the selected crop dimensions.
+- `CROP_PIXEL` - pixel coordinates inside a derived slice crop. RB-087 persists this value for `DerivedSliceCrop`; RB-088 crop support-mask artifacts must match the selected crop dimensions.
 
 The planned crop transform is:
 
@@ -142,7 +144,7 @@ sourceX = cropX + cropOriginX
 sourceY = cropY + cropOriginY
 ```
 
-Current saved semantic/support masks remain image-sized `IMAGE_PIXEL` artifacts.
+Default full-image semantic/support masks remain image-sized `IMAGE_PIXEL` artifacts. Crop support masks are crop-sized `CROP_PIXEL` artifacts linked to both `SliceInstance` and `DerivedSliceCrop`.
 
 Exports must include coordinate-space metadata.
 
@@ -157,7 +159,7 @@ RB-051 support-mask values are resolved through the active label schema where pr
 - `0` remains background,
 - `slice_support` comes from the label schema byte value, currently `10` in the seed schema.
 
-RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-080 adds client-side exact-byte upload construction and diagnostic-only `x-mask-byte-length`; the server still validates the actual received request body length. RB-081 routes semantic masks, support masks, and assisted corrections through `src/server/uploads/maskRequest.ts`, which reads the raw request body once and rejects truncated bodies with `MASK_BYTE_LENGTH_MISMATCH`. `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` must remain above the mask limit so Next.js proxy buffering does not truncate large masks before the route handler. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. RB-059 applies the same validation to assisted human corrections and additionally validates semantic correction bytes against active semantic label byte values. Support masks, support predictions, and support corrections are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
+RB-055 enforces `u8raw-v1` byte length as `width * height`, verifies optional checksum hints, and checks the stored object length after upload. RB-080 adds client-side exact-byte upload construction and diagnostic-only `x-mask-byte-length`; the server still validates the actual received request body length. RB-081 routes semantic masks, support masks, and assisted corrections through `src/server/uploads/maskRequest.ts`, which reads the raw request body once and rejects truncated bodies with `MASK_BYTE_LENGTH_MISMATCH`. RB-088 routes crop support-mask uploads through the same raw reader, but validates against crop dimensions instead of source-image dimensions. `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` must remain above the mask limit so Next.js proxy buffering does not truncate large masks before the route handler. RB-057 applies the same image-sized `u8raw-v1` and `IMAGE_PIXEL` assumptions to prediction mask imports. RB-059 applies the same validation to assisted human corrections and additionally validates semantic correction bytes against active semantic label byte values. Support masks, support predictions, support corrections, and crop support masks are restricted to `0` and the active `slice_support` byte. Semantic Copper label bytes are not valid support-mask geometry or support predictions.
 
 Future format work should decide:
 

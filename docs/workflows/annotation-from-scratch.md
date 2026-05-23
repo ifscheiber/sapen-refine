@@ -13,13 +13,14 @@ This is the current primary workflow for SaPen Annotate.
 5. User opens `/app/projects/[projectId]/images/[imageId]/edit`.
 6. User can draw rough BBox slice proposals in `BBox proposal` mode. These proposals are planning artifacts only, not support-mask ground truth.
 7. User can generate a derived crop from an active BBox proposal. The crop is a private derived PNG with source-image lineage, not a raw uploaded image and not support geometry.
-8. User draws semantic mask labels in the editor.
-9. User can switch to slice-support mode and draw the physical slice support mask separately from semantic labels.
-10. User can set the slice classification.
-11. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
-12. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
-13. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest` and `/api/images/[imageId]/support-mask/latest`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; derived crops reload through `/api/images/[imageId]/slice-crops`; review readiness is read through `/api/images/[imageId]/review-state`.
-14. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a training export from latest approved versions, and download the generated manifest/package through app routes.
+8. User can open the crop support editor from the crop preview and draw the pixel-perfect physical slice support mask in `CROP_PIXEL`.
+9. User draws semantic mask labels in the default full-image editor. Crop-constrained semantic editing remains a later workflow slice.
+10. User can switch to slice-support mode in the default editor and draw the image-sized physical slice support mask separately from semantic labels.
+11. User can set the slice classification.
+12. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
+13. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
+14. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest`, `/api/images/[imageId]/support-mask/latest`, and `/api/slice-crops/[cropId]/support-mask`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; derived crops reload through `/api/images/[imageId]/slice-crops`; review readiness is read through `/api/images/[imageId]/review-state`.
+15. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a training export from latest approved versions, and download the generated manifest/package through app routes.
 
 ## Important Files
 
@@ -34,6 +35,7 @@ This is the current primary workflow for SaPen Annotate.
 - `src/app/api/images/[imageId]/slice-crops/route.ts`
 - `src/app/api/slice-bboxes/[bboxVersionId]/crop/route.ts`
 - `src/app/api/slice-crops/[cropId]/asset/route.ts`
+- `src/app/api/slice-crops/[cropId]/support-mask/*`
 - `src/app/api/images/[imageId]/support-mask/*`
 - `src/app/api/images/[imageId]/review-state/route.ts`
 - `src/app/api/artifact-versions/[versionId]/review/route.ts`
@@ -57,7 +59,7 @@ This is the current primary workflow for SaPen Annotate.
 ## Known Gaps
 
 - Advanced export filters/history/job handling are not implemented.
-- Crop support-mask editing and multi-object support annotation remain deferred.
+- Crop semantic editing and multi-object support annotation remain deferred.
 
 ## Related Tickets / Docs
 

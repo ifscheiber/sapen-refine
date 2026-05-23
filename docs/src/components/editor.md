@@ -2,12 +2,13 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw source-image BBox slice proposals, generate derived slice crop previews, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, and review the MVP ground-truth state. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode; RB-087 adds derived crop generation/preview.
+The current editor lets users view an uploaded image, draw source-image BBox slice proposals, generate derived slice crop previews, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, review the MVP ground-truth state, and edit crop support masks. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode; RB-087 adds derived crop generation/preview; RB-088 adds the crop support editor.
 
 ## Important Files
 
 - `src/features/editor/EditImagePage.tsx` - server-side route composition and RBAC check.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
+- `src/features/editor/CropSupportEditorPage.tsx` and `src/features/editor/CropSupportEditorClient.tsx` - crop support editor composition and crop-sized binary support mask editing.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
 - `src/features/editor/editorTools.ts` - editor tool helpers, including eraser mode/value mapping.
 - `src/features/editor/components/EditorBBoxPanel.tsx` - BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview.
@@ -17,10 +18,12 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 ## Public Interfaces / Routes / Functions
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
+- Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
 - Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.
 - BBox proposal APIs: `/api/images/[imageId]/slice-bboxes`, `/api/slice-bboxes/[bboxVersionId]`.
 - Derived crop APIs: `/api/images/[imageId]/slice-crops`, `/api/slice-bboxes/[bboxVersionId]/crop`, `/api/slice-crops/[cropId]/asset`.
+- Crop support APIs: `/api/slice-crops/[cropId]/support-mask`, `/api/slice-crops/[cropId]/support-mask/upload`.
 - Review APIs: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, `/api/slice-classification-versions/[versionId]/review`.
 
 ## Current Input And Canvas Behavior
@@ -45,7 +48,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Review actions must use server APIs; UI control hiding is not the permission boundary.
 - Canvas scaling and coordinate assumptions must be explicit before production iPad/Pencil work.
 - Editor UX should support desktop and tablet screen sizes.
-- Mask coordinates must remain tied to the source image dimensions until a documented coordinate-space change is made. BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops use `CROP_PIXEL`; semantic/support masks still use `IMAGE_PIXEL`.
+- Default full-image mask coordinates remain tied to the source image dimensions. BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops and crop support masks use `CROP_PIXEL`; default semantic/support masks still use `IMAGE_PIXEL`.
 
 ## Known Gaps
 
@@ -54,7 +57,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
 - Advanced multi-touch zoom/pan remains deferred.
 - Review controls are minimal; reviewer dashboards, bulk review, and multi-reviewer policy are deferred.
-- BBox proposals and derived crops are crop-planning/editing artifacts only; crop support-mask editing remains deferred.
+- BBox proposals and derived crops are crop-planning/editing artifacts only. Crop support-mask editing exists, while crop semantic editing remains deferred.
 
 ## Related Tickets / Docs
 

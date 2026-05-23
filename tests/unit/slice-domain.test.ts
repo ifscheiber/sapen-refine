@@ -162,3 +162,42 @@ describe("derived slice crop helpers", () => {
     });
   });
 });
+
+describe("crop support mask helpers", () => {
+  it("maps crop pixels back to source image pixels through integer translation", async () => {
+    const { cropPixelToSourcePixel } = await import("@/server/domain/cropSupportMasks");
+
+    expect(cropPixelToSourcePixel({ sourceX: 8, sourceY: 20 }, { x: 0, y: 0 })).toEqual({
+      x: 8,
+      y: 20,
+    });
+    expect(cropPixelToSourcePixel({ sourceX: 8, sourceY: 20 }, { x: 5, y: 7 })).toEqual({
+      x: 13,
+      y: 27,
+    });
+  });
+
+  it("requires crop support mask dimensions to match the derived crop", async () => {
+    const { validateCropSupportMaskDimensions } = await import("@/server/domain/cropSupportMasks");
+
+    expect(() =>
+      validateCropSupportMaskDimensions({
+        width: 20,
+        height: 10,
+        size: 200,
+        cropWidth: 20,
+        cropHeight: 10,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      validateCropSupportMaskDimensions({
+        width: 20,
+        height: 9,
+        size: 180,
+        cropWidth: 20,
+        cropHeight: 10,
+      }),
+    ).toThrow("MASK_DIMENSIONS_MISMATCH");
+  });
+});

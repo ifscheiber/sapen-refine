@@ -73,6 +73,8 @@ Evidence should include short notes and, when practical, a screenshot, photo, sc
 | Open a larger full-resolution image if available. | For images above `6000x4000` and no larger than `8000x6000`, the large-image warning is visible, editor readiness completes, controls remain usable, and no `MASK_BYTE_LENGTH_MISMATCH` appears during save. | Yes if large images are part of pilot |  |  |
 | Select `BBox proposal` and draw a rough slice box with finger. | A BBox proposal appears in the slice proposal list, persists after reload, and the canvas does not scroll page while drawing. | Yes if crop workflow is part of pilot |  |  |
 | Tap `Generate crop` for the selected BBox proposal. | A crop preview appears and reloads; the preview does not imply support-mask or export readiness. | Yes if crop workflow is part of pilot |  |  |
+| Tap `Open support editor` for the generated crop. | The crop support editor opens, displays the crop image, and keeps drawing in crop coordinates. | Yes if crop workflow is part of pilot |  |  |
+| Draw and erase a crop support mask, then save. | A draft crop support mask saves and reloads; only support/background labels are available. | Yes if crop workflow is part of pilot |  |  |
 | Draw a BBox proposal with Apple Pencil if available. | Pencil input creates a BBox through Pointer Events. | Yes if Pencil and crop workflow are part of pilot |  |  |
 | Draw semantic mask with finger. | Mask overlay updates; canvas does not scroll page while drawing. | Yes |  |  |
 | Select Eraser and erase semantic mask with finger. | Eraser writes background, uses the brush size control, and does not scroll the page. | Yes |  |  |
