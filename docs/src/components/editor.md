@@ -2,12 +2,13 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw source-image BBox slice proposals, generate derived slice crop previews, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, review the MVP ground-truth state, and edit crop support masks. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode; RB-087 adds derived crop generation/preview; RB-088 adds the crop support editor.
+The current editor lets users view an uploaded image, draw source-image BBox slice proposals, generate derived slice crop previews, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, review the MVP ground-truth state, and edit crop support masks. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode; RB-087 adds derived crop generation/preview; RB-088 adds the crop support editor; RB-095 adds the whole-image crop slice navigator.
 
 ## Important Files
 
 - `src/features/editor/EditImagePage.tsx` - server-side full-image editor route composition and RBAC check.
 - `src/features/editor/ImageCropBBoxesPage.tsx` - RB-094 staged image-level BBox route composition using the editor canvas in BBox-stage mode.
+- `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` - RB-095 whole-image slice navigator with BBox overlays, selected-slice URL state, status badges, and crop generation/regeneration action.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/CropSupportEditorPage.tsx` and `src/features/editor/CropSupportEditorClient.tsx` - crop support editor composition and crop-sized binary support mask editing.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
@@ -20,6 +21,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Crop workflow BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
+- Crop workflow slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
 - Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.

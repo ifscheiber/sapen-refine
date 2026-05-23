@@ -70,15 +70,15 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Crop workflow entry route: `/app/projects/[projectId]/images/[imageId]/crop`.
 - BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
-- Confirmed BBox-set slice workspace scaffold: `/app/projects/[projectId]/images/[imageId]/crop/slices`.
-- Planned selected-slice workbench route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
+- Slice navigator entry route: `/app/projects/[projectId]/images/[imageId]/crop/slices`.
+- Selected-slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
 
-RB-094 implements the crop workflow entry route, BBox stage route, and confirmed BBox-set slice workspace scaffold. The existing crop support and semantic routes remain compatibility deep links while the guided route family is introduced.
+RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. The existing crop support and semantic routes remain compatibility deep links while the guided workbench route family is introduced.
 
 ## Current Canvas And Input Model
 
@@ -220,7 +220,13 @@ Current RB-094 behavior:
 - `/crop/bboxes` uses the editor canvas in BBox-stage mode: full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and the panel uses "Step 1: Mark slice work areas" wording.
 - `POST /api/images/[imageId]/slice-bboxes/confirm` persists image-level BBox set confirmation in `ImageCropWorkflowState`.
 - Creating, replacing, or deleting a BBox after confirmation keeps append-only BBox history and marks the image-level BBox set as `BBOX_NEEDS_UPDATE`.
-- `/crop/slices` is a confirmed-state scaffold for RB-095 and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
+
+Current RB-095 behavior:
+
+- `/crop/slices` redirects to the first selected-slice navigator route when the BBox set is confirmed, and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
+- `/crop/slices/[sliceInstanceId]` shows the source image with clickable BBox overlays, highlights the selected slice, and lists per-slice crop/support/semantic/classification/readiness badges.
+- `src/server/domain/cropSliceNavigator.ts` composes navigator state from active BBoxes, derived crop versions, and `src/server/domain/cropReadiness.ts`.
+- The selected-slice panel can generate or regenerate the current derived crop through the existing `POST /api/slice-bboxes/[bboxVersionId]/crop` API, then links to the current compatibility support and semantic crop editor routes.
 
 Current RB-087 behavior:
 

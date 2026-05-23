@@ -7,10 +7,14 @@ import sharp from "sharp";
 
 import { readImageDimensions, sha256Checksum } from "@/server/uploads/integrity";
 import type {
+  confirmImageBBoxSetForUser as ConfirmImageBBoxSetForUser,
   createSliceBoundingBoxForUser as CreateSliceBoundingBoxForUser,
   deleteSliceBoundingBoxForUser as DeleteSliceBoundingBoxForUser,
   replaceSliceBoundingBoxForUser as ReplaceSliceBoundingBoxForUser,
 } from "@/server/domain/sliceBboxes";
+import type {
+  loadCropSliceNavigatorForUser as LoadCropSliceNavigatorForUser,
+} from "@/server/domain/cropSliceNavigator";
 import type {
   generateCropForSliceBBox as GenerateCropForSliceBBox,
   listSliceCropsForImageForUser as ListSliceCropsForImageForUser,
@@ -24,8 +28,10 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 let createSliceBoundingBoxForUser: typeof CreateSliceBoundingBoxForUser;
+let confirmImageBBoxSetForUser: typeof ConfirmImageBBoxSetForUser;
 let replaceSliceBoundingBoxForUser: typeof ReplaceSliceBoundingBoxForUser;
 let deleteSliceBoundingBoxForUser: typeof DeleteSliceBoundingBoxForUser;
+let loadCropSliceNavigatorForUser: typeof LoadCropSliceNavigatorForUser;
 let generateCropForSliceBBox: typeof GenerateCropForSliceBBox;
 let listSliceCropsForImageForUser: typeof ListSliceCropsForImageForUser;
 let readSliceCropAssetForUser: typeof ReadSliceCropAssetForUser;
@@ -42,10 +48,12 @@ describe("derived slice crop workflow", () => {
 
   beforeAll(async () => {
     ({
+      confirmImageBBoxSetForUser,
       createSliceBoundingBoxForUser,
       replaceSliceBoundingBoxForUser,
       deleteSliceBoundingBoxForUser,
     } = await import("@/server/domain/sliceBboxes"));
+    ({ loadCropSliceNavigatorForUser } = await import("@/server/domain/cropSliceNavigator"));
     ({
       generateCropForSliceBBox,
       listSliceCropsForImageForUser,
@@ -259,5 +267,67 @@ describe("derived slice crop workflow", () => {
     await expect(
       generateCropForSliceBBox({ bboxVersionId: deleted.bboxVersionId, userId: ownerId }, prisma),
     ).rejects.toMatchObject({ code: "BBOX_DELETED" });
+  });
+
+  it("summarizes confirmed BBoxes and current crop status for the slice navigator", async () => {
+    const navigatorImageId = await createImage("navigator", 120, 90);
+    const first = await createSliceBoundingBoxForUser(
+      { imageId: navigatorImageId, userId: ownerId, box: { x: 40, y: 20, width: 20, height: 16 } },
+      prisma,
+    );
+    const second = await createSliceBoundingBoxForUser(
+      { imageId: navigatorImageId, userId: ownerId, box: { x: 8, y: 55, width: 18, height: 14 } },
+      prisma,
+    );
+
+    await confirmImageBBoxSetForUser({ imageId: navigatorImageId, userId: ownerId }, prisma);
+
+    const beforeCrop = await loadCropSliceNavigatorForUser(
+      {
+        projectId,
+        imageId: navigatorImageId,
+        userId: ownerId,
+        selectedSliceInstanceId: first.sliceInstanceId,
+      },
+      prisma,
+    );
+    expect(beforeCrop.bboxWorkflow.bboxSetStatus).toBe("BBOX_CONFIRMED");
+    expect(beforeCrop.slices).toHaveLength(2);
+    expect(beforeCrop.selectedSliceInstanceId).toBe(first.sliceInstanceId);
+    expect(beforeCrop.slices.find((slice) => slice.sliceInstanceId === first.sliceInstanceId)).toMatchObject({
+      cropStatus: "MISSING",
+      supportStatus: "MISSING",
+      selectedHref: expect.stringContaining(`/crop/slices/${first.sliceInstanceId}`),
+    });
+
+    const crop = await generateCropForSliceBBox({ bboxVersionId: first.bboxVersionId, userId: ownerId }, prisma);
+    const afterCrop = await loadCropSliceNavigatorForUser(
+      {
+        projectId,
+        imageId: navigatorImageId,
+        userId: ownerId,
+        selectedSliceInstanceId: first.sliceInstanceId,
+      },
+      prisma,
+    );
+    const firstSlice = afterCrop.slices.find((slice) => slice.sliceInstanceId === first.sliceInstanceId);
+    const secondSlice = afterCrop.slices.find((slice) => slice.sliceInstanceId === second.sliceInstanceId);
+
+    expect(firstSlice).toMatchObject({
+      cropStatus: "CURRENT",
+      readinessStatus: "NOT_READY",
+      supportStatus: "MISSING",
+      semanticStatus: "MISSING",
+      classificationStatus: "MISSING",
+      readinessReasons: expect.arrayContaining(["MISSING_SUPPORT_MASK"]),
+    });
+    expect(firstSlice?.currentCrop?.id).toBe(crop.id);
+    expect(firstSlice?.supportHref).toContain(`/slices/${first.sliceInstanceId}/crops/${crop.id}/support`);
+    expect(secondSlice?.cropStatus).toBe("MISSING");
+    expect(afterCrop.summary).toMatchObject({
+      totalSlices: 2,
+      currentCropCount: 1,
+      missingCropCount: 1,
+    });
   });
 });

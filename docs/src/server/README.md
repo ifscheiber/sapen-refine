@@ -32,6 +32,7 @@
 - `src/server/domain/predictionAnalysisMetrics.ts` - RB-067 pure semantic/support prediction QA metric helpers.
 - `src/server/domain/sliceBboxes.ts` - RB-086 BBox proposal list/create/replace/delete helpers, source-image geometry validation, append-only versioning, and audit events.
 - `src/server/domain/imageCropWorkflow.ts` - RB-094 image-level BBox set confirmation state, active-version snapshot comparison, and confirmed-set invalidation helpers.
+- `src/server/domain/cropSliceNavigator.ts` - RB-095 per-slice navigator view model, active BBox ordering, current/stale crop resolution, and status composition from crop readiness.
 - `src/server/domain/sliceCrops.ts` - RB-087 derived slice crop geometry, padding validation, source-image crop generation, private PNG storage, sanitized reads, and audit events.
 - `src/server/domain/cropSupportMasks.ts` - RB-088 crop support-mask state, crop-dimension validation, coordinate helper, artifact-version creation, and sanitized latest-version reads.
 - `src/server/domain/cropSemanticMasks.ts` - RB-089 crop semantic-mask state, support-lineage validation, mode label validation, outside-support rejection, artifact-version creation, and sanitized latest-version reads.

@@ -19,23 +19,23 @@ This page lists current browser routes backed by `src/app`.
 - `/app/projects/[projectId]/images` - project image list/upload page from `src/app/(workspace)/app/projects/[projectId]/images/page.tsx` and `src/features/images/ProjectImagesPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]` - image metadata page from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/page.tsx` and `src/features/images/ImageMetadataPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/edit` - image editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx` and `src/features/editor/EditImagePage.tsx`.
-- `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/page.tsx` and `src/features/editor/ImageCropWorkflowEntryPage.tsx`; it redirects to the BBox stage or confirmed slice workspace based on persisted BBox workflow state.
+- `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/page.tsx` and `src/features/editor/ImageCropWorkflowEntryPage.tsx`; it redirects to the BBox stage or slice navigator based on persisted BBox workflow state.
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - image-level BBox stage from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/bboxes/page.tsx` and `src/features/editor/ImageCropBBoxesPage.tsx`.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices` - confirmed BBox-set slice workspace scaffold from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/page.tsx` and `src/features/editor/ImageCropSlicesPage.tsx`; RB-095 replaces this with the full navigator.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices` - slice navigator entry from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/page.tsx` and `src/features/editor/ImageCropSlicesPage.tsx`; it requires a confirmed BBox set and redirects to the first selected slice when active slices exist.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - whole-image slice navigator with selected-slice status badges from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/page.tsx`, `src/features/editor/ImageCropSlicesPage.tsx`, and `src/features/editor/ImageCropSliceNavigatorClient.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support` - crop support-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx` and `src/features/editor/CropSupportEditorPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic` - crop semantic-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx` and `src/features/editor/CropSemanticEditorPage.tsx`; RB-090 also shows the latest slice classification suggestion and manual override controls for editable roles.
 - Unknown workspace routes are caught by `src/app/(workspace)/app/[...missing]/page.tsx` and render the SaPen Annotate workspace not-found fallback from `src/app/(workspace)/app/not-found.tsx`; unknown non-workspace routes render `src/app/not-found.tsx`.
 
 ## Planned Crop Workflow Routes
 
-RB-094 implements the crop workflow entry, BBox stage, and initial confirmed slice workspace. Later tickets complete the route family:
+RB-094 implements the crop workflow entry and BBox stage. RB-095 implements the slice navigator. Later tickets complete the guided crop workbench route family:
 
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - planned selected-slice workbench.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - planned selected crop workbench.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - planned support tool route.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - planned semantic tool route.
 
-The existing `/edit`, `/slices/[sliceInstanceId]/crops/[cropId]/support`, and `/slices/[sliceInstanceId]/crops/[cropId]/semantic` routes remain current compatibility routes until RB-094 through RB-098 implement or redirect the guided workflow.
+The existing `/edit`, `/slices/[sliceInstanceId]/crops/[cropId]/support`, and `/slices/[sliceInstanceId]/crops/[cropId]/semantic` routes remain current compatibility routes until RB-096 through RB-098 implement or redirect the guided crop workbench.
 
 ## Invariants And Constraints
 

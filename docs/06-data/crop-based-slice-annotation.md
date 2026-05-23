@@ -254,12 +254,13 @@ Current implemented behavior:
 - RB-090 draft slice classifications derived from crop semantic masks and manual crop workflow overrides linked to the slice instance,
 - RB-091 crop training exports for ready crop candidates with approved support, semantic, and classification lineage,
 - RB-092 crop readiness and review actions in the project export panel, BBox crop panel, crop support editor, and crop semantic editor,
+- RB-095 slice navigator status derived from active BBoxes, current/stale crop versions, latest crop artifacts, classification versions, and crop readiness,
 - default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- guided crop workflow routes for image-level BBox confirmation are implemented by RB-094; slice navigation and selected-slice crop workbench are implemented by RB-095 through RB-098,
+- guided crop workflow routes for image-level BBox confirmation are implemented by RB-094, and the whole-image slice navigator is implemented by RB-095; selected-slice crop workbench routes are implemented by RB-096 through RB-098,
 - source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs

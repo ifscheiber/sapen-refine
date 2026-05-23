@@ -47,17 +47,17 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.getByRole("button", { name: "Confirm BBox set" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
-  await expect(page).toHaveURL(/\/crop\/slices$/);
-  await expect(page.getByText("BBox set confirmed")).toBeVisible();
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: /Slice navigator:/ })).toBeVisible();
+  await expect(page.getByLabel("Whole-image slice navigator")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Select Slice 1" })).toBeVisible();
+  await expect(page.getByText("Crop: Missing").first()).toBeVisible();
 
-  await page.getByRole("link", { name: "Full editor" }).click();
-  await expect(page.getByRole("button", { name: "BBox proposal" })).toBeVisible();
   await page.getByRole("button", { name: "Generate crop" }).click();
-  await expect(page.getByText("Derived crop generated")).toBeVisible();
-  await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();
-  await expect(page.getByText(/Crop v\d+:/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Regenerate crop" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Support", exact: true })).toBeVisible();
 
-  const imageMatch = page.url().match(/\/images\/([^/]+)\/edit/);
+  const imageMatch = page.url().match(/\/images\/([^/]+)\/crop/);
   expect(imageMatch).not.toBeNull();
   const imageId = imageMatch?.[1];
   expect(imageId).toBeTruthy();
@@ -81,7 +81,12 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   }).toBe(1);
 
   await page.reload();
-  await expect(page.getByRole("button", { name: /Slice proposal 1:/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Slice navigator:/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Regenerate crop" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Support", exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Full editor" }).click();
+  await expect(page.getByRole("button", { name: "BBox proposal" })).toBeVisible();
   await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();
   await expect(page.getByText(/Crop v\d+:/)).toBeVisible();
 });
