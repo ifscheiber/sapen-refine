@@ -70,6 +70,8 @@ export type CropSliceNavigatorSlice = {
   semanticStatus: CropSliceNavigatorArtifactStatus;
   semanticVersion: number | null;
   semanticMode: string | null;
+  semanticFamilyState: string;
+  semanticFamilyActiveMode: string | null;
   classificationStatus: CropSliceNavigatorClassificationStatus;
   classificationClass: string | null;
   classificationSource: string | null;
@@ -269,6 +271,8 @@ export function buildCropSliceNavigatorModel(params: {
         semanticStatus: semantic.status,
         semanticVersion: semantic.version,
         semanticMode: currentCandidate?.latestSemanticMask?.cropSemanticMode ?? null,
+        semanticFamilyState: currentCandidate?.semanticFamily?.state ?? "NONE",
+        semanticFamilyActiveMode: currentCandidate?.semanticFamily?.activeMode ?? null,
         classificationStatus: classification.status,
         classificationClass: classification.classificationClass,
         classificationSource: classification.source,

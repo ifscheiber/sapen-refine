@@ -1,12 +1,15 @@
 import {
   AnnotationArtifactKind,
+  ArtifactReviewState,
   CropSemanticMode,
   Prisma,
+  SliceClassificationSource,
   type AnnotationProjectRole,
 } from "@prisma/client";
 
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import { recordAuditEvent } from "@/server/domain/audit";
 import {
   cropReviewActionsForVersion,
   resolveCropWorkflowReadiness,
@@ -23,6 +26,11 @@ import {
   recordSliceClassificationDerivationFailure,
   sliceClassificationDerivationErrorCode,
 } from "@/server/domain/sliceClassifications";
+import {
+  buildCropSemanticFamilyState,
+  cropSemanticFamilySaveGuard,
+  type CropSemanticFamilyState,
+} from "./cropSemanticFamily";
 import { CROP_SUPPORT_MASK_SCOPE_PREFIX } from "./cropSupportMasks";
 
 type CropSemanticDb = typeof prisma;
@@ -156,9 +164,10 @@ export function validateSemanticForegroundWithinSupport(params: {
 function semanticReadiness(
   supportMask: SerializedSupportMask | null,
   masks: Record<CropSemanticMode, SerializedSemanticMask | null>,
+  semanticFamily: CropSemanticFamilyState,
 ) {
   return {
-    status: "DRAFT_READY",
+    status: semanticFamily.state === "CONFLICT" ? "FAMILY_CONFLICT" : "DRAFT_READY",
     label: supportMask
       ? `Explicit support available: ${supportMask.reviewState.toLowerCase()} support v${supportMask.version}`
       : "Support optional for Sap/Heartwood; Copper support required before export",
@@ -169,6 +178,7 @@ function semanticReadiness(
       SAP_HEARTWOOD: masks.SAP_HEARTWOOD?.version ?? null,
       COPPER: masks.COPPER?.version ?? null,
     },
+    semanticFamily,
   };
 }
 
@@ -547,6 +557,7 @@ async function getLatestCropSemanticMaskVersion(
   db: CropSemanticDb,
   crop: { id: string; sourceImageId: string; sliceInstanceId: string },
   semanticMode: CropSemanticMode,
+  options: { activeOnly?: boolean } = {},
 ) {
   const artifact = await db.annotationArtifact.findUnique({
     where: {
@@ -566,10 +577,28 @@ async function getLatestCropSemanticMaskVersion(
       derivedCropId: crop.id,
       sliceInstanceId: crop.sliceInstanceId,
       cropSemanticMode: semanticMode,
+      ...(options.activeOnly ? { reviewState: { not: ArtifactReviewState.SUPERSEDED } } : {}),
     },
     orderBy: { version: "desc" },
     select: semanticMaskVersionSelect,
   });
+}
+
+async function getActiveCropSemanticFamilyVersions(
+  db: CropSemanticDb,
+  crop: { id: string; sourceImageId: string; sliceInstanceId: string },
+) {
+  return {
+    SAP_HEARTWOOD: await getLatestCropSemanticMaskVersion(
+      db,
+      crop,
+      CropSemanticMode.SAP_HEARTWOOD,
+      { activeOnly: true },
+    ),
+    COPPER: await getLatestCropSemanticMaskVersion(db, crop, CropSemanticMode.COPPER, {
+      activeOnly: true,
+    }),
+  };
 }
 
 function cropSemanticCoordinateTransform(
@@ -599,6 +628,124 @@ function cropSemanticCoordinateTransform(
   } satisfies Prisma.JsonObject;
 }
 
+async function supersedeOppositeSemanticFamilyVersions(params: {
+  tx: Prisma.TransactionClient;
+  crop: CropRecord;
+  requestedMode: CropSemanticMode;
+  userId: string;
+}) {
+  const versions = await params.tx.annotationArtifactVersion.findMany({
+    where: {
+      derivedCropId: params.crop.id,
+      sliceInstanceId: params.crop.sliceInstanceId,
+      cropSemanticMode: { not: params.requestedMode },
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
+      artifact: {
+        projectId: params.crop.projectId,
+        imageId: params.crop.sourceImageId,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      },
+    },
+    select: {
+      id: true,
+      reviewState: true,
+      cropSemanticMode: true,
+      artifact: { select: { projectId: true, imageId: true } },
+    },
+  });
+  if (versions.length === 0) return;
+
+  const versionIds = versions.map((version) => version.id);
+  for (const version of versions) {
+    await params.tx.annotationArtifactVersion.update({
+      where: { id: version.id },
+      data: { reviewState: ArtifactReviewState.SUPERSEDED },
+    });
+    const decision = await params.tx.reviewDecision.create({
+      data: {
+        projectId: params.crop.projectId,
+        artifactVersionId: version.id,
+        fromState: version.reviewState,
+        toState: ArtifactReviewState.SUPERSEDED,
+        reviewedById: params.userId,
+        reason: "SEMANTIC_FAMILY_RESET",
+        comments: `Superseded by explicit ${params.requestedMode} semantic family reset.`,
+      },
+      select: { id: true },
+    });
+    await recordAuditEvent(
+      {
+        action: "CROP_SEMANTIC_FAMILY_VERSION_SUPERSEDED",
+        entity: "AnnotationArtifactVersion",
+        entityId: version.id,
+        actorId: params.userId,
+        details: {
+          projectId: params.crop.projectId,
+          imageId: params.crop.sourceImageId,
+          sliceInstanceId: params.crop.sliceInstanceId,
+          derivedCropId: params.crop.id,
+          fromSemanticMode: version.cropSemanticMode,
+          toSemanticMode: params.requestedMode,
+          reviewDecisionId: decision.id,
+        },
+      },
+      params.tx,
+    );
+  }
+
+  const classifications = await params.tx.sliceClassificationVersion.findMany({
+    where: {
+      source: SliceClassificationSource.AUTO_FROM_SEMANTIC_MASK,
+      derivedFromSemanticMaskVersionId: { in: versionIds },
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
+    },
+    select: {
+      id: true,
+      reviewState: true,
+      projectId: true,
+      imageId: true,
+      sliceInstanceId: true,
+      class: true,
+    },
+  });
+  for (const classification of classifications) {
+    await params.tx.sliceClassificationVersion.update({
+      where: { id: classification.id },
+      data: { reviewState: ArtifactReviewState.SUPERSEDED },
+    });
+    const decision = await params.tx.reviewDecision.create({
+      data: {
+        projectId: classification.projectId,
+        sliceClassificationVersionId: classification.id,
+        fromState: classification.reviewState,
+        toState: ArtifactReviewState.SUPERSEDED,
+        reviewedById: params.userId,
+        reason: "SEMANTIC_FAMILY_RESET",
+        comments: `Superseded by explicit ${params.requestedMode} semantic family reset.`,
+      },
+      select: { id: true },
+    });
+    await recordAuditEvent(
+      {
+        action: "SLICE_CLASSIFICATION_SUPERSEDED_BY_SEMANTIC_FAMILY_RESET",
+        entity: "SliceClassificationVersion",
+        entityId: classification.id,
+        actorId: params.userId,
+        details: {
+          projectId: classification.projectId,
+          imageId: classification.imageId,
+          sliceInstanceId: classification.sliceInstanceId,
+          derivedCropId: params.crop.id,
+          class: classification.class,
+          toSemanticMode: params.requestedMode,
+          reviewDecisionId: decision.id,
+        },
+      },
+      params.tx,
+    );
+  }
+}
+
 export async function loadCropSemanticMaskStateForUser(params: {
   cropId: string;
   userId: string;
@@ -608,14 +755,8 @@ export async function loadCropSemanticMaskStateForUser(params: {
   const latestSupportMask = await getLatestCropSupportMaskVersion(db, crop);
   if (latestSupportMask) assertSupportLineage(crop, latestSupportMask);
 
-  const latestMasks = {
-    SAP_HEARTWOOD: await getLatestCropSemanticMaskVersion(
-      db,
-      crop,
-      CropSemanticMode.SAP_HEARTWOOD,
-    ),
-    COPPER: await getLatestCropSemanticMaskVersion(db, crop, CropSemanticMode.COPPER),
-  };
+  const latestMasks = await getActiveCropSemanticFamilyVersions(db, crop);
+  const semanticFamily = buildCropSemanticFamilyState(Object.values(latestMasks));
   const serializedSupportMask = latestSupportMask
     ? serializeSupportMask(latestSupportMask, crop.sourceImageId, membership.role)
     : null;
@@ -647,7 +788,8 @@ export async function loadCropSemanticMaskStateForUser(params: {
     supportPolicy: CROP_SEMANTIC_SUPPORT_POLICY,
     currentSupportMask: serializedSupportMask,
     latestSemanticMasks: serializedMasks,
-    semanticReadiness: semanticReadiness(serializedSupportMask, serializedMasks),
+    semanticFamily,
+    semanticReadiness: semanticReadiness(serializedSupportMask, serializedMasks, semanticFamily),
     latestClassification,
     cropReadiness: readinessCandidate ? sanitizeCropWorkflowCandidate(readinessCandidate) : null,
   };
@@ -666,6 +808,7 @@ export async function createCropSemanticMaskVersionForUser(params: {
   height: number;
   format?: string | null;
   semanticBytes: Uint8Array;
+  semanticFamilyReset?: boolean;
 }, db: CropSemanticDb = prisma) {
   const semanticMode = parseCropSemanticMode(params.semanticMode);
   const { crop, membership } = await getCropWithMembership(db, params.cropId, params.userId);
@@ -680,6 +823,14 @@ export async function createCropSemanticMaskVersionForUser(params: {
   });
   if (params.semanticBytes.byteLength !== params.size) {
     throw new CropSemanticMaskWorkflowError("MASK_SIZE_MISMATCH");
+  }
+
+  const activeSemanticFamily = buildCropSemanticFamilyState(
+    Object.values(await getActiveCropSemanticFamilyVersions(db, crop)),
+  );
+  const familyGuard = cropSemanticFamilySaveGuard(activeSemanticFamily, semanticMode);
+  if (familyGuard.resetRequired && !params.semanticFamilyReset) {
+    throw new CropSemanticMaskWorkflowError(familyGuard.error ?? "SEMANTIC_FAMILY_RESET_REQUIRED");
   }
 
   const semanticLabels = await semanticLabelsForProject(db, crop.projectId);
@@ -708,6 +859,15 @@ export async function createCropSemanticMaskVersionForUser(params: {
   let semanticMaskVersionId: string | null = null;
 
   await db.$transaction(async (tx) => {
+    if (params.semanticFamilyReset) {
+      await supersedeOppositeSemanticFamilyVersions({
+        tx,
+        crop,
+        requestedMode: semanticMode,
+        userId: params.userId,
+      });
+    }
+
     const artifact = await tx.annotationArtifact.upsert({
       where: {
         imageId_kind_scopeKey: {
@@ -809,6 +969,8 @@ export function cropSemanticMaskErrorResponse(error: unknown): { error: string; 
         : error.code.endsWith("_NOT_FOUND") || error.code === "CROP_NOT_FOUND"
           ? 404
           : error.code === "SUPPORT_MASK_REQUIRED" ||
+              error.code === "SEMANTIC_FAMILY_CONFLICT" ||
+              error.code === "SEMANTIC_FAMILY_RESET_REQUIRED" ||
               error.code.endsWith("_LINEAGE_MISMATCH") ||
               error.code === "CROP_LINEAGE_INVALID" ||
               error.code === "CROP_COORDINATE_SPACE_INVALID"

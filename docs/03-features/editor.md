@@ -85,7 +85,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
 
-RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implements the selected crop workbench and crop-prefixed support/semantic tool routes. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. The existing non-crop-prefixed crop support and semantic routes remain compatibility deep links.
+RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implements the selected crop workbench and crop-prefixed support/semantic tool routes. RB-097 adds semantic-family exclusivity and explicit reset guardrails in the crop semantic editor. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. The existing non-crop-prefixed crop support and semantic routes remain compatibility deep links.
 
 ## Current Canvas And Input Model
 
@@ -137,7 +137,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - Crop support-mask state is loaded from `GET /api/slice-crops/[cropId]/support-mask`.
 - Crop support-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/support-mask/upload`.
 - Crop semantic-mask state is loaded from `GET /api/slice-crops/[cropId]/semantic-mask`.
-- Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-semantic-mode` and optional `x-support-mask-version-id`. Sap/Heartwood can save without support and derives support from semantic foreground. Copper can save supportless drafts, but Copper readiness/export requires approved explicit support.
+- Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-semantic-mode`, optional `x-support-mask-version-id`, and `x-semantic-family-reset: true` only for explicit family replacement. Sap/Heartwood can save without support and derives support from semantic foreground. Copper can save supportless drafts, but Copper readiness/export requires approved explicit support.
 - Crop support and semantic editors surface submit/approve/reject actions for the latest crop support mask, active crop semantic mask, and latest slice classification through the existing review APIs.
 
 ## Current Domain Model
@@ -155,7 +155,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
 - Derived slice crops are persisted as `DerivedSliceCrop` rows in `CROP_PIXEL` coordinate space. They reference the immutable source image, source checksum, slice instance, and exact BBox version. Crop PNG bytes are private derived artifacts and are read through `/api/slice-crops/[cropId]/asset`.
 - Crop support masks are persisted as crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL`. They link to the source image through `AnnotationArtifact.imageId`, to the slice through `AnnotationArtifactVersion.sliceInstanceId`, and to the crop through `AnnotationArtifactVersion.derivedCropId`.
-- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, optional support mask version, and semantic mode. The editor exposes Sap/Heartwood and Copper modes.
+- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, optional support mask version, and semantic mode. The editor exposes Sap/Heartwood and Copper modes, but only one family can be active per crop. Explicit family reset appends a new version and marks opposite-family active semantic versions as `SUPERSEDED`.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -166,7 +166,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 
 ## Stable Save Errors
 
-Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
+Mask save APIs return stable sanitized error codes for integrity failures, including `UPLOAD_TOO_LARGE`, `WIDTH_REQUIRED`, `HEIGHT_REQUIRED`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `CHECKSUM_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `SEMANTIC_FAMILY_RESET_REQUIRED`, `SEMANTIC_FAMILY_CONFLICT`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 
 Successful semantic saves record `SEMANTIC_MASK_COMMITTED`; successful default support saves record `SUPPORT_MASK_COMMITTED`; successful crop support saves record `CROP_SUPPORT_MASK_COMMITTED`; successful crop semantic saves record `CROP_SEMANTIC_MASK_COMMITTED`; RB-090 classification derivation records `SLICE_CLASSIFICATION_DERIVED_FROM_SEMANTIC_MASK` or `SLICE_CLASSIFICATION_DERIVATION_FAILED`; validation failures record `ARTIFACT_VALIDATION_FAILED` where the request is authenticated.
 
@@ -271,6 +271,7 @@ Current RB-089 behavior:
 
 - The selected derived crop links to a deep-linkable crop semantic editor.
 - The crop semantic editor no longer soft-blocks when support is missing. Sap/Heartwood support is derived from semantic foreground; Copper drafts can save before support exists but remain not export-ready until support is approved.
+- RB-097 keeps the crop semantic editor family-aware: if Sap/Heartwood is active, Copper is read-only until reset is explicitly confirmed, and vice versa. Legacy mixed-family state is shown as conflict and cannot save without reset.
 - The editor displays the crop PNG with a read-only support overlay and editable semantic overlay.
 - Sap/Heartwood mode allows manual Sapwood, Heartwood, and Unknown painting inside support. Complement fill is deferred.
 - Copper mode allows Copper and Unknown painting inside support; background inside support is the implicit non-copper negative.
@@ -283,6 +284,7 @@ Current RB-090 behavior:
 - Copper mode with Copper pixels suggests `COPPER_SLICE`; Sap/Heartwood mode with Sapwood or Heartwood pixels suggests `SAP_HEARTWOOD_SLICE`; empty/ambiguous masks produce `UNKNOWN` or `REVIEW_REQUIRED` according to the stored derivation reason.
 - The crop semantic editor shows the latest classification source/reason and lets editable users append a manual override for the same slice instance.
 - Auto suggestions and manual overrides are separate `SliceClassificationVersion` rows. Auto suggestions remain draft and are not export-ready until reviewed through the classification review flow.
+- Manual overrides remain possible, but a class that contradicts the active semantic family surfaces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` in crop readiness and is not export-ready.
 
 The legacy full-resolution editor route remains present until RB-104 removes it as a user-facing product surface. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 

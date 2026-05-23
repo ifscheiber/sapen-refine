@@ -98,9 +98,9 @@ One slice should use exactly one semantic family for active crop semantic annota
 - Sap/Heartwood mode for sapwood, heartwood, and optional unknown labels.
 - Copper mode for copper and optional unknown labels.
 
-Switching families after semantic annotation exists requires an explicit reset or replacement flow in a later ticket. Conflicting historical data should surface as `CONFLICT` or readiness `REVIEW_REQUIRED` rather than silently becoming ready.
+RB-097 implements explicit family reset. Switching from an active Sap/Heartwood family to Copper, or from Copper to Sap/Heartwood, requires confirmation and the next save sends `x-semantic-family-reset: true`. Opposite-family active semantic versions and their auto-derived classifications become `SUPERSEDED`; historical bytes remain. Conflicting legacy active data surfaces as `CONFLICT` and readiness `REVIEW_REQUIRED` until reset.
 
-Classification follows semantic content. Auto-derived classifications are attributable draft suggestions unless reviewed or manually overridden through the existing classification versioning model.
+Classification follows semantic content. Auto-derived classifications are attributable draft suggestions unless reviewed or manually overridden through the existing classification versioning model. Manual overrides remain allowed, but an override that contradicts the active semantic family produces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` and is not export-ready.
 
 ## Current Implementation Boundary
 

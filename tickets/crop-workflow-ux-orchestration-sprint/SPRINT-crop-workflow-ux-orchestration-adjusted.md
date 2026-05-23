@@ -306,8 +306,8 @@ RB-102  Full Crop Mask Tool Palette and Shared Mask Operations
 ## Remaining adjusted UX tickets
 
 ```text
-RB-096  Unified Slice Crop Annotation Workbench
-RB-097  Semantic Family Exclusivity and Classification UX Guards
+RB-096  Unified Slice Crop Annotation Workbench                         implemented
+RB-097  Semantic Family Exclusivity and Classification UX Guards        implemented
 RB-103  BBox Stage Re-Entry From Crop Workflow
 RB-104  Remove Legacy Full-Image Editor Route and Surface
 RB-098  Crop Workflow Smoke Test and Final Workflow Polish

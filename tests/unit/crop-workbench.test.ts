@@ -25,6 +25,8 @@ function slice(params: Partial<CropSliceNavigatorSlice> = {}): CropSliceNavigato
     semanticStatus: "MISSING",
     semanticVersion: null,
     semanticMode: null,
+    semanticFamilyState: "NONE",
+    semanticFamilyActiveMode: null,
     classificationStatus: "MISSING",
     classificationClass: null,
     classificationSource: null,

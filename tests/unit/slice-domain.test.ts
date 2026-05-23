@@ -241,6 +241,55 @@ describe("crop support mask helpers", () => {
 });
 
 describe("crop semantic mask helpers", () => {
+  it("detects active crop semantic family and reset requirements", async () => {
+    const {
+      buildCropSemanticFamilyState,
+      classConflictsWithSemanticFamily,
+      cropSemanticFamilySaveGuard,
+    } = await import("@/server/domain/cropSemanticFamily");
+
+    const none = buildCropSemanticFamilyState([]);
+    expect(none).toMatchObject({ state: "NONE", activeMode: null, blockedModes: [] });
+
+    const sap = buildCropSemanticFamilyState([
+      { cropSemanticMode: "SAP_HEARTWOOD", reviewState: "DRAFT" },
+      { cropSemanticMode: "COPPER", reviewState: "SUPERSEDED" },
+    ]);
+    expect(sap).toMatchObject({
+      state: "SAP_HEARTWOOD",
+      activeMode: "SAP_HEARTWOOD",
+      blockedModes: ["COPPER"],
+      resetRequiredModes: ["COPPER"],
+    });
+    expect(cropSemanticFamilySaveGuard(sap, "SAP_HEARTWOOD")).toMatchObject({
+      resetRequired: false,
+      error: null,
+    });
+    expect(cropSemanticFamilySaveGuard(sap, "COPPER")).toMatchObject({
+      resetRequired: true,
+      error: "SEMANTIC_FAMILY_RESET_REQUIRED",
+    });
+
+    const conflict = buildCropSemanticFamilyState([
+      { cropSemanticMode: "SAP_HEARTWOOD", reviewState: "APPROVED" },
+      { cropSemanticMode: "COPPER", reviewState: "DRAFT" },
+    ]);
+    expect(conflict).toMatchObject({
+      state: "CONFLICT",
+      activeMode: null,
+      conflictModes: ["SAP_HEARTWOOD", "COPPER"],
+      resetRequiredModes: ["SAP_HEARTWOOD", "COPPER"],
+    });
+    expect(cropSemanticFamilySaveGuard(conflict, "SAP_HEARTWOOD")).toMatchObject({
+      resetRequired: true,
+      error: "SEMANTIC_FAMILY_CONFLICT",
+    });
+
+    expect(classConflictsWithSemanticFamily("COPPER_SLICE", "SAP_HEARTWOOD")).toBe(true);
+    expect(classConflictsWithSemanticFamily("SAP_HEARTWOOD_SLICE", "COPPER")).toBe(true);
+    expect(classConflictsWithSemanticFamily("UNKNOWN", "COPPER")).toBe(false);
+  });
+
   it("requires crop semantic mask dimensions to match the derived crop", async () => {
     const { validateCropSemanticMaskDimensions } = await import("@/server/domain/cropSemanticMasks");
 

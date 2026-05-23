@@ -9,6 +9,7 @@ import {
   loadCropSemanticMaskStateForUser,
   parseCropSemanticMode,
 } from "@/server/domain/cropSemanticMasks";
+import { cropSemanticFamilySaveGuard } from "@/server/domain/cropSemanticFamily";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -32,6 +33,15 @@ export async function POST(
 
     const supportMaskVersionId = req.headers.get("x-support-mask-version-id")?.trim() || null;
     const semanticMode = parseCropSemanticMode(req.headers.get("x-semantic-mode")?.trim());
+    const semanticFamilyReset =
+      req.headers.get("x-semantic-family-reset")?.trim().toLowerCase() === "true";
+    const familyGuard = cropSemanticFamilySaveGuard(preflight.semanticFamily, semanticMode);
+    if (familyGuard.resetRequired && !semanticFamilyReset) {
+      return NextResponse.json(
+        { ok: false, error: familyGuard.error ?? "SEMANTIC_FAMILY_RESET_REQUIRED" },
+        { status: 409 },
+      );
+    }
 
     let upload;
     try {
@@ -145,6 +155,7 @@ export async function POST(
         height: integrity.height,
         format: integrity.format,
         semanticBytes: upload.bytes,
+        semanticFamilyReset,
       });
     } catch (error) {
       await deleteObjectBestEffort(storageKey);

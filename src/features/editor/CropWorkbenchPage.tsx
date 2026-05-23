@@ -23,9 +23,7 @@ import {
 } from "@/server/domain/cropSliceNavigator";
 import {
   buildCropWorkbenchModeGuidance,
-  cropSemanticModeLabel,
   cropWorkbenchNextAction,
-  defaultSemanticModeFromSlice,
 } from "./cropWorkbenchGuidance";
 import { CropEditorSliceNavigatorRailClient } from "./CropEditorSliceNavigatorRailClient";
 import type { CropSemanticMode } from "./editorTypes";
@@ -43,6 +41,13 @@ function formatClassName(value: string | null) {
   if (value === "SAP_HEARTWOOD_SLICE") return "Sap/Heartwood";
   if (value === "COPPER_SLICE") return "Copper";
   return formatToken(value);
+}
+
+function formatSemanticFamily(value: string | null) {
+  if (value === "SAP_HEARTWOOD") return "Sap/Heartwood";
+  if (value === "COPPER") return "Copper";
+  if (value === "CONFLICT") return "Conflict";
+  return "None";
 }
 
 function badgeKind(status: string) {
@@ -120,7 +125,6 @@ function ModeCard({
 
 function SelectedCropPanel({ slice }: { slice: CropSliceNavigatorSlice }) {
   const crop = slice.currentCrop;
-  const semanticFamily = defaultSemanticModeFromSlice(slice);
 
   return (
     <div className="space-y-4">
@@ -164,7 +168,7 @@ function SelectedCropPanel({ slice }: { slice: CropSliceNavigatorSlice }) {
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Semantic family</dt>
-                  <dd className="font-medium">{cropSemanticModeLabel(semanticFamily)}</dd>
+                  <dd className="font-medium">{formatSemanticFamily(slice.semanticFamilyState)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Classification</dt>

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-096 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model, RB-094 implements image-level BBox set confirmation, RB-095 implements whole-image slice navigation, and RB-096 implements the selected crop workbench.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-097 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model, RB-094 implements image-level BBox set confirmation, RB-095 implements whole-image slice navigation, RB-096 implements the selected crop workbench, and RB-097 implements semantic-family exclusivity guards.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -127,16 +127,13 @@ Each crop support mask version records or references:
 
 The crop support editor displays the private crop PNG through `/api/slice-crops/[cropId]/asset`, edits only background/support bytes, and saves through `POST /api/slice-crops/[cropId]/support-mask/upload`. Uploaded support masks must match the selected crop dimensions exactly and may contain only `0` plus the active `slice_support` label byte. Copper semantic bytes are rejected as support geometry.
 
-## Mandatory Support-First Rule
+## Mode-Aware Support Policy
 
-Every training-ready slice instance requires a pixel-perfect support mask.
+The crop workflow is mode-aware rather than universally support-first.
 
-Semantic annotation for a crop should be blocked, marked incomplete, or exported with a clear warning until the support mask exists. The intended editor behavior is support-first:
+Sap/Heartwood crops may be semantically annotated without an explicit support mask. Their non-background semantic foreground is the support geometry source for readiness/export, and crop padding remains background unless explicitly labelled as foreground.
 
-1. Create or choose a crop.
-2. Draw the complete support mask for the physical slice.
-3. Annotate material semantics inside that support.
-4. Classify the slice from semantic content, with human override.
+Copper crops may save supportless semantic drafts, but a Copper crop is not export-ready until an explicit crop support mask exists and is approved. Copper semantic pixels represent material staining/penetration and are never physical slice support geometry.
 
 ## Implemented Crop Semantic Mask Concept
 
@@ -162,6 +159,9 @@ Rules:
 - Sap/Heartwood semantic save does not require an explicit support mask. Its non-background semantic foreground is the support geometry source for readiness/export.
 - Copper semantic draft save does not require an explicit support mask, but Copper readiness/export requires an approved crop support mask for the same crop.
 - When a Copper semantic save references support, the server loads that support mask version and rejects non-background semantic pixels outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
+- RB-097 allows only one active semantic family per crop: `SAP_HEARTWOOD`, `COPPER`, `NONE`, or unresolved `CONFLICT`.
+- Saving the opposite family without explicit reset is rejected with `SEMANTIC_FAMILY_RESET_REQUIRED`; unresolved legacy conflicts are rejected with `SEMANTIC_FAMILY_CONFLICT`.
+- Explicit reset uses `x-semantic-family-reset: true`, appends a new semantic version, and marks opposite-family active semantic versions plus their auto-derived classifications as `SUPERSEDED`.
 - Browser responses include app-mediated mask asset URLs and do not expose private storage keys.
 - Export consumers must inspect `supportGeometrySource`: Sap/Heartwood may use `SEMANTIC_FOREGROUND`, while Copper uses `EXPLICIT_SUPPORT_MASK`.
 - Semantic masks and support masks may share a crop coordinate space, but they remain separate artifact families.
@@ -198,6 +198,7 @@ RB-090 classification persistence:
 - auto suggestions store `derivationReason`, `derivedFromSemanticMaskVersionId`, `derivedFromSupportMaskVersionId`, `derivedFromCropId`, and compact derivation metadata,
 - auto suggestions start with `reviewState = DRAFT` and are not export-ready until the normal classification review flow approves them,
 - manual overrides create new classification versions instead of mutating auto-derived rows.
+- manual overrides remain allowed, but a manual class that contradicts the active semantic family adds `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` and prevents crop export readiness.
 
 The default threshold is one classifying pixel. Copper mode with a Copper pixel derives `COPPER_SLICE`. Sap/Heartwood mode with a Sapwood or Heartwood pixel derives `SAP_HEARTWOOD_SLICE`. Background-only masks derive `UNKNOWN`. Unknown-only masks and mode-label conflicts derive `REVIEW_REQUIRED`.
 
@@ -219,6 +220,7 @@ Current default:
 - Slice classifications require approval. RB-090 auto-derived suggestions start as `DRAFT`; there is no accepted-auto export policy in RB-092.
 - Approved manual classifications are eligible when they belong to the same project/image/slice and are current relative to the selected support and semantic versions. Manual rows with derived links must match those selected versions.
 - If semantic or classification versions reference stale crop/support lineage, coordinate space, or dimensions, the crop is `REVIEW_REQUIRED` until regenerated, re-saved, or re-reviewed.
+- If active Sap/Heartwood and Copper semantic versions coexist, the crop is `REVIEW_REQUIRED` with `SEMANTIC_FAMILY_CONFLICT` until an explicit family reset resolves it.
 
 The central readiness resolver lives in `src/server/domain/cropReadiness.ts`. It returns per-crop `READY`, `PARTIAL`, `NOT_READY`, or `REVIEW_REQUIRED` status, stable reason codes, next-action hints, review-action permissions for the latest support/semantic/classification versions, and summary reason counts. The read-only API route is `GET /api/projects/[projectId]/crop-readiness` with optional `imageId` and `sliceInstanceId` filters. API responses are sanitized and do not expose private storage keys.
 
@@ -262,7 +264,7 @@ Current implemented behavior:
 
 Planned crop behavior:
 
-- guided crop workflow routes for image-level BBox confirmation, whole-image slice navigation, and selected crop workbench orchestration are implemented by RB-094 through RB-096; semantic-family conflict guards remain planned for RB-097,
+- guided crop workflow routes for image-level BBox confirmation, whole-image slice navigation, selected crop workbench orchestration, and semantic-family conflict guards are implemented by RB-094 through RB-097,
 - source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs

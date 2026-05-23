@@ -92,6 +92,15 @@ export type ReviewStateValue = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" |
 export type ReviewAction = "submit" | "approve" | "reject";
 export type CropWorkflowReadinessStatus = "READY" | "PARTIAL" | "NOT_READY" | "REVIEW_REQUIRED";
 export type CropSupportGeometrySource = "EXPLICIT_SUPPORT_MASK" | "SEMANTIC_FOREGROUND";
+export type CropSemanticMode = "SAP_HEARTWOOD" | "COPPER";
+export type CropSemanticFamilyState = {
+  state: "NONE" | CropSemanticMode | "CONFLICT";
+  activeMode: CropSemanticMode | null;
+  activeModes: CropSemanticMode[];
+  conflictModes: CropSemanticMode[];
+  blockedModes: CropSemanticMode[];
+  resetRequiredModes: CropSemanticMode[];
+};
 export type CropWorkflowNextAction =
   | "OPEN_SUPPORT_EDITOR"
   | "OPEN_SEMANTIC_EDITOR"
@@ -163,6 +172,7 @@ export type CropWorkflowReadinessCandidate = {
   latestSupportMask: CropReadinessArtifactVersion | null;
   latestSemanticMask: CropReadinessArtifactVersion | null;
   latestClassification: SerializedSliceClassification | null;
+  semanticFamily: CropSemanticFamilyState;
   supportMaskVersionId: string | null;
   semanticMaskVersionId: string | null;
   classificationVersionId: string | null;
@@ -239,8 +249,6 @@ export type CropSupportMaskState = {
   };
   cropReadiness: CropWorkflowReadinessCandidate | null;
 };
-
-export type CropSemanticMode = "SAP_HEARTWOOD" | "COPPER";
 export type CropSemanticSupportPolicy = Record<
   CropSemanticMode,
   {
@@ -313,6 +321,7 @@ export type CropSemanticMaskState = {
       url: string;
     } | null
   >;
+  semanticFamily: CropSemanticFamilyState;
   semanticReadiness: {
     status: string;
     label: string;
@@ -320,6 +329,7 @@ export type CropSemanticMaskState = {
     canSaveDraft: boolean;
     supportPolicy: CropSemanticSupportPolicy;
     latestSemanticVersions?: Record<CropSemanticMode, number | null>;
+    semanticFamily?: CropSemanticFamilyState;
   };
   latestClassification: SerializedSliceClassification | null;
   cropReadiness: CropWorkflowReadinessCandidate | null;

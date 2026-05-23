@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
+  AlertTriangleIcon,
   BrushIcon,
   EraserIcon,
   LassoIcon,
@@ -50,6 +51,7 @@ import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   SLICE_CLASS_OPTIONS,
   type CropReviewActions,
+  type CropSemanticFamilyState,
   type CropSemanticMaskState,
   type CropSemanticMode,
   type Point,
@@ -144,6 +146,26 @@ function classificationLabel(state: CropSemanticMaskState | null) {
     .join(" / ");
 }
 
+function semanticFamilyLabel(family: CropSemanticFamilyState | null | undefined) {
+  if (!family || family.state === "NONE") return "Semantic family: none";
+  if (family.state === "CONFLICT") return "Semantic family: conflict";
+  return `Semantic family: ${MODE_LABELS[family.state]}`;
+}
+
+function semanticFamilyModeGuard(
+  family: CropSemanticFamilyState | null | undefined,
+  mode: CropSemanticMode,
+) {
+  if (!family) return { resetRequired: false, error: null as string | null };
+  if (family.state === "CONFLICT") {
+    return { resetRequired: true, error: "SEMANTIC_FAMILY_CONFLICT" };
+  }
+  if (family.activeMode && family.activeMode !== mode) {
+    return { resetRequired: true, error: "SEMANTIC_FAMILY_RESET_REQUIRED" };
+  }
+  return { resetRequired: false, error: null as string | null };
+}
+
 function displaySupportMask(source: MaskBuffer) {
   const display = new MaskBuffer(source.width, source.height, Labels.BG);
   for (let index = 0; index < source.data.length; index += 1) {
@@ -201,6 +223,7 @@ export function CropSemanticEditorClient({
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
   const [lassoPointCount, setLassoPointCount] = useState(0);
+  const [pendingFamilyResetMode, setPendingFamilyResetMode] = useState<CropSemanticMode | null>(null);
 
   const overlayLabels = useMemo(() => semanticOverlayLabels(state, semanticMode), [state, semanticMode]);
   const paintLabels = useMemo(() => semanticPaintLabels(state, semanticMode), [state, semanticMode]);
@@ -209,8 +232,11 @@ export function CropSemanticEditorClient({
     () => buildPalette(supportMaskLabels(Labels.SLICE_SUPPORT), supportOpacity),
     [supportOpacity],
   );
+  const activeModeGuard = semanticFamilyModeGuard(state?.semanticFamily, semanticMode);
+  const semanticFamilyResetArmed = pendingFamilyResetMode === semanticMode;
+  const semanticFamilyBlocked = activeModeGuard.resetRequired && !semanticFamilyResetArmed;
   const editorCanEdit =
-    canEdit && Boolean(state?.canEdit) && editorReady;
+    canEdit && Boolean(state?.canEdit) && editorReady && !semanticFamilyBlocked;
   const classificationCanEdit = canEdit && Boolean(state?.canEdit) && Boolean(state);
 
   const applyZoom = useCallback((z: number) => {
@@ -859,8 +885,21 @@ export function CropSemanticEditorClient({
   }
 
   function switchMode(nextMode: CropSemanticMode) {
+    if (nextMode !== semanticMode && hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) {
+      return;
+    }
+    const guard = semanticFamilyModeGuard(state?.semanticFamily, nextMode);
+    if (guard.resetRequired && pendingFamilyResetMode !== nextMode) {
+      const confirmed = window.confirm(
+        `Reset semantic family to ${MODE_LABELS[nextMode]}? Existing opposite-family semantic versions remain historical and will be superseded when you save the next ${MODE_LABELS[nextMode]} mask.`,
+      );
+      if (!confirmed) return;
+      setPendingFamilyResetMode(nextMode);
+      setStatus(`Semantic family reset armed for ${MODE_LABELS[nextMode]}. Save a new semantic mask to apply it.`);
+    } else if (!guard.resetRequired) {
+      setPendingFamilyResetMode(null);
+    }
     if (nextMode === semanticMode) return;
-    if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
     resetLasso();
     setSemanticMode(nextMode);
     setActiveLabel(defaultLabelForSemanticMode(nextMode));
@@ -881,6 +920,9 @@ export function CropSemanticEditorClient({
       const headers: Record<string, string> = {
         "x-semantic-mode": semanticMode,
       };
+      if (semanticFamilyResetArmed) {
+        headers["x-semantic-family-reset"] = "true";
+      }
       if (semanticMode === "COPPER" && supportMask) {
         headers["x-support-mask-version-id"] = supportMask.id;
       }
@@ -895,6 +937,7 @@ export function CropSemanticEditorClient({
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
       setHasUnsavedChanges(false);
+      setPendingFamilyResetMode(null);
       if (nextState.classificationDerivation?.ok === false) {
         setStatus(`Saved; classification derivation failed: ${nextState.classificationDerivation.error}`);
       } else if (nextState.classificationDerivation?.classification) {
@@ -939,6 +982,7 @@ export function CropSemanticEditorClient({
 
   async function reloadLatest() {
     if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
+    setPendingFamilyResetMode(null);
     await loadEditor();
   }
 
@@ -1037,10 +1081,14 @@ export function CropSemanticEditorClient({
       <div className="border-b border-border bg-muted p-3">
         <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>{supportReadinessLabel(state)}</span>
+          <span>{semanticFamilyLabel(state?.semanticFamily)}</span>
           <span>{semanticVersionLabel(state, semanticMode)}</span>
           <span>{classificationLabel(state)}</span>
           {state?.cropReadiness && (
             <span>Export readiness: {state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}</span>
+          )}
+          {state?.cropReadiness?.readinessReasons.includes("CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH") && (
+            <span>Classification conflicts with active semantic family.</span>
           )}
           {semanticMode === "SAP_HEARTWOOD" && <span>Support geometry derives from semantic foreground.</span>}
           {semanticMode === "COPPER" && state?.currentSupportMask && <span>Outside-support pixels are locked.</span>}
@@ -1049,6 +1097,28 @@ export function CropSemanticEditorClient({
           )}
           {semanticMode === "COPPER" && <span>Non-copper wood remains background inside support.</span>}
         </div>
+
+        {(semanticFamilyBlocked || semanticFamilyResetArmed || state?.semanticFamily.state === "CONFLICT") && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+            <AlertTriangleIcon className="size-4 text-destructive" aria-hidden="true" />
+            {semanticFamilyBlocked ? (
+              <>
+                <span>
+                  {activeModeGuard.error === "SEMANTIC_FAMILY_CONFLICT"
+                    ? "Semantic family conflict requires an explicit reset before saving."
+                    : `${MODE_LABELS[semanticMode]} requires an explicit reset because ${MODE_LABELS[state?.semanticFamily.activeMode ?? "SAP_HEARTWOOD"]} is active.`}
+                </span>
+                <button className={idleButtonClass} onClick={() => switchMode(semanticMode)} disabled={isSaving}>
+                  Reset to {MODE_LABELS[semanticMode]}
+                </button>
+              </>
+            ) : (
+              <span>
+                Reset armed for {MODE_LABELS[semanticMode]}. The next save will supersede opposite-family semantic versions and derived auto classifications.
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <button

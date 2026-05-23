@@ -213,6 +213,7 @@ describe("crop semantic mask workflow", () => {
     userId?: string;
     width?: number;
     height?: number;
+    semanticFamilyReset?: boolean;
   }) {
     const width = params.width ?? params.crop.cropWidth;
     const height = params.height ?? params.crop.cropHeight;
@@ -235,6 +236,7 @@ describe("crop semantic mask workflow", () => {
         height,
         format: "u8raw-v1",
         semanticBytes: params.bytes,
+        semanticFamilyReset: params.semanticFamilyReset,
       },
       prisma,
     );
@@ -466,6 +468,177 @@ describe("crop semantic mask workflow", () => {
       ]),
       supportGeometrySource: "EXPLICIT_SUPPORT_MASK",
     });
+  });
+
+  it("requires explicit semantic-family reset before switching families", async () => {
+    const { crop } = await createCrop();
+    const sapBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    sapBytes[crop.cropWidth + 1] = Labels.SAPWOOD;
+
+    const sapState = await saveSemantic({
+      crop,
+      semanticMode: "SAP_HEARTWOOD",
+      bytes: sapBytes,
+      name: "family-reset-sap",
+    });
+    const sapVersion = sapState.latestSemanticMasks.SAP_HEARTWOOD;
+    const sapClassification = sapState.latestClassification;
+    if (!sapVersion || !sapClassification) throw new Error("SAP_FAMILY_FIXTURE_MISSING");
+    expect(sapState.semanticFamily).toMatchObject({
+      state: "SAP_HEARTWOOD",
+      activeMode: "SAP_HEARTWOOD",
+      resetRequiredModes: ["COPPER"],
+    });
+
+    const copperBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    copperBytes[crop.cropWidth + 1] = Labels.COPPER;
+    await expect(
+      saveSemantic({
+        crop,
+        semanticMode: "COPPER",
+        bytes: copperBytes,
+        name: "family-reset-copper-blocked",
+      }),
+    ).rejects.toMatchObject({ code: "SEMANTIC_FAMILY_RESET_REQUIRED" });
+
+    const resetState = await saveSemantic({
+      crop,
+      semanticMode: "COPPER",
+      bytes: copperBytes,
+      name: "family-reset-copper",
+      semanticFamilyReset: true,
+    });
+    expect(resetState.semanticFamily).toMatchObject({
+      state: "COPPER",
+      activeMode: "COPPER",
+      resetRequiredModes: ["SAP_HEARTWOOD"],
+    });
+    expect(resetState.latestSemanticMasks.SAP_HEARTWOOD).toBeNull();
+    expect(resetState.latestSemanticMasks.COPPER).toMatchObject({
+      semanticMode: "COPPER",
+      reviewState: "DRAFT",
+    });
+    expect(resetState.latestClassification).toMatchObject({
+      class: "COPPER_SLICE",
+      source: "AUTO_FROM_SEMANTIC_MASK",
+      reviewState: "DRAFT",
+    });
+
+    await expect(
+      prisma.annotationArtifactVersion.findUniqueOrThrow({
+        where: { id: sapVersion.id },
+        select: { reviewState: true },
+      }),
+    ).resolves.toEqual({ reviewState: "SUPERSEDED" });
+    await expect(
+      prisma.sliceClassificationVersion.findUniqueOrThrow({
+        where: { id: sapClassification.id },
+        select: { reviewState: true },
+      }),
+    ).resolves.toEqual({ reviewState: "SUPERSEDED" });
+  });
+
+  it("keeps manual family mismatch visible in crop readiness", async () => {
+    const { crop } = await createCrop();
+    const copperBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    copperBytes[crop.cropWidth + 1] = Labels.COPPER;
+
+    await saveSemantic({
+      crop,
+      semanticMode: "COPPER",
+      bytes: copperBytes,
+      name: "manual-family-mismatch-copper",
+    });
+    await setSliceInstanceClassificationForUser(
+      { sliceInstanceId: crop.sliceInstanceId, userId: ownerId, class: "SAP_HEARTWOOD_SLICE" },
+      prisma,
+    );
+
+    const reloaded = await loadCropSemanticMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
+    expect(reloaded.semanticFamily).toMatchObject({ state: "COPPER", activeMode: "COPPER" });
+    expect(reloaded.latestClassification).toMatchObject({
+      class: "SAP_HEARTWOOD_SLICE",
+      source: "MANUAL",
+    });
+    expect(reloaded.cropReadiness).toMatchObject({
+      readinessStatus: "REVIEW_REQUIRED",
+      readinessReasons: expect.arrayContaining(["CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH"]),
+    });
+  });
+
+  it("marks legacy active mixed semantic families as review-required conflict", async () => {
+    const { crop } = await createCrop();
+    const sapBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    sapBytes[crop.cropWidth + 1] = Labels.SAPWOOD;
+    await saveSemantic({
+      crop,
+      semanticMode: "SAP_HEARTWOOD",
+      bytes: sapBytes,
+      name: "legacy-conflict-sap",
+    });
+
+    const copperBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    copperBytes[crop.cropWidth + 1] = Labels.COPPER;
+    const storageKey = `tests/crop-semantic/${suffix}/${crop.id}-legacy-conflict-COPPER.msk`;
+    semanticKeys.add(storageKey);
+    await storage.putObject(storageKey, copperBytes, "application/octet-stream");
+    const artifact = await prisma.annotationArtifact.upsert({
+      where: {
+        imageId_kind_scopeKey: {
+          imageId,
+          kind: "SEMANTIC_MASK",
+          scopeKey: `crop-semantic:${crop.id}:COPPER`,
+        },
+      },
+      update: {},
+      create: {
+        projectId,
+        imageId,
+        kind: "SEMANTIC_MASK",
+        scopeKey: `crop-semantic:${crop.id}:COPPER`,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    await prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: artifact.id,
+        version: 1,
+        storageKey,
+        contentType: "application/octet-stream",
+        size: copperBytes.byteLength,
+        checksum: sha256Checksum(copperBytes),
+        width: crop.cropWidth,
+        height: crop.cropHeight,
+        coordinateSpace: "CROP_PIXEL",
+        coordinateTransform: { version: "test-legacy-conflict" },
+        format: "u8raw-v1",
+        labelSchemaVersionId,
+        derivedCropId: crop.id,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropSemanticMode: "COPPER",
+        createdById: ownerId,
+      },
+    });
+
+    const reloaded = await loadCropSemanticMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
+    expect(reloaded.semanticFamily).toMatchObject({
+      state: "CONFLICT",
+      activeMode: null,
+      conflictModes: ["SAP_HEARTWOOD", "COPPER"],
+    });
+    expect(reloaded.cropReadiness).toMatchObject({
+      readinessStatus: "REVIEW_REQUIRED",
+      readinessReasons: expect.arrayContaining(["SEMANTIC_FAMILY_CONFLICT"]),
+    });
+    await expect(
+      saveSemantic({
+        crop,
+        semanticMode: "COPPER",
+        bytes: copperBytes,
+        name: "legacy-conflict-copper-blocked",
+      }),
+    ).rejects.toMatchObject({ code: "SEMANTIC_FAMILY_CONFLICT" });
   });
 
   it("keeps auto classification as a draft suggestion and appends manual overrides", async () => {

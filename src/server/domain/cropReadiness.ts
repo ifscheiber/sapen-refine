@@ -9,6 +9,11 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/server/db";
+import {
+  buildCropSemanticFamilyState,
+  classConflictsWithSemanticFamily,
+  type CropSemanticFamilyState,
+} from "@/server/domain/cropSemanticFamily";
 import { canReview, canSubmitReview } from "@/server/domain/review";
 import { getObjectBytes } from "@/server/storage/s3";
 import { normalizeChecksum } from "@/server/uploads/integrity";
@@ -192,6 +197,7 @@ export type CropWorkflowCandidate = {
   latestSupportMask: CropArtifactVersion | null;
   latestSemanticMask: CropArtifactVersion | null;
   latestClassification: CropClassificationVersion | null;
+  semanticFamily: CropSemanticFamilyState;
   supportGeometrySource: CropSupportGeometrySource | null;
   readinessStatus: CropWorkflowReadinessStatus;
   readinessReasons: string[];
@@ -374,6 +380,8 @@ function readinessStatus(reasons: Set<string>, hasAnyCropWork: boolean): CropWor
         "CLASSIFICATION_STALE",
         "SEMANTIC_OUTSIDE_SUPPORT",
         "SUPPORT_SEMANTIC_VALIDATION_FAILED",
+        "SEMANTIC_FAMILY_CONFLICT",
+        "CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH",
       ].includes(reason),
     )
   ) {
@@ -393,12 +401,16 @@ function nextActions(params: {
 
   if (reasons.has("MISSING_SUPPORT_MASK")) actions.add("OPEN_SUPPORT_EDITOR");
   if (reasons.has("MISSING_SEMANTIC_MASK")) actions.add("OPEN_SEMANTIC_EDITOR");
+  if (reasons.has("SEMANTIC_FAMILY_CONFLICT")) actions.add("OPEN_SEMANTIC_EDITOR");
   if (reasons.has("SUPPORT_NOT_APPROVED") && params.supportAny) actions.add("REVIEW_SUPPORT_MASK");
   if (reasons.has("SEMANTIC_NOT_APPROVED") && params.semanticAny) actions.add("REVIEW_SEMANTIC_MASK");
   if (
     (reasons.has("CLASSIFICATION_NOT_APPROVED") || reasons.has("AUTO_CLASSIFICATION_NEEDS_REVIEW")) &&
     params.classificationAny
   ) {
+    actions.add("REVIEW_CLASSIFICATION");
+  }
+  if (reasons.has("CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH") && params.classificationAny) {
     actions.add("REVIEW_CLASSIFICATION");
   }
   if (
@@ -410,6 +422,8 @@ function nextActions(params: {
       "CLASSIFICATION_STALE",
       "SEMANTIC_OUTSIDE_SUPPORT",
       "SUPPORT_SEMANTIC_VALIDATION_FAILED",
+      "SEMANTIC_FAMILY_CONFLICT",
+      "CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH",
     ].some((reason) => reasons.has(reason))
   ) {
     actions.add("REGENERATE_CROP_OR_REVIEW_LINEAGE");
@@ -437,6 +451,7 @@ export function evaluateCropWorkflowReadiness(params: {
   semanticApproved: CropArtifactVersion | null;
   classificationAny: CropClassificationVersion | null;
   classificationApproved: CropClassificationVersion | null;
+  semanticFamily: CropSemanticFamilyState;
   semanticSupportValidationReason?: string | null;
 }) {
   const reasons = new Set<string>();
@@ -450,6 +465,7 @@ export function evaluateCropWorkflowReadiness(params: {
     classificationApproved,
   } = params;
   const supportPolicy = cropSemanticSupportPolicy(semanticApproved ?? semanticAny);
+  const classificationForFamilyCheck = classificationApproved ?? classificationAny;
 
   if (!hasValidChecksum(crop.sourceImage.checksum)) reasons.add("MISSING_IMAGE_CHECKSUM");
   if (!hasValidDimensions(crop.sourceImage)) reasons.add("MISSING_IMAGE_DIMENSIONS");
@@ -461,6 +477,15 @@ export function evaluateCropWorkflowReadiness(params: {
     reasons.add(supportAny ? "SUPPORT_NOT_APPROVED" : "MISSING_SUPPORT_MASK");
   }
   if (!semanticApproved) reasons.add(semanticAny ? "SEMANTIC_NOT_APPROVED" : "MISSING_SEMANTIC_MASK");
+  if (params.semanticFamily.state === "CONFLICT") {
+    reasons.add("SEMANTIC_FAMILY_CONFLICT");
+  }
+  if (
+    params.semanticFamily.activeMode &&
+    classConflictsWithSemanticFamily(classificationForFamilyCheck?.class, params.semanticFamily.activeMode)
+  ) {
+    reasons.add("CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH");
+  }
   if (!classificationApproved) {
     if (classificationAny?.source === SliceClassificationSource.AUTO_FROM_SEMANTIC_MASK) {
       reasons.add("AUTO_CLASSIFICATION_NEEDS_REVIEW");
@@ -599,12 +624,15 @@ async function loadLatestCropArtifactVersion(params: {
   sliceInstanceId: string;
   kind: AnnotationArtifactKind;
   reviewState?: ArtifactReviewState;
+  cropSemanticMode?: CropSemanticMode;
 }) {
   const version = await params.db.annotationArtifactVersion.findFirst({
     where: {
       derivedCropId: params.cropId,
       sliceInstanceId: params.sliceInstanceId,
       ...(params.reviewState ? { reviewState: params.reviewState } : {}),
+      ...(!params.reviewState ? { reviewState: { not: ArtifactReviewState.SUPERSEDED } } : {}),
+      ...(params.cropSemanticMode ? { cropSemanticMode: params.cropSemanticMode } : {}),
       artifact: {
         projectId: params.projectId,
         imageId: params.imageId,
@@ -620,6 +648,45 @@ async function loadLatestCropArtifactVersion(params: {
     ...version,
     approval: await loadApprovalForArtifactVersion(params.db, version.id),
   };
+}
+
+async function loadLatestCropSemanticFamilyVersions(params: {
+  db: CropReadinessDb;
+  projectId: string;
+  imageId: string;
+  cropId: string;
+  sliceInstanceId: string;
+  reviewState?: ArtifactReviewState;
+}) {
+  const [sapHeartwood, copper] = await Promise.all([
+    loadLatestCropArtifactVersion({
+      ...params,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      cropSemanticMode: CropSemanticMode.SAP_HEARTWOOD,
+    }),
+    loadLatestCropArtifactVersion({
+      ...params,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      cropSemanticMode: CropSemanticMode.COPPER,
+    }),
+  ]);
+  return {
+    SAP_HEARTWOOD: sapHeartwood,
+    COPPER: copper,
+  };
+}
+
+function latestSemanticFromFamily(
+  familyVersions: Record<CropSemanticMode, CropArtifactVersion | null>,
+) {
+  return Object.values(familyVersions)
+    .filter((version): version is CropArtifactVersion => Boolean(version))
+    .sort(
+      (left, right) =>
+        right.createdAt.getTime() - left.createdAt.getTime() ||
+        right.version - left.version ||
+        right.id.localeCompare(left.id),
+    )[0] ?? null;
 }
 
 async function loadLatestCropClassificationVersion(params: {
@@ -700,8 +767,8 @@ export async function resolveCropWorkflowReadiness(params: {
     const [
       supportAny,
       supportApproved,
-      semanticAny,
-      semanticApproved,
+      semanticFamilyAny,
+      semanticFamilyApproved,
       classificationAny,
       classificationApproved,
     ] = await Promise.all([
@@ -714,13 +781,9 @@ export async function resolveCropWorkflowReadiness(params: {
         kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
         reviewState: ArtifactReviewState.APPROVED,
       }),
-      loadLatestCropArtifactVersion({
+      loadLatestCropSemanticFamilyVersions(artifactParams),
+      loadLatestCropSemanticFamilyVersions({
         ...artifactParams,
-        kind: AnnotationArtifactKind.SEMANTIC_MASK,
-      }),
-      loadLatestCropArtifactVersion({
-        ...artifactParams,
-        kind: AnnotationArtifactKind.SEMANTIC_MASK,
         reviewState: ArtifactReviewState.APPROVED,
       }),
       loadLatestCropClassificationVersion(classificationParams),
@@ -730,6 +793,9 @@ export async function resolveCropWorkflowReadiness(params: {
       }),
     ]);
 
+    const semanticAny = latestSemanticFromFamily(semanticFamilyAny);
+    const semanticApproved = latestSemanticFromFamily(semanticFamilyApproved);
+    const semanticFamily = buildCropSemanticFamilyState(Object.values(semanticFamilyAny));
     const supportPolicy = cropSemanticSupportPolicy(semanticApproved ?? semanticAny);
     const semanticSupportValidationReason = await validateApprovedSemanticSupportPair({
       supportRequired: supportPolicy.supportRequired,
@@ -744,6 +810,7 @@ export async function resolveCropWorkflowReadiness(params: {
       semanticApproved,
       classificationAny,
       classificationApproved,
+      semanticFamily,
       semanticSupportValidationReason,
     });
 
@@ -755,7 +822,8 @@ export async function resolveCropWorkflowReadiness(params: {
       latestSupportMask: supportAny,
       latestSemanticMask: semanticAny,
       latestClassification: classificationAny,
-      supportGeometrySource: supportPolicy.supportGeometrySource,
+      semanticFamily,
+      supportGeometrySource: semanticFamily.state === "CONFLICT" ? null : supportPolicy.supportGeometrySource,
       readinessStatus: readiness.status,
       readinessReasons: readiness.reasons,
       nextActions: readiness.nextActions,
@@ -922,6 +990,7 @@ export function sanitizeCropWorkflowCandidate(candidate: CropWorkflowCandidate) 
     latestSupportMask: sanitizeArtifactVersion(candidate.latestSupportMask),
     latestSemanticMask: sanitizeArtifactVersion(candidate.latestSemanticMask),
     latestClassification: sanitizeClassification(candidate.latestClassification),
+    semanticFamily: candidate.semanticFamily,
     supportMaskVersionId: candidate.supportMask?.id ?? null,
     semanticMaskVersionId: candidate.semanticMask?.id ?? null,
     classificationVersionId: candidate.classification?.id ?? null,
