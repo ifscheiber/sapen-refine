@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The current editor lets users view an uploaded image, draw source-image BBox slice proposals, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, and review the MVP ground-truth state. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode.
+The current editor lets users view an uploaded image, draw source-image BBox slice proposals, generate derived slice crop previews, draw and erase semantic/support mask overlays, save serialized mask versions, set slice classification, and review the MVP ground-truth state. RB-045 established the desktop and iPad browser readiness baseline; RB-052 adds review controls; RB-086 adds BBox proposal mode; RB-087 adds derived crop generation/preview.
 
 ## Important Files
 
@@ -10,7 +10,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
 - `src/features/editor/editorTools.ts` - editor tool helpers, including eraser mode/value mapping.
-- `src/features/editor/components/EditorBBoxPanel.tsx` - BBox proposal list, selection, replacement, and delete controls.
+- `src/features/editor/components/EditorBBoxPanel.tsx` - BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview.
 - `src/design/editorCanvas.ts` - central preview styling constants for lasso handles and polygon previews.
 - `src/mask/serialize.ts` - mask byte serialization used by saves.
 
@@ -20,6 +20,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
 - Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.
 - BBox proposal APIs: `/api/images/[imageId]/slice-bboxes`, `/api/slice-bboxes/[bboxVersionId]`.
+- Derived crop APIs: `/api/images/[imageId]/slice-crops`, `/api/slice-bboxes/[bboxVersionId]/crop`, `/api/slice-crops/[cropId]/asset`.
 - Review APIs: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, `/api/slice-classification-versions/[versionId]/review`.
 
 ## Current Input And Canvas Behavior
@@ -44,7 +45,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Review actions must use server APIs; UI control hiding is not the permission boundary.
 - Canvas scaling and coordinate assumptions must be explicit before production iPad/Pencil work.
 - Editor UX should support desktop and tablet screen sizes.
-- Mask coordinates must remain tied to the source image dimensions until a documented coordinate-space change is made. BBox proposals use `SOURCE_IMAGE_PIXEL`; semantic/support masks still use `IMAGE_PIXEL`.
+- Mask coordinates must remain tied to the source image dimensions until a documented coordinate-space change is made. BBox proposals use `SOURCE_IMAGE_PIXEL`; derived crops use `CROP_PIXEL`; semantic/support masks still use `IMAGE_PIXEL`.
 
 ## Known Gaps
 
@@ -53,7 +54,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
 - Advanced multi-touch zoom/pan remains deferred.
 - Review controls are minimal; reviewer dashboards, bulk review, and multi-reviewer policy are deferred.
-- BBox proposals are implemented as crop-planning artifacts only; crop generation and crop support-mask editing remain deferred.
+- BBox proposals and derived crops are crop-planning/editing artifacts only; crop support-mask editing remains deferred.
 
 ## Related Tickets / Docs
 

@@ -25,7 +25,7 @@
 ## Invariants And Constraints
 
 - Mask dimensions must match the target image or an explicitly documented coordinate space.
-- Current runtime mask coordinate space is `IMAGE_PIXEL`; crop-mask coordinate spaces remain future work. RB-086 BBox proposals use `SOURCE_IMAGE_PIXEL`, but they are not mask artifacts.
+- Current runtime mask coordinate space is `IMAGE_PIXEL`; crop-mask editing remains future work. RB-086 BBox proposals use `SOURCE_IMAGE_PIXEL`, and RB-087 derived crops use `CROP_PIXEL`, but neither is a mask artifact or support geometry.
 - Semantic mask labels and support/instance masks must remain conceptually separate.
 - Support-mask bytes may contain only `0` and the active `slice_support` byte.
 - RB-070 editor erasing uses existing mask tool mutation paths: semantic erasing writes `Labels.BG`, and support-mask erasing writes the current support background value.

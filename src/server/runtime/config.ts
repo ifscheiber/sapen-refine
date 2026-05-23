@@ -19,6 +19,8 @@ const DEFAULT_LOGIN_RATE_LIMIT_MAX_FAILURES = 5;
 const DEFAULT_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 const DEFAULT_LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60;
 const DEFAULT_SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS = 15 * 60;
+const DEFAULT_SLICE_CROP_DEFAULT_PADDING_PX = 32;
+const SLICE_CROP_ALLOWED_PADDING_PX = [0, 16, 32, 64] as const;
 
 export type RuntimeConfig = {
   nodeEnv: string;
@@ -59,6 +61,9 @@ export type RuntimeConfig = {
     loginRateLimitLockSeconds: number;
     sessionLastSeenUpdateIntervalSeconds: number;
   };
+  cropWorkflow: {
+    defaultPaddingPx: number;
+  };
 };
 
 type Env = Record<string, string | undefined>;
@@ -96,6 +101,22 @@ function parsePositiveInteger(
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`${name} must be a ${description}`);
+  }
+  return parsed;
+}
+
+function parseAllowedInteger(
+  env: Env,
+  name: string,
+  fallback: number,
+  allowedValues: readonly number[],
+): number {
+  const raw = env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || !allowedValues.includes(parsed)) {
+    throw new Error(`${name} must be one of ${allowedValues.join(", ")}`);
   }
   return parsed;
 }
@@ -227,6 +248,14 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
         "SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS",
         DEFAULT_SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS,
         "positive integer number of seconds"
+      ),
+    },
+    cropWorkflow: {
+      defaultPaddingPx: parseAllowedInteger(
+        env,
+        "SLICE_CROP_DEFAULT_PADDING_PX",
+        DEFAULT_SLICE_CROP_DEFAULT_PADDING_PX,
+        SLICE_CROP_ALLOWED_PADDING_PX,
       ),
     },
   };

@@ -30,6 +30,40 @@ export type SliceBoundingBoxProposal = {
   isCurrent: boolean;
 };
 
+export type DerivedSliceCrop = {
+  id: string;
+  sourceImageId: string;
+  sourceImageChecksum: string | null;
+  sourceImageWidth: number;
+  sourceImageHeight: number;
+  sliceInstanceId: string;
+  bboxVersionId: string;
+  version: number;
+  sourceX: number;
+  sourceY: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  cropX: number;
+  cropY: number;
+  cropWidth: number;
+  cropHeight: number;
+  paddingRequestedPx: number;
+  paddingAppliedLeftPx: number;
+  paddingAppliedTopPx: number;
+  paddingAppliedRightPx: number;
+  paddingAppliedBottomPx: number;
+  paddingClipped: boolean;
+  coordinateSpace: "CROP_PIXEL";
+  transformToSource: unknown;
+  checksum: string | null;
+  contentType: string | null;
+  byteSize: number;
+  format: string;
+  createdAt: string;
+  createdBy: { email: string; name: string | null } | null;
+  assetUrl: string;
+};
+
 export type SliceClassValue =
   | "SAP_HEARTWOOD_SLICE"
   | "COPPER_SLICE"

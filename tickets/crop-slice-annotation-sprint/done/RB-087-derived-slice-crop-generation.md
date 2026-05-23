@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Depends on RB-086
+Done / Superseded by optimized ticket implementation
 
 ## Priority
 

@@ -12,13 +12,14 @@ This is the current primary workflow for SaPen Annotate.
 4. User uploads a PNG/JPEG image through project image routes; the server validates checksum, dimensions, size, and object metadata before recording the image.
 5. User opens `/app/projects/[projectId]/images/[imageId]/edit`.
 6. User can draw rough BBox slice proposals in `BBox proposal` mode. These proposals are planning artifacts only, not support-mask ground truth.
-7. User draws semantic mask labels in the editor.
-8. User can switch to slice-support mode and draw the physical slice support mask separately from semantic labels.
-9. User can set the slice classification.
-10. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
-11. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
-12. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest` and `/api/images/[imageId]/support-mask/latest`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; review readiness is read through `/api/images/[imageId]/review-state`.
-13. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a training export from latest approved versions, and download the generated manifest/package through app routes.
+7. User can generate a derived crop from an active BBox proposal. The crop is a private derived PNG with source-image lineage, not a raw uploaded image and not support geometry.
+8. User draws semantic mask labels in the editor.
+9. User can switch to slice-support mode and draw the physical slice support mask separately from semantic labels.
+10. User can set the slice classification.
+11. Editor uploads serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, and appends `AnnotationArtifactVersion` rows.
+12. User submits and, with `OWNER`/`QA` permission, approves semantic mask, support mask, and classification versions.
+13. Latest masks can be reloaded through `/api/images/[imageId]/mask/latest` and `/api/images/[imageId]/support-mask/latest`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; derived crops reload through `/api/images/[imageId]/slice-crops`; review readiness is read through `/api/images/[imageId]/review-state`.
+14. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a training export from latest approved versions, and download the generated manifest/package through app routes.
 
 ## Important Files
 
@@ -30,6 +31,9 @@ This is the current primary workflow for SaPen Annotate.
 - `src/app/api/images/[imageId]/mask/*`
 - `src/app/api/images/[imageId]/slice-bboxes/route.ts`
 - `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
+- `src/app/api/images/[imageId]/slice-crops/route.ts`
+- `src/app/api/slice-bboxes/[bboxVersionId]/crop/route.ts`
+- `src/app/api/slice-crops/[cropId]/asset/route.ts`
 - `src/app/api/images/[imageId]/support-mask/*`
 - `src/app/api/images/[imageId]/review-state/route.ts`
 - `src/app/api/artifact-versions/[versionId]/review/route.ts`
@@ -45,13 +49,15 @@ This is the current primary workflow for SaPen Annotate.
 - Raw images and masks should have server-verified checksums and dimensions before they are exportable.
 - Mask and classification saves must append versions.
 - BBox proposal replacement and deletion must append versions.
+- Derived crop generation must append crop versions and preserve historical crops.
+- Crop padding must not be interpreted as support geometry.
 - Approved versions must not be overwritten by later edits.
 - Writes must be tied to an authenticated user.
 
 ## Known Gaps
 
 - Advanced export filters/history/job handling are not implemented.
-- Derived crop generation, crop support-mask editing, and multi-object support annotation remain deferred.
+- Crop support-mask editing and multi-object support annotation remain deferred.
 
 ## Related Tickets / Docs
 

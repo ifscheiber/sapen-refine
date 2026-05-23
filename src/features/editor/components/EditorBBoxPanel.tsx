@@ -1,8 +1,9 @@
-import type { SliceBoundingBoxProposal } from "../editorTypes";
+import type { DerivedSliceCrop, SliceBoundingBoxProposal } from "../editorTypes";
 import { activeButtonClass, idleButtonClass } from "../editorStyles";
 
 type EditorBBoxPanelProps = {
   boxes: SliceBoundingBoxProposal[];
+  crops: DerivedSliceCrop[];
   selectedBBoxId: string | null;
   replaceArmed: boolean;
   canEdit: boolean;
@@ -10,10 +11,12 @@ type EditorBBoxPanelProps = {
   onSelect: (bboxVersionId: string) => void;
   onArmReplace: () => void;
   onDelete: () => void;
+  onGenerateCrop: () => void;
 };
 
 export function EditorBBoxPanel({
   boxes,
+  crops,
   selectedBBoxId,
   replaceArmed,
   canEdit,
@@ -21,8 +24,13 @@ export function EditorBBoxPanel({
   onSelect,
   onArmReplace,
   onDelete,
+  onGenerateCrop,
 }: EditorBBoxPanelProps) {
   const selected = boxes.find((box) => box.bboxVersionId === selectedBBoxId) ?? null;
+  const selectedCrop =
+    crops
+      .filter((crop) => crop.bboxVersionId === selectedBBoxId)
+      .sort((a, b) => b.version - a.version)[0] ?? null;
 
   return (
     <div className="mt-3 border-t border-border pt-3 text-sm">
@@ -61,6 +69,34 @@ export function EditorBBoxPanel({
           </button>
           <button className={idleButtonClass} onClick={onDelete} disabled={!canEdit}>
             Delete proposal
+          </button>
+        </div>
+      )}
+
+      {selected && (
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-muted-foreground">
+          {selectedCrop ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedCrop.assetUrl}
+                alt="Derived slice crop preview"
+                className="h-16 max-w-28 border border-border object-contain"
+              />
+              <span>
+                Crop v{selectedCrop.version}: {selectedCrop.cropWidth} x {selectedCrop.cropHeight}, padding{" "}
+                {selectedCrop.paddingRequestedPx}px
+                {selectedCrop.paddingClipped ? ", clipped" : ""}
+              </span>
+            </>
+          ) : (
+            <span>No derived crop for this BBox yet.</span>
+          )}
+          <button className={idleButtonClass} onClick={onGenerateCrop} disabled={!canEdit || replaceArmed}>
+            {selectedCrop ? "Regenerate crop" : "Generate crop"}
+          </button>
+          <button className={idleButtonClass} disabled>
+            Support editor coming next
           </button>
         </div>
       )}

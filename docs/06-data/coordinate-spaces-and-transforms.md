@@ -4,7 +4,7 @@
 
 This page defines the coordinate-space vocabulary for crop-based slice annotation.
 
-Current runtime behavior still saves full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. Crop masks and `CROP_PIXEL` remain planned for later schema/API/editor/export tickets.
+Current runtime behavior still saves full-resolution masks in image-sized `IMAGE_PIXEL` coordinate space. RB-086 adds runtime `SOURCE_IMAGE_PIXEL` persistence for BBox proposal versions. RB-087 adds persisted `CROP_PIXEL` derived crop metadata; crop support/semantic mask editing remains planned for later schema/API/editor/export tickets.
 
 ## Coordinate Spaces
 
@@ -24,7 +24,7 @@ Properties:
 
 ### CROP_PIXEL
 
-`CROP_PIXEL` means pixel coordinates inside a derived crop image. It is still a design term; the active Prisma enum does not persist crop-mask artifacts in `CROP_PIXEL` yet.
+`CROP_PIXEL` means pixel coordinates inside a derived crop image. RB-087 persists this coordinate value for `DerivedSliceCrop.coordinateSpace`; future crop mask artifacts must use the same dimensions and transform lineage.
 
 Properties:
 
@@ -50,21 +50,22 @@ cropX = sourceX - cropOriginX
 cropY = sourceY - cropOriginY
 ```
 
-`cropOriginX` and `cropOriginY` are stored in `SOURCE_IMAGE_PIXEL`. `cropWidth` and `cropHeight` are stored in `CROP_PIXEL`. The transform should be identified by a stable transform name or version in persisted metadata and export manifests so future non-translation transforms cannot be confused with this first integer offset model.
+`DerivedSliceCrop.sourceX` and `DerivedSliceCrop.sourceY` are stored in `SOURCE_IMAGE_PIXEL`. `DerivedSliceCrop.cropWidth` and `DerivedSliceCrop.cropHeight` are stored in `CROP_PIXEL`. RB-087 stores `transformToSourceJson.version = "integer-translation-v1"` so future non-translation transforms cannot be confused with this first integer offset model.
 
 ## Padding
 
 Padding is requested around a BBox proposal to give annotators visual context.
 
-The crop artifact should record:
+The RB-087 crop artifact records:
 
 - requested padding,
+- applied padding per side,
 - resolved crop origin,
 - resolved crop width and height,
 - whether the crop was clipped by source-image boundaries,
-- any representation of out-of-source padded pixels if future implementations allow padded pixels beyond the source image.
+- no out-of-source pixels; padding is clamped to source-image bounds.
 
-For the first implementation, prefer clipping crops to source-image bounds. That keeps every `CROP_PIXEL` coordinate mappable to a real `SOURCE_IMAGE_PIXEL` coordinate and avoids introducing synthetic image pixels into training exports.
+The default requested padding is `32` px. Runtime config and the API allow `0`, `16`, `32`, and `64` px. Clipping keeps every `CROP_PIXEL` coordinate mappable to a real `SOURCE_IMAGE_PIXEL` coordinate and avoids introducing synthetic image pixels into training exports.
 
 ## Bounds And Rounding
 
@@ -79,6 +80,7 @@ Rules:
 - The crop rectangle must satisfy `0 <= cropOriginX < sourceWidth`, `0 <= cropOriginY < sourceHeight`, `cropOriginX + cropWidth <= sourceWidth`, and `cropOriginY + cropHeight <= sourceHeight`.
 - Masks in `CROP_PIXEL` must match the derived crop dimensions exactly.
 - Reprojection to `SOURCE_IMAGE_PIXEL` must clip to source image bounds.
+- Padding pixels in the crop are not support geometry. Future support masks must explicitly mark physical slice support in `CROP_PIXEL`.
 
 ## Reprojection
 

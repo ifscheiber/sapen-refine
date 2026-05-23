@@ -2,7 +2,7 @@
 
 ## Purpose
 
-RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. It is scoped to staged prediction-batch objects and identifiable presigned-upload orphans. It must not delete committed raw images, committed artifact versions, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
+RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. It is scoped to staged prediction-batch objects and identifiable presigned-upload orphans. It must not delete committed raw images, committed artifact versions, derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
 
 Implemented evidence:
 
@@ -42,6 +42,7 @@ Never delete:
 
 - `ImageAsset.storageKey` raw image objects.
 - `AnnotationArtifactVersion.storageKey` semantic, support, prediction, correction, or derived artifact objects.
+- `DerivedSliceCrop.storageKey` private derived crop PNG objects.
 - `ExportBatch` manifest/package objects. Export prefixes are not classified as cleanup candidates.
 - Successful imported prediction artifact objects.
 - Active, pending, processing, or retryable batch item staging objects.

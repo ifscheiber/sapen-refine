@@ -19,12 +19,14 @@ import {
   API_ARTIFACT_REVIEW,
   API_CLASSIFICATION_REVIEW,
   API_CORRECTION_CONTEXT,
+  API_GENERATE_SLICE_CROP,
   API_IMAGE_VIEW,
   API_MASK_LATEST,
   API_MASK_UPLOAD,
   API_REVIEW_STATE,
   API_SLICE_BBOX,
   API_SLICE_BBOXES,
+  API_SLICE_CROPS,
   API_SLICE_CLASSIFICATION,
   API_SLICE_STATE,
   API_SUPPORT_MASK_LATEST,
@@ -41,6 +43,7 @@ import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./edito
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   type CorrectionContext,
+  type DerivedSliceCrop,
   type EditorProps,
   type ImageReviewState,
   type MaskMode,
@@ -114,6 +117,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
   const [predictionOverlayEnabled, setPredictionOverlayEnabled] = useState(true);
   const [predictionLoaded, setPredictionLoaded] = useState(false);
   const [bboxProposals, setBBoxProposals] = useState<SliceBoundingBoxProposal[]>([]);
+  const [sliceCrops, setSliceCrops] = useState<DerivedSliceCrop[]>([]);
   const [bboxStatus, setBBoxStatus] = useState("");
   const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
   const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
@@ -220,6 +224,19 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     return boxes;
   }, [imageId]);
 
+  const loadSliceCrops = useCallback(async () => {
+    const res = await fetch(API_SLICE_CROPS(imageId), { method: "GET", cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      setBBoxStatus(data?.error ?? `SLICE_CROPS_FAILED_${res.status}`);
+      return [];
+    }
+
+    const crops = (data.crops ?? []) as DerivedSliceCrop[];
+    setSliceCrops(crops);
+    return crops;
+  }, [imageId]);
+
   const loadCorrectionContext = useCallback(async (taskId: string) => {
     setCorrectionStatus("Loading correction task");
     try {
@@ -244,7 +261,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
     void loadSliceState();
     void loadReviewState();
     void loadBBoxProposals();
-  }, [loadBBoxProposals, loadReviewState, loadSliceState]);
+    void loadSliceCrops();
+  }, [loadBBoxProposals, loadReviewState, loadSliceCrops, loadSliceState]);
 
   useEffect(() => {
     if (!correctionTaskId) return;
@@ -941,8 +959,8 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
         throw new Error(data?.error ?? `REVIEW_ACTION_FAILED_${res.status}`);
       }
       setReviewComment("");
-      setReviewStatus(`${reviewable.label} ${formatReviewState(data.toState)}`);
       await Promise.all([loadReviewState(), loadSliceState()]);
+      setReviewStatus(`${reviewable.label} ${formatReviewState(data.toState)}`);
     } catch (error) {
       setReviewStatus(errorMessage(error, "Review action failed"));
     } finally {
@@ -996,6 +1014,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
       }
 
       await loadBBoxProposals();
+      await loadSliceCrops();
       setSelectedBBoxId(data.box.bboxVersionId);
       setBBoxReplaceArmed(false);
       setBBoxStatus(replacing ? "BBox proposal replaced" : "BBox proposal saved");
@@ -1018,9 +1037,32 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
       setSelectedBBoxId(null);
       setBBoxReplaceArmed(false);
       await loadBBoxProposals();
+      await loadSliceCrops();
       setBBoxStatus("BBox proposal deleted");
     } catch (error) {
       setBBoxStatus(errorMessage(error, "BBox proposal delete failed"));
+    }
+  }
+
+  async function generateSelectedSliceCrop() {
+    if (!canEditBBox || !selectedBBoxId) return;
+
+    setBBoxStatus("Generating derived crop");
+    try {
+      const res = await fetch(API_GENERATE_SLICE_CROP(selectedBBoxId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `SLICE_CROP_FAILED_${res.status}`);
+      }
+
+      await loadSliceCrops();
+      setBBoxStatus("Derived crop generated");
+    } catch (error) {
+      setBBoxStatus(errorMessage(error, "Derived crop generation failed"));
     }
   }
 
@@ -1528,6 +1570,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
 
         <EditorBBoxPanel
           boxes={bboxProposals}
+          crops={sliceCrops}
           selectedBBoxId={selectedBBoxId}
           replaceArmed={bboxReplaceArmed}
           canEdit={canEditBBox}
@@ -1542,6 +1585,7 @@ export default function EditorClient({ imageId, canEdit, correctionTaskId, corre
             setBBoxStatus("Draw a replacement BBox proposal on the image.");
           }}
           onDelete={() => void deleteSelectedBBoxProposal()}
+          onGenerateCrop={() => void generateSelectedSliceCrop()}
         />
 
         <EditorSliceClassificationPanel

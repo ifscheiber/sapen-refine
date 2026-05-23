@@ -41,20 +41,24 @@ RB-085 defines the crop-based workflow for later sprint slices. RB-086 implement
 
 ### Derived Slice Crop Artifacts
 
-Derived slice crops are planned artifacts for RB-087 and later. They are not raw uploaded images.
+RB-087 implements derived slice crops as `DerivedSliceCrop` rows and private PNG objects generated from active/current `SliceBoundingBoxVersion` rows. They are not raw uploaded images and they are not support masks.
 
-Expected derived crop metadata includes:
+Derived crop metadata includes:
 
 - source image id and checksum/version,
+- source image dimensions,
 - slice instance id,
 - BBox proposal/version reference,
-- crop origin and dimensions,
-- padding metadata,
+- crop origin and dimensions in source-image pixels,
+- requested padding, applied padding per side, and padding-clipped flag,
+- `CROP_PIXEL` crop dimensions,
 - coordinate transform back to the source image,
 - creator and timestamp,
-- storage key, checksum, size, content type, and dimensions if persisted.
+- storage key, checksum, byte size, content type, and PNG format.
 
 Crop masks in future implementation should be versioned like other artifacts. They must remain traceable to the immutable source image and to the crop transform that produced their coordinate space. Semantic mask and classification versions created from a crop should also record enough lineage to detect stale references when a BBox, crop, or support mask is superseded.
+
+The 32 px default crop padding is an editing workspace only. Padding pixels must never be interpreted as physical slice support; future support masks remain the pixel-perfect source of truth.
 
 ### Slice Classification Artifacts
 
@@ -93,7 +97,7 @@ RB-056 stores the explicit prediction target in `PredictionArtifactProvenance.ta
 - New edits create a new version rather than overwriting prior versions.
 - Versions record actor, timestamp, format, dimensions, coordinate space, artifact storage key, and label schema version.
 - RB-086 BBox proposal edits are also append-only: replacement appends the next active `SliceBoundingBoxVersion`, and deletion appends a `DELETED` version rather than erasing proposal history.
-- Future crop-derived versions must also record or reference their source image, crop artifact, crop transform, and source-image checksum.
+- RB-087 crop-derived versions record their source image, BBox version, crop transform, and source-image checksum. Future crop masks must reference a specific crop version rather than infer coordinates from the latest crop.
 - RB-055 records canonical SHA-256 checksums as `sha256:<hex>` for current image and mask write paths. Existing raw hex input hints are normalized before comparison.
 - Versions may reference a parent/source artifact version to explain derivation.
 - Human correction versions from RB-059 use `parentVersionId` for the source prediction and keep prediction bytes immutable.
@@ -129,7 +133,7 @@ The current runtime accepts only `IMAGE_PIXEL` mask coordinate space. Semantic a
 Crop workflow terms:
 
 - `SOURCE_IMAGE_PIXEL` - source-image pixel coordinates on the immutable upload. RB-086 persists this value for `SliceBoundingBoxVersion`.
-- `CROP_PIXEL` - pixel coordinates inside a derived slice crop. This remains planned for RB-087+ crop masks/artifacts.
+- `CROP_PIXEL` - pixel coordinates inside a derived slice crop. RB-087 persists this value for `DerivedSliceCrop`; future crop mask artifacts must match the selected crop dimensions.
 
 The planned crop transform is:
 

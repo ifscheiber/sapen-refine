@@ -53,7 +53,7 @@ Extracted ownership:
 - `src/features/editor/components/EditorReviewPanel.tsx` owns review/export-readiness display and submit/approve/reject controls.
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
 - `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
-- `src/features/editor/components/EditorBBoxPanel.tsx` owns RB-086 slice BBox proposal list, selection, replacement, and delete controls.
+- `src/features/editor/components/EditorBBoxPanel.tsx` owns RB-086/RB-087 slice BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview metadata.
 
 RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit eraser tool without changing mask serialization, server API semantics, review/export behavior, or prediction provenance.
 
@@ -106,8 +106,10 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Review/export-readiness state is loaded from `/api/images/[imageId]/review-state`.
 - Mask bytes are fetched through app-mediated version asset URLs.
 - BBox proposal state is loaded from `GET /api/images/[imageId]/slice-bboxes`.
+- Derived crop state is loaded from `GET /api/images/[imageId]/slice-crops`.
 - Creating a BBox proposal posts source-image integer geometry to `POST /api/images/[imageId]/slice-bboxes`.
 - Replacing or deleting the current BBox proposal version calls `PATCH /api/slice-bboxes/[bboxVersionId]` or `DELETE /api/slice-bboxes/[bboxVersionId]`. RB-086 uses an append-only rule: replacement creates the next active `SliceBoundingBoxVersion`, and deletion creates the next `DELETED` version instead of erasing history.
+- Generating a derived crop calls `POST /api/slice-bboxes/[bboxVersionId]/crop`. The response contains sanitized metadata and an app-mediated preview URL; it does not expose private object storage keys.
 
 ## Current Domain Model
 
@@ -122,6 +124,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - BBox proposal mode creates one `SliceInstance` per new slice proposal and appends `SliceBoundingBoxVersion` rows in `SOURCE_IMAGE_PIXEL` coordinate space.
 - `SliceInstance.boundingBox` is a denormalized current summary only; `SliceBoundingBoxVersion` is the proposal history source of truth.
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
+- Derived slice crops are persisted as `DerivedSliceCrop` rows in `CROP_PIXEL` coordinate space. They reference the immutable source image, source checksum, slice instance, and exact BBox version. Crop PNG bytes are private derived artifacts and are read through `/api/slice-crops/[cropId]/asset`.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -151,7 +154,7 @@ The trial does not hard-block multiple editor tabs. Users should avoid opening m
 
 ## Crop-Based Slice Annotation
 
-RB-085 defines the crop-based workflow for RB-086 through RB-092. RB-086 implements only the first runtime slice: source-image BBox proposals in the existing editor.
+RB-085 defines the crop-based workflow for RB-086 through RB-092. RB-086 implements source-image BBox proposals in the existing editor; RB-087 adds derived crop generation and preview from those proposals.
 
 The overall target flow is:
 
@@ -172,13 +175,21 @@ Current RB-086 behavior:
 - Users can draw source-image rectangles, select a slice proposal, replace its geometry by drawing again, delete the current proposal, and reload persisted proposals.
 - Server validation uses persisted `ImageAsset.width` and `ImageAsset.height`, not browser display size.
 - Viewer roles can list proposals but cannot mutate them.
-- Crop generation is not implemented yet; derived crops start in RB-087.
+
+Current RB-087 behavior:
+
+- Editable roles can generate a derived crop from the currently selected active BBox proposal.
+- The editor shows the latest crop for the selected BBox version with dimensions, requested padding, clipping state, and a private app-mediated preview image.
+- The default requested padding is 32 px. Runtime/API presets are `0`, `16`, `32`, and `64`, but the current editor button uses the runtime default.
+- Replacing a BBox does not mutate existing crops; it creates a new BBox version, and generating again creates the next crop version for the same slice instance.
+- Crop support-mask editing remains deferred to RB-088.
 
 The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 
 Editor-specific crop rules:
 
 - BBox drawing is a proposal workflow, not ground-truth instance annotation.
+- Derived crop padding is visual workspace and must not be treated as support geometry.
 - Support-mask editing remains the source of physical slice geometry.
 - Semantic editing should be constrained to support once support exists.
 - Copper semantic pixels remain material labels and must not be treated as support geometry.

@@ -36,6 +36,7 @@ describe("runtime config", () => {
     expect(config.auth.loginRateLimitWindowSeconds).toBe(15 * 60);
     expect(config.auth.loginRateLimitLockSeconds).toBe(15 * 60);
     expect(config.auth.sessionLastSeenUpdateIntervalSeconds).toBe(15 * 60);
+    expect(config.cropWorkflow.defaultPaddingPx).toBe(32);
   });
 
   it("fails with an actionable message when critical env is missing", () => {
@@ -69,6 +70,7 @@ describe("runtime config", () => {
       LOGIN_RATE_LIMIT_WINDOW_SECONDS: "600",
       LOGIN_RATE_LIMIT_LOCK_SECONDS: "1200",
       SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS: "300",
+      SLICE_CROP_DEFAULT_PADDING_PX: "16",
     });
 
     expect(config.appBaseUrl).toBe("https://annotate.example.com");
@@ -92,6 +94,7 @@ describe("runtime config", () => {
     expect(config.auth.loginRateLimitWindowSeconds).toBe(600);
     expect(config.auth.loginRateLimitLockSeconds).toBe(1200);
     expect(config.auth.sessionLastSeenUpdateIntervalSeconds).toBe(300);
+    expect(config.cropWorkflow.defaultPaddingPx).toBe(16);
   });
 
   it("rejects invalid byte limits", () => {
@@ -104,5 +107,11 @@ describe("runtime config", () => {
     expect(() =>
       readRuntimeConfig({ ...baseEnv, LOGIN_RATE_LIMIT_MAX_FAILURES: "0" })
     ).toThrow("LOGIN_RATE_LIMIT_MAX_FAILURES must be a positive integer count");
+  });
+
+  it("rejects unsupported slice crop padding defaults", () => {
+    expect(() =>
+      readRuntimeConfig({ ...baseEnv, SLICE_CROP_DEFAULT_PADDING_PX: "48" })
+    ).toThrow("SLICE_CROP_DEFAULT_PADDING_PX must be one of 0, 16, 32, 64");
   });
 });

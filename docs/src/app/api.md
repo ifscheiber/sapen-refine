@@ -36,6 +36,10 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/images/[imageId]/slice-bboxes` - creates a new slice instance plus first active BBox proposal version for editable project roles.
 - `PATCH /api/slice-bboxes/[bboxVersionId]` - appends a replacement active BBox version when the referenced version is still current.
 - `DELETE /api/slice-bboxes/[bboxVersionId]` - appends a deleted BBox version and clears the current slice-instance BBox summary.
+- `GET /api/images/[imageId]/slice-crops` - lists sanitized derived slice crop metadata for project members.
+- `POST /api/slice-bboxes/[bboxVersionId]/crop` - generates a private PNG derived crop from a current active BBox version for editable project roles.
+- `GET /api/slice-crops/[cropId]` - returns sanitized derived crop metadata for project members.
+- `GET /api/slice-crops/[cropId]/asset` - streams the private derived crop PNG through the app after membership check.
 - `GET /api/images/[imageId]/support-mask/latest` - returns latest support-mask version metadata and app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server, verifies image-sized `u8raw-v1` bytes and support-only values, and records a draft `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
@@ -80,6 +84,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
 - Support-mask APIs must not accept semantic mask versions as physical support geometry.
 - Slice BBox proposal APIs must validate integer source-image pixel geometry against persisted image dimensions and must not treat BBoxes as support geometry.
+- Slice crop APIs must generate crops server-side from stored source images, clamp padding to source-image bounds, return sanitized metadata only, and never expose private crop storage keys.
 - Review APIs enforce server-side permissions: `OWNER`/`QA` can approve/reject, `OWNER`/`QA`/`LABELER` can submit, and `VIEWER` cannot mutate review state.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry.
@@ -103,6 +108,7 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-059 assisted-correction error codes include `CORRECTION_TASK_NOT_FOUND`, `CORRECTION_TASK_IMAGE_MISSING`, `CORRECTION_TARGET_UNSUPPORTED`, `SOURCE_PREDICTION_MISSING`, `SOURCE_PREDICTION_MISMATCH`, `SOURCE_PREDICTION_NOT_FOUND`, `SOURCE_ARTIFACT_NOT_PREDICTION`, `SEMANTIC_MASK_VALUES_INVALID`, and reused upload/object errors.
 - RB-060 prediction-analysis export error codes include `FORBIDDEN`, `PROJECT_NOT_FOUND`, `USER_NOT_FOUND`, `PREDICTION_TARGET_INVALID`, `NO_PREDICTION_ANALYSIS_CANDIDATES`, `PREDICTION_ANALYSIS_EXPORT_NOT_FOUND`, `EXPORT_NOT_READY`, and `EXPORT_FILE_NOT_FOUND`.
 - RB-086 BBox proposal error codes include `FORBIDDEN`, `IMAGE_NOT_FOUND`, `BBOX_NOT_FOUND`, `BBOX_VERSION_STALE`, `IMAGE_DIMENSIONS_REQUIRED`, `BBOX_TOO_SMALL`, `BBOX_OUT_OF_BOUNDS`, and integer-field errors such as `X_INTEGER_REQUIRED`.
+- RB-087 slice crop error codes include `FORBIDDEN`, `IMAGE_NOT_FOUND`, `CROP_NOT_FOUND`, `BBOX_NOT_FOUND`, `BBOX_VERSION_STALE`, `BBOX_DELETED`, `IMAGE_DIMENSIONS_REQUIRED`, `BBOX_OUT_OF_BOUNDS`, `CROP_PADDING_INVALID`, `CROP_SOURCE_IMAGE_UNSUPPORTED`, and `CROP_IMAGE_GENERATION_FAILED`.
 
 ## Known Gaps
 

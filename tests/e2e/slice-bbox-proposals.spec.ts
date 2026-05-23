@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 const fixturePath = path.resolve("public/apple-touch-icon.png");
 
-test("editor can create and reload slice BBox proposals", async ({ page }) => {
+test("editor can create BBox proposals and generate reloadable slice crops", async ({ page }) => {
   const projectName = `E2E BBox ${Date.now()}`;
 
   await page.goto("/login");
@@ -44,6 +44,10 @@ test("editor can create and reload slice BBox proposals", async ({ page }) => {
 
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
   await expect(page.getByRole("button", { name: /Slice proposal 1:/ })).toBeVisible();
+  await page.getByRole("button", { name: "Generate crop" }).click();
+  await expect(page.getByText("Derived crop generated")).toBeVisible();
+  await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();
+  await expect(page.getByText(/Crop v\d+:/)).toBeVisible();
 
   const imageMatch = page.url().match(/\/images\/([^/]+)\/edit/);
   expect(imageMatch).not.toBeNull();
@@ -59,6 +63,17 @@ test("editor can create and reload slice BBox proposals", async ({ page }) => {
     }, imageId);
   }).toBe(1);
 
+  await expect.poll(async () => {
+    return page.evaluate(async (id) => {
+      const response = await fetch(`/api/images/${id}/slice-crops`, { credentials: "include" });
+      if (!response.ok) return 0;
+      const body = await response.json();
+      return body.crops?.length ?? 0;
+    }, imageId);
+  }).toBe(1);
+
   await page.reload();
   await expect(page.getByRole("button", { name: /Slice proposal 1:/ })).toBeVisible();
+  await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();
+  await expect(page.getByText(/Crop v\d+:/)).toBeVisible();
 });

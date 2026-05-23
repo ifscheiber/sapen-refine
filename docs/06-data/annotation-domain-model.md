@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, and RB-086 adds source-image BBox slice proposal persistence. Runtime crop generation, advanced export policy, and multi-slice workflow depth remain split across later tickets.
+This page defines the SaPen Annotate domain model. RB-049 implements the first persistence baseline for this model, RB-050 adds the first project/image/sample metadata workflow, RB-051 adds the first default-slice support-mask/classification workflow, RB-052 adds the first review/approval workflow, RB-053 adds the first owner-only training export workflow, RB-054 documents the model preprediction/active-learning design contract, RB-086 adds source-image BBox slice proposal persistence, and RB-087 adds derived slice crop persistence. Crop support-mask editing, advanced export policy, and multi-slice workflow depth remain split across later tickets.
 
 SaPen Annotate is the system of record for attributable annotation work that can become reproducible training data.
 
@@ -18,6 +18,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Legacy/test mask serialization helper: `src/mask/serialize.ts`
 - Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current BBox proposal domain/API: `src/server/domain/sliceBboxes.ts`, `src/app/api/images/[imageId]/slice-bboxes/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
+- Current derived crop domain/API: `src/server/domain/sliceCrops.ts`, `src/app/api/images/[imageId]/slice-crops/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/crop/route.ts`, `src/app/api/slice-crops/[cropId]/asset/route.ts`
 - Current training export domain/API: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness/route.ts`, `src/app/api/projects/[projectId]/exports/route.ts`, `src/app/api/exports/[exportId]/download/route.ts`
 - Current prediction-analysis export domain/API: `src/server/domain/predictionAnalysisExports.ts`, `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts`, `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts`, `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts`
 - Prediction/active-learning design: `docs/06-data/model-prediction-contract.md`, `docs/06-data/active-learning-task-model.md`
@@ -217,6 +218,8 @@ RB-086 creates one `SliceInstance` for each new source-image BBox proposal. The 
 
 `SliceBoundingBoxVersion` is a planning/provenance artifact for crop generation. It is not physical support geometry and is not exported as ground-truth instance segmentation.
 
+RB-087 creates `DerivedSliceCrop` versions from current active BBox versions. A crop records source-image checksum/dimensions, source rectangle, requested/applied padding, clipping, `CROP_PIXEL` dimensions, transform metadata, private PNG storage metadata, creator, and timestamp. Derived crops are not raw uploads and their padding must not be treated as support geometry.
+
 `SliceClassificationVersion` stores draft classification versions with actor attribution and label schema version. RB-051 supports `SAP_HEARTWOOD_SLICE`, `COPPER_SLICE`, `UNKNOWN`, and `REVIEW_REQUIRED`.
 
 ### Review And Approval
@@ -321,6 +324,7 @@ Server-side route handlers must enforce these rules. Hiding UI controls is not s
 - Every mask artifact version references exactly one label schema version.
 - Mask dimensions must match the image or declare an explicit coordinate transform.
 - BBox proposal dimensions must be integer `SOURCE_IMAGE_PIXEL` rectangles validated against the source image dimensions.
+- Derived crop dimensions and transforms must map every `CROP_PIXEL` to a real source-image pixel after source-bound clipping.
 - Reviewed/approved annotations reference immutable artifact versions.
 - Reviewed/approved slice classifications reference immutable `SliceClassificationVersion` rows.
 - Export manifests reference exact immutable artifact versions.

@@ -78,3 +78,87 @@ describe("slice BBox validation", () => {
     ).toThrow("BBOX_OUT_OF_BOUNDS");
   });
 });
+
+describe("derived slice crop helpers", () => {
+  it("accepts only supported padding presets", async () => {
+    const { parseSliceCropPadding } = await import("@/server/domain/sliceCrops");
+
+    expect(parseSliceCropPadding(undefined, 32)).toBe(32);
+    expect(parseSliceCropPadding(0, 32)).toBe(0);
+    expect(parseSliceCropPadding(16, 32)).toBe(16);
+    expect(parseSliceCropPadding(32, 16)).toBe(32);
+    expect(parseSliceCropPadding(64, 32)).toBe(64);
+    expect(() => parseSliceCropPadding(48, 32)).toThrow("CROP_PADDING_INVALID");
+  });
+
+  it("clamps requested padding to source-image bounds and records clipping", async () => {
+    const { calculateSliceCropGeometry } = await import("@/server/domain/sliceCrops");
+
+    expect(
+      calculateSliceCropGeometry({
+        bbox: { x: 40, y: 20, width: 10, height: 10 },
+        image: { width: 100, height: 80 },
+        paddingRequestedPx: 16,
+      }),
+    ).toMatchObject({
+      sourceX: 24,
+      sourceY: 4,
+      sourceWidth: 42,
+      sourceHeight: 42,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: 42,
+      cropHeight: 42,
+      paddingAppliedLeftPx: 16,
+      paddingAppliedTopPx: 16,
+      paddingAppliedRightPx: 16,
+      paddingAppliedBottomPx: 16,
+      paddingClipped: false,
+      transformToSourceJson: {
+        sourceCoordinateSpace: "SOURCE_IMAGE_PIXEL",
+        cropCoordinateSpace: "CROP_PIXEL",
+        sourceOrigin: { x: 24, y: 4 },
+      },
+    });
+
+    expect(
+      calculateSliceCropGeometry({
+        bbox: { x: 40, y: 20, width: 10, height: 10 },
+        image: { width: 100, height: 80 },
+        paddingRequestedPx: 32,
+      }),
+    ).toMatchObject({
+      sourceX: 8,
+      sourceY: 0,
+      sourceWidth: 74,
+      sourceHeight: 62,
+      cropWidth: 74,
+      cropHeight: 62,
+      paddingAppliedLeftPx: 32,
+      paddingAppliedTopPx: 20,
+      paddingAppliedRightPx: 32,
+      paddingAppliedBottomPx: 32,
+      paddingClipped: true,
+    });
+  });
+
+  it("keeps zero-padding crops identical to BBox geometry", async () => {
+    const { calculateSliceCropGeometry } = await import("@/server/domain/sliceCrops");
+
+    expect(
+      calculateSliceCropGeometry({
+        bbox: { x: 2, y: 3, width: 8, height: 6 },
+        image: { width: 20, height: 20 },
+        paddingRequestedPx: 0,
+      }),
+    ).toMatchObject({
+      sourceX: 2,
+      sourceY: 3,
+      sourceWidth: 8,
+      sourceHeight: 6,
+      cropWidth: 8,
+      cropHeight: 6,
+      paddingClipped: false,
+    });
+  });
+});

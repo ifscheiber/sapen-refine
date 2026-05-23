@@ -82,6 +82,7 @@ enum ArtifactProvenance {
 enum CoordinateSpace {
   IMAGE_PIXEL
   SOURCE_IMAGE_PIXEL
+  CROP_PIXEL
   TRANSFORMED
 }
 
@@ -180,6 +181,7 @@ model User {
   createdArtifactVersions        AnnotationArtifactVersion[]  @relation("ArtifactVersionCreatedBy")
   createdSliceInstances          SliceInstance[]              @relation("SliceInstanceCreatedBy")
   createdSliceBoundingBoxes      SliceBoundingBoxVersion[]    @relation("SliceBoundingBoxCreatedBy")
+  createdDerivedSliceCrops       DerivedSliceCrop[]           @relation("DerivedSliceCropCreatedBy")
   createdSliceClassifications    SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
   reviewDecisions                ReviewDecision[]             @relation("ReviewDecisionReviewedBy")
   exportBatches                  ExportBatch[]                @relation("ExportBatchExportedBy")
@@ -222,6 +224,7 @@ model AnnotationProject {
   artifacts               AnnotationArtifact[]
   sliceInstances          SliceInstance[]
   sliceBoundingBoxes      SliceBoundingBoxVersion[]
+  derivedSliceCrops       DerivedSliceCrop[]
   classifications         SliceClassificationVersion[]
   reviewDecisions         ReviewDecision[]
   exportBatches           ExportBatch[]
@@ -312,6 +315,7 @@ model ImageAsset {
   artifacts                  AnnotationArtifact[]
   sliceInstances             SliceInstance[]
   sliceBoundingBoxes         SliceBoundingBoxVersion[]
+  derivedSliceCrops          DerivedSliceCrop[]              @relation("DerivedSliceCropSourceImage")
   classifications            SliceClassificationVersion[]
   exportItems                ExportItem[]
   predictionProvenances      PredictionArtifactProvenance[]
@@ -501,6 +505,7 @@ model SliceInstance {
   createdBy              User?                          @relation("SliceInstanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   tasks                  AnnotationTask[]
   boundingBoxVersions    SliceBoundingBoxVersion[]
+  derivedCrops           DerivedSliceCrop[]
   classifications        SliceClassificationVersion[]
   predictionProvenances  PredictionArtifactProvenance[]
 
@@ -531,11 +536,60 @@ model SliceBoundingBoxVersion {
   image         ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
   sliceInstance SliceInstance     @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
   createdBy     User?             @relation("SliceBoundingBoxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  derivedCrops   DerivedSliceCrop[]
 
   @@unique([sliceInstanceId, version])
   @@index([projectId, status])
   @@index([imageId, status])
   @@index([sliceInstanceId, status])
+  @@index([createdById])
+}
+
+model DerivedSliceCrop {
+  id                     String          @id @default(cuid())
+  projectId              String
+  sourceImageId          String
+  sourceImageChecksum    String?
+  sourceImageWidth       Int
+  sourceImageHeight      Int
+  sliceInstanceId        String
+  bboxVersionId          String
+  version                Int
+  sourceX                Int
+  sourceY                Int
+  sourceWidth            Int
+  sourceHeight           Int
+  cropX                  Int             @default(0)
+  cropY                  Int             @default(0)
+  cropWidth              Int
+  cropHeight             Int
+  paddingRequestedPx     Int
+  paddingAppliedLeftPx   Int
+  paddingAppliedTopPx    Int
+  paddingAppliedRightPx  Int
+  paddingAppliedBottomPx Int
+  paddingClipped         Boolean         @default(false)
+  coordinateSpace        CoordinateSpace @default(CROP_PIXEL)
+  transformToSourceJson  Json
+  storageKey             String          @unique
+  checksum               String?
+  contentType            String?
+  byteSize               Int
+  format                 String          @default("png")
+  metadataJson           Json?
+  createdById            String?
+  createdAt              DateTime        @default(now())
+
+  project       AnnotationProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceImage   ImageAsset              @relation("DerivedSliceCropSourceImage", fields: [sourceImageId], references: [id], onDelete: Cascade)
+  sliceInstance SliceInstance           @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  bboxVersion   SliceBoundingBoxVersion @relation(fields: [bboxVersionId], references: [id], onDelete: Cascade)
+  createdBy     User?                   @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([sliceInstanceId, version])
+  @@index([projectId, createdAt])
+  @@index([sourceImageId, createdAt])
+  @@index([bboxVersionId, createdAt])
   @@index([createdById])
 }
 

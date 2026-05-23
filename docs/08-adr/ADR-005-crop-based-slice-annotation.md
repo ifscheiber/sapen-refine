@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-085 design. RB-086 implements source-image BBox proposal persistence and editor drawing; remaining runtime implementation is deferred to RB-087 through RB-092.
+Accepted for RB-085 design. RB-086 implements source-image BBox proposal persistence and editor drawing. RB-087 implements derived slice crop generation/persistence. Remaining runtime implementation is deferred to RB-088 through RB-092.
 
 ## Context
 
@@ -52,17 +52,17 @@ Slice classification can be auto-suggested from semantic content, but the sugges
 ## Consequences
 
 - Full-resolution editing remains an implemented MVP workflow and is not removed by the crop sprint.
-- RB-086 introduces BBox proposal versions without weakening existing ground-truth rules. RB-087 through RB-092 can introduce crop generation, crop support masks, crop-constrained semantics, auto classification, crop-aware export, and review integration.
+- RB-086 introduces BBox proposal versions without weakening existing ground-truth rules. RB-087 introduces derived crop versions without treating crop padding as support geometry. RB-088 through RB-092 can introduce crop support masks, crop-constrained semantics, auto classification, crop-aware export, and review integration.
 - Export manifests must preserve enough transform and provenance data to map crop masks back to source-image pixels.
 - Review state must stay artifact-specific. A reviewed crop does not automatically approve its support mask, semantic mask, or classification.
 - Export readiness must reject or flag stale lineage, such as a semantic mask derived from an older crop/support version than the selected training support mask.
-- Current `IMAGE_PIXEL` mask coordinate-space behavior remains implemented for semantic/support masks. RB-086 persists `SOURCE_IMAGE_PIXEL` for BBox proposal versions; `CROP_PIXEL` remains planned for derived crop artifacts.
+- Current `IMAGE_PIXEL` mask coordinate-space behavior remains implemented for semantic/support masks. RB-086 persists `SOURCE_IMAGE_PIXEL` for BBox proposal versions; RB-087 persists `CROP_PIXEL` for derived crop artifacts.
 - Prediction-analysis exports remain separate from ground-truth training exports; RB-085 does not add crop-aware model QA export semantics.
 
 ## Deferred Work
 
 - RB-086: BBox slice proposal workflow. Implemented first runtime slice: source-image BBox proposal versions.
-- RB-087: Derived slice crop generation and persistence.
+- RB-087: Derived slice crop generation and persistence. Implemented server-side PNG generation, 32 px default configurable padding, source-bound clipping, app-mediated reads, and editor preview.
 - RB-088: Crop support mask editor.
 - RB-089: Crop-constrained semantic annotation.
 - RB-090: Auto slice classification from semantic masks.

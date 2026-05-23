@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements the first runtime slice: persistent source-image BBox proposals. Later crop, support-mask, semantic, classification, review, and export steps remain planned until their tickets land.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. Crop support-mask editing, crop-constrained semantic annotation, auto classification, review integration, and crop-aware export remain planned until later tickets land.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -53,25 +53,39 @@ Rules:
 - provenance, creator, and creation time,
 - optional metadata JSON for replacement/deletion lineage.
 
-`SliceInstance.boundingBox` stores a denormalized current summary for UI convenience. The version rows remain the history source of truth, and downstream RB-087 crops should reference a specific BBox version id.
+`SliceInstance.boundingBox` stores a denormalized current summary for UI convenience. The version rows remain the history source of truth, and derived crops reference a specific BBox version id.
 
-## Planned DerivedSliceCrop Concept
+## Implemented DerivedSliceCrop Concept
 
-`DerivedSliceCrop` is the planned conceptual artifact for RB-087. It should record at minimum:
+RB-087 persists derived crop rows as `DerivedSliceCrop` in `prisma/schema.prisma` and generates private PNG bytes through `src/server/domain/sliceCrops.ts`. A crop is a derived artifact, not a raw uploaded image.
+
+Each crop records:
 
 - source image id,
-- source image checksum or source artifact version,
+- source image checksum,
+- source image dimensions,
 - slice instance id,
 - BBox proposal/version reference,
 - crop origin in `SOURCE_IMAGE_PIXEL`,
 - resolved crop width and height,
-- requested padding and resolved padding,
+- requested padding and applied padding per side,
+- whether the requested padding was clipped by source-image bounds,
 - crop dimensions in `CROP_PIXEL`,
 - transform metadata back to `SOURCE_IMAGE_PIXEL`,
 - createdBy and createdAt,
-- storage key, byte size, checksum, content type, and dimensions if the crop image is persisted.
+- storage key, byte size, checksum, content type, and PNG format.
 
-The derived crop is not a raw upload. It must be reproducible or auditable from its recorded source image and transform metadata. If a later implementation stores crop image bytes, the bytes are derived data and remain subordinate to the immutable source image plus recorded transform.
+The crop service uses a default `paddingRequestedPx` of `32`, configurable with `SLICE_CROP_DEFAULT_PADDING_PX`. The accepted runtime/API presets are `0`, `16`, `32`, and `64`. Padding is clamped to source-image bounds and recorded separately as `paddingAppliedLeftPx`, `paddingAppliedTopPx`, `paddingAppliedRightPx`, and `paddingAppliedBottomPx`.
+
+The padding area is visual/context workspace only. It is never support geometry. The future pixel-perfect support mask remains the source of truth for physical slice geometry.
+
+Crop image bytes are stored privately under:
+
+```text
+projects/{projectId}/derived-crops/{imageId}/{sliceInstanceId}/{uuid}.png
+```
+
+Browser clients receive sanitized metadata and app-mediated asset URLs such as `/api/slice-crops/[cropId]/asset`; private storage keys are not serialized.
 
 ## Mandatory Support-First Rule
 
@@ -171,14 +185,15 @@ Current implemented behavior:
 - full-resolution semantic and support masks,
 - one or more RB-086 BBox proposal slice instances per image,
 - BBox proposal versions in `SOURCE_IMAGE_PIXEL`,
+- RB-087 derived crop PNGs generated from active/current BBox versions,
+- crop records in `CROP_PIXEL` with integer translation transforms back to source pixels,
 - current saved mask coordinate space is `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- saved BBox proposal versions seed derived crops,
-- crop masks use `CROP_PIXEL`,
-- each crop carries a transform to `SOURCE_IMAGE_PIXEL`,
+- crop support masks use `CROP_PIXEL`,
+- crop semantic masks use `CROP_PIXEL` and stay constrained by support,
 - crop exports preserve both crop-space artifacts and source-image provenance.
 
 ## Related Docs

@@ -81,7 +81,7 @@ Combined exports keep each target type explicit. They include any approved selec
 
 ## Planned Crop-Aware Export Extension
 
-RB-085 defines a crop-based slice annotation workflow, and RB-086 persists BBox proposal versions that future crops can reference. The current RB-053 export implementation remains image-level/full-resolution and does not yet emit crop-aware manifest entries.
+RB-085 defines a crop-based slice annotation workflow, RB-086 persists BBox proposal versions, and RB-087 persists derived crop versions from those BBoxes. The current RB-053 export implementation remains image-level/full-resolution and does not yet emit crop-aware manifest entries.
 
 For RB-091 and later, crop-aware exports must keep the existing target separation:
 

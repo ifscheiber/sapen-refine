@@ -31,6 +31,7 @@
 - `src/server/domain/predictionAnalysisExports.ts` - RB-060 prediction-analysis export readiness, manifest/package generation, persistence, and owner/QA download authorization.
 - `src/server/domain/predictionAnalysisMetrics.ts` - RB-067 pure semantic/support prediction QA metric helpers.
 - `src/server/domain/sliceBboxes.ts` - RB-086 BBox proposal list/create/replace/delete helpers, source-image geometry validation, append-only versioning, and audit events.
+- `src/server/domain/sliceCrops.ts` - RB-087 derived slice crop geometry, padding validation, source-image crop generation, private PNG storage, sanitized reads, and audit events.
 - `src/server/http/apiErrors.ts` - RB-072 flat JSON API error helpers for auth/RBAC/domain route failures.
 - `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helpers, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
 
@@ -51,6 +52,7 @@
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.
 - `resolveProjectPredictionAnalysisReadiness`, `createPredictionAnalysisExportForUser`, `getPredictionAnalysisExportForUser`, and `readPredictionAnalysisExportFileForUser` implement the RB-060/RB-067 prediction-analysis export service layer with QA metrics in the manifest.
 - `listSliceBoundingBoxesForUser`, `createSliceBoundingBoxForUser`, `replaceSliceBoundingBoxForUser`, and `deleteSliceBoundingBoxForUser` implement the RB-086 source-image BBox proposal service layer.
+- `generateCropForSliceBBox`, `listSliceCropsForImageForUser`, `getSliceCropForUser`, and `readSliceCropAssetForUser` implement the RB-087 derived slice crop service layer.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 - `apiError`, `apiErrorFromPayload`, `apiErrorFromUnknown`, and `withApiErrorHandling` implement the RB-072 route-level JSON error contract.
 
@@ -70,6 +72,7 @@
 - Assisted correction services create draft human correction artifact versions only; review/approval is still required before export.
 - Prediction-analysis export services are QA/debug services only; they mark predictions as proposals, keep prediction/human paths separate, store metrics as evaluation metadata only, and do not change training export eligibility.
 - Slice BBox services create crop-planning proposal versions only. They validate source-image pixel bounds, append replacement/deletion versions, and do not create support masks or export-ready ground truth.
+- Slice crop services generate private derived PNG crops from current active BBox versions only. They clamp configurable padding to source-image bounds, record requested/applied padding separately, store `CROP_PIXEL` transform metadata, and do not create support geometry.
 
 ## Known Gaps
 

@@ -318,12 +318,16 @@ async function protectedKeys(db: CleanupDb, keys: string[]) {
   const uniqueKeys = [...new Set(keys)];
   if (uniqueKeys.length === 0) return new Map<string, string>();
 
-  const [images, artifacts, importItems] = await Promise.all([
+  const [images, artifacts, crops, importItems] = await Promise.all([
     db.imageAsset.findMany({
       where: { storageKey: { in: uniqueKeys } },
       select: { storageKey: true },
     }),
     db.annotationArtifactVersion.findMany({
+      where: { storageKey: { in: uniqueKeys } },
+      select: { storageKey: true },
+    }),
+    db.derivedSliceCrop.findMany({
       where: { storageKey: { in: uniqueKeys } },
       select: { storageKey: true },
     }),
@@ -336,6 +340,7 @@ async function protectedKeys(db: CleanupDb, keys: string[]) {
   const protectedBy = new Map<string, string>();
   for (const image of images) protectedBy.set(image.storageKey, "IMAGE_ASSET_REFERENCE");
   for (const artifact of artifacts) protectedBy.set(artifact.storageKey, "ARTIFACT_VERSION_REFERENCE");
+  for (const crop of crops) protectedBy.set(crop.storageKey, "DERIVED_SLICE_CROP_REFERENCE");
   for (const item of importItems) protectedBy.set(item.stagingKey, "BATCH_STAGING_DB_REFERENCE");
   return protectedBy;
 }

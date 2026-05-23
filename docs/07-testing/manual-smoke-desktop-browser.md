@@ -30,7 +30,8 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Reload image metadata. | T-number and acquisition fields persist. |  |  |
 | Open editor. | Image, canvas stack, tools, labels, zoom, and save controls render. |  |  |
 | Select `BBox proposal` and draw a rough rectangle around a slice. | A slice proposal appears in the BBox list and is clearly labeled as a proposal, not ground truth. |  |  |
-| Reload the editor after creating the BBox proposal. | The BBox proposal remains visible; no support mask or export-ready state is implied by the BBox alone. |  |  |
+| Click `Generate crop` for the selected BBox proposal. | A crop preview appears with crop dimensions and padding metadata; no support mask or export-ready state is implied by the crop alone. |  |  |
+| Reload the editor after creating the BBox proposal and crop. | The BBox proposal and crop preview remain visible; no support mask or export-ready state is implied by the BBox/crop alone. |  |  |
 | Draw with Brush. | Overlay changes and dirty state becomes visible. |  |  |
 | Select Eraser and erase part of the semantic mask. | Eraser uses the brush size, writes background, and dirty state remains visible. |  |  |
 | Click `Save now`. | Semantic mask save completes, dirty state clears, and a draft artifact version exists. |  |  |
@@ -63,7 +64,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - Advanced export filters/history, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default pixel-perfect slice/support geometry per image.
-- RB-086 supports source-image BBox slice proposals as crop-planning artifacts. Crop generation and crop support-mask editing are not part of this smoke path yet.
+- RB-086/RB-087 support source-image BBox slice proposals and derived crop previews as crop-planning artifacts. Crop support-mask editing is not part of this smoke path yet.
 - RB-070 adds explicit Eraser UX for semantic and support masks; background-label painting remains valid.
 - RB-080/RB-081 keep full-resolution editing as the current model and verify 6000x4000 mask upload payloads plus the real semantic save route in automated desktop Chrome. Tiled/downscaled working masks remain deferred unless real iPad Safari or customer hardware proves full-resolution editing unreliable.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.
