@@ -18,6 +18,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Annotation domain model ADR: [08-adr/ADR-003-annotation-domain-model.md](08-adr/ADR-003-annotation-domain-model.md)
 - Model preprediction/active-learning ADR: [08-adr/ADR-004-model-preprediction-active-learning.md](08-adr/ADR-004-model-preprediction-active-learning.md)
 - Crop-based slice annotation ADR: [08-adr/ADR-005-crop-based-slice-annotation.md](08-adr/ADR-005-crop-based-slice-annotation.md)
+- Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
 
 ## Module Docs
 
@@ -40,6 +41,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Prisma schema proposal: [06-data/prisma-schema-proposal.md](06-data/prisma-schema-proposal.md)
 - Training export contract: [06-data/training-export-contract.md](06-data/training-export-contract.md)
 - Crop-based slice annotation: [06-data/crop-based-slice-annotation.md](06-data/crop-based-slice-annotation.md)
+- Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
 - Coordinate spaces and transforms: [06-data/coordinate-spaces-and-transforms.md](06-data/coordinate-spaces-and-transforms.md)
 - Prediction analysis export contract: [06-data/prediction-analysis-export-contract.md](06-data/prediction-analysis-export-contract.md)
 - Prediction QA metrics contract: [06-data/prediction-qa-metrics-contract.md](06-data/prediction-qa-metrics-contract.md)
@@ -61,6 +63,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 ## Workflow And Operations Docs
 
 - Scratch annotation workflow: [workflows/annotation-from-scratch.md](workflows/annotation-from-scratch.md)
+- Crop workflow UX orchestration: [workflows/crop-workflow-ux-orchestration.md](workflows/crop-workflow-ux-orchestration.md)
 - Prediction-assisted annotation/correction: [workflows/future-prediction-assisted-annotation.md](workflows/future-prediction-assisted-annotation.md)
 - Local development: [operations/local-development.md](operations/local-development.md)
 - Environment variables: [operations/environment.md](operations/environment.md)

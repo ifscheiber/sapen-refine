@@ -68,11 +68,17 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
+- Planned crop workflow entry route: `/app/projects/[projectId]/images/[imageId]/crop`.
+- Planned BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
+- Planned slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices`.
+- Planned selected-slice workbench route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
+
+RB-093 documents the planned crop routes only. Runtime route implementation remains in later crop workflow UX tickets. The existing crop support and semantic routes remain compatibility deep links while the guided route family is introduced.
 
 ## Current Canvas And Input Model
 
@@ -185,6 +191,20 @@ Original image
 -> review/approval
 -> export with crop/source-image provenance
 ```
+
+RB-093 adds the planned user-facing orchestration for the next sprint:
+
+```text
+Image-level BBox stage
+-> confirm BBox set
+-> slice navigator with whole-image context
+-> selected-slice crop workbench
+-> support mask
+-> semantic mask
+-> classification/readiness
+```
+
+The planned crop workflow uses `confirm` wording for BBox sets. BBox confirmation is a workflow planning state, not artifact review or ground-truth approval. Pixel-perfect support masks, semantic masks, and slice classifications keep their existing artifact-specific review states.
 
 Current RB-086 behavior:
 

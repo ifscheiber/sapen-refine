@@ -23,12 +23,27 @@ This page lists current browser routes backed by `src/app`.
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic` - crop semantic-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx` and `src/features/editor/CropSemanticEditorPage.tsx`; RB-090 also shows the latest slice classification suggestion and manual override controls for editable roles.
 - Unknown workspace routes are caught by `src/app/(workspace)/app/[...missing]/page.tsx` and render the SaPen Annotate workspace not-found fallback from `src/app/(workspace)/app/not-found.tsx`; unknown non-workspace routes render `src/app/not-found.tsx`.
 
+## Planned Crop Workflow Routes
+
+RB-093 documents the next crop workflow route structure without implementing runtime behavior:
+
+- `/app/projects/[projectId]/images/[imageId]/crop` - planned crop workflow entry/controller route.
+- `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - planned image-level BBox stage for confirming slice work areas.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices` - planned whole-image slice navigator.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - planned selected-slice workbench.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - planned selected crop workbench.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - planned support tool route.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - planned semantic tool route.
+
+The existing `/edit`, `/slices/[sliceInstanceId]/crops/[cropId]/support`, and `/slices/[sliceInstanceId]/crops/[cropId]/semantic` routes remain current compatibility routes until RB-094 through RB-098 implement or redirect the guided workflow.
+
 ## Invariants And Constraints
 
 - Protected project routes must verify session and membership server-side.
 - Missing or unauthorized project routes must not leak existence details; known-project stale child resources may render project-aware soft landings.
 - Future tablet/iPad layouts should preserve the same URL routes unless a ticket explicitly changes navigation.
 - Task queue links to the assisted correction route for prediction-backed correction tasks.
+- Crop workflow stages should be URL-addressable and backed by persisted server state, not hidden client-only state.
 
 ## Known Gaps
 

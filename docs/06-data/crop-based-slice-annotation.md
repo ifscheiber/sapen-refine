@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, and RB-092 implements shared crop readiness plus review/approval UI integration.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093 crop workflow UX orchestration design. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, and RB-093 defines the staged user-facing route/state model for RB-094 through RB-098.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -21,6 +21,20 @@ Original image
 -> export with crop and source-image provenance
 ```
 
+The RB-093 UX orchestration splits that technical flow into staged user routes:
+
+```text
+BBox stage
+-> confirm BBox set
+-> slice navigator
+-> selected-slice crop workbench
+-> support
+-> semantic
+-> classification/readiness
+```
+
+The planned route/state details live in `docs/workflows/crop-workflow-ux-orchestration.md` and `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md`.
+
 The original uploaded image remains immutable and is the source of truth for provenance. BBox proposals, derived crops, support masks, semantic masks, classifications, reviews, and exports are derived artifacts or decisions that reference the source image.
 
 ## BBox Proposal Versus Support Mask
@@ -28,6 +42,8 @@ The original uploaded image remains immutable and is the source of truth for pro
 A BBox proposal is an ergonomic work-area proposal. It gives the system enough information to create a smaller crop around a candidate slice.
 
 A support mask is the pixel-perfect physical slice geometry. It is the training target for support/instance segmentation.
+
+RB-093 standardizes user-facing terminology: image-level BBox sets are confirmed, not approved. Confirmation records that the current BBox set is the intended crop work plan. It does not make BBoxes ground-truth geometry and does not replace support-mask, semantic-mask, or classification review.
 
 RB-086 persists BBox proposals as append-only `SliceBoundingBoxVersion` rows linked to `SliceInstance`. Each saved BBox uses integer `SOURCE_IMAGE_PIXEL` coordinates validated against `ImageAsset.width` and `ImageAsset.height`.
 
@@ -236,6 +252,7 @@ Current implemented behavior:
 
 Planned crop behavior:
 
+- guided crop workflow routes for image-level BBox confirmation, slice navigation, and selected-slice crop workbench are documented by RB-093 and implemented by RB-094 through RB-098,
 - source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs

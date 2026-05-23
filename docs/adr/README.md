@@ -11,6 +11,7 @@ This folder is the operational ADR/backlog entry point used by AGENTS.md.
 - [../08-adr/ADR-003-annotation-domain-model.md](../08-adr/ADR-003-annotation-domain-model.md) - annotation domain model decision.
 - [../08-adr/ADR-004-model-preprediction-active-learning.md](../08-adr/ADR-004-model-preprediction-active-learning.md) - model preprediction and active-learning design decision.
 - [../08-adr/ADR-005-crop-based-slice-annotation.md](../08-adr/ADR-005-crop-based-slice-annotation.md) - crop-based slice annotation design decision.
+- [../08-adr/ADR-006-crop-workflow-ux-orchestration.md](../08-adr/ADR-006-crop-workflow-ux-orchestration.md) - crop workflow UX route/state orchestration decision.
 
 ## Public Interfaces / Routes / Functions
 
