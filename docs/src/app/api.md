@@ -40,6 +40,7 @@ This page lists the current API route handlers under `src/app/api`.
 - `PATCH /api/slice-bboxes/[bboxVersionId]` - appends a replacement active BBox version when the referenced version is still current.
 - `DELETE /api/slice-bboxes/[bboxVersionId]` - appends a deleted BBox version and clears the current slice-instance BBox summary.
 - `GET /api/images/[imageId]/slice-crops` - lists sanitized derived slice crop metadata for project members.
+- `POST /api/images/[imageId]/slice-crops/ensure` - idempotently ensures current derived crops exist for the image or selected slice, reusing the existing crop generator and returning sanitized crop metadata.
 - `POST /api/slice-bboxes/[bboxVersionId]/crop` - generates a private PNG derived crop from a current active BBox version for editable project roles.
 - `GET /api/slice-crops/[cropId]` - returns sanitized derived crop metadata for project members.
 - `GET /api/slice-crops/[cropId]/asset` - streams the private derived crop PNG through the app after membership check.

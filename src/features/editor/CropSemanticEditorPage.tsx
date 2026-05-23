@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { canAnnotate, PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
+import { loadCropSliceNavigatorForUser } from "@/server/domain/cropSliceNavigator";
+import { CropEditorSliceNavigatorRailClient } from "./CropEditorSliceNavigatorRailClient";
 import { CropSemanticEditorClient } from "./CropSemanticEditorClient";
 
 export async function CropSemanticEditorPage({
@@ -21,7 +23,7 @@ export async function CropSemanticEditorPage({
   sliceInstanceId: string;
   cropId: string;
 }) {
-  const { membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
+  const { user, membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
 
   const crop = await prisma.derivedSliceCrop.findFirst({
     where: {
@@ -59,6 +61,13 @@ export async function CropSemanticEditorPage({
     );
   }
 
+  const navigator = await loadCropSliceNavigatorForUser({
+    projectId,
+    imageId,
+    userId: user.id,
+    selectedSliceInstanceId: sliceInstanceId,
+  });
+
   return (
     <AppMain className="max-w-none">
       <AppPageHeader
@@ -87,7 +96,10 @@ export async function CropSemanticEditorPage({
           </div>
         }
       />
-      <CropSemanticEditorClient cropId={cropId} canEdit={canAnnotate(membership.role)} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+        <CropSemanticEditorClient cropId={cropId} canEdit={canAnnotate(membership.role)} />
+        <CropEditorSliceNavigatorRailClient navigator={navigator} editorMode="semantic" />
+      </div>
     </AppMain>
   );
 }

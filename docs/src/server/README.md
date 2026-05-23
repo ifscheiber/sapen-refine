@@ -58,7 +58,7 @@
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.
 - `resolveProjectPredictionAnalysisReadiness`, `createPredictionAnalysisExportForUser`, `getPredictionAnalysisExportForUser`, and `readPredictionAnalysisExportFileForUser` implement the RB-060/RB-067 prediction-analysis export service layer with QA metrics in the manifest.
 - `listSliceBoundingBoxesForUser`, `createSliceBoundingBoxForUser`, `replaceSliceBoundingBoxForUser`, `deleteSliceBoundingBoxForUser`, and `confirmImageBBoxSetForUser` implement the RB-086/RB-094 source-image BBox proposal and image-level confirmation service layer.
-- `generateCropForSliceBBox`, `listSliceCropsForImageForUser`, `getSliceCropForUser`, and `readSliceCropAssetForUser` implement the RB-087 derived slice crop service layer.
+- `generateCropForSliceBBox`, `ensureCurrentCropsForImageForUser`, `listSliceCropsForImageForUser`, `getSliceCropForUser`, and `readSliceCropAssetForUser` implement the RB-087/RB-101 derived slice crop service layer.
 - `loadCropSupportMaskStateForUser`, `createCropSupportMaskVersionForUser`, and `cropPixelToSourcePixel` implement the RB-088 crop support-mask service layer.
 - `loadCropSemanticMaskStateForUser`, `createCropSemanticMaskVersionForUser`, and `validateSemanticMaskAgainstSupport` implement the RB-089 crop semantic-mask service layer.
 - `deriveSliceClassificationFromSemanticMask`, `deriveSliceClassificationForSemanticMaskVersionForUser`, `loadSliceClassificationStateForUser`, and `setSliceInstanceClassificationForUser` implement the RB-090 auto/manual crop workflow classification service layer.

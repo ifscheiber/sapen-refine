@@ -13,7 +13,7 @@ import type {
 } from "@/server/domain/cropSliceNavigator";
 import { API_GENERATE_SLICE_CROP } from "./editorApi";
 
-function formatToken(value: string) {
+export function formatToken(value: string) {
   return value
     .toLowerCase()
     .split("_")
@@ -29,7 +29,7 @@ function formatClassName(value: string | null) {
   return formatToken(value);
 }
 
-function badgeClass(kind: "neutral" | "good" | "warn" | "bad") {
+export function badgeClass(kind: "neutral" | "good" | "warn" | "bad") {
   return cn(
     "inline-flex min-h-6 items-center rounded-md border px-2 py-0.5 text-xs font-medium",
     kind === "good" && "border-border bg-accent text-accent-foreground",
@@ -39,7 +39,7 @@ function badgeClass(kind: "neutral" | "good" | "warn" | "bad") {
   );
 }
 
-function cropBadgeKind(status: CropSliceNavigatorSlice["cropStatus"]) {
+export function cropBadgeKind(status: CropSliceNavigatorSlice["cropStatus"]) {
   if (status === "CURRENT") return "good";
   if (status === "STALE") return "warn";
   return "neutral";
@@ -68,7 +68,7 @@ function StatusBadge({
   );
 }
 
-function SliceStatusBadges({ slice }: { slice: CropSliceNavigatorSlice }) {
+export function SliceStatusBadges({ slice }: { slice: CropSliceNavigatorSlice }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       <StatusBadge label="BBox" value={slice.bboxStatus} kind="good" />

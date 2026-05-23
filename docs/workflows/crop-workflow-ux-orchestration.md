@@ -75,13 +75,13 @@ RB-094 stores confirmation in `ImageCropWorkflowState`. BBox creation, replaceme
 
 ### Slice Navigator
 
-The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice.
+The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the crop support and semantic editors.
 
-Clicking a slice opens `/crop/slices/[sliceInstanceId]`. The selected slice panel can generate or regenerate the current crop from the active BBox version, then links to the existing support and semantic crop editor compatibility routes. Crop status is derived as `missing`, `current`, or `stale`; stale means the latest crop was generated from an older BBox version.
+Clicking a slice in the editor rail opens the same editor mode for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected semantic editor when a current crop exists.
 
 ### Crop Workbench
 
-The crop workbench is the main annotation surface for crop workflow pixel work. It should guide annotators through support first, then semantic annotation, then classification/readiness.
+The crop workbench is the main annotation surface for crop workflow pixel work. It keeps the crop editor on the left and whole-image slice navigation/status on the right so annotators can move between slices without returning to a separate navigator page.
 
 Semantic annotation is presented only after a current support mask exists for the crop. The server-side support-first and outside-support validation rules remain the source of truth.
 

@@ -9,6 +9,7 @@ export const API_CONFIRM_SLICE_BBOX_SET = (imageId: string) =>
   `/api/images/${imageId}/slice-bboxes/confirm`;
 export const API_SLICE_BBOX = (bboxVersionId: string) => `/api/slice-bboxes/${bboxVersionId}`;
 export const API_SLICE_CROPS = (imageId: string) => `/api/images/${imageId}/slice-crops`;
+export const API_ENSURE_SLICE_CROPS = (imageId: string) => `/api/images/${imageId}/slice-crops/ensure`;
 export const API_PROJECT_CROP_READINESS = (
   projectId: string,
   params?: { imageId?: string; sliceInstanceId?: string },

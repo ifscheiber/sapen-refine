@@ -223,10 +223,10 @@ Current RB-094 behavior:
 
 Current RB-095 behavior:
 
-- `/crop/slices` redirects to the first selected-slice navigator route when the BBox set is confirmed, and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
-- `/crop/slices/[sliceInstanceId]` shows the source image with clickable BBox overlays, highlights the selected slice, and lists per-slice crop/support/semantic/classification/readiness badges.
+- `/crop/slices` redirects toward the selected slice editor when the BBox set is confirmed, and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
+- `/crop/slices/[sliceInstanceId]` remains a compatibility selected-slice route and redirects to the selected semantic editor when a current crop exists.
 - `src/server/domain/cropSliceNavigator.ts` composes navigator state from active BBoxes, derived crop versions, and `src/server/domain/cropReadiness.ts`.
-- The selected-slice panel can generate or regenerate the current derived crop through the existing `POST /api/slice-bboxes/[bboxVersionId]/crop` API, then links to the current compatibility support and semantic crop editor routes.
+- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds whole-image slice navigation and status beside crop support and semantic editors. Clicking a slice opens the same editor mode for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
 
 Current RB-087 behavior:
 

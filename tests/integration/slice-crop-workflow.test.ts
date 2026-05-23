@@ -16,6 +16,7 @@ import type {
   loadCropSliceNavigatorForUser as LoadCropSliceNavigatorForUser,
 } from "@/server/domain/cropSliceNavigator";
 import type {
+  ensureCurrentCropsForImageForUser as EnsureCurrentCropsForImageForUser,
   generateCropForSliceBBox as GenerateCropForSliceBBox,
   listSliceCropsForImageForUser as ListSliceCropsForImageForUser,
   readSliceCropAssetForUser as ReadSliceCropAssetForUser,
@@ -32,6 +33,7 @@ let confirmImageBBoxSetForUser: typeof ConfirmImageBBoxSetForUser;
 let replaceSliceBoundingBoxForUser: typeof ReplaceSliceBoundingBoxForUser;
 let deleteSliceBoundingBoxForUser: typeof DeleteSliceBoundingBoxForUser;
 let loadCropSliceNavigatorForUser: typeof LoadCropSliceNavigatorForUser;
+let ensureCurrentCropsForImageForUser: typeof EnsureCurrentCropsForImageForUser;
 let generateCropForSliceBBox: typeof GenerateCropForSliceBBox;
 let listSliceCropsForImageForUser: typeof ListSliceCropsForImageForUser;
 let readSliceCropAssetForUser: typeof ReadSliceCropAssetForUser;
@@ -55,6 +57,7 @@ describe("derived slice crop workflow", () => {
     } = await import("@/server/domain/sliceBboxes"));
     ({ loadCropSliceNavigatorForUser } = await import("@/server/domain/cropSliceNavigator"));
     ({
+      ensureCurrentCropsForImageForUser,
       generateCropForSliceBBox,
       listSliceCropsForImageForUser,
       readSliceCropAssetForUser,
@@ -329,5 +332,51 @@ describe("derived slice crop workflow", () => {
       currentCropCount: 1,
       missingCropCount: 1,
     });
+  });
+
+  it("ensures current crops idempotently for confirmed BBox slices", async () => {
+    const ensureImageId = await createImage("ensure-current-crops", 120, 90);
+    const first = await createSliceBoundingBoxForUser(
+      { imageId: ensureImageId, userId: ownerId, box: { x: 10, y: 10, width: 20, height: 18 } },
+      prisma,
+    );
+    const second = await createSliceBoundingBoxForUser(
+      { imageId: ensureImageId, userId: ownerId, box: { x: 50, y: 12, width: 22, height: 20 } },
+      prisma,
+    );
+    await confirmImageBBoxSetForUser({ imageId: ensureImageId, userId: ownerId }, prisma);
+
+    const ensured = await ensureCurrentCropsForImageForUser(
+      { imageId: ensureImageId, userId: ownerId },
+      prisma,
+    );
+    expect(ensured.generatedCount).toBe(2);
+    expect(ensured.existingCount).toBe(0);
+    expect(ensured.crops.map((crop) => crop.bboxVersionId).sort()).toEqual(
+      [first.bboxVersionId, second.bboxVersionId].sort(),
+    );
+
+    const repeated = await ensureCurrentCropsForImageForUser(
+      { imageId: ensureImageId, userId: ownerId },
+      prisma,
+    );
+    expect(repeated.generatedCount).toBe(0);
+    expect(repeated.existingCount).toBe(2);
+    expect(repeated.crops.map((crop) => crop.id).sort()).toEqual(
+      ensured.crops.map((crop) => crop.id).sort(),
+    );
+
+    const onlySecond = await ensureCurrentCropsForImageForUser(
+      { imageId: ensureImageId, userId: ownerId, sliceInstanceId: second.sliceInstanceId },
+      prisma,
+    );
+    expect(onlySecond.generatedCount).toBe(0);
+    expect(onlySecond.crops).toHaveLength(1);
+    expect(onlySecond.crops[0].sliceInstanceId).toBe(second.sliceInstanceId);
+
+    const totalCrops = await prisma.derivedSliceCrop.count({
+      where: { sourceImageId: ensureImageId },
+    });
+    expect(totalCrops).toBe(2);
   });
 });

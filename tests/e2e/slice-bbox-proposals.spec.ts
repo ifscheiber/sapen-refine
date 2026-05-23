@@ -47,17 +47,13 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.getByRole("button", { name: "Confirm BBox set" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
-  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: /Slice navigator:/ })).toBeVisible();
-  await expect(page.getByLabel("Whole-image slice navigator")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Select Slice 1" })).toBeVisible();
-  await expect(page.getByText("Crop: Missing").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/slices\/[^/]+\/crops\/[^/]+\/semantic$/);
+  await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
+  await expect(page.getByLabel("Slice navigator")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
+  await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Generate crop" }).click();
-  await expect(page.getByRole("button", { name: "Regenerate crop" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Support", exact: true })).toBeVisible();
-
-  const imageMatch = page.url().match(/\/images\/([^/]+)\/crop/);
+  const imageMatch = page.url().match(/\/images\/([^/]+)\//);
   expect(imageMatch).not.toBeNull();
   const imageId = imageMatch?.[1];
   expect(imageId).toBeTruthy();
@@ -81,11 +77,11 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   }).toBe(1);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Slice navigator:/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Regenerate crop" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
+  await expect(page.getByLabel("Slice navigator")).toBeVisible();
   await expect(page.getByRole("link", { name: "Support", exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "Full editor" }).click();
+  await page.getByRole("link", { name: "Editor" }).click();
   await expect(page.getByRole("button", { name: "BBox proposal" })).toBeVisible();
   await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();
   await expect(page.getByText(/Crop v\d+:/)).toBeVisible();

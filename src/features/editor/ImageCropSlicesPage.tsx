@@ -79,6 +79,10 @@ export async function ImageCropSlicesPage({
     );
   }
 
+  if (selectedSlice?.semanticHref) {
+    redirect(selectedSlice.semanticHref);
+  }
+
   return (
     <AppMain className="max-w-none">
       <AppPageHeader

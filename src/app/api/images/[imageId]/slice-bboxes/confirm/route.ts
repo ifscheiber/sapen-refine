@@ -5,6 +5,7 @@ import {
   confirmImageBBoxSetForUser,
   sliceBoundingBoxErrorResponse,
 } from "@/server/domain/sliceBboxes";
+import { ensureCurrentCropsForImageForUser } from "@/server/domain/sliceCrops";
 
 export async function POST(
   _req: Request,
@@ -15,6 +16,7 @@ export async function POST(
 
   try {
     const state = await confirmImageBBoxSetForUser({ imageId, userId: user.id });
+    await ensureCurrentCropsForImageForUser({ imageId, userId: user.id });
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
     const payload = sliceBoundingBoxErrorResponse(error);

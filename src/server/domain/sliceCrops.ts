@@ -377,6 +377,84 @@ export async function readSliceCropAssetForUser(params: {
   };
 }
 
+async function getExistingCurrentCropForBBox(db: SliceCropDb, bboxVersionId: string) {
+  return db.derivedSliceCrop.findFirst({
+    where: { bboxVersionId },
+    orderBy: [{ version: "desc" }, { createdAt: "desc" }],
+    select: cropSelect,
+  });
+}
+
+export async function ensureCurrentCropForSliceBBox(params: {
+  bboxVersionId: string;
+  userId: string;
+  paddingRequestedPx?: unknown;
+}, db: SliceCropDb = prisma) {
+  const { bbox, membership } = await getBBoxForCropGeneration(db, params.bboxVersionId, params.userId);
+  if (!canGenerateCrop(membership.role)) throw new SliceCropWorkflowError("FORBIDDEN");
+  await assertCurrentActiveBBox(db, bbox);
+
+  const existing = await getExistingCurrentCropForBBox(db, bbox.id);
+  if (existing) {
+    return { crop: serializeCrop(existing), generated: false };
+  }
+
+  return {
+    crop: await generateCropForSliceBBox(params, db),
+    generated: true,
+  };
+}
+
+async function getCurrentActiveBBoxesForImage(db: SliceCropDb, imageId: string) {
+  const versions = await db.sliceBoundingBoxVersion.findMany({
+    where: { imageId },
+    orderBy: [{ sliceInstanceId: "asc" }, { version: "desc" }],
+    select: { id: true, sliceInstanceId: true, status: true },
+  });
+
+  const current = new Map<string, { id: string; sliceInstanceId: string; status: string }>();
+  for (const version of versions) {
+    if (!current.has(version.sliceInstanceId)) current.set(version.sliceInstanceId, version);
+  }
+  return Array.from(current.values()).filter((version) => version.status === "ACTIVE");
+}
+
+export async function ensureCurrentCropsForImageForUser(params: {
+  imageId: string;
+  userId: string;
+  sliceInstanceId?: string | null;
+  paddingRequestedPx?: unknown;
+}, db: SliceCropDb = prisma) {
+  const { image, membership } = await getImageMembership(db, params.imageId, params.userId);
+  if (!canGenerateCrop(membership.role)) throw new SliceCropWorkflowError("FORBIDDEN");
+
+  const currentBBoxes = (await getCurrentActiveBBoxesForImage(db, image.id)).filter(
+    (bbox) => !params.sliceInstanceId || bbox.sliceInstanceId === params.sliceInstanceId,
+  );
+  const results = [];
+  for (const bbox of currentBBoxes) {
+    results.push(
+      await ensureCurrentCropForSliceBBox(
+        {
+          bboxVersionId: bbox.id,
+          userId: params.userId,
+          paddingRequestedPx: params.paddingRequestedPx,
+        },
+        db,
+      ),
+    );
+  }
+
+  return {
+    image,
+    myRole: membership.role,
+    canEdit: canGenerateCrop(membership.role),
+    crops: results.map((result) => result.crop),
+    generatedCount: results.filter((result) => result.generated).length,
+    existingCount: results.filter((result) => !result.generated).length,
+  };
+}
+
 export async function generateCropForSliceBBox(params: {
   bboxVersionId: string;
   userId: string;
