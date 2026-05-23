@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done / Implemented
 
 ## Priority
 
@@ -76,3 +76,11 @@ Add tests/E2E coverage for:
 5. Existing crop support/semantic workflows remain green.
 6. Ticket is moved to done.
 7. Full validation gate passes.
+
+## Implementation Notes
+
+- Implemented by `3e1cc43 fix: stabilize crop editor loading`.
+- `src/features/editor/CropSemanticEditorClient.tsx` and `src/features/editor/CropSupportEditorClient.tsx` use abortable editor loads guarded by `createEditorLoadGuard`.
+- `src/features/editor/editorLoadGuard.ts` centralizes sequence/stale-load checks.
+- `tests/unit/editor-load-guard.test.ts` covers stale newer-load and abort behavior.
+- Closeout audit on 2026-05-23 confirmed the RB-099 ticket already lives in `done/` and the focused crop semantic/editor load tests pass.
