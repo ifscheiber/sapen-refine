@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon, PencilLineIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { AppEmptyState } from "@/components/shell/AppEmptyState";
@@ -99,12 +99,6 @@ export async function ImageCropSlicesPage({
               <Link href={navigator.routes.bboxesHref}>
                 <ArrowLeftIcon className="size-4" aria-hidden="true" />
                 Edit BBoxes
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={navigator.routes.fullEditorHref}>
-                <PencilLineIcon className="size-4" aria-hidden="true" />
-                Full editor
               </Link>
             </Button>
           </div>

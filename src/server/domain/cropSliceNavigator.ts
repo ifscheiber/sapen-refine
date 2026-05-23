@@ -102,7 +102,6 @@ export type CropSliceNavigatorModel = {
   routes: {
     bboxesHref: string;
     slicesHref: string;
-    fullEditorHref: string;
   };
 };
 
@@ -306,7 +305,6 @@ export function buildCropSliceNavigatorModel(params: {
     routes: {
       bboxesHref: `/app/projects/${params.projectId}/images/${params.image.id}/crop/bboxes`,
       slicesHref: baseHref,
-      fullEditorHref: `/app/projects/${params.projectId}/images/${params.image.id}/edit`,
     },
   };
 }

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-103 and RB-104 are planned post-hotfix adjustments for BBox-stage re-entry and removal of the legacy full-image editor surface.
+This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-103 implements BBox-stage re-entry from crop editors. RB-104 is the planned follow-up that removes the legacy full-image editor surface.
 
 The crop workflow is a route-addressable staged workflow, not a hidden client-only state machine.
 
@@ -38,7 +38,7 @@ Current compatibility routes remain deep-linkable until later tickets replace or
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`
 - `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`
 
-RB-104 plans to remove `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route. RB-103 plans to replace crop-editor escape hatches to `/edit` with an explicit `Edit BBoxes` action that returns to `/crop/bboxes`.
+RB-103 replaces crop-editor escape hatches to `/edit` with an explicit `Edit BBoxes` action that returns to `/crop/bboxes`. RB-104 plans to remove `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route.
 
 ## State Model
 
@@ -75,11 +75,11 @@ Confirming a BBox set records workflow intent only. It does not approve BBoxes a
 
 RB-094 stores confirmation in `ImageCropWorkflowState`. BBox creation, replacement, and deletion remain append-only through `SliceBoundingBoxVersion`; when they happen after confirmation, the image-level workflow state becomes `BBOX_NEEDS_UPDATE` until the set is confirmed again.
 
-RB-103 plans to make this edit/re-confirm loop reachable from crop semantic and support editors. The BBox stage should remain locked by default after confirmation and require an explicit edit unlock before a confirmed BBox set can be changed.
+RB-103 makes this edit/re-confirm loop reachable from crop semantic and support editors. Opening `/crop/bboxes` after confirmation shows the confirmed BBoxes but keeps mutation controls locked until the user clicks `Edit BBoxes`. Navigation-only re-entry keeps the workflow in `BBOX_CONFIRMED`; replacing or deleting BBoxes after the explicit unlock marks the set `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set` before continuing.
 
 ### Slice Navigator
 
-The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the crop support and semantic editors.
+The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the crop support and semantic editors. RB-103 adds an `Edit BBoxes` action to that rail so users can return to the image-level BBox stage without leaving the crop workflow.
 
 Clicking a slice in the editor rail opens the same editor mode for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected semantic editor when a current crop exists.
 

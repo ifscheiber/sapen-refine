@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangleIcon, ArrowLeftIcon, PencilLineIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowLeftIcon } from "lucide-react";
 
 import { AppEmptyState } from "@/components/shell/AppEmptyState";
 import { AppMain } from "@/components/shell/AppMain";
@@ -86,12 +86,6 @@ export async function ImageCropBBoxesPage({
               <Link href={`/app/projects/${projectId}/images/${image.id}`}>
                 <ArrowLeftIcon className="size-4" aria-hidden="true" />
                 Image
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/app/projects/${projectId}/images/${image.id}/edit`}>
-                <PencilLineIcon className="size-4" aria-hidden="true" />
-                Full editor
               </Link>
             </Button>
           </div>

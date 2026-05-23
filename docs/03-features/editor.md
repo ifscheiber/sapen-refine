@@ -13,6 +13,7 @@ Important files:
 - `src/features/editor/CropSupportEditorClient.tsx`
 - `src/features/editor/CropSemanticEditorPage.tsx`
 - `src/features/editor/CropSemanticEditorClient.tsx`
+- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx`
 - `src/features/editor/CorrectionTaskEditorPage.tsx`
 - `src/features/editor/EditorClient.tsx`
 - `src/features/editor/components/*`
@@ -79,7 +80,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
 
-RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. The existing crop support and semantic routes remain compatibility deep links while the guided workbench route family is introduced.
+RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. The existing crop support and semantic routes remain compatibility deep links while the guided workbench route family is introduced.
 
 ## Current Canvas And Input Model
 
@@ -223,6 +224,7 @@ Current RB-094 behavior:
 - `/crop/bboxes` uses the editor canvas in BBox-stage mode: full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and the panel uses "Step 1: Mark slice work areas" wording.
 - `POST /api/images/[imageId]/slice-bboxes/confirm` persists image-level BBox set confirmation in `ImageCropWorkflowState`.
 - Creating, replacing, or deleting a BBox after confirmation keeps append-only BBox history and marks the image-level BBox set as `BBOX_NEEDS_UPDATE`.
+- Returning to `/crop/bboxes` after confirmation shows the confirmed proposals but locks mutation controls until the user explicitly clicks `Edit BBoxes`.
 
 Current RB-095 behavior:
 
@@ -230,6 +232,13 @@ Current RB-095 behavior:
 - `/crop/slices/[sliceInstanceId]` remains a compatibility selected-slice route and redirects to the selected semantic editor when a current crop exists.
 - `src/server/domain/cropSliceNavigator.ts` composes navigator state from active BBoxes, derived crop versions, and `src/server/domain/cropReadiness.ts`.
 - `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds whole-image slice navigation and status beside crop support and semantic editors. Clicking a slice opens the same editor mode for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
+- The embedded rail also exposes `Edit BBoxes`, which links to the image-level BBox stage instead of the legacy full-image editor.
+
+Current RB-103 behavior:
+
+- Crop semantic and support editor headers expose `Edit BBoxes` back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
+- Crop workflow pages no longer expose `Editor` or `Full editor` escape hatches to `/app/projects/[projectId]/images/[imageId]/edit`.
+- Navigation-only re-entry preserves `BBOX_CONFIRMED`; actual BBox replacement/deletion after the explicit unlock transitions the image workflow to `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set`.
 
 Current RB-087 behavior:
 
@@ -264,7 +273,7 @@ Current RB-090 behavior:
 - The crop semantic editor shows the latest classification source/reason and lets editable users append a manual override for the same slice instance.
 - Auto suggestions and manual overrides are separate `SliceClassificationVersion` rows. Auto suggestions remain draft and are not export-ready until reviewed through the classification review flow.
 
-The current full-resolution editor remains valid and should not be removed by the crop sprint. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
+The legacy full-resolution editor route remains present until RB-104 removes it as a user-facing product surface. The crop workflow is the preferred scalable path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
 
 Editor-specific crop rules:
 

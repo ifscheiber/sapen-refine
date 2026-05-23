@@ -34,6 +34,8 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Click `Open support editor` for the generated crop. | The crop support editor opens at a deep link and displays the crop image in crop coordinates. |  |  |
 | Draw and erase in the crop support editor, then click `Save support mask`. | A draft crop support mask saves, reloads, remains linked to the crop, and exposes submit/review actions according to role; Copper semantic labels are not shown in this editor. |  |  |
 | Click `Semantic` or `Open semantic editor` for the generated crop. | The crop semantic editor opens at a deep link, shows the support overlay, and offers Sap/Heartwood and Copper modes. |  |  |
+| From a crop support or semantic editor, click `Edit BBoxes`. | Browser lands on `/crop/bboxes`; confirmed BBoxes are visible, mutation controls are locked, and no `Editor` or `Full editor` crop-workflow link is visible. |  |  |
+| Click the BBox-stage `Edit BBoxes`, replace or delete a proposal, then re-confirm. | The workflow changes to `BBOX_NEEDS_UPDATE`, `Re-confirm BBox set` becomes available, and continuing returns to crop annotation after confirmation. |  |  |
 | Paint Sapwood/Heartwood inside support and save. | A draft crop semantic mask saves, reloads, records the current support version as its constraint, creates a draft auto slice-classification suggestion, and exposes support/semantic/classification review actions. |  |  |
 | Override the crop slice classification. | A new manual classification version is saved without replacing the auto suggestion. |  |  |
 | Paint near the support boundary. | Brush changes are constrained to support pixels; outside-support semantic foreground cannot be saved. |  |  |
@@ -70,7 +72,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 - Advanced export filters/history, multi-object support geometry, and slice-specific metadata workflows are not implemented.
 - Image-level/default sample metadata exists; it does not yet model different metadata per slice instance.
 - RB-051 supports one default pixel-perfect slice/support geometry per image.
-- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092/RB-100 support source-image BBox slice proposals, derived crop previews, crop support-mask editing, mode-aware crop semantic editing, draft auto classification suggestions/manual overrides, crop training export, and crop-aware review/readiness integration.
+- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092/RB-100/RB-103 support source-image BBox slice proposals, derived crop previews, crop support-mask editing, mode-aware crop semantic editing, draft auto classification suggestions/manual overrides, crop training export, crop-aware review/readiness integration, and explicit BBox re-entry after crop inspection.
 - RB-070 adds explicit Eraser UX for semantic and support masks; background-label painting remains valid.
 - RB-080/RB-081 keep full-resolution editing as the current model and verify 6000x4000 mask upload payloads plus the real semantic save route in automated desktop Chrome. Tiled/downscaled working masks remain deferred unless real iPad Safari or customer hardware proves full-resolution editing unreliable.
 - Advanced iPad gestures are deferred and must not be inferred from this desktop smoke.

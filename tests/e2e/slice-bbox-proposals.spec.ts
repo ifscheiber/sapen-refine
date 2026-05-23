@@ -54,6 +54,9 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("button", { name: "Lasso" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Polygon" })).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit BBoxes" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Editor" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
 
   const imageMatch = page.url().match(/\/images\/([^/]+)\//);
   expect(imageMatch).not.toBeNull();
@@ -83,8 +86,51 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByLabel("Slice navigator")).toBeVisible();
   await expect(page.getByRole("link", { name: "Support", exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "Editor" }).click();
-  await expect(page.getByRole("button", { name: "BBox proposal" })).toBeVisible();
-  await expect(page.getByAltText("Derived slice crop preview")).toBeVisible();
-  await expect(page.getByText(/Crop v\d+:/)).toBeVisible();
+  await page.getByRole("link", { name: "Support", exact: true }).first().click();
+  await expect(page).toHaveURL(/\/slices\/[^/]+\/crops\/[^/]+\/support$/);
+  await expect(page.getByRole("heading", { name: /Support mask:/ })).toBeVisible();
+  await expect(page.getByLabel("Slice navigator")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit BBoxes" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Editor" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Edit BBoxes" }).first().click();
+  await expect(page).toHaveURL(/\/crop\/bboxes$/);
+  await expect(
+    page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
+  await expect(page.getByText("Confirmed").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replace geometry" })).toBeDisabled();
+  await page.getByRole("button", { name: "Edit BBoxes" }).click();
+  await expect(page.getByText("BBox editing enabled. Confirm the set again after changes.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replace geometry" })).toBeEnabled();
+
+  const replacementSurface = page.getByLabel("Mask drawing surface");
+  await replacementSurface.scrollIntoViewIfNeeded();
+  const replacementBox = await replacementSurface.boundingBox();
+  expect(replacementBox).not.toBeNull();
+  if (!replacementBox) return;
+
+  await page.getByRole("button", { name: "Replace geometry" }).click();
+  await page.mouse.move(
+    replacementBox.x + replacementBox.width * 0.2,
+    replacementBox.y + replacementBox.height * 0.2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    replacementBox.x + replacementBox.width * 0.68,
+    replacementBox.y + replacementBox.height * 0.62,
+    { steps: 6 },
+  );
+  await page.mouse.up();
+
+  await expect(page.getByText("BBox proposal replaced")).toBeVisible();
+  await expect(page.getByText("Needs update").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Re-confirm BBox set" })).toBeEnabled();
+  await page.getByRole("button", { name: "Re-confirm BBox set" }).click();
+  await expect(page.getByText("BBox set confirmed")).toBeVisible();
+  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await expect(page).toHaveURL(/\/slices\/[^/]+\/crops\/[^/]+\/semantic$/);
+  await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
 });

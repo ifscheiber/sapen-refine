@@ -23,8 +23,8 @@ This page lists current browser routes backed by `src/app`.
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - image-level BBox stage from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/bboxes/page.tsx` and `src/features/editor/ImageCropBBoxesPage.tsx`.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - compatibility slice navigator entry from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/page.tsx` and `src/features/editor/ImageCropSlicesPage.tsx`; it requires a confirmed BBox set and redirects toward the selected crop editor when a current crop exists.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - compatibility selected-slice route from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/page.tsx` and `src/features/editor/ImageCropSlicesPage.tsx`; it redirects to the selected slice semantic editor when the current crop exists, otherwise it can still show the full navigator fallback.
-- `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support` - crop support-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx` and `src/features/editor/CropSupportEditorPage.tsx`; it embeds the slice navigator as a right rail.
-- `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic` - crop semantic-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx` and `src/features/editor/CropSemanticEditorPage.tsx`; RB-090 also shows the latest slice classification suggestion and manual override controls for editable roles, and RB-101 embeds the slice navigator as a right rail.
+- `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support` - crop support-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx` and `src/features/editor/CropSupportEditorPage.tsx`; it embeds the slice navigator as a right rail and exposes `Edit BBoxes` back to `/crop/bboxes`.
+- `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic` - crop semantic-mask editor from `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx` and `src/features/editor/CropSemanticEditorPage.tsx`; RB-090 also shows the latest slice classification suggestion and manual override controls for editable roles, RB-101 embeds the slice navigator as a right rail, and RB-103 exposes `Edit BBoxes` back to `/crop/bboxes`.
 - Unknown workspace routes are caught by `src/app/(workspace)/app/[...missing]/page.tsx` and render the SaPen Annotate workspace not-found fallback from `src/app/(workspace)/app/not-found.tsx`; unknown non-workspace routes render `src/app/not-found.tsx`.
 
 ## Planned Crop Workflow Routes
@@ -35,11 +35,11 @@ RB-094 implements the crop workflow entry and BBox stage. RB-095 implements the 
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - planned support tool route.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - planned semantic tool route.
 
-The existing `/edit`, `/slices/[sliceInstanceId]/crops/[cropId]/support`, and `/slices/[sliceInstanceId]/crops/[cropId]/semantic` routes remain current compatibility routes until the adjusted crop workflow tickets replace or redirect them.
+The existing `/edit` route remains a current compatibility route until RB-104 removes the legacy full-image editor surface. The existing crop support and semantic routes remain current deep-link editor routes while the guided crop workbench route family is completed.
 
 Post-hotfix ticket updates:
 
-- RB-103 plans explicit crop-editor navigation back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes` so users can revise a confirmed BBox set after crop inspection.
+- RB-103 implements explicit crop-editor navigation back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes` so users can revise a confirmed BBox set after crop inspection. Re-entry alone keeps the set confirmed; mutation requires an explicit `Edit BBoxes` unlock and later re-confirmation.
 - RB-104 plans to remove `/app/projects/[projectId]/images/[imageId]/edit` as a user-facing product route and remove visible `Open editor` / `Full editor` links.
 
 ## Invariants And Constraints

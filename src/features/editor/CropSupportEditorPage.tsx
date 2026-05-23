@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon, LayersIcon } from "lucide-react";
+import { LayersIcon, SquareMousePointerIcon } from "lucide-react";
 
 import { AppMain } from "@/components/shell/AppMain";
 import { AppMissingResource } from "@/components/shell/AppMissingResource";
@@ -80,9 +80,9 @@ export async function CropSupportEditorPage({
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
-              <Link href={`/app/projects/${projectId}/images/${imageId}/edit`}>
-                <ArrowLeftIcon className="size-4" aria-hidden="true" />
-                Editor
+              <Link href={`/app/projects/${projectId}/images/${imageId}/crop/bboxes`}>
+                <SquareMousePointerIcon className="size-4" aria-hidden="true" />
+                Edit BBoxes
               </Link>
             </Button>
             <Button asChild variant="outline">

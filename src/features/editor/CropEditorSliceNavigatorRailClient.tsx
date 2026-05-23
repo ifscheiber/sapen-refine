@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon, SquareMousePointerIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -116,6 +117,12 @@ export function CropEditorSliceNavigatorRailClient({
           <span>{navigator.summary.currentCropCount} current</span>
           <span>{navigator.summary.readyCount} ready</span>
         </div>
+        <Button asChild variant="outline" className="mb-3 w-full">
+          <Link href={navigator.routes.bboxesHref}>
+            <SquareMousePointerIcon className="size-4" aria-hidden="true" />
+            Edit BBoxes
+          </Link>
+        </Button>
         <div className="relative overflow-hidden rounded-md border border-border bg-muted/20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
