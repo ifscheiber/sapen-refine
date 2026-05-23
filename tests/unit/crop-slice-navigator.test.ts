@@ -140,7 +140,14 @@ describe("crop slice navigator model", () => {
       readinessStatus: "READY",
     });
     expect(model.slices[0].currentCrop?.id).toBe("crop-current");
-    expect(model.slices[0].supportHref).toContain("/slices/slice-1/crops/crop-current/support");
+    expect(model.slices[0].selectedHref).toBe(
+      "/app/projects/project-1/images/image-1/crop/slices/slice-1/crops/crop-current",
+    );
+    expect(model.slices[0].workbenchHref).toBe(
+      "/app/projects/project-1/images/image-1/crop/slices/slice-1/crops/crop-current",
+    );
+    expect(model.slices[0].supportHref).toContain("/crop/slices/slice-1/crops/crop-current/support");
+    expect(model.slices[0].semanticHref).toContain("/crop/slices/slice-1/crops/crop-current/semantic");
     expect(model.summary.readyCount).toBe(1);
   });
 
@@ -174,6 +181,7 @@ describe("crop slice navigator model", () => {
       currentCrop: null,
       readinessStatus: "NOT_READY",
       readinessReasons: ["CROP_NOT_CURRENT"],
+      workbenchHref: null,
       supportHref: null,
       semanticHref: null,
     });

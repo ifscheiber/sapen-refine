@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 implements the whole-image slice navigator. RB-096 through RB-098 implement the remaining runtime workflow slices. RB-103 implements BBox-stage re-entry from crop editors. RB-104 is the planned post-hotfix adjustment for legacy full-image editor removal.
+Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 implements the whole-image slice navigator. RB-096 implements the selected crop workbench. RB-097/RB-098 implement the remaining runtime workflow slices. RB-103 implements BBox-stage re-entry from crop editors. RB-104 is the planned post-hotfix adjustment for legacy full-image editor removal.
 
 ## Context
 
@@ -70,7 +70,7 @@ Per-slice/crop state:
 
 - RB-094 owns persisted BBox confirmation and transition UI. Implemented through `ImageCropWorkflowState`, `/crop/bboxes`, and `/api/images/[imageId]/slice-bboxes/confirm`.
 - RB-095 owns the whole-image slice navigator and per-slice status badges. It is implemented through `/crop/slices/[sliceInstanceId]`, `src/features/editor/ImageCropSliceNavigatorClient.tsx`, and `src/server/domain/cropSliceNavigator.ts`.
-- RB-096 owns the unified crop workbench.
+- RB-096 owns the unified crop workbench. It is implemented as a mode-aware selected-crop landing route that links to existing support and semantic crop editors rather than duplicating canvas logic.
 - RB-097 owns semantic-family exclusivity and classification guardrails.
 - RB-103 owns explicit re-entry from crop editors to the BBox stage, including confirmed-set edit/re-confirm smoke coverage. Crop editor headers and the embedded navigator rail expose `Edit BBoxes`; opening the BBox stage after confirmation shows locked proposals until the user explicitly unlocks editing.
 - RB-104 owns removal of the legacy full-image editor route and full-image annotation surface while preserving BBox-stage and assisted-correction functionality through non-legacy surfaces if still required.
@@ -86,5 +86,6 @@ Per-slice/crop state:
 - Current full-image editor route, planned for RB-104 removal: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
 - Current crop support route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
 - Current crop semantic route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
+- Current crop workbench route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/page.tsx`
 - Current crop editor BBox re-entry rail: `src/features/editor/CropEditorSliceNavigatorRailClient.tsx`
 - Current browser re-entry coverage: `tests/e2e/slice-bbox-proposals.spec.ts`

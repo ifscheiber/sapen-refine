@@ -32,6 +32,15 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   ).toBeVisible();
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
+  await expect(drawingSurface).toBeVisible();
+  await expect
+    .poll(async () =>
+      drawingSurface.evaluate((node) => {
+        const canvas = node as HTMLCanvasElement;
+        return { height: canvas.height, width: canvas.width };
+      }),
+    )
+    .toEqual({ height: 180, width: 180 });
   await drawingSurface.scrollIntoViewIfNeeded();
   const box = await drawingSurface.boundingBox();
   expect(box).not.toBeNull();
@@ -47,7 +56,16 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.getByRole("button", { name: "Confirm BBox set" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
-  await expect(page).toHaveURL(/\/slices\/[^/]+\/crops\/[^/]+\/semantic$/);
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: /Crop workbench:/ })).toBeVisible();
+  await expect(page.getByLabel("Slice navigator")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start Sap/Heartwood semantic" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Draw Copper draft" })).toBeVisible();
+  await expect(page.getByText("Support mask optional")).toBeVisible();
+  await expect(page.getByText(/approved explicit support is required before export readiness/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open support editor" })).toBeVisible();
+  await page.getByRole("link", { name: "Start Sap/Heartwood semantic" }).click();
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+\/semantic\?mode=SAP_HEARTWOOD$/);
   await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
   await expect(page.getByLabel("Slice navigator")).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
@@ -87,9 +105,10 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("link", { name: "Support", exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Support", exact: true }).first().click();
-  await expect(page).toHaveURL(/\/slices\/[^/]+\/crops\/[^/]+\/support$/);
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+\/support$/);
   await expect(page.getByRole("heading", { name: /Support mask:/ })).toBeVisible();
   await expect(page.getByLabel("Slice navigator")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Workbench" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit BBoxes" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Editor" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
@@ -131,6 +150,6 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.getByRole("button", { name: "Re-confirm BBox set" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
-  await expect(page).toHaveURL(/\/slices\/[^/]+\/crops\/[^/]+\/semantic$/);
-  await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: /Crop workbench:/ })).toBeVisible();
 });

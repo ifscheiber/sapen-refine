@@ -45,6 +45,7 @@ import { createEditorLoadGuard } from "./editorLoadGuard";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
+import { defaultLabelForSemanticMode } from "./cropWorkbenchGuidance";
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   SLICE_CLASS_OPTIONS,
@@ -60,6 +61,7 @@ import {
 type CropSemanticEditorClientProps = {
   cropId: string;
   canEdit: boolean;
+  initialSemanticMode?: CropSemanticMode;
 };
 
 type Stroke = Patch[];
@@ -150,7 +152,11 @@ function displaySupportMask(source: MaskBuffer) {
   return display;
 }
 
-export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditorClientProps) {
+export function CropSemanticEditorClient({
+  cropId,
+  canEdit,
+  initialSemanticMode = "SAP_HEARTWOOD",
+}: CropSemanticEditorClientProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const supportCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -182,8 +188,8 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
   const [status, setStatus] = useState("");
   const [editorReady, setEditorReady] = useState(false);
   const [tool, setTool] = useState<Tool>("brush");
-  const [semanticMode, setSemanticMode] = useState<CropSemanticMode>("SAP_HEARTWOOD");
-  const [activeLabel, setActiveLabel] = useState<LabelId>(Labels.SAPWOOD);
+  const [semanticMode, setSemanticMode] = useState<CropSemanticMode>(initialSemanticMode);
+  const [activeLabel, setActiveLabel] = useState<LabelId>(defaultLabelForSemanticMode(initialSemanticMode));
   const [brushRadius, setBrushRadius] = useState(8);
   const [opacity, setOpacity] = useState(0.5);
   const [supportOpacity, setSupportOpacity] = useState(0.3);
@@ -857,6 +863,7 @@ export function CropSemanticEditorClient({ cropId, canEdit }: CropSemanticEditor
     if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
     resetLasso();
     setSemanticMode(nextMode);
+    setActiveLabel(defaultLabelForSemanticMode(nextMode));
   }
 
   function selectTool(nextTool: Tool) {

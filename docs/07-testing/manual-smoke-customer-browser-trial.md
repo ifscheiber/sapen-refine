@@ -48,12 +48,12 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Upload an unsupported file type if available. | Request fails with `UNSUPPORTED_CONTENT_TYPE`; no image row or private storage URL is exposed. |  |  |
 | Open image metadata. | Technical metadata, checksum, dimensions, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
-| Open editor. | Image loads, canvas is usable, controls are visible. |  |  |
-| Select `BBox proposal` and draw a rough slice box. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth. |  |  |
-| Click `Generate crop` for the selected BBox proposal. | A crop preview appears with dimensions and padding metadata; no support mask or export-ready state is implied by the crop alone. |  |  |
+| Open crop workflow. | The image-level BBox stage opens through the crop workflow route. |  |  |
+| Draw a rough slice box and confirm the BBox set. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth; confirmation records workflow intent only. |  |  |
+| Continue to slice annotation. | The selected crop workbench opens with crop preview, Sap/Heartwood and Copper actions, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
 | Click `Open support editor` for the generated crop. | The crop support editor opens at a deep link and displays the crop image in crop coordinates. |  |  |
 | Draw and erase in the crop support editor, then save. | A draft crop support mask saves, reloads, and uses only support/background labels. |  |  |
-| Open the generated crop semantic editor. | The crop semantic editor opens at a deep link, shows the support overlay, and offers Sap/Heartwood and Copper modes. |  |  |
+| Open the generated crop semantic editor from the workbench. | The crop semantic editor opens at a deep link, shows the support overlay, and offers Sap/Heartwood and Copper modes. |  |  |
 | Paint and save a crop semantic mask. | A Sap/Heartwood draft can save without support and derives support from semantic foreground. A Copper draft can save before support, but export readiness remains blocked until support is approved. |  |  |
 | Override the crop slice classification. | A new manual classification version is saved without replacing the auto suggestion. |  |  |
 | Reload after creating the BBox proposal and crop. | The BBox proposal and crop preview reload; no support mask or export-ready state is implied by the BBox/crop alone. |  |  |

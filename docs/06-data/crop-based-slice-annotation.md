@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-094 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model for RB-094 through RB-098, and RB-094 implements image-level BBox set confirmation.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-096 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model, RB-094 implements image-level BBox set confirmation, RB-095 implements whole-image slice navigation, and RB-096 implements the selected crop workbench.
 
 The current implemented editor remains the full-resolution editor documented in `docs/03-features/editor.md`. The crop workflow is the planned scalable path for large images and iPad-constrained annotation work after RB-081 fixed the immediate full-resolution mask upload blocker.
 
@@ -14,8 +14,8 @@ The planned workflow is:
 Original image
 -> BBox proposal
 -> derived slice crop
--> pixel-perfect support mask
--> support-constrained semantic mask
+-> selected crop workbench
+-> mode-aware support/semantic annotation
 -> auto-suggested slice classification
 -> review/approval
 -> export with crop and source-image provenance
@@ -256,12 +256,13 @@ Current implemented behavior:
 - RB-091 crop training exports for ready crop candidates with approved support, semantic, and classification lineage,
 - RB-092 crop readiness and review actions in the project export panel, BBox crop panel, crop support editor, and crop semantic editor,
 - RB-095 slice navigator status derived from active BBoxes, current/stale crop versions, latest crop artifacts, classification versions, and crop readiness,
+- RB-096 selected crop workbench with crop preview, mode-aware Sap/Heartwood/Copper guidance, status, readiness, and embedded whole-image slice navigation,
 - default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - full-resolution trial bounds and large-image warnings are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- guided crop workflow routes for image-level BBox confirmation are implemented by RB-094, and the whole-image slice navigator is implemented by RB-095; selected-slice crop workbench routes are implemented by RB-096 through RB-098,
+- guided crop workflow routes for image-level BBox confirmation, whole-image slice navigation, and selected crop workbench orchestration are implemented by RB-094 through RB-096; semantic-family conflict guards remain planned for RB-097,
 - source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs

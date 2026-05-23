@@ -9,6 +9,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - `src/features/editor/EditImagePage.tsx` - server-side full-image editor route composition and RBAC check.
 - `src/features/editor/ImageCropBBoxesPage.tsx` - RB-094 staged image-level BBox route composition using the editor canvas in BBox-stage mode.
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` - RB-095 whole-image slice navigator with BBox overlays, selected-slice URL state, status badges, and crop generation/regeneration action.
+- `src/features/editor/CropWorkbenchPage.tsx` - RB-096 selected crop workbench with mode-aware guidance, crop preview, readiness/status summaries, and embedded slice navigation.
 - `src/features/editor/EditorClient.tsx` - client-side editor surface, canvas rendering, mask save/reload, slice classification, review controls, and local PNG export.
 - `src/features/editor/CropSupportEditorPage.tsx` and `src/features/editor/CropSupportEditorClient.tsx` - crop support editor composition and crop-sized binary support mask editing.
 - `src/features/editor/CropSemanticEditorPage.tsx` and `src/features/editor/CropSemanticEditorClient.tsx` - crop semantic editor composition, mode-aware support policy, crop-sized semantic mask editing, and classification/review controls.
@@ -25,6 +26,9 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Browser route: `/app/projects/[projectId]/images/[imageId]/edit`.
 - Crop workflow BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
 - Crop workflow slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
+- Crop workbench route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]`.
+- Crop workflow support route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support`.
+- Crop workflow semantic route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`.
@@ -44,6 +48,7 @@ The current editor lets users view an uploaded image, draw source-image BBox sli
 - Crop semantic Brush and lasso operations are mode-aware: Sap/Heartwood edits are unconstrained and use semantic foreground as support geometry, while Copper edits are clipped to explicit support when a support mask exists. Copper drafts can be edited before support exists, but readiness/export still requires approved explicit support.
 - BBox proposal drawing also uses Pointer Events and stores integer source-image pixel rectangles.
 - Crop support and semantic editor headers and the embedded slice navigator rail expose `Edit BBoxes`, linking back to `/crop/bboxes` instead of the legacy full-image editor route.
+- The crop workbench route orchestrates existing crop editors instead of embedding or duplicating canvas logic. Semantic links may pass `mode=SAP_HEARTWOOD` or `mode=COPPER` to preselect the initial semantic family.
 - Eraser is a brush-shaped tool. It uses the same size control as Brush, writes semantic background in `Semantic mask` mode, and writes support background in `Slice support` mode.
 - The `Background` label remains selectable; explicit Eraser is a discoverability and repeated-workflow improvement.
 - The drawing canvas is expected to suppress page scroll while drawing; page scroll should remain available outside the canvas container.

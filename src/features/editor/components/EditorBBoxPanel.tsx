@@ -207,13 +207,19 @@ export function EditorBBoxPanel({
             <>
               <Link
                 className={idleButtonClass}
-                href={`/app/projects/${projectId}/images/${imageId}/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/support`}
+                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}`}
+              >
+                Open workbench
+              </Link>
+              <Link
+                className={idleButtonClass}
+                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/support`}
               >
                 Open support editor
               </Link>
               <Link
                 className={idleButtonClass}
-                href={`/app/projects/${projectId}/images/${imageId}/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/semantic`}
+                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/semantic`}
               >
                 Open semantic editor
               </Link>

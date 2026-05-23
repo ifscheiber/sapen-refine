@@ -7,8 +7,10 @@ Important files:
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
+- `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/tasks/[taskId]/correct/page.tsx`
 - `src/features/editor/EditImagePage.tsx`
+- `src/features/editor/CropWorkbenchPage.tsx`
 - `src/features/editor/CropSupportEditorPage.tsx`
 - `src/features/editor/CropSupportEditorClient.tsx`
 - `src/features/editor/CropSemanticEditorPage.tsx`
@@ -74,13 +76,16 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - BBox stage route: `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
 - Slice navigator entry route: `/app/projects/[projectId]/images/[imageId]/crop/slices`.
 - Selected-slice navigator route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]`.
+- Selected crop workbench route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]`.
+- Crop workflow support route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support`.
+- Crop workflow semantic route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Correction route: `/app/projects/[projectId]/tasks/[taskId]/correct`.
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Route wrapper: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`.
 - Server composition/RBAC: `src/features/editor/EditImagePage.tsx`.
 - Client editor surface: `src/features/editor/EditorClient.tsx`.
 
-RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. The existing crop support and semantic routes remain compatibility deep links while the guided workbench route family is introduced.
+RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implements the selected crop workbench and crop-prefixed support/semantic tool routes. RB-103 adds explicit `Edit BBoxes` navigation from crop support and semantic editors back to `/crop/bboxes`. The existing non-crop-prefixed crop support and semantic routes remain compatibility deep links.
 
 ## Current Canvas And Input Model
 
@@ -229,10 +234,16 @@ Current RB-094 behavior:
 Current RB-095 behavior:
 
 - `/crop/slices` redirects toward the selected slice editor when the BBox set is confirmed, and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
-- `/crop/slices/[sliceInstanceId]` remains a compatibility selected-slice route and redirects to the selected semantic editor when a current crop exists.
+- `/crop/slices/[sliceInstanceId]` remains a compatibility selected-slice route and redirects to the selected crop workbench when a current crop exists.
 - `src/server/domain/cropSliceNavigator.ts` composes navigator state from active BBoxes, derived crop versions, and `src/server/domain/cropReadiness.ts`.
 - `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds whole-image slice navigation and status beside crop support and semantic editors. Clicking a slice opens the same editor mode for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
 - The embedded rail also exposes `Edit BBoxes`, which links to the image-level BBox stage instead of the legacy full-image editor.
+
+Current RB-096 behavior:
+
+- `/crop/slices/[sliceInstanceId]/crops/[cropId]` is the selected crop workbench. It shows crop preview, support/semantic/classification/readiness status, next-action guidance, mode-aware Sap/Heartwood and Copper actions, and the embedded whole-image slice navigator.
+- Sap/Heartwood semantic editing is presented as available without explicit support. Copper semantic drafts are available without support, while readiness/export guidance requires approved explicit support.
+- Crop workflow support and semantic links use the crop-prefixed route family. The older non-crop-prefixed support/semantic routes remain valid compatibility deep links.
 
 Current RB-103 behavior:
 

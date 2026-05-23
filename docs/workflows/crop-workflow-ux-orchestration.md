@@ -27,10 +27,10 @@ The BBox stage uses planning language. BBoxes are rough crop work areas and must
 - `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route. It resolves persisted workflow state and sends the user to the right stage.
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - implemented image-level "Step 1: mark slice work areas" stage.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - implemented slice navigator entry. It requires a confirmed BBox set and redirects to the first selected slice when active slices exist.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - implemented whole-image slice navigator with selected-slice status, crop generation/regeneration action, and links to current support/semantic crop editors.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - planned selected crop workbench.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - planned support mask tool mode.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - planned semantic mask tool mode.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - implemented compatibility selected-slice route. It redirects to the current crop workbench when a current crop exists.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - implemented selected crop workbench with mode-aware guidance, crop preview, status, readiness, and embedded slice navigation.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - implemented crop workflow support mask tool route.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - implemented crop workflow semantic mask tool route.
 
 Current compatibility routes remain deep-linkable until later tickets replace or redirect them:
 
@@ -81,13 +81,13 @@ RB-103 makes this edit/re-confirm loop reachable from crop semantic and support 
 
 The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the crop support and semantic editors. RB-103 adds an `Edit BBoxes` action to that rail so users can return to the image-level BBox stage without leaving the crop workflow.
 
-Clicking a slice in the editor rail opens the same editor mode for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected semantic editor when a current crop exists.
+Clicking a slice in the editor rail opens the same editor mode for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected crop workbench when a current crop exists.
 
 ### Crop Workbench
 
-The crop workbench is the main annotation surface for crop workflow pixel work. It keeps the crop editor on the left and whole-image slice navigation/status on the right so annotators can move between slices without returning to a separate navigator page.
+The crop workbench is the main annotation landing surface for a selected slice crop. RB-096 implements it at `/crop/slices/[sliceInstanceId]/crops/[cropId]` as an orchestration layer around existing support and semantic crop editors. It shows the selected crop preview, semantic family/status, support status, semantic status, classification status, readiness reasons, next action guidance, and the embedded whole-image slice navigator.
 
-Crop support and semantic editors expose the full crop mask tool palette: Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
+Crop support and semantic editors remain deep-linkable tool surfaces and expose the full crop mask tool palette: Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
 
 Semantic annotation follows the mode-aware support policy. Sap/Heartwood can be edited without an explicit support mask and derives support geometry from semantic foreground. Copper can be drafted before support exists, but approved explicit support is required before Copper readiness/export; when support exists, Copper brush and lasso edits are clipped to support.
 
@@ -109,6 +109,7 @@ Current runtime ownership:
 - `src/features/editor/EditorClient.tsx` for the full-image editor and BBox primitive controls.
 - `src/features/editor/ImageCropBBoxesPage.tsx` for the staged image-level BBox workflow route.
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` for the whole-image slice navigator route.
+- `src/features/editor/CropWorkbenchPage.tsx` for the selected crop workbench route.
 - `src/server/domain/imageCropWorkflow.ts` for persisted BBox set confirmation state and status resolution.
 - `src/server/domain/cropSliceNavigator.ts` for per-slice navigator status composition from active BBoxes, crop versions, and crop readiness.
 - `src/features/editor/CropSupportEditorPage.tsx` for crop support editing.

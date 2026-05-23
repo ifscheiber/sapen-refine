@@ -78,6 +78,7 @@ export type CropSliceNavigatorSlice = {
   readinessReasons: string[];
   nextActions: CropWorkflowNextAction[];
   selectedHref: string;
+  workbenchHref: string | null;
   supportHref: string | null;
   semanticHref: string | null;
 };
@@ -237,12 +238,9 @@ export function buildCropSliceNavigatorModel(params: {
       const currentCrop = currentCandidate ? serializeCrop(currentCandidate) : null;
       const latestCrop = latestCandidate ? serializeCrop(latestCandidate) : null;
       const cropStatus: CropSliceNavigatorCropStatus = currentCrop ? "CURRENT" : latestCrop ? "STALE" : "MISSING";
-      const supportHref = currentCrop
-        ? `/app/projects/${params.projectId}/images/${params.image.id}/slices/${box.sliceInstanceId}/crops/${currentCrop.id}/support`
-        : null;
-      const semanticHref = currentCrop
-        ? `/app/projects/${params.projectId}/images/${params.image.id}/slices/${box.sliceInstanceId}/crops/${currentCrop.id}/semantic`
-        : null;
+      const workbenchHref = currentCrop ? `${baseHref}/${box.sliceInstanceId}/crops/${currentCrop.id}` : null;
+      const supportHref = workbenchHref ? `${workbenchHref}/support` : null;
+      const semanticHref = workbenchHref ? `${workbenchHref}/semantic` : null;
 
       return {
         index: index + 1,
@@ -278,7 +276,8 @@ export function buildCropSliceNavigatorModel(params: {
         readinessStatus: currentCandidate?.readinessStatus ?? "NOT_READY",
         readinessReasons: currentCandidate?.readinessReasons ?? (cropStatus === "STALE" ? ["CROP_NOT_CURRENT"] : []),
         nextActions: currentCandidate?.nextActions ?? [],
-        selectedHref: `${baseHref}/${box.sliceInstanceId}`,
+        selectedHref: workbenchHref ?? `${baseHref}/${box.sliceInstanceId}`,
+        workbenchHref,
         supportHref,
         semanticHref,
       };

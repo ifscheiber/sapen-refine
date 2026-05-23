@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldIcon, SquareMousePointerIcon } from "lucide-react";
+import { LayoutDashboardIcon, ShieldIcon, SquareMousePointerIcon } from "lucide-react";
 
 import { AppMain } from "@/components/shell/AppMain";
 import { AppMissingResource } from "@/components/shell/AppMissingResource";
@@ -11,17 +11,20 @@ import { prisma } from "@/server/db";
 import { loadCropSliceNavigatorForUser } from "@/server/domain/cropSliceNavigator";
 import { CropEditorSliceNavigatorRailClient } from "./CropEditorSliceNavigatorRailClient";
 import { CropSemanticEditorClient } from "./CropSemanticEditorClient";
+import type { CropSemanticMode } from "./editorTypes";
 
 export async function CropSemanticEditorPage({
   projectId,
   imageId,
   sliceInstanceId,
   cropId,
+  initialSemanticMode,
 }: {
   projectId: string;
   imageId: string;
   sliceInstanceId: string;
   cropId: string;
+  initialSemanticMode?: CropSemanticMode;
 }) {
   const { user, membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
 
@@ -80,6 +83,12 @@ export async function CropSemanticEditorPage({
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
+              <Link href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}`}>
+                <LayoutDashboardIcon className="size-4" aria-hidden="true" />
+                Workbench
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link href={`/app/projects/${projectId}/images/${imageId}/crop/bboxes`}>
                 <SquareMousePointerIcon className="size-4" aria-hidden="true" />
                 Edit BBoxes
@@ -87,7 +96,7 @@ export async function CropSemanticEditorPage({
             </Button>
             <Button asChild variant="outline">
               <Link
-                href={`/app/projects/${projectId}/images/${imageId}/slices/${sliceInstanceId}/crops/${cropId}/support`}
+                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}/support`}
               >
                 <ShieldIcon className="size-4" aria-hidden="true" />
                 Support
@@ -97,7 +106,11 @@ export async function CropSemanticEditorPage({
         }
       />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
-        <CropSemanticEditorClient cropId={cropId} canEdit={canAnnotate(membership.role)} />
+        <CropSemanticEditorClient
+          cropId={cropId}
+          canEdit={canAnnotate(membership.role)}
+          initialSemanticMode={initialSemanticMode}
+        />
         <CropEditorSliceNavigatorRailClient navigator={navigator} editorMode="semantic" />
       </div>
     </AppMain>

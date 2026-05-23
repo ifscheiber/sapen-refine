@@ -79,8 +79,8 @@ export async function ImageCropSlicesPage({
     );
   }
 
-  if (selectedSlice?.semanticHref) {
-    redirect(selectedSlice.semanticHref);
+  if (selectedSlice?.workbenchHref) {
+    redirect(selectedSlice.workbenchHref);
   }
 
   return (

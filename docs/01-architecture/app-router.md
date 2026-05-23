@@ -19,5 +19,8 @@ Current stable browser routes:
 - `/app/projects/[projectId]`
 - `/app/projects/[projectId]/images`
 - `/app/projects/[projectId]/images/[imageId]/edit`
+- `/app/projects/[projectId]/images/[imageId]/crop`
+- `/app/projects/[projectId]/images/[imageId]/crop/bboxes`
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]`
 
 Routes stay URL-first; feature behavior should not be hidden in a single client-only app shell.
