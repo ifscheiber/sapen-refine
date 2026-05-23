@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed / Ready for Codex
+Done / Implemented
 
 ## Priority
 
@@ -163,3 +163,36 @@ Add sprint closeout notes if useful.
 7. Legacy full-image editor route/link removal is verified.
 8. Docs and manual smoke tests are updated.
 9. Full validation gate passes.
+
+---
+
+## 7. Implementation Notes
+
+Implemented as the final crop workflow UX closeout slice.
+
+- Added `tests/e2e/crop-workflow-closeout.spec.ts`.
+- The new browser smoke covers supportless Copper semantic draft save, missing-support readiness blocking, explicit support creation/review, Copper semantic/classification review, and final crop readiness.
+- The new browser smoke covers Sap/Heartwood-to-Copper semantic-family reset confirmation and verifies cancelling reset keeps Sap/Heartwood active.
+- Existing E2E coverage remains responsible for Sap/Heartwood supportless review/export, BBox-stage re-entry, large-image crop semantic save, and removed legacy editor URL behavior.
+- Manual smoke docs now separate Sap/Heartwood supportless/reset checks from the Copper support-required readiness path.
+- Testing docs and known-gaps/workflow docs now reference the RB-098 closeout coverage.
+
+## 8. Validation
+
+Baseline before edits:
+
+- `git status --short` clean.
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+- `npm run test` passed.
+
+Final validation:
+
+- `npm run prisma:generate` passed.
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `npm run test` passed.
+- `npm run check:design-hardcoding` passed.
+- `npx playwright test tests/e2e/crop-workflow-closeout.spec.ts tests/e2e/slice-bbox-proposals.spec.ts tests/e2e/desktop-browser-smoke.spec.ts tests/e2e/large-mask-upload.spec.ts tests/e2e/missing-resource-soft-landing.spec.ts` passed.
+- `npm run test:e2e` passed.

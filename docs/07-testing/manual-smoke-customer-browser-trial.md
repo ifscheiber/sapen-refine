@@ -54,7 +54,10 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Click `Open support editor` for the generated crop. | The crop support editor opens at a deep link and displays the crop image in crop coordinates. |  |  |
 | Draw and erase in the crop support editor, then save. | A draft crop support mask saves, reloads, and uses only support/background labels. |  |  |
 | Open the generated crop semantic editor from the workbench. | The crop semantic editor opens at a deep link, shows the support overlay, and offers Sap/Heartwood and Copper modes. |  |  |
-| Paint and save a crop semantic mask. | A Sap/Heartwood draft can save without support and derives support from semantic foreground. A Copper draft can save before support, but export readiness remains blocked until support is approved. |  |  |
+| Test the supportless Sap/Heartwood path on a crop without relying on explicit support. | The semantic draft saves, derives support geometry from semantic foreground, and creates a Sap/Heartwood auto-classification suggestion. |  |  |
+| Attempt to switch the same crop from Sap/Heartwood to Copper. | A semantic-family reset confirmation appears; cancelling reset keeps Sap/Heartwood active and the crop cannot silently become mixed-family ready. |  |  |
+| On a fresh crop or after explicit reset, paint and save a Copper crop semantic draft before support exists. | The draft saves, auto classification is Copper slice, and readiness remains blocked by missing approved explicit support. |  |  |
+| Approve explicit support, Copper semantic, and classification. | Copper crop readiness can become ready only after all three reviewed components are approved. |  |  |
 | Override the crop slice classification. | A new manual classification version is saved without replacing the auto suggestion. |  |  |
 | Reload after creating the BBox proposal and crop. | The BBox proposal and crop preview reload; no support mask or export-ready state is implied by the BBox/crop alone. |  |  |
 | Draw with brush and lasso. | Mask overlay follows input and changes can be saved. |  |  |

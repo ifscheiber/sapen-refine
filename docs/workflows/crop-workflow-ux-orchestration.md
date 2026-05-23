@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor surface.
+This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-098 closes the adjusted sprint with browser smoke coverage for Copper readiness, semantic-family reset UX, BBox re-entry, and legacy editor removal. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor surface.
 
 The crop workflow is a route-addressable staged workflow, not a hidden client-only state machine.
 
