@@ -25,7 +25,13 @@ function pluralizeImages(count: number) {
   return count === 1 ? "1 image" : `${count} images`;
 }
 
-export function AppSidebar({ projects }: { projects: ShellProject[] }) {
+export function AppSidebar({
+  projects,
+  canCreateProject,
+}: {
+  projects: ShellProject[];
+  canCreateProject: boolean;
+}) {
   const pathname = usePathname();
   const projectIdFromPath = activeProjectIdFromPath(pathname);
   const activeProject =
@@ -58,10 +64,12 @@ export function AppSidebar({ projects }: { projects: ShellProject[] }) {
 
         <WorkspaceSidebarSection title="Actions">
           <div className="space-y-1">
-            <Link href="/app/projects/new" className={sidebarActionClassName}>
-              <PlusIcon className="size-3.5" aria-hidden="true" />
-              <span>New Project</span>
-            </Link>
+            {canCreateProject ? (
+              <Link href="/app/projects/new" className={sidebarActionClassName}>
+                <PlusIcon className="size-3.5" aria-hidden="true" />
+                <span>New Project</span>
+              </Link>
+            ) : null}
             {activeProject ? (
               <Link href={`/app/projects/${activeProject.id}`} className={sidebarActionClassName}>
                 <UploadIcon className="size-3.5" aria-hidden="true" />
@@ -87,7 +95,9 @@ export function AppSidebar({ projects }: { projects: ShellProject[] }) {
         >
           {projects.length === 0 ? (
             <div className="pr-6 text-xs leading-5 text-[var(--text-secondary)]">
-              No projects yet. Create the first annotation project to start uploading images.
+              {canCreateProject
+                ? "No projects yet. Create the first annotation project to start uploading images."
+                : "No annotation projects are visible for your account."}
             </div>
           ) : (
             <div className="space-y-1 pr-2">

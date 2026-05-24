@@ -19,10 +19,12 @@ Project permissions are intentionally role-based for the trial:
 
 - Read project data: `OWNER`, `QA`, `LABELER`, `VIEWER`.
 - Manage project metadata: `OWNER`, `QA`.
-- Upload images, edit metadata, annotate, and submit review: `OWNER`, `QA`, `LABELER`.
+- Product role `Annotator` maps to `AnnotationProjectRole.LABELER`.
+- Create projects: global `ADMIN` users and users that already own at least one annotation project. Plain Annotator/`LABELER` users cannot create projects.
+- Upload images, edit image/sample metadata, open annotation workspaces, edit BBoxes, edit support masks, edit semantic masks, and submit own work: `OWNER`, `QA`, `LABELER`.
 - Review/approve/reject: `OWNER`, `QA`.
 - Create training exports: `OWNER`.
-- Create prediction-analysis exports, prediction imports, prediction runs, correction-task management, and batch processing: `OWNER`, `QA`.
+- View/use project export, prediction import, prediction-analysis, active-learning correction task, and worker/process-due surfaces: `OWNER`, `QA`.
 - Create model runs, view full audit data, and run storage cleanup: global `ADMIN`.
 
 The UI may hide unavailable actions, but backend/domain services remain the source of truth.

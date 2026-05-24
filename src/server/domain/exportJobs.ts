@@ -310,15 +310,7 @@ export async function processDueExportJobsForUser(params: {
   const now = new Date();
   const projectTargets = await accessibleProjectTargets(params.userId);
   if (projectTargets.length === 0) {
-    return {
-      processorId: processor.processorId,
-      processorRunId: processor.processorRunId,
-      exportCount: 0,
-      completedCount: 0,
-      failedCount: 0,
-      retryPendingCount: 0,
-      results: [],
-    };
+    throw new ExportJobError("FORBIDDEN", 403);
   }
 
   const dueJobs = await prisma.exportBatch.findMany({

@@ -524,6 +524,13 @@ describe("training export workflow", () => {
     expect(readiness.summary.approvedSupportMasks).toBeGreaterThanOrEqual(1);
     expect(readiness.summary.approvedClassifications).toBeGreaterThanOrEqual(1);
 
+    await expect(
+      exportsDomain.resolveProjectExportReadiness({ projectId, userId: labelerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      exportsDomain.resolveProjectExportReadiness({ projectId, userId: viewerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
     const exportBatch = await createProcessedTrainingExport(["combined"]);
     expect(exportBatch.downloads?.manifest).toContain(`/api/exports/${exportBatch.id}/download`);
     expect(JSON.stringify(exportBatch)).not.toContain("tests/export/");

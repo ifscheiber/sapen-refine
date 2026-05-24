@@ -252,9 +252,9 @@ Current MVP access:
 
 - Any authenticated project member can inspect export readiness.
 - `OWNER` can create export batches and download generated export files.
-- `QA`, `LABELER`, and `VIEWER` cannot create or download exports in RB-053.
+- `QA` can inspect export readiness but cannot create or download training exports in RB-053. `LABELER` and `VIEWER` cannot inspect export readiness, create exports, or download exports.
 
-Prediction-analysis exports are a separate RB-060 mode. Project `OWNER` and `QA` can create/download those QA packages, while `LABELER` and `VIEWER` cannot.
+Prediction-analysis exports are a separate RB-060 mode. Project `OWNER` and `QA` can inspect readiness and create/download those QA packages, while `LABELER` and `VIEWER` cannot access the prediction-analysis export surface.
 
 All export creation records the authenticated actor. Future project policy may allow QA export access, but that is deferred.
 

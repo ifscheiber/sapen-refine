@@ -337,7 +337,7 @@ describe("active-learning correction task queue", () => {
     });
 
     const listed = await correctionTasks.listProjectCorrectionTasksForUser(
-      { projectId, userId: viewerId, predictionRunId: predictionRun.id },
+      { projectId, userId: qaId, predictionRunId: predictionRun.id },
       prisma,
     );
 
@@ -373,9 +373,15 @@ describe("active-learning correction task queue", () => {
     );
     const taskId = created.tasks[0].id;
 
-    const read = await correctionTasks.getCorrectionTaskForUser({ taskId, userId: viewerId }, prisma);
+    const read = await correctionTasks.getCorrectionTaskForUser({ taskId, userId: qaId }, prisma);
     expect(read.id).toBe(taskId);
 
+    await expect(
+      correctionTasks.getCorrectionTaskForUser({ taskId, userId: labelerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      correctionTasks.listProjectCorrectionTasksForUser({ projectId, userId: labelerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       correctionTasks.listProjectCorrectionTasksForUser({ projectId, userId: outsiderId }, prisma),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -385,15 +391,21 @@ describe("active-learning correction task queue", () => {
         prisma,
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      correctionTasks.updateCorrectionTaskForUser(
+        { taskId, userId: labelerId, input: { action: "assign_to_me" } },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const claimed = await correctionTasks.updateCorrectionTaskForUser(
-      { taskId, userId: labelerId, input: { action: "assign_to_me" } },
+      { taskId, userId: qaId, input: { action: "assign_to_me" } },
       prisma,
     );
-    expect(claimed.assigneeId).toBe(labelerId);
+    expect(claimed.assigneeId).toBe(qaId);
 
     const started = await correctionTasks.updateCorrectionTaskForUser(
-      { taskId, userId: labelerId, input: { action: "start" } },
+      { taskId, userId: qaId, input: { action: "start" } },
       prisma,
     );
     expect(started.status).toBe("IN_PROGRESS");
@@ -405,7 +417,7 @@ describe("active-learning correction task queue", () => {
     expect(prioritized.priority).toBe(99);
 
     const dismissed = await correctionTasks.updateCorrectionTaskForUser(
-      { taskId, userId: labelerId, input: { action: "dismiss" } },
+      { taskId, userId: qaId, input: { action: "dismiss" } },
       prisma,
     );
     expect(dismissed.status).toBe("CANCELLED");

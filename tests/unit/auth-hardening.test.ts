@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canAnnotate,
+  canCreateProjectFromContext,
   canCreateModelRun,
   canExportPredictionAnalysis,
   canExportTraining,
@@ -10,6 +11,14 @@ import {
   canReadProject,
   canReview,
   canSubmitReview,
+  canViewCorrectionTasks,
+  canViewPredictionAnalysis,
+  canViewPredictionImports,
+  canViewPredictionRuns,
+  canViewProjectExports,
+  canWorkOnCorrectionTask,
+  hasProjectCapability,
+  isAnnotatorRole,
   canViewAudit,
 } from "@/server/auth/policies";
 import { sanitizeLoginRedirect } from "@/server/auth/redirects";
@@ -24,14 +33,24 @@ describe("auth/RBAC policies", () => {
   it("keeps project role rules explicit", () => {
     expect(canReadProject("VIEWER")).toBe(true);
     expect(canManageProject("VIEWER")).toBe(false);
+    expect(canAnnotate("VIEWER")).toBe(false);
     expect(canManageProject("QA")).toBe(true);
     expect(canAnnotate("LABELER")).toBe(true);
     expect(canSubmitReview("LABELER")).toBe(true);
     expect(canReview("LABELER")).toBe(false);
+    expect(isAnnotatorRole("LABELER")).toBe(true);
+    expect(hasProjectCapability("LABELER", "annotation:editBoundingBoxes")).toBe(true);
+    expect(canViewProjectExports("LABELER")).toBe(false);
+    expect(canViewPredictionAnalysis("LABELER")).toBe(false);
+    expect(canViewPredictionImports("LABELER")).toBe(false);
+    expect(canViewPredictionRuns("LABELER")).toBe(false);
+    expect(canViewCorrectionTasks("LABELER")).toBe(false);
+    expect(canWorkOnCorrectionTask("LABELER")).toBe(false);
     expect(canExportTraining("QA")).toBe(false);
     expect(canExportTraining("OWNER")).toBe(true);
     expect(canExportPredictionAnalysis("QA")).toBe(true);
     expect(canImportPrediction("QA")).toBe(true);
+    expect(canViewPredictionRuns("QA")).toBe(true);
   });
 
   it("keeps global admin-only rules separate from project roles", () => {
@@ -39,6 +58,14 @@ describe("auth/RBAC policies", () => {
     expect(canCreateModelRun(["ADMIN"])).toBe(true);
     expect(canViewAudit(["USER"])).toBe(false);
     expect(canViewAudit(["ADMIN"])).toBe(true);
+  });
+
+  it("limits project creation to admins and existing project owners", () => {
+    expect(canCreateProjectFromContext({ globalRoles: ["ADMIN"], projectRoles: [] })).toBe(true);
+    expect(canCreateProjectFromContext({ globalRoles: ["USER"], projectRoles: ["OWNER"] })).toBe(true);
+    expect(canCreateProjectFromContext({ globalRoles: ["USER"], projectRoles: ["LABELER"] })).toBe(false);
+    expect(canCreateProjectFromContext({ globalRoles: ["USER"], projectRoles: ["VIEWER"] })).toBe(false);
+    expect(canCreateProjectFromContext({ globalRoles: ["USER"], projectRoles: [] })).toBe(false);
   });
 });
 

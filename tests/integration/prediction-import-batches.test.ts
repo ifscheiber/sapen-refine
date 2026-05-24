@@ -606,11 +606,12 @@ describe("prediction import batch workflow", () => {
     await expect(
       batches.retryPredictionImportBatchForUser({ batchId: batch.id, userId: labelerId }, prisma),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    const labelerDuePass = await batches.processDuePredictionImportBatchesForUser(
-      { userId: labelerId, input: { maxJobs: 1 } },
-      prisma,
-    );
-    expect(labelerDuePass).toMatchObject({ batchCount: 0, processedCount: 0 });
+    await expect(
+      batches.processDuePredictionImportBatchesForUser(
+        { userId: labelerId, input: { maxJobs: 1 } },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects unsupported manifest target types before staging", async () => {

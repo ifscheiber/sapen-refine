@@ -15,7 +15,14 @@ import {
 } from "@/components/workspace/WorkspaceLayout";
 import { AppEmptyState } from "@/components/shell/AppEmptyState";
 import { ImagesClient } from "@/features/images/ImagesClient";
-import { canManageProject, canUploadImage } from "@/server/auth/policies";
+import { resolveProjectCreateCapability } from "@/server/auth/rbac";
+import {
+  canManageProject,
+  canUploadImage,
+  canViewCorrectionTasks,
+  canViewPredictionImports,
+  canViewProjectExports,
+} from "@/server/auth/policies";
 import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { ProjectMetadataForm } from "./ProjectMetadataForm";
@@ -79,6 +86,7 @@ export async function ProjectsWorkspacePage({
     : projects[0];
 
   const activeTab = tab === "settings" ? "settings" : "images";
+  const canCreateProject = activeProject ? false : await resolveProjectCreateCapability(user.id);
 
   if (!activeProject) {
     return (
@@ -96,22 +104,26 @@ export async function ProjectsWorkspacePage({
                 <span className="text-[var(--text-primary)]">0</span>
               </WorkspaceMetaRow>
             }
-            actions={
+            actions={canCreateProject ? (
               <Button asChild>
                 <Link href="/app/projects/new">New project</Link>
               </Button>
-            }
+            ) : undefined}
           />
         }
         main={
           <AppEmptyState
             title="No projects yet"
-            description="Create the first annotation project to start uploading images."
-            action={
+            description={
+              canCreateProject
+                ? "Create the first annotation project to start uploading images."
+                : "No annotation projects are visible for your account."
+            }
+            action={canCreateProject ? (
               <Button asChild>
                 <Link href="/app/projects/new">New project</Link>
               </Button>
-            }
+            ) : undefined}
           />
         }
       />
@@ -121,9 +133,21 @@ export async function ProjectsWorkspacePage({
   const membershipRole = activeProject.members[0]?.role ?? null;
   const canEditProject = membershipRole ? canManageProject(membershipRole) : false;
   const canUpload = membershipRole ? canUploadImage(membershipRole) : false;
+  const canViewOperations = membershipRole
+    ? canViewProjectExports(membershipRole) ||
+      canViewPredictionImports(membershipRole) ||
+      canViewCorrectionTasks(membershipRole)
+    : false;
+  const effectiveTab = activeTab === "settings" && canEditProject ? "settings" : "images";
   const projectRootHref = `/app/projects/${activeProject.id}`;
   const settingsHref = `/app/projects/${activeProject.id}?tab=settings`;
   const ownerLabel = activeProject.createdBy?.name ?? activeProject.createdBy?.email ?? "—";
+  const localTabs = [
+    { label: "Images", href: projectRootHref, active: effectiveTab === "images" },
+    ...(canEditProject
+      ? [{ label: "Project Settings", href: settingsHref, active: effectiveTab === "settings" }]
+      : []),
+  ];
 
   return (
     <WorkspacePageLayout
@@ -183,14 +207,11 @@ export async function ProjectsWorkspacePage({
       }
       localTabs={
         <WorkspaceLocalTabs
-          tabs={[
-            { label: "Images", href: projectRootHref, active: activeTab === "images" },
-            { label: "Project Settings", href: settingsHref, active: activeTab === "settings" },
-          ]}
+          tabs={localTabs}
         />
       }
       main={
-        activeTab === "settings" ? (
+        effectiveTab === "settings" ? (
           <div className="pl-4">
             <ProjectMetadataForm
               projectId={activeProject.id}
@@ -210,10 +231,10 @@ export async function ProjectsWorkspacePage({
           <WorkspaceUtilitySection title="Project status">
             <div className="space-y-3">
               {statRow("Images", activeProject._count.images)}
-              {statRow("Tasks", activeProject._count.tasks)}
-              {statRow("Exports", activeProject._count.exportBatches)}
-              {statRow("Prediction runs", activeProject._count.predictionRuns)}
-              {statRow("Prediction imports", activeProject._count.predictionImportBatches)}
+              {canViewOperations ? statRow("Tasks", activeProject._count.tasks) : null}
+              {canViewOperations ? statRow("Exports", activeProject._count.exportBatches) : null}
+              {canViewOperations ? statRow("Prediction runs", activeProject._count.predictionRuns) : null}
+              {canViewOperations ? statRow("Prediction imports", activeProject._count.predictionImportBatches) : null}
               {statRow(
                 "Label schema",
                 activeProject.labelSchemaVersion
@@ -225,7 +246,8 @@ export async function ProjectsWorkspacePage({
           <WorkspaceUtilitySection title="Primary actions">
             <ProjectOperationsNav
               projectId={activeProject.id}
-              current={activeTab === "images" ? "images" : "overview"}
+              current={effectiveTab === "images" ? "images" : "overview"}
+              role={membershipRole ?? undefined}
               orientation="vertical"
             />
           </WorkspaceUtilitySection>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppMissingResource } from "@/components/shell/AppMissingResource";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
-import { PROJECT_READ_ROLES } from "@/server/auth/policies";
+import { canViewCorrectionTasks, PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { loadCorrectionContextForUser } from "@/server/domain/assistedCorrection";
 import EditorClient from "./EditorClient";
@@ -17,7 +17,21 @@ export async function CorrectionTaskEditorPage({
   projectId: string;
   taskId: string;
 }) {
-  const { user } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
+  const { user, membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
+  if (!canViewCorrectionTasks(membership.role)) {
+    return (
+      <AppMain>
+        <AppPageHeader title="Correction task not found" description="SaPen Annotate" />
+        <AppMissingResource
+          title="Correction task not found or no longer available"
+          description="The task may have been removed, completed elsewhere, or the copied link may be stale."
+          actions={[
+            { kind: "project", href: `/app/projects/${projectId}` },
+          ]}
+        />
+      </AppMain>
+    );
+  }
   const context = await loadCorrectionContextForUser({ taskId, userId: user.id }).catch(() => null);
   if (!context || context.task.projectId !== projectId || !context.image?.id) {
     return (

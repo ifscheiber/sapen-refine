@@ -315,11 +315,13 @@ See [training-export-contract.md](training-export-contract.md).
 
 Current `AnnotationProjectRole` values are `OWNER`, `QA`, `LABELER`, and `VIEWER`.
 
-Planned role behavior:
+Current role behavior:
 
-- Annotate: `OWNER`, `QA`, and `LABELER` can create draft/submitted annotation artifacts.
+- Annotator product role: maps to existing project role `LABELER`.
+- Project creation: global `ADMIN` users and users with at least one existing `OWNER` project membership can create projects. Plain `LABELER`/Annotator users cannot create projects.
+- Annotate: `OWNER`, `QA`, and `LABELER` can create draft/submitted direct annotation artifacts.
 - Review: `OWNER` and `QA` can approve, reject, or supersede submitted artifacts.
-- Export: `OWNER` can create export batches by default; `QA` export access may be enabled by project policy.
+- Export and prediction operations: `OWNER`/`QA` can use export, prediction-analysis, prediction-import, and correction-task operational surfaces according to the capability map. `LABELER` cannot use these operational APIs directly.
 - View: `VIEWER` can inspect permitted project data but must not create annotation, review, approval, or export writes.
 
 Server-side route handlers must enforce these rules. Hiding UI controls is not sufficient.

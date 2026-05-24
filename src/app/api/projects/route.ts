@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { requireUser } from "@/server/auth/rbac";
+import { requireProjectCreateCapability, requireUser } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { AnnotationProjectRole } from "@prisma/client";
 import { withApiErrorHandling } from "@/server/http/apiErrors";
@@ -40,6 +40,7 @@ export const GET = withApiErrorHandling(async function GET() {
 
 export const POST = withApiErrorHandling(async function POST(req: Request) {
   const user = await requireUser();
+  await requireProjectCreateCapability(user.id);
 
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";

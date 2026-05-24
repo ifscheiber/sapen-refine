@@ -9,6 +9,7 @@ import {
 import {
   canManageCorrectionTasks,
   canReadProject,
+  canViewCorrectionTasks,
   canWorkOnCorrectionTask,
 } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
@@ -415,7 +416,8 @@ export async function listProjectCorrectionTasksForUser(params: {
   reason?: unknown;
   predictionRunId?: unknown;
 }, db: CorrectionTaskDb = prisma) {
-  await getProjectMembership(db, params.projectId, params.userId);
+  const membership = await getProjectMembership(db, params.projectId, params.userId);
+  if (!canViewCorrectionTasks(membership.role)) throw new CorrectionTaskError("FORBIDDEN", 403);
   const scope = parseScope(params.scope);
   const status = parseStatus(params.status);
   const targetType = parseTargetType(params.targetType);
@@ -454,7 +456,8 @@ export async function getCorrectionTaskForUser(params: {
   if (!task || task.type !== AnnotationTaskType.MODEL_PREDICTION_CORRECTION) {
     throw new CorrectionTaskError("CORRECTION_TASK_NOT_FOUND", 404);
   }
-  await getProjectMembership(db, task.projectId, params.userId);
+  const membership = await getProjectMembership(db, task.projectId, params.userId);
+  if (!canViewCorrectionTasks(membership.role)) throw new CorrectionTaskError("FORBIDDEN", 403);
   return serializeTask(task);
 }
 

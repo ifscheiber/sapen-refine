@@ -1172,16 +1172,7 @@ export async function processDuePredictionImportBatchesForUser(params: {
     .filter((membership) => canProcessPredictionBatch(membership.role))
     .map((membership) => membership.projectId);
   if (projectIds.length === 0) {
-    return {
-      ...processorRunSummary({
-        processorId: processor.processorId,
-        processorRunId: processor.processorRunId,
-        batchCount: 0,
-        processedCount: 0,
-        staleRecoveredCount: 0,
-      }),
-      results: [],
-    };
+    throw new PredictionImportBatchError("FORBIDDEN", 403);
   }
 
   const batches = await db.predictionImportBatchJob.findMany({

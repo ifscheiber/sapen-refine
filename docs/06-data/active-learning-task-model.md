@@ -129,10 +129,10 @@ Editor constraints:
 
 ## Implemented APIs And UI
 
-- `GET /api/projects/[projectId]/correction-tasks` lists project correction tasks for project members.
+- `GET /api/projects/[projectId]/correction-tasks` lists project correction tasks for project `OWNER`/`QA`; Annotator/`LABELER` users are kept on direct annotation workflows.
 - `POST /api/prediction-runs/[predictionRunId]/correction-tasks` creates idempotent correction tasks for project `OWNER`/`QA`.
 - `GET /api/correction-tasks/[taskId]` returns one sanitized correction task.
-- `PATCH /api/correction-tasks/[taskId]` supports claim/assign/start/dismiss/priority actions.
+- `PATCH /api/correction-tasks/[taskId]` supports claim/assign/start/dismiss/priority actions for project `OWNER`/`QA`.
 - `/app/projects/[projectId]/tasks` renders the first responsive project task queue.
 - `/app/projects/[projectId]/tasks/[taskId]/correct` renders the first assisted correction editor entry.
 

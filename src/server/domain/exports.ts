@@ -10,7 +10,7 @@ import {
   PrismaClient,
 } from "@prisma/client";
 
-import { canExportTraining } from "@/server/auth/policies";
+import { canExportTraining, canViewProjectExports } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
@@ -484,6 +484,8 @@ export async function resolveProjectExportReadiness(params: {
   userId: string;
 }, db: ExportDb = prisma) {
   const { project, membership } = await getProjectMembership(db, params.projectId, params.userId);
+  if (!canViewProjectExports(membership.role)) throw new TrainingExportError("FORBIDDEN");
+
   const images = await db.imageAsset.findMany({
     where: { projectId: project.id },
     orderBy: [{ uploadedAt: "asc" }, { id: "asc" }],

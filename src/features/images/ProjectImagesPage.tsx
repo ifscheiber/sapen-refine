@@ -21,7 +21,7 @@ export async function ProjectImagesPage({ projectId }: { projectId: string }) {
   return (
     <AppMain>
       <AppPageHeader title="Project images" description={`${project.name} · Role: ${membership.role}`} />
-      <ProjectOperationsNav projectId={project.id} current="images" />
+      <ProjectOperationsNav projectId={project.id} current="images" role={membership.role} />
       <ImagesClient projectId={project.id} canUpload={canUploadImage(membership.role)} />
     </AppMain>
   );

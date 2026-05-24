@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -206,14 +206,18 @@ export function ImagesClient({
   const [images, setImages] = useState<ImageRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestId = useRef(0);
 
   async function load() {
+    const requestId = loadRequestId.current + 1;
+    loadRequestId.current = requestId;
     setError(null);
     const res = await fetch(`/api/projects/${projectId}/images`, {
       cache: "no-store",
     });
 
     const data = await res.json().catch(() => null);
+    if (requestId !== loadRequestId.current) return;
 
     if (!res.ok) {
       setImages([]);

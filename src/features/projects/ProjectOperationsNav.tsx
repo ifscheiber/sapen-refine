@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { BarChart3, FolderKanban, ImageIcon, ListTodo, UploadCloud } from "lucide-react";
+import type { AnnotationProjectRole } from "@prisma/client";
 
 import { cn } from "@/components/ui/utils";
+import {
+  canViewCorrectionTasks,
+  canViewPredictionImports,
+  canViewProjectExports,
+} from "@/server/auth/policies";
 
 type ProjectOperationsNavItem = {
   key: "overview" | "images" | "tasks" | "exports" | "prediction-imports";
@@ -13,10 +19,12 @@ type ProjectOperationsNavItem = {
 export function ProjectOperationsNav({
   projectId,
   current,
+  role,
   orientation = "horizontal",
 }: {
   projectId: string;
   current: ProjectOperationsNavItem["key"];
+  role?: AnnotationProjectRole;
   orientation?: "horizontal" | "vertical";
 }) {
   const items: ProjectOperationsNavItem[] = [
@@ -51,6 +59,13 @@ export function ProjectOperationsNav({
       icon: UploadCloud,
     },
   ];
+  const visibleItems = items.filter((item) => {
+    if (!role) return true;
+    if (item.key === "tasks") return canViewCorrectionTasks(role);
+    if (item.key === "exports") return canViewProjectExports(role);
+    if (item.key === "prediction-imports") return canViewPredictionImports(role);
+    return true;
+  });
 
   return (
     <nav
@@ -60,7 +75,7 @@ export function ProjectOperationsNav({
         orientation === "vertical" ? "grid" : "mb-5 flex flex-wrap",
       )}
     >
-      {items.map((item) => {
+      {visibleItems.map((item) => {
         const Icon = item.icon;
         const active = item.key === current;
         return (

@@ -122,6 +122,10 @@ function canCreatePredictionRun(role: AnnotationProjectRole) {
   return policies.canCreatePredictionRun(role);
 }
 
+function canViewPredictionRuns(role: AnnotationProjectRole) {
+  return policies.canViewPredictionRuns(role);
+}
+
 export function parseCreateModelRunInput(input: unknown): Prisma.ModelRunCreateInput {
   const body = input && typeof input === "object" ? input as Record<string, unknown> : {};
   const modelFamily = requiredText(body.modelFamily, "MODEL_FAMILY_REQUIRED");
@@ -389,7 +393,9 @@ export async function listProjectPredictionRunsForUser(params: {
   projectId: string;
   userId: string;
 }, db: ProvenanceDb = prisma) {
-  await getProjectMembership(db, params.projectId, params.userId);
+  const membership = await getProjectMembership(db, params.projectId, params.userId);
+  if (!canViewPredictionRuns(membership.role)) throw new PredictionProvenanceError("FORBIDDEN");
+
   return db.predictionRun.findMany({
     where: { projectId: params.projectId },
     orderBy: { generatedAt: "desc" },
@@ -406,7 +412,9 @@ export async function getPredictionRunForUser(params: {
     select: PREDICTION_RUN_SELECT,
   });
   if (!predictionRun) throw new PredictionProvenanceError("PREDICTION_RUN_NOT_FOUND");
-  await getProjectMembership(db, predictionRun.projectId, params.userId);
+  const membership = await getProjectMembership(db, predictionRun.projectId, params.userId);
+  if (!canViewPredictionRuns(membership.role)) throw new PredictionProvenanceError("FORBIDDEN");
+
   return predictionRun;
 }
 

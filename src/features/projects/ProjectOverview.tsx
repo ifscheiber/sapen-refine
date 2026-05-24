@@ -12,7 +12,12 @@ import { AnnotationTaskStatus, PredictionImportBatchStatus } from "@prisma/clien
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
-import { canManageProject } from "@/server/auth/policies";
+import {
+  canManageProject,
+  canViewCorrectionTasks,
+  canViewPredictionImports,
+  canViewProjectExports,
+} from "@/server/auth/policies";
 import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { resolveProjectExportReadiness } from "@/server/domain/exports";
@@ -79,15 +84,19 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
 
   const role = project.members[0].role;
   const canEdit = canManageProject(role);
+  const canViewExports = canViewProjectExports(role);
+  const canViewOperations = canViewExports || canViewPredictionImports(role) || canViewCorrectionTasks(role);
   const [
     exportReadiness,
+    imageCount,
     activeTaskCount,
     predictionRunCount,
     totalBatchCount,
     openBatchCount,
     exportBatchCount,
   ] = await Promise.all([
-    resolveProjectExportReadiness({ projectId: project.id, userId: user.id }),
+    canViewExports ? resolveProjectExportReadiness({ projectId: project.id, userId: user.id }) : null,
+    prisma.imageAsset.count({ where: { projectId: project.id } }),
     prisma.annotationTask.count({
       where: {
         projectId: project.id,
@@ -120,7 +129,7 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
         title={project.name}
         description={`Role: ${role}`}
       />
-      <ProjectOperationsNav projectId={project.id} current="overview" />
+      <ProjectOperationsNav projectId={project.id} current="overview" role={role} />
       <AppSection>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
           <ProjectMetadataForm
@@ -164,14 +173,18 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryMetric label="Images" value={exportReadiness.summary.totalImages} />
-            <SummaryMetric label="Semantic approved" value={exportReadiness.summary.approvedSemanticMasks} />
-            <SummaryMetric label="Support approved" value={exportReadiness.summary.approvedSupportMasks} />
-            <SummaryMetric label="Classifications approved" value={exportReadiness.summary.approvedClassifications} />
-            <SummaryMetric label="Images with warnings" value={exportReadiness.summary.imagesWithWarnings} />
-            <SummaryMetric label="Active tasks" value={activeTaskCount} />
-            <SummaryMetric label="Prediction runs" value={predictionRunCount} />
-            <SummaryMetric label="Export batches" value={exportBatchCount} />
+            <SummaryMetric label="Images" value={imageCount} />
+            {exportReadiness ? (
+              <>
+                <SummaryMetric label="Semantic approved" value={exportReadiness.summary.approvedSemanticMasks} />
+                <SummaryMetric label="Support approved" value={exportReadiness.summary.approvedSupportMasks} />
+                <SummaryMetric label="Classifications approved" value={exportReadiness.summary.approvedClassifications} />
+                <SummaryMetric label="Images with warnings" value={exportReadiness.summary.imagesWithWarnings} />
+              </>
+            ) : null}
+            {canViewOperations ? <SummaryMetric label="Active tasks" value={activeTaskCount} /> : null}
+            {canViewOperations ? <SummaryMetric label="Prediction runs" value={predictionRunCount} /> : null}
+            {canViewOperations ? <SummaryMetric label="Export batches" value={exportBatchCount} /> : null}
           </div>
         </div>
       </AppSection>
@@ -189,29 +202,35 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
               icon={ImageIcon}
               title="Images"
               description="Upload images, review metadata readiness, and open the annotation editor."
-              metric={`${exportReadiness.summary.totalImages} images`}
+              metric={`${imageCount} images`}
             />
-            <OperationLink
-              href={`/app/projects/${project.id}/tasks`}
-              icon={ListTodo}
-              title="Correction tasks"
-              description="Review active-learning tasks and open assisted correction workflows."
-              metric={`${activeTaskCount} active`}
-            />
-            <OperationLink
-              href={`/app/projects/${project.id}/exports`}
-              icon={FileArchive}
-              title="Exports"
-              description="Create ground-truth training exports and prediction-analysis packages."
-              metric={`${exportBatchCount} batches`}
-            />
-            <OperationLink
-              href={`/app/projects/${project.id}/prediction-imports`}
-              icon={UploadCloud}
-              title="Prediction imports"
-              description="Manage prediction runs and ZIP-backed batch import operations."
-              metric={canEdit ? `${openBatchCount}/${totalBatchCount} open` : "Owner/QA"}
-            />
+            {canViewCorrectionTasks(role) ? (
+              <OperationLink
+                href={`/app/projects/${project.id}/tasks`}
+                icon={ListTodo}
+                title="Correction tasks"
+                description="Review active-learning tasks and open assisted correction workflows."
+                metric={`${activeTaskCount} active`}
+              />
+            ) : null}
+            {canViewExports ? (
+              <OperationLink
+                href={`/app/projects/${project.id}/exports`}
+                icon={FileArchive}
+                title="Exports"
+                description="Create ground-truth training exports and prediction-analysis packages."
+                metric={`${exportBatchCount} batches`}
+              />
+            ) : null}
+            {canViewPredictionImports(role) ? (
+              <OperationLink
+                href={`/app/projects/${project.id}/prediction-imports`}
+                icon={UploadCloud}
+                title="Prediction imports"
+                description="Manage prediction runs and ZIP-backed batch import operations."
+                metric={canEdit ? `${openBatchCount}/${totalBatchCount} open` : "Owner/QA"}
+              />
+            ) : null}
           </div>
         </div>
       </AppSection>

@@ -19,10 +19,12 @@ export type ShellProject = {
 export function AppShell({
   user,
   projects,
+  canCreateProject,
   children,
 }: {
   user: ShellUser;
   projects: ShellProject[];
+  canCreateProject: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -31,7 +33,7 @@ export function AppShell({
         <div className="flex min-h-0 flex-1 flex-col">
           <AppTopbar user={user} />
           <div className="flex min-h-[calc(100dvh-3.5rem)]">
-            <AppSidebar projects={projects} />
+            <AppSidebar projects={projects} canCreateProject={canCreateProject} />
             <main className="min-w-0 flex-1 bg-[var(--workspace-background)]">
               {children}
             </main>

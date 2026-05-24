@@ -285,17 +285,29 @@ describe("prediction provenance registry", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const listed = await predictions.listProjectPredictionRunsForUser(
-      { projectId, userId: viewerId },
+      { projectId, userId: qaId },
       prisma,
     );
     expect(listed.map((run) => run.id)).toEqual(expect.arrayContaining([ownerRun.id, qaRun.id]));
 
     const read = await predictions.getPredictionRunForUser(
-      { predictionRunId: ownerRun.id, userId: labelerId },
+      { predictionRunId: ownerRun.id, userId: qaId },
       prisma,
     );
     expect(read.id).toBe(ownerRun.id);
 
+    await expect(
+      predictions.listProjectPredictionRunsForUser({ projectId, userId: labelerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      predictions.getPredictionRunForUser({ predictionRunId: ownerRun.id, userId: labelerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      predictions.listProjectPredictionRunsForUser({ projectId, userId: viewerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      predictions.getPredictionRunForUser({ predictionRunId: ownerRun.id, userId: viewerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       predictions.listProjectPredictionRunsForUser({ projectId, userId: outsiderId }, prisma),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });

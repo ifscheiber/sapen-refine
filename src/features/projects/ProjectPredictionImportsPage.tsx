@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AppMain } from "@/components/shell/AppMain";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppSection } from "@/components/shell/AppSection";
-import { canImportPrediction, PROJECT_READ_ROLES } from "@/server/auth/policies";
+import { canImportPrediction, canViewPredictionImports, PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireWorkspaceProjectRole } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
 import { ProjectOperationsNav } from "./ProjectOperationsNav";
@@ -11,6 +11,7 @@ import { ProjectPredictionImportBatchPanel } from "./ProjectPredictionImportBatc
 
 export async function ProjectPredictionImportsPage({ projectId }: { projectId: string }) {
   const { membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
+  if (!canViewPredictionImports(membership.role)) return notFound();
 
   const project = await prisma.annotationProject.findUnique({
     where: { id: projectId },
@@ -24,7 +25,7 @@ export async function ProjectPredictionImportsPage({ projectId }: { projectId: s
   return (
     <AppMain>
       <AppPageHeader title="Prediction imports" description={`${project.name} · Role: ${membership.role}`} />
-      <ProjectOperationsNav projectId={project.id} current="prediction-imports" />
+      <ProjectOperationsNav projectId={project.id} current="prediction-imports" role={membership.role} />
       <AppSection>
         {canManage ? (
           <ProjectPredictionImportBatchPanel projectId={project.id} canManage={canManage} />

@@ -74,6 +74,8 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
     .getByRole("navigation", { name: "Project navigation" })
     .getByRole("link", { name: "Images" })
     .click();
+  await expect(page).toHaveURL(/\/images$/);
+  await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles({
     name: "large-6000x4000.png",
     mimeType: "image/png",

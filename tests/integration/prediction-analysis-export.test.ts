@@ -360,6 +360,17 @@ describe("prediction analysis export workflow", () => {
     expect(readiness.summary.totalCandidates).toBe(1);
     expect(readiness.candidates[0]?.state).toBe("prediction_with_approved_human_reference");
 
+    await expect(
+      predictionAnalysis.resolveProjectPredictionAnalysisReadiness(
+        {
+          projectId,
+          userId: labelerId,
+          input: { predictionRunId: predictionRun.id, targetTypes: ["SEMANTIC_MASK"] },
+        },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+
     const exportBatch = await createProcessedPredictionAnalysisExport(
       { predictionRunId: predictionRun.id, targetTypes: ["SEMANTIC_MASK"], includeHumanReferences: true },
       qaId,

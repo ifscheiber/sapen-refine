@@ -23,6 +23,8 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
     .getByRole("navigation", { name: "Project navigation" })
     .getByRole("link", { name: "Images" })
     .click();
+  await expect(page).toHaveURL(/\/images$/);
+  await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
 

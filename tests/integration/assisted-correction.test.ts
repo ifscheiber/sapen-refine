@@ -274,11 +274,14 @@ describe("assisted correction workflow", () => {
       assisted.loadCorrectionContextForUser({ taskId: fixture.taskId, userId: viewerId }, prisma),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
+      assisted.loadCorrectionContextForUser({ taskId: fixture.taskId, userId: labelerId }, prisma),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
       assisted.loadCorrectionContextForUser({ taskId: fixture.taskId, userId: outsiderId }, prisma),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const context = await assisted.loadCorrectionContextForUser(
-      { taskId: fixture.taskId, userId: labelerId },
+      { taskId: fixture.taskId, userId: qaId },
       prisma,
     );
     expect(context.mode).toBe("semantic");
@@ -289,7 +292,7 @@ describe("assisted correction workflow", () => {
     expect(JSON.stringify(context)).not.toContain(`tests/assisted-correction/${suffix}`);
 
     const predictionBytes = await assisted.readPredictionMaskForCorrectionTask(
-      { taskId: fixture.taskId, userId: labelerId },
+      { taskId: fixture.taskId, userId: qaId },
       prisma,
     );
     expect(Array.from(predictionBytes.bytes)).toEqual(Array.from(fixture.sourceBytes));
@@ -298,7 +301,7 @@ describe("assisted correction workflow", () => {
     const saved = await assisted.saveCorrectionForTaskForUser(
       {
         taskId: fixture.taskId,
-        userId: labelerId,
+        userId: qaId,
         bytes: correctionBytes,
         width: 2,
         height: 2,
@@ -316,7 +319,7 @@ describe("assisted correction workflow", () => {
       checksum: sha256Checksum(correctionBytes),
     });
     expect(saved.task.status).toBe("IN_PROGRESS");
-    expect(saved.task.assigneeId).toBe(labelerId);
+    expect(saved.task.assigneeId).toBe(qaId);
 
     const [sourceVersion, humanVersion] = await Promise.all([
       prisma.annotationArtifactVersion.findUniqueOrThrow({
@@ -349,7 +352,7 @@ describe("assisted correction workflow", () => {
     });
 
     await review.transitionArtifactVersionForUser(
-      { versionId: saved.version.id, userId: labelerId, action: "submit" },
+      { versionId: saved.version.id, userId: qaId, action: "submit" },
       prisma,
     );
     const submittedTask = await prisma.annotationTask.findUniqueOrThrow({

@@ -40,6 +40,91 @@ test("api auth and authorization failures return stable json errors", async ({ r
   );
 
   await expectJsonError(
+    await request.get("/api/projects/demo_project/export/readiness", {
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.post("/api/projects", {
+      data: { name: `Labeler forbidden project ${Date.now()}` },
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.post("/api/projects/demo_project/prediction-analysis-exports", {
+      data: { target: "prediction_analysis" },
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.get("/api/projects/demo_project/prediction-analysis-export/readiness?targetTypes=SEMANTIC_MASK", {
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.post("/api/projects/demo_project/prediction-runs", {
+      data: { modelRunId: "not-a-real-model-run" },
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.get("/api/projects/demo_project/prediction-runs", {
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.get("/api/projects/demo_project/prediction-import-batches", {
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.get("/api/projects/demo_project/correction-tasks", {
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.post("/api/export-jobs/process-due", {
+      data: { maxJobs: 1 },
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
+    await request.post("/api/prediction-import-batches/process-due", {
+      data: { maxJobs: 1 },
+      headers: authHeaders,
+    }),
+    403,
+    "FORBIDDEN",
+  );
+
+  await expectJsonError(
     await request.get("/api/images/not-a-real-image/metadata", { headers: authHeaders }),
     404,
     "IMAGE_NOT_FOUND",

@@ -49,13 +49,14 @@ Route files are thin wrappers around `src/features/projects`.
 ## Current Desktop Browser Workflow
 
 - `/app/projects` opens the authenticated project workspace and selects the most recently updated visible annotation project.
-- `/app/projects/new` creates a project through `POST /api/projects`.
+- `/app/projects/new` creates a project through `POST /api/projects` only for global `ADMIN` users or users that already own at least one project.
 - Project creation and project selection live in the authenticated shell sidebar (`src/components/shell/AppSidebar.tsx`), which lists visible annotation projects and links to `/app/projects/[projectId]`.
 - `/app/projects/[projectId]` shows the active-project workspace for one project only. The primary tab lists images for that selected project, and `?tab=settings` shows editable name/description for `OWNER` and `QA`.
-- The workspace right rail shows project status counts and links to images, tasks, exports, and prediction imports through `src/features/projects/ProjectOperationsNav.tsx`.
+- Annotator/`LABELER` users see the focused project/image annotation workspace only: no project creation, project settings, tasks, exports, prediction imports, prediction-analysis, or worker/operator actions.
+- The workspace right rail shows project status counts and links to images, tasks, exports, and prediction imports through `src/features/projects/ProjectOperationsNav.tsx` only when the user's project role has those capabilities.
 - `/app/projects/[projectId]/exports` shows the training export panel and the separated prediction-analysis export panel.
-- `/app/projects/[projectId]/prediction-imports` shows RB-061 prediction batch import operations for project `OWNER`/`QA` and a permission notice for other project members.
-- `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and links to the RB-059 assisted correction editor.
+- `/app/projects/[projectId]/prediction-imports` shows RB-061 prediction batch import operations for project `OWNER`/`QA`; Annotator/`LABELER` users do not see or access this route.
+- `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue for project `OWNER`/`QA`; Annotator/`LABELER` users do not see or access this route.
 - Task rows link to `/app/projects/[projectId]/tasks/[taskId]/correct` for RB-059 assisted correction.
 - The training export panel shows approved semantic/support/classification readiness counts, crop readiness/reason counts from the shared crop resolver, target selection, and owner-only export creation with manifest/package download links.
 - The prediction-analysis export panel shows proposal counts, metric-ready counts, candidates missing approved references, prediction-run selection, target selection, optional human-reference inclusion, and owner/QA export creation. It labels prediction-analysis packages and QA metrics as model-evaluation metadata, not ground-truth training labels.
@@ -64,23 +65,22 @@ Route files are thin wrappers around `src/features/projects`.
 
 ## Current Ownership And Access
 
-- `POST /api/projects` creates an `AnnotationProject` and owner `AnnotationProjectMember` for the authenticated user.
+- `POST /api/projects` creates an `AnnotationProject` and owner `AnnotationProjectMember` only for global `ADMIN` users or users that already own at least one project.
 - `PATCH /api/projects/[projectId]` updates project name/description for `OWNER` and `QA` and attaches the default active label schema when a project is missing one.
 - `AnnotationProjectRole.OWNER`, `QA`, `LABELER`, and `VIEWER` exist in `prisma/schema.prisma`.
 - `src/server/auth/rbac.ts` checks project membership for project/image/editor access.
 - Current editable image and mask routes allow `OWNER`, `QA`, and `LABELER`; `VIEWER` can read project/image data where route handlers permit it.
-- `GET /api/projects/[projectId]/export/readiness` is available to authenticated project members.
+- `GET /api/projects/[projectId]/export/readiness` is available to project `OWNER`/`QA`; Annotator/`LABELER` users receive `403 FORBIDDEN`.
 - `GET /api/projects/[projectId]/crop-readiness` is available to authenticated project members and returns sanitized per-crop readiness, optional image/slice filtering, and review action availability.
 - `POST /api/projects/[projectId]/exports` and export downloads are restricted to `OWNER` in RB-053.
-- `GET /api/projects/[projectId]/prediction-analysis-export/readiness` is available to authenticated project members.
+- `GET /api/projects/[projectId]/prediction-analysis-export/readiness` is available to project `OWNER`/`QA`; Annotator/`LABELER` users receive `403 FORBIDDEN`.
 - `POST /api/projects/[projectId]/prediction-analysis-exports` and `/api/prediction-analysis-exports/[exportId]/download` are restricted to project `OWNER` and `QA`.
-- `GET /api/projects/[projectId]/prediction-runs` is available to project members.
+- `GET /api/projects/[projectId]/prediction-runs` and `GET /api/prediction-runs/[predictionRunId]` are available to project `OWNER`/`QA`.
 - `POST /api/projects/[projectId]/prediction-runs` is restricted to `OWNER` and `QA`; it creates provenance records only and does not import prediction files.
 - `POST /api/prediction-runs/[predictionRunId]/predictions` is restricted to project `OWNER` and `QA`; it imports one prediction mask proposal and does not create correction tasks.
 - RB-061 prediction batch import create/list/detail/items/process/retry APIs are restricted to project `OWNER` and `QA`; they process `SEMANTIC_MASK` and `SLICE_SUPPORT_MASK` prediction masks through the RB-057 import service and do not create correction tasks automatically.
 - `POST /api/prediction-runs/[predictionRunId]/correction-tasks` is restricted to project `OWNER` and `QA`; it creates idempotent correction tasks from prediction provenance rows.
-- Correction-task listing/detail is available to project members. `OWNER`/`QA` can manage assignment and priority; `LABELER` can claim/start/dismiss eligible active tasks; `VIEWER` is read-only.
-- Assisted correction context/read/save is available to `OWNER`, `QA`, and eligible `LABELER` users; `VIEWER` remains read-only and cannot open the mutation editor.
+- Correction-task listing/detail, assisted correction context/read/save, and task updates are restricted to project `OWNER`/`QA`. Annotator/`LABELER` users use direct image/crop annotation workflows instead.
 - `POST /api/storage-cleanup` is global-admin only and not project-role based; project or batch filters only narrow cleanup scope.
 
 ## MVP Limitations

@@ -130,7 +130,7 @@ Browser downloads use `/api/prediction-analysis-exports/[exportId]/download?file
 
 - Project members can inspect readiness.
 - Project `OWNER` and `QA` can create and download prediction-analysis exports.
-- `LABELER` and `VIEWER` cannot create or download prediction-analysis exports.
+- `LABELER` and `VIEWER` cannot access prediction-analysis export readiness, create prediction-analysis exports, or download prediction-analysis exports.
 
 This differs from RB-053 training export, which remains owner-only.
 

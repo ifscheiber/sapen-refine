@@ -44,7 +44,7 @@ RB-056 adds three persisted registry levels in `prisma/schema.prisma`:
 
 Related enums are `ModelTaskType`, `PredictionRunStatus`, and `PredictionTargetType`.
 
-Direct ModelRun reads are admin-only because they may include internal checkpoint paths. Project members read reduced model summaries through project-scoped prediction-run responses.
+Direct ModelRun reads are admin-only because they may include internal checkpoint paths. Project `OWNER`/`QA` users read reduced model summaries through project-scoped prediction-run responses; Annotator/`LABELER` users do not receive prediction-run summaries.
 
 ## Implemented Import API
 
@@ -90,9 +90,9 @@ RB-058 adds `src/server/domain/correctionTasks.ts` and the route-addressable pro
 Implemented APIs:
 
 - `POST /api/prediction-runs/[predictionRunId]/correction-tasks` creates idempotent `MODEL_PREDICTION_CORRECTION` tasks from `PredictionArtifactProvenance` rows for project `OWNER`/`QA`.
-- `GET /api/projects/[projectId]/correction-tasks` lists correction tasks for project members in deterministic active-learning order.
+- `GET /api/projects/[projectId]/correction-tasks` lists correction tasks for project `OWNER`/`QA` in deterministic active-learning order.
 - `GET /api/correction-tasks/[taskId]` returns one sanitized task with prediction/run/provenance summary.
-- `PATCH /api/correction-tasks/[taskId]` supports claim, assign, start, dismiss, and priority updates with project-role checks.
+- `PATCH /api/correction-tasks/[taskId]` supports claim, assign, start, dismiss, and priority updates for project `OWNER`/`QA`.
 
 Task creation links `AnnotationTask.predictionRunId`, `AnnotationTask.predictionProvenanceId`, and `AnnotationTask.sourceArtifactVersionId` where an artifact version exists. The unique constraint `@@unique([predictionProvenanceId, type])` prevents duplicate correction tasks for the same prediction item and task type.
 

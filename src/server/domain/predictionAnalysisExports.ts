@@ -12,7 +12,7 @@ import {
   type AnnotationProjectRole,
 } from "@prisma/client";
 
-import { canExportPredictionAnalysis } from "@/server/auth/policies";
+import { canExportPredictionAnalysis, canViewPredictionAnalysis } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
@@ -328,6 +328,10 @@ export function parsePredictionAnalysisSelection(input: unknown): PredictionAnal
 
 function canExport(role: AnnotationProjectRole) {
   return canExportPredictionAnalysis(role);
+}
+
+function canView(role: AnnotationProjectRole) {
+  return canViewPredictionAnalysis(role);
 }
 
 function safeExtension(filename: string | null, contentType: string | null, fallback: string) {
@@ -739,6 +743,8 @@ export async function resolveProjectPredictionAnalysisReadiness(params: {
 }, db: PredictionAnalysisDb = prisma) {
   const selection = parsePredictionAnalysisSelection(params.input);
   const { project, membership } = await getProjectMembership(db, params.projectId, params.userId);
+  if (!canView(membership.role)) throw new PredictionAnalysisExportError("FORBIDDEN", 403);
+
   const [predictions, predictionRuns] = await Promise.all([
     db.predictionArtifactProvenance.findMany({
       where: predictionWhere(project.id, selection),
