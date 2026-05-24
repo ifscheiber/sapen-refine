@@ -36,7 +36,13 @@ Use the combined report plus verification report as the planning baseline. The o
 19. [RB-118-D - Upload Rejection Audit And Cleanup](RB-118-D-upload-rejection-audit-and-cleanup.md)
 20. [RB-118-E - Reverse Proxy Upload Limit Alignment](RB-118-E-reverse-proxy-upload-limit-alignment.md)
 21. [RB-119 - Documentation Governance Polish After Deep Review](done/RB-119-doc-governance-polish-after-deep-review-optimized-post-RB118.md) - completed
-22. [RB-120 - Opportunistic Large Module Decomposition](RB-120-opportunistic-large-module-decomposition.md)
+22. [RB-120 - Opportunistic Large Module Decomposition Map](done/RB-120-opportunistic-large-module-decomposition-optimized-post-RB119.md) - completed
+23. [RB-120-A - Editor Save Orchestration Extraction](RB-120-A-editor-save-orchestration-extraction.md)
+24. [RB-120-B - Crop Canvas Interaction Hooks](RB-120-B-crop-canvas-interaction-hooks.md)
+25. [RB-120-C - Export Manifest Builder Split](RB-120-C-export-manifest-builder-split.md)
+26. [RB-120-D - Prediction Import Processor Boundaries](RB-120-D-prediction-import-processor-boundaries.md)
+27. [RB-120-E - Storage Cleanup Classification Split](RB-120-E-storage-cleanup-classification-split.md)
+28. [RB-120-F - Governance Guard Utilities](RB-120-F-governance-guard-utils.md)
 
 ## Priority Notes
 
@@ -63,6 +69,15 @@ Use the combined report plus verification report as the planning baseline. The o
 - [RB-118-C - Malware Scanner Integration](RB-118-C-malware-scanner-integration.md)
 - [RB-118-D - Upload Rejection Audit And Cleanup](RB-118-D-upload-rejection-audit-and-cleanup.md)
 - [RB-118-E - Reverse Proxy Upload Limit Alignment](RB-118-E-reverse-proxy-upload-limit-alignment.md)
+
+## RB-120 Follow-Ups
+
+- [RB-120-A - Editor Save Orchestration Extraction](RB-120-A-editor-save-orchestration-extraction.md)
+- [RB-120-B - Crop Canvas Interaction Hooks](RB-120-B-crop-canvas-interaction-hooks.md)
+- [RB-120-C - Export Manifest Builder Split](RB-120-C-export-manifest-builder-split.md)
+- [RB-120-D - Prediction Import Processor Boundaries](RB-120-D-prediction-import-processor-boundaries.md)
+- [RB-120-E - Storage Cleanup Classification Split](RB-120-E-storage-cleanup-classification-split.md)
+- [RB-120-F - Governance Guard Utilities](RB-120-F-governance-guard-utils.md)
 
 ## Completion Protocol
 

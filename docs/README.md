@@ -26,6 +26,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 
 - Overview: [00-overview/current-state.md](00-overview/current-state.md)
 - Architecture: [01-architecture/module-boundaries.md](01-architecture/module-boundaries.md)
+- Opportunistic decomposition map: [01-architecture/opportunistic-decomposition-map.md](01-architecture/opportunistic-decomposition-map.md)
 - App routes/API: [02-app/routes.md](02-app/routes.md)
 - Features: [03-features/README.md](03-features/README.md)
 - Server: [04-server/db.md](04-server/db.md)

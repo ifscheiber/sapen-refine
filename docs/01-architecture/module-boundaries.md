@@ -11,3 +11,5 @@ Ownership after RB-043:
 - `src/design` - CSS tokens, themes, and design-system notes.
 
 Routes must not become the only place where feature behavior lives. Server-only helpers must not import client components.
+
+Large modules should be decomposed only opportunistically when a feature or bug fix already touches that area. The current hotspot inventory and future extraction slices are tracked in [opportunistic-decomposition-map.md](opportunistic-decomposition-map.md).

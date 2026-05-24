@@ -212,6 +212,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-119.
 
+## RB-120 - Opportunistic Large Module Decomposition Map (Resolved)
+
+Context: Deep reviews identified large, high-churn editor and server-domain modules as maintainability debt. After RB-107, RB-112, RB-114, RB-116, and RB-119, the main risk is accidental broad refactoring rather than a missing production feature.
+
+Impact: Future changes to editor save state, crop canvas interaction, exports, prediction imports, storage cleanup, and governance guards could become riskier if engineers reshape large modules without clear boundaries or focused tests.
+
+Resolution: Implemented by RB-120. `docs/01-architecture/opportunistic-decomposition-map.md` inventories current hotspots, identifies safe extraction seams, records activation conditions, and defines validation expectations without changing production behavior.
+
+Remaining follow-up: RB-120-A through RB-120-F are deferred opportunistic extraction tickets. They should be activated only when a feature or bug fix already touches the affected area. RB-113, RB-115-B/C, and RB-118-A through RB-118-E remain separate.
+
+Affected modules: `docs/01-architecture/opportunistic-decomposition-map.md`, architecture docs, known-gaps docs, sprint tickets, and future editor/export/prediction-import/storage-cleanup/governance work.
+
+Owner: Codex.
+
+Priority: Resolved by RB-120; follow-ups are P3 opportunistic unless a future feature makes one blocking.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
