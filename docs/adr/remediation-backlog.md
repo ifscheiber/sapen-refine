@@ -44,19 +44,19 @@ Owner: Unassigned.
 
 Priority: P1/P2.
 
-## RB-108 - Root Architecture Current-Flow Drift
+## RB-108 - Root Architecture Current-Flow Drift (Resolved)
 
 Context: The 2026-05-23 combined deep review verified that `ARCHITECTURE.md` still lists `/app/projects/[projectId]/images/[imageId]/edit` as the current editor flow after RB-104 removed the legacy full-image editor route. The same root map still says "crop-aware exports/review integration" is a known workflow gap, even though crop training export, crop readiness, and crop review controls now exist. Lower-level docs such as `docs/src/app/routes.md`, `docs/known-gaps.md`, and `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md` are more current.
 
 Impact: Agents and contributors start from `ARCHITECTURE.md`. Stale current-flow text can send future work toward dead routes, duplicate already-implemented crop review/export behavior, or misstate what remains deferred.
 
-Proposed next step: Update `ARCHITECTURE.md` current flows to describe the crop entry, BBox, slice navigator, crop workbench, crop support, crop semantic, and assisted-correction routes. Narrow the known-gap wording to reviewer dashboards, bulk review, export history, advanced filters, async large-job handling, and source-image-space crop-mask reprojection where applicable. Keep removed `/edit` references only in historical ADR/ticket context.
+Resolution: Implemented by RB-108 optimized ticket. `ARCHITECTURE.md` now describes the current crop entry, BBox stage, slice navigator, selected crop workbench, crop support editor, crop semantic editor, and assisted-correction flows. The removed `/app/projects/[projectId]/images/[imageId]/edit` route is marked as historical/removed, and crop review/export gaps are narrowed to remaining dashboards, bulk review, export-history/filtering, async large-job handling, and source-image-space reprojection work.
 
 Affected modules: `ARCHITECTURE.md`, `docs/src/app/routes.md`, `docs/known-gaps.md`, `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md`, and future docs route-sync checks.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-108.
 
 ## RB-109 - DB Constraint Hardening For Review And Export Integrity
 
