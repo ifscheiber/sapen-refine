@@ -8,6 +8,8 @@ import {
   type ArtifactReviewState,
 } from "@prisma/client";
 import type JSZipConstructor from "jszip";
+
+import { Labels } from "@/mask/labels";
 import { sha256Checksum } from "@/server/uploads/integrity";
 
 loadEnv({ path: ".env.local" });
@@ -359,8 +361,10 @@ describe("training export workflow", () => {
       _max: { version: true },
     });
     const version = (latest._max.version ?? 0) + 1;
+    const semanticValue =
+      params.semanticMode === "SAP_HEARTWOOD" ? Labels.SAPWOOD : Labels.COPPER;
     const bytes = new Uint8Array(params.crop.cropWidth * params.crop.cropHeight).fill(
-      params.kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK ? 10 : 3,
+      params.kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK ? Labels.SLICE_SUPPORT : semanticValue,
     );
     const storageKey = `tests/export/${suffix}/${params.crop.id}-${params.name}.u8raw`;
     await storage.putObject(storageKey, bytes, "application/octet-stream");

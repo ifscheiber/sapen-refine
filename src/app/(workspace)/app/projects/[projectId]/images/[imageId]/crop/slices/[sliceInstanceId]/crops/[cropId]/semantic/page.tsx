@@ -1,4 +1,4 @@
-import { CropSemanticEditorPage } from "@/features/editor/CropSemanticEditorPage";
+import { redirect } from "next/navigation";
 import type { CropSemanticMode } from "@/features/editor/editorTypes";
 
 function parseInitialSemanticMode(value: string | string[] | undefined): CropSemanticMode | undefined {
@@ -21,13 +21,9 @@ export default async function Page({
 }) {
   const { projectId, imageId, sliceInstanceId, cropId } = await params;
   const { mode } = await searchParams;
-  return (
-    <CropSemanticEditorPage
-      projectId={projectId}
-      imageId={imageId}
-      sliceInstanceId={sliceInstanceId}
-      cropId={cropId}
-      initialSemanticMode={parseInitialSemanticMode(mode)}
-    />
+  const initialMode = parseInitialSemanticMode(mode) ?? "SAP_HEARTWOOD";
+  redirect(
+    `/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}` +
+      `?mode=${initialMode}&target=semantic`,
   );
 }

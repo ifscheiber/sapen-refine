@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayersIcon, RefreshCwIcon, ShieldIcon } from "lucide-react";
+import { PencilLineIcon, RefreshCwIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -196,30 +196,17 @@ function SelectedSlicePanel({
           <RefreshCwIcon className={cn("size-4", busy && "animate-spin")} aria-hidden="true" />
           {busy ? "Generating..." : cropAction}
         </Button>
-        {slice.supportHref ? (
+        {slice.workbenchHref ? (
           <Button asChild variant="outline">
-            <Link href={slice.supportHref}>
-              <ShieldIcon className="size-4" aria-hidden="true" />
-              Support
+            <Link href={slice.workbenchHref}>
+              <PencilLineIcon className="size-4" aria-hidden="true" />
+              Open editor
             </Link>
           </Button>
         ) : (
           <Button type="button" variant="outline" disabled>
-            <ShieldIcon className="size-4" aria-hidden="true" />
-            Support
-          </Button>
-        )}
-        {slice.semanticHref ? (
-          <Button asChild variant="outline">
-            <Link href={slice.semanticHref}>
-              <LayersIcon className="size-4" aria-hidden="true" />
-              Semantic
-            </Link>
-          </Button>
-        ) : (
-          <Button type="button" variant="outline" disabled>
-            <LayersIcon className="size-4" aria-hidden="true" />
-            Semantic
+            <PencilLineIcon className="size-4" aria-hidden="true" />
+            Editor needs crop
           </Button>
         )}
       </div>

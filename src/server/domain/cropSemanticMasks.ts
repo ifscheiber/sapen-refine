@@ -3,13 +3,18 @@ import {
   ArtifactReviewState,
   CropSemanticMode,
   Prisma,
-  SliceClassificationSource,
   type AnnotationProjectRole,
 } from "@prisma/client";
 
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
-import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  assertCropSemanticFamilySaveAllowed,
+  cropAnnotationFamilyErrorResponse,
+  cropAnnotationFamilyLockKey,
+  resolveCropAnnotationFamilyState,
+  type CropAnnotationFamilyState,
+} from "@/server/domain/cropAnnotationFamilies";
 import {
   cropReviewActionsForVersion,
   resolveCropWorkflowReadiness,
@@ -18,6 +23,7 @@ import {
 import { getObjectBytes } from "@/server/storage/s3";
 import {
   getProjectLabelSchemaVersionId,
+  getSupportLabelValues,
   SliceWorkflowError,
 } from "@/server/domain/slices";
 import {
@@ -28,7 +34,6 @@ import {
 } from "@/server/domain/sliceClassifications";
 import {
   buildCropSemanticFamilyState,
-  cropSemanticFamilySaveGuard,
   type CropSemanticFamilyState,
 } from "./cropSemanticFamily";
 import { CROP_SUPPORT_MASK_SCOPE_PREFIX } from "./cropSupportMasks";
@@ -185,6 +190,25 @@ function semanticReadiness(
     },
     semanticFamily,
   };
+}
+
+function semanticFamilyFromAnnotationFamily(
+  annotationFamily: CropAnnotationFamilyState,
+): CropSemanticFamilyState {
+  return buildCropSemanticFamilyState([
+    annotationFamily.families.sapHeartwood.occupied
+      ? {
+          cropSemanticMode: CropSemanticMode.SAP_HEARTWOOD,
+          reviewState: ArtifactReviewState.DRAFT,
+        }
+      : null,
+    annotationFamily.families.cuSupport.hasCopper
+      ? {
+          cropSemanticMode: CropSemanticMode.COPPER,
+          reviewState: ArtifactReviewState.DRAFT,
+        }
+      : null,
+  ]);
 }
 
 function serializeCrop(crop: CropRecord) {
@@ -470,6 +494,7 @@ async function semanticLabelsForProject(db: CropSemanticDb, projectId: string) {
 
   return {
     labelSchemaVersionId,
+    supportLabels: await getSupportLabelValues(db, labelSchemaVersionId),
     modes: {
       SAP_HEARTWOOD: {
         labels: sapHeartwoodLabels,
@@ -633,124 +658,6 @@ function cropSemanticCoordinateTransform(
   } satisfies Prisma.JsonObject;
 }
 
-async function supersedeOppositeSemanticFamilyVersions(params: {
-  tx: Prisma.TransactionClient;
-  crop: CropRecord;
-  requestedMode: CropSemanticMode;
-  userId: string;
-}) {
-  const versions = await params.tx.annotationArtifactVersion.findMany({
-    where: {
-      derivedCropId: params.crop.id,
-      sliceInstanceId: params.crop.sliceInstanceId,
-      cropSemanticMode: { not: params.requestedMode },
-      reviewState: { not: ArtifactReviewState.SUPERSEDED },
-      artifact: {
-        projectId: params.crop.projectId,
-        imageId: params.crop.sourceImageId,
-        kind: AnnotationArtifactKind.SEMANTIC_MASK,
-      },
-    },
-    select: {
-      id: true,
-      reviewState: true,
-      cropSemanticMode: true,
-      artifact: { select: { projectId: true, imageId: true } },
-    },
-  });
-  if (versions.length === 0) return;
-
-  const versionIds = versions.map((version) => version.id);
-  for (const version of versions) {
-    await params.tx.annotationArtifactVersion.update({
-      where: { id: version.id },
-      data: { reviewState: ArtifactReviewState.SUPERSEDED },
-    });
-    const decision = await params.tx.reviewDecision.create({
-      data: {
-        projectId: params.crop.projectId,
-        artifactVersionId: version.id,
-        fromState: version.reviewState,
-        toState: ArtifactReviewState.SUPERSEDED,
-        reviewedById: params.userId,
-        reason: "SEMANTIC_FAMILY_RESET",
-        comments: `Superseded by explicit ${params.requestedMode} semantic family reset.`,
-      },
-      select: { id: true },
-    });
-    await recordAuditEvent(
-      {
-        action: "CROP_SEMANTIC_FAMILY_VERSION_SUPERSEDED",
-        entity: "AnnotationArtifactVersion",
-        entityId: version.id,
-        actorId: params.userId,
-        details: {
-          projectId: params.crop.projectId,
-          imageId: params.crop.sourceImageId,
-          sliceInstanceId: params.crop.sliceInstanceId,
-          derivedCropId: params.crop.id,
-          fromSemanticMode: version.cropSemanticMode,
-          toSemanticMode: params.requestedMode,
-          reviewDecisionId: decision.id,
-        },
-      },
-      params.tx,
-    );
-  }
-
-  const classifications = await params.tx.sliceClassificationVersion.findMany({
-    where: {
-      source: SliceClassificationSource.AUTO_FROM_SEMANTIC_MASK,
-      derivedFromSemanticMaskVersionId: { in: versionIds },
-      reviewState: { not: ArtifactReviewState.SUPERSEDED },
-    },
-    select: {
-      id: true,
-      reviewState: true,
-      projectId: true,
-      imageId: true,
-      sliceInstanceId: true,
-      class: true,
-    },
-  });
-  for (const classification of classifications) {
-    await params.tx.sliceClassificationVersion.update({
-      where: { id: classification.id },
-      data: { reviewState: ArtifactReviewState.SUPERSEDED },
-    });
-    const decision = await params.tx.reviewDecision.create({
-      data: {
-        projectId: classification.projectId,
-        sliceClassificationVersionId: classification.id,
-        fromState: classification.reviewState,
-        toState: ArtifactReviewState.SUPERSEDED,
-        reviewedById: params.userId,
-        reason: "SEMANTIC_FAMILY_RESET",
-        comments: `Superseded by explicit ${params.requestedMode} semantic family reset.`,
-      },
-      select: { id: true },
-    });
-    await recordAuditEvent(
-      {
-        action: "SLICE_CLASSIFICATION_SUPERSEDED_BY_SEMANTIC_FAMILY_RESET",
-        entity: "SliceClassificationVersion",
-        entityId: classification.id,
-        actorId: params.userId,
-        details: {
-          projectId: classification.projectId,
-          imageId: classification.imageId,
-          sliceInstanceId: classification.sliceInstanceId,
-          derivedCropId: params.crop.id,
-          class: classification.class,
-          toSemanticMode: params.requestedMode,
-          reviewDecisionId: decision.id,
-        },
-      },
-      params.tx,
-    );
-  }
-}
-
 export async function loadCropSemanticMaskStateForUser(params: {
   cropId: string;
   userId: string;
@@ -761,7 +668,8 @@ export async function loadCropSemanticMaskStateForUser(params: {
   if (latestSupportMask) assertSupportLineage(crop, latestSupportMask);
 
   const latestMasks = await getActiveCropSemanticFamilyVersions(db, crop);
-  const semanticFamily = buildCropSemanticFamilyState(Object.values(latestMasks));
+  const annotationFamily = await resolveCropAnnotationFamilyState({ db, crop });
+  const semanticFamily = semanticFamilyFromAnnotationFamily(annotationFamily);
   const serializedSupportMask = latestSupportMask
     ? serializeSupportMask(latestSupportMask, crop.sourceImageId, membership.role)
     : null;
@@ -788,12 +696,14 @@ export async function loadCropSemanticMaskStateForUser(params: {
     myRole: membership.role,
     canEdit: canEdit(membership.role),
     labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
+    supportLabels: semanticLabels.supportLabels,
     semanticLabels: semanticLabels.modes,
     supportRequired: false,
     supportPolicy: CROP_SEMANTIC_SUPPORT_POLICY,
     currentSupportMask: serializedSupportMask,
     latestSemanticMasks: serializedMasks,
     semanticFamily,
+    annotationFamily,
     semanticReadiness: semanticReadiness(serializedSupportMask, serializedMasks, semanticFamily),
     latestClassification,
     cropReadiness: readinessCandidate ? sanitizeCropWorkflowCandidate(readinessCandidate) : null,
@@ -830,14 +740,6 @@ export async function createCropSemanticMaskVersionForUser(params: {
     throw new CropSemanticMaskWorkflowError("MASK_SIZE_MISMATCH");
   }
 
-  const activeSemanticFamily = buildCropSemanticFamilyState(
-    Object.values(await getActiveCropSemanticFamilyVersions(db, crop)),
-  );
-  const familyGuard = cropSemanticFamilySaveGuard(activeSemanticFamily, semanticMode);
-  if (familyGuard.resetRequired && !params.semanticFamilyReset) {
-    throw new CropSemanticMaskWorkflowError(familyGuard.error ?? "SEMANTIC_FAMILY_RESET_REQUIRED");
-  }
-
   const semanticLabels = await semanticLabelsForProject(db, crop.projectId);
   const requestedSupportMaskVersion = await getValidatedCurrentSupportMaskVersion({
     db,
@@ -866,69 +768,73 @@ export async function createCropSemanticMaskVersionForUser(params: {
   await db.$transaction((tx) =>
     withVersionAllocationLock(
       tx,
-      annotationArtifactVersionFamilyKey({
-        imageId: crop.sourceImageId,
-        kind: AnnotationArtifactKind.SEMANTIC_MASK,
-        scopeKey,
-      }),
+      cropAnnotationFamilyLockKey(crop.id),
       async () => {
-        if (params.semanticFamilyReset) {
-          await supersedeOppositeSemanticFamilyVersions({
-            tx,
-            crop,
-            requestedMode: semanticMode,
-            userId: params.userId,
-          });
-        }
+        await assertCropSemanticFamilySaveAllowed({
+          db: tx,
+          crop,
+          semanticMode,
+          semanticBytes: params.semanticBytes,
+        });
 
-        const artifact = await tx.annotationArtifact.upsert({
-          where: {
-            imageId_kind_scopeKey: {
-              imageId: crop.sourceImageId,
-              kind: AnnotationArtifactKind.SEMANTIC_MASK,
-              scopeKey,
-            },
-          },
-          update: {},
-          create: {
-            projectId: crop.projectId,
+        await withVersionAllocationLock(
+          tx,
+          annotationArtifactVersionFamilyKey({
             imageId: crop.sourceImageId,
             kind: AnnotationArtifactKind.SEMANTIC_MASK,
             scopeKey,
-            createdById: params.userId,
-          },
-          select: { id: true },
-        });
+          }),
+          async () => {
+            const artifact = await tx.annotationArtifact.upsert({
+              where: {
+                imageId_kind_scopeKey: {
+                  imageId: crop.sourceImageId,
+                  kind: AnnotationArtifactKind.SEMANTIC_MASK,
+                  scopeKey,
+                },
+              },
+              update: {},
+              create: {
+                projectId: crop.projectId,
+                imageId: crop.sourceImageId,
+                kind: AnnotationArtifactKind.SEMANTIC_MASK,
+                scopeKey,
+                createdById: params.userId,
+              },
+              select: { id: true },
+            });
 
-        const last = await tx.annotationArtifactVersion.findFirst({
-          where: { artifactId: artifact.id },
-          orderBy: { version: "desc" },
-          select: { version: true },
-        });
+            const last = await tx.annotationArtifactVersion.findFirst({
+              where: { artifactId: artifact.id },
+              orderBy: { version: "desc" },
+              select: { version: true },
+            });
 
-        const semanticVersion = await tx.annotationArtifactVersion.create({
-          data: {
-            artifactId: artifact.id,
-            version: (last?.version ?? 0) + 1,
-            storageKey: params.storageKey,
-            contentType: params.contentType ?? "application/octet-stream",
-            size: params.size,
-            checksum: params.checksum ?? null,
-            width: params.width,
-            height: params.height,
-            coordinateSpace: "CROP_PIXEL",
-            coordinateTransform: cropSemanticCoordinateTransform(crop, supportMaskVersion?.id ?? null, semanticMode),
-            format: params.format?.trim() || "u8raw-v1",
-            labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
-            derivedCropId: crop.id,
-            sliceInstanceId: crop.sliceInstanceId,
-            supportMaskVersionId: supportMaskVersion?.id ?? null,
-            cropSemanticMode: semanticMode,
-            createdById: params.userId,
+            const semanticVersion = await tx.annotationArtifactVersion.create({
+              data: {
+                artifactId: artifact.id,
+                version: (last?.version ?? 0) + 1,
+                storageKey: params.storageKey,
+                contentType: params.contentType ?? "application/octet-stream",
+                size: params.size,
+                checksum: params.checksum ?? null,
+                width: params.width,
+                height: params.height,
+                coordinateSpace: "CROP_PIXEL",
+                coordinateTransform: cropSemanticCoordinateTransform(crop, supportMaskVersion?.id ?? null, semanticMode),
+                format: params.format?.trim() || "u8raw-v1",
+                labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
+                derivedCropId: crop.id,
+                sliceInstanceId: crop.sliceInstanceId,
+                supportMaskVersionId: supportMaskVersion?.id ?? null,
+                cropSemanticMode: semanticMode,
+                createdById: params.userId,
+              },
+              select: { id: true },
+            });
+            semanticMaskVersionId = semanticVersion.id;
           },
-          select: { id: true },
-        });
-        semanticMaskVersionId = semanticVersion.id;
+        );
       },
     ),
   );
@@ -980,6 +886,9 @@ export function cropSemanticMaskErrorResponse(error: unknown): { error: string; 
   if (isVersionAllocationError(error)) {
     return { error: error.code, status: error.status };
   }
+
+  const annotationFamilyPayload = cropAnnotationFamilyErrorResponse(error);
+  if (annotationFamilyPayload) return annotationFamilyPayload;
 
   if (error instanceof CropSemanticMaskWorkflowError) {
     const status =

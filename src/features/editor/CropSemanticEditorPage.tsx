@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboardIcon, ShieldIcon, SquareMousePointerIcon } from "lucide-react";
+import { SquareMousePointerIcon } from "lucide-react";
 
 import { AppMain } from "@/components/shell/AppMain";
 import { AppMissingResource } from "@/components/shell/AppMissingResource";
@@ -19,12 +19,14 @@ export async function CropSemanticEditorPage({
   sliceInstanceId,
   cropId,
   initialSemanticMode,
+  initialTarget,
 }: {
   projectId: string;
   imageId: string;
   sliceInstanceId: string;
   cropId: string;
   initialSemanticMode?: CropSemanticMode;
+  initialTarget?: "semantic" | "support";
 }) {
   const { user, membership } = await requireWorkspaceProjectRole(projectId, PROJECT_READ_ROLES);
 
@@ -71,7 +73,7 @@ export async function CropSemanticEditorPage({
   return (
     <AppMain className="max-w-none">
       <AppPageHeader
-        title={`Semantic crop mask: ${crop.sourceImage.filename ?? crop.id}`}
+        title={`Crop annotation editor: ${crop.sourceImage.filename ?? crop.id}`}
         description={
           `${crop.sourceImage.contentType ?? "unknown type"} · crop v${crop.version} · ` +
           `${crop.cropWidth} x ${crop.cropHeight} · source x ${crop.sourceX}, y ${crop.sourceY}, ` +
@@ -80,23 +82,9 @@ export async function CropSemanticEditorPage({
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
-              <Link href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}`}>
-                <LayoutDashboardIcon className="size-4" aria-hidden="true" />
-                Workbench
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
               <Link href={`/app/projects/${projectId}/images/${imageId}/crop/bboxes`}>
                 <SquareMousePointerIcon className="size-4" aria-hidden="true" />
                 Edit BBoxes
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link
-                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}/support`}
-              >
-                <ShieldIcon className="size-4" aria-hidden="true" />
-                Support
               </Link>
             </Button>
           </div>
@@ -107,8 +95,9 @@ export async function CropSemanticEditorPage({
           cropId={cropId}
           canEdit={canAnnotate(membership.role)}
           initialSemanticMode={initialSemanticMode}
+          initialTarget={initialTarget}
         />
-        <CropEditorSliceNavigatorRailClient navigator={navigator} editorMode="semantic" />
+        <CropEditorSliceNavigatorRailClient navigator={navigator} editorMode="editor" />
       </div>
     </AppMain>
   );

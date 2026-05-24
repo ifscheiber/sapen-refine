@@ -1,4 +1,4 @@
-import { CropSupportEditorPage } from "@/features/editor/CropSupportEditorPage";
+import { redirect } from "next/navigation";
 
 export default async function Page(
   props: {
@@ -11,12 +11,8 @@ export default async function Page(
   },
 ) {
   const { projectId, imageId, sliceInstanceId, cropId } = await props.params;
-  return (
-    <CropSupportEditorPage
-      projectId={projectId}
-      imageId={imageId}
-      sliceInstanceId={sliceInstanceId}
-      cropId={cropId}
-    />
+  redirect(
+    `/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}` +
+      "?mode=COPPER&target=support",
   );
 }

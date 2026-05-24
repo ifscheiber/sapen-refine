@@ -209,24 +209,12 @@ export function EditorBBoxPanel({
                 className={idleButtonClass}
                 href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}`}
               >
-                Open workbench
-              </Link>
-              <Link
-                className={idleButtonClass}
-                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/support`}
-              >
-                Open support editor
-              </Link>
-              <Link
-                className={idleButtonClass}
-                href={`/app/projects/${projectId}/images/${imageId}/crop/slices/${selectedCrop.sliceInstanceId}/crops/${selectedCrop.id}/semantic`}
-              >
-                Open semantic editor
+                Open editor
               </Link>
             </>
           ) : (
             <button className={idleButtonClass} disabled>
-              Support editor needs crop
+              Editor needs crop
             </button>
           )}
         </div>

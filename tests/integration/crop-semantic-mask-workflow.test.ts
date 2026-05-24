@@ -213,7 +213,6 @@ describe("crop semantic mask workflow", () => {
     userId?: string;
     width?: number;
     height?: number;
-    semanticFamilyReset?: boolean;
   }) {
     const width = params.width ?? params.crop.cropWidth;
     const height = params.height ?? params.crop.cropHeight;
@@ -236,7 +235,6 @@ describe("crop semantic mask workflow", () => {
         height,
         format: "u8raw-v1",
         semanticBytes: params.bytes,
-        semanticFamilyReset: params.semanticFamilyReset,
       },
       prisma,
     );
@@ -282,7 +280,6 @@ describe("crop semantic mask workflow", () => {
 
   it("saves and reloads a Sap/Heartwood crop semantic mask with semantic-derived support geometry", async () => {
     const { crop } = await createCrop();
-    const { supportMask } = await saveSupport(crop);
     const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
     const firstInside = crop.cropWidth + 1;
     bytes[firstInside] = Labels.SAPWOOD;
@@ -372,7 +369,7 @@ describe("crop semantic mask workflow", () => {
 
     const reloaded = await loadCropSemanticMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
     expect(reloaded.latestSemanticMasks.SAP_HEARTWOOD?.id).toBe(latest.id);
-    expect(reloaded.currentSupportMask?.id).toBe(supportMask.id);
+    expect(reloaded.currentSupportMask).toBeNull();
     expect(reloaded.latestClassification?.id).toBe(state.latestClassification?.id);
   });
 
@@ -470,7 +467,7 @@ describe("crop semantic mask workflow", () => {
     });
   });
 
-  it("requires explicit semantic-family reset before switching families", async () => {
+  it("blocks the opposite annotation family until the active family is cleared", async () => {
     const { crop } = await createCrop();
     const sapBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
     sapBytes[crop.cropWidth + 1] = Labels.SAPWOOD;
@@ -479,15 +476,18 @@ describe("crop semantic mask workflow", () => {
       crop,
       semanticMode: "SAP_HEARTWOOD",
       bytes: sapBytes,
-      name: "family-reset-sap",
+      name: "family-lock-sap",
     });
-    const sapVersion = sapState.latestSemanticMasks.SAP_HEARTWOOD;
-    const sapClassification = sapState.latestClassification;
-    if (!sapVersion || !sapClassification) throw new Error("SAP_FAMILY_FIXTURE_MISSING");
-    expect(sapState.semanticFamily).toMatchObject({
+    expect(sapState.annotationFamily).toMatchObject({
       state: "SAP_HEARTWOOD",
-      activeMode: "SAP_HEARTWOOD",
-      resetRequiredModes: ["COPPER"],
+      activeFamily: "SAP_HEARTWOOD",
+      blockedFamilies: ["CU_SUPPORT"],
+      families: {
+        sapHeartwood: {
+          occupied: true,
+          hasSapwood: true,
+        },
+      },
     });
 
     const copperBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
@@ -497,45 +497,53 @@ describe("crop semantic mask workflow", () => {
         crop,
         semanticMode: "COPPER",
         bytes: copperBytes,
-        name: "family-reset-copper-blocked",
+        name: "family-lock-copper-blocked",
       }),
-    ).rejects.toMatchObject({ code: "SEMANTIC_FAMILY_RESET_REQUIRED" });
+    ).rejects.toMatchObject({ code: "CROP_ANNOTATION_FAMILY_CONFLICT" });
 
-    const resetState = await saveSemantic({
+    const emptySapBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    const clearState = await saveSemantic({
+      crop,
+      semanticMode: "SAP_HEARTWOOD",
+      bytes: emptySapBytes,
+      name: "family-lock-sap-cleared",
+    });
+    expect(clearState.annotationFamily).toMatchObject({
+      state: "EMPTY",
+      activeFamily: null,
+      blockedFamilies: [],
+    });
+
+    const copperState = await saveSemantic({
       crop,
       semanticMode: "COPPER",
       bytes: copperBytes,
-      name: "family-reset-copper",
-      semanticFamilyReset: true,
+      name: "family-lock-copper",
     });
-    expect(resetState.semanticFamily).toMatchObject({
-      state: "COPPER",
-      activeMode: "COPPER",
-      resetRequiredModes: ["SAP_HEARTWOOD"],
+    expect(copperState.annotationFamily).toMatchObject({
+      state: "CU_SUPPORT",
+      activeFamily: "CU_SUPPORT",
+      blockedFamilies: ["SAP_HEARTWOOD"],
+      families: {
+        cuSupport: {
+          occupied: true,
+          hasCopper: true,
+        },
+      },
     });
-    expect(resetState.latestSemanticMasks.SAP_HEARTWOOD).toBeNull();
-    expect(resetState.latestSemanticMasks.COPPER).toMatchObject({
+    expect(copperState.latestSemanticMasks.SAP_HEARTWOOD).toMatchObject({
+      semanticMode: "SAP_HEARTWOOD",
+      reviewState: "DRAFT",
+    });
+    expect(copperState.latestSemanticMasks.COPPER).toMatchObject({
       semanticMode: "COPPER",
       reviewState: "DRAFT",
     });
-    expect(resetState.latestClassification).toMatchObject({
+    expect(copperState.latestClassification).toMatchObject({
       class: "COPPER_SLICE",
       source: "AUTO_FROM_SEMANTIC_MASK",
       reviewState: "DRAFT",
     });
-
-    await expect(
-      prisma.annotationArtifactVersion.findUniqueOrThrow({
-        where: { id: sapVersion.id },
-        select: { reviewState: true },
-      }),
-    ).resolves.toEqual({ reviewState: "SUPERSEDED" });
-    await expect(
-      prisma.sliceClassificationVersion.findUniqueOrThrow({
-        where: { id: sapClassification.id },
-        select: { reviewState: true },
-      }),
-    ).resolves.toEqual({ reviewState: "SUPERSEDED" });
   });
 
   it("keeps manual family mismatch visible in crop readiness", async () => {
@@ -631,6 +639,11 @@ describe("crop semantic mask workflow", () => {
       readinessStatus: "REVIEW_REQUIRED",
       readinessReasons: expect.arrayContaining(["SEMANTIC_FAMILY_CONFLICT"]),
     });
+    expect(reloaded.annotationFamily).toMatchObject({
+      state: "CONFLICT",
+      activeFamily: null,
+      conflictFamilies: ["SAP_HEARTWOOD", "CU_SUPPORT"],
+    });
     await expect(
       saveSemantic({
         crop,
@@ -638,7 +651,7 @@ describe("crop semantic mask workflow", () => {
         bytes: copperBytes,
         name: "legacy-conflict-copper-blocked",
       }),
-    ).rejects.toMatchObject({ code: "SEMANTIC_FAMILY_CONFLICT" });
+    ).rejects.toMatchObject({ code: "CROP_ANNOTATION_FAMILY_CONFLICT" });
   });
 
   it("keeps auto classification as a draft suggestion and appends manual overrides", async () => {

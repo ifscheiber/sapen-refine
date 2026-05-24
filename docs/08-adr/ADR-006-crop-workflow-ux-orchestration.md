@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 implements the whole-image slice navigator. RB-096 implements the selected crop workbench. RB-097 implements semantic-family exclusivity and classification guardrails. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor route and surface. RB-098 owns remaining smoke/closeout coverage.
+Accepted for RB-093 design. RB-094 implements the image-level BBox stage and confirmation state. RB-095 implements the whole-image slice navigator. RB-096 implemented the earlier selected crop workbench. RB-123 removes the workbench screen, unifies crop support/semantic editing under the selected-crop editor route, and implements byte-derived annotation-family exclusivity. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor route and surface. RB-098 owns remaining smoke/closeout coverage.
 
 ## Context
 
@@ -17,9 +17,8 @@ Adopt a route-addressable crop workflow with explicit user stages:
 ```text
 BBox stage
 -> slice navigator
--> selected-slice crop workbench
--> support mask
--> semantic mask
+-> selected-crop unified editor
+-> annotation family target
 -> classification/readiness
 ```
 
@@ -30,10 +29,10 @@ The guided crop workflow should use these planned browser routes:
 - `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry/controller route.
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - image-level BBox stage.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - whole-image slice navigator and status view.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - selected-slice workbench.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - selected crop workbench route.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - support tool mode.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - semantic tool mode.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - compatibility selected-slice route.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - selected-crop unified editor route.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - compatibility alias for the support target.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - compatibility alias for the semantic target.
 
 The existing crop editor routes remain valid deep links and compatibility routes until the guided workflow replaces or redirects them:
 
@@ -70,8 +69,8 @@ Per-slice/crop state:
 
 - RB-094 owns persisted BBox confirmation and transition UI. Implemented through `ImageCropWorkflowState`, `/crop/bboxes`, and `/api/images/[imageId]/slice-bboxes/confirm`.
 - RB-095 owns the whole-image slice navigator and per-slice status badges. It is implemented through `/crop/slices/[sliceInstanceId]`, `src/features/editor/ImageCropSliceNavigatorClient.tsx`, and `src/server/domain/cropSliceNavigator.ts`.
-- RB-096 owns the unified crop workbench. It is implemented as a mode-aware selected-crop landing route that links to existing support and semantic crop editors rather than duplicating canvas logic.
-- RB-097 owns semantic-family exclusivity and classification guardrails. It is implemented through active-family detection, `SEMANTIC_FAMILY_RESET_REQUIRED` / `SEMANTIC_FAMILY_CONFLICT` server guards, explicit reset saves that supersede opposite-family active versions, and readiness blockers for contradictory manual classifications.
+- RB-096 owned the earlier selected crop workbench. RB-123 supersedes it with the unified crop annotation editor at the selected-crop route.
+- RB-123 owns annotation-family exclusivity and classification guardrails. It is implemented through byte-derived family detection, `CROP_ANNOTATION_FAMILY_CONFLICT` server guards, all-background clearing saves, and readiness blockers for contradictory manual classifications or legacy conflicts.
 - RB-103 owns explicit re-entry from crop editors to the BBox stage, including confirmed-set edit/re-confirm smoke coverage. Crop editor headers and the embedded navigator rail expose `Edit BBoxes`; opening the BBox stage after confirmation shows locked proposals until the user explicitly unlocks editing.
 - RB-104 removes the legacy full-image editor route and full-image annotation surface while preserving BBox-stage and assisted-correction functionality through non-legacy surfaces.
 - RB-098 owns smoke coverage and final workflow closeout after RB-103/RB-104.
@@ -84,8 +83,8 @@ Per-slice/crop state:
 - Crop workflow design: `docs/06-data/crop-based-slice-annotation.md`
 - Current crop readiness resolver: `src/server/domain/cropReadiness.ts`
 - Removed full-image editor route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/edit/page.tsx`
-- Current crop support route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
-- Current crop semantic route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
-- Current crop workbench route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/page.tsx`
+- Current crop support compatibility route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support/page.tsx`
+- Current crop semantic compatibility route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic/page.tsx`
+- Current unified crop editor route: `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/page.tsx`
 - Current crop editor BBox re-entry rail: `src/features/editor/CropEditorSliceNavigatorRailClient.tsx`
 - Current browser re-entry coverage: `tests/e2e/slice-bbox-proposals.spec.ts`

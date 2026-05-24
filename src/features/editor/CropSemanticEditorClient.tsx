@@ -31,6 +31,7 @@ import { applyCropBrush, applyCropPolygonFill } from "./cropMaskOperations";
 import {
   API_ARTIFACT_REVIEW,
   API_CLASSIFICATION_REVIEW,
+  API_CROP_SUPPORT_MASK_UPLOAD,
   API_CROP_SEMANTIC_MASK,
   API_CROP_SEMANTIC_MASK_UPLOAD,
   API_SLICE_INSTANCE_CLASSIFICATION,
@@ -46,12 +47,12 @@ import { createEditorLoadGuard } from "./editorLoadGuard";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
 import { activeButtonClass, idleButtonClass } from "./editorStyles";
-import { defaultLabelForSemanticMode } from "./cropWorkbenchGuidance";
+import { defaultLabelForSemanticMode } from "./cropAnnotationGuidance";
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   SLICE_CLASS_OPTIONS,
+  type CropAnnotationFamily,
   type CropReviewActions,
-  type CropSemanticFamilyState,
   type CropSemanticMaskState,
   type CropSemanticMode,
   type Point,
@@ -64,6 +65,7 @@ type CropSemanticEditorClientProps = {
   cropId: string;
   canEdit: boolean;
   initialSemanticMode?: CropSemanticMode;
+  initialTarget?: "semantic" | "support";
 };
 
 type Stroke = Patch[];
@@ -81,6 +83,16 @@ const MODE_LABELS: Record<CropSemanticMode, string> = {
   SAP_HEARTWOOD: "Sap/Heartwood",
   COPPER: "Copper",
 };
+
+const FAMILY_LABELS: Record<CropAnnotationFamily, string> = {
+  SAP_HEARTWOOD: "Sapwood / Heartwood",
+  CU_SUPPORT: "Cu / Support mask",
+};
+
+const TARGET_LABELS = {
+  support: "Support",
+  copper: "Cu",
+} as const;
 
 const LABEL_COLORS: Record<string, Pick<LabelDef, "rgb" | "alpha">> = {
   background: { rgb: [0, 0, 0], alpha: 0 },
@@ -146,24 +158,19 @@ function classificationLabel(state: CropSemanticMaskState | null) {
     .join(" / ");
 }
 
-function semanticFamilyLabel(family: CropSemanticFamilyState | null | undefined) {
-  if (!family || family.state === "NONE") return "Semantic family: none";
-  if (family.state === "CONFLICT") return "Semantic family: conflict";
-  return `Semantic family: ${MODE_LABELS[family.state]}`;
+function initialFamilyFromMode(mode: CropSemanticMode | undefined): CropAnnotationFamily {
+  return mode === "COPPER" ? "CU_SUPPORT" : "SAP_HEARTWOOD";
 }
 
-function semanticFamilyModeGuard(
-  family: CropSemanticFamilyState | null | undefined,
-  mode: CropSemanticMode,
-) {
-  if (!family) return { resetRequired: false, error: null as string | null };
-  if (family.state === "CONFLICT") {
-    return { resetRequired: true, error: "SEMANTIC_FAMILY_CONFLICT" };
-  }
-  if (family.activeMode && family.activeMode !== mode) {
-    return { resetRequired: true, error: "SEMANTIC_FAMILY_RESET_REQUIRED" };
-  }
-  return { resetRequired: false, error: null as string | null };
+function semanticModeForFamily(family: CropAnnotationFamily): CropSemanticMode {
+  return family === "SAP_HEARTWOOD" ? "SAP_HEARTWOOD" : "COPPER";
+}
+
+function annotationFamilyLabel(state: CropSemanticMaskState | null) {
+  const family = state?.annotationFamily;
+  if (!family || family.state === "EMPTY") return "Annotation family: empty";
+  if (family.state === "CONFLICT") return "Annotation family: conflict";
+  return `Annotation family: ${FAMILY_LABELS[family.state]}`;
 }
 
 function displaySupportMask(source: MaskBuffer) {
@@ -178,6 +185,7 @@ export function CropSemanticEditorClient({
   cropId,
   canEdit,
   initialSemanticMode = "SAP_HEARTWOOD",
+  initialTarget,
 }: CropSemanticEditorClientProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -205,12 +213,18 @@ export function CropSemanticEditorClient({
   const opacityRef = useRef(0.5);
   const supportOpacityRef = useRef(0.3);
   const loadSequenceRef = useRef(0);
+  const editingSupportRef = useRef(initialTarget === "support");
 
   const [state, setState] = useState<CropSemanticMaskState | null>(null);
   const [status, setStatus] = useState("");
   const [editorReady, setEditorReady] = useState(false);
   const [tool, setTool] = useState<Tool>("brush");
-  const [semanticMode, setSemanticMode] = useState<CropSemanticMode>(initialSemanticMode);
+  const [activeFamily, setActiveFamily] = useState<CropAnnotationFamily>(
+    initialTarget === "support" ? "CU_SUPPORT" : initialFamilyFromMode(initialSemanticMode),
+  );
+  const [cuSupportTarget, setCuSupportTarget] = useState<"support" | "copper">(
+    initialTarget === "support" ? "support" : "copper",
+  );
   const [activeLabel, setActiveLabel] = useState<LabelId>(defaultLabelForSemanticMode(initialSemanticMode));
   const [brushRadius, setBrushRadius] = useState(8);
   const [opacity, setOpacity] = useState(0.5);
@@ -223,20 +237,32 @@ export function CropSemanticEditorClient({
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
   const [lassoPointCount, setLassoPointCount] = useState(0);
-  const [pendingFamilyResetMode, setPendingFamilyResetMode] = useState<CropSemanticMode | null>(null);
 
-  const overlayLabels = useMemo(() => semanticOverlayLabels(state, semanticMode), [state, semanticMode]);
-  const paintLabels = useMemo(() => semanticPaintLabels(state, semanticMode), [state, semanticMode]);
+  const editingSupport = activeFamily === "CU_SUPPORT" && cuSupportTarget === "support";
+  const semanticMode = semanticModeForFamily(activeFamily);
+  const supportLabelValue = state?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
+  const supportBackgroundValue = state?.supportLabels.background ?? Labels.BG;
+  const overlayLabels = useMemo(
+    () => (editingSupport ? supportMaskLabels(supportLabelValue) : semanticOverlayLabels(state, semanticMode)),
+    [editingSupport, semanticMode, state, supportLabelValue],
+  );
+  const paintLabels = useMemo(
+    () =>
+      editingSupport
+        ? [{ id: supportLabelValue as LabelId, name: "Support", stableId: "slice_support" }]
+        : semanticPaintLabels(state, semanticMode),
+    [editingSupport, semanticMode, state, supportLabelValue],
+  );
   const palette = useMemo(() => buildPalette(overlayLabels, opacity), [overlayLabels, opacity]);
   const supportPalette = useMemo(
     () => buildPalette(supportMaskLabels(Labels.SLICE_SUPPORT), supportOpacity),
     [supportOpacity],
   );
-  const activeModeGuard = semanticFamilyModeGuard(state?.semanticFamily, semanticMode);
-  const semanticFamilyResetArmed = pendingFamilyResetMode === semanticMode;
-  const semanticFamilyBlocked = activeModeGuard.resetRequired && !semanticFamilyResetArmed;
-  const editorCanEdit =
-    canEdit && Boolean(state?.canEdit) && editorReady && !semanticFamilyBlocked;
+  const annotationFamily = state?.annotationFamily;
+  const blockedFamilies = annotationFamily?.blockedFamilies ?? [];
+  const familyBlocked =
+    annotationFamily?.state !== "CONFLICT" && blockedFamilies.includes(activeFamily);
+  const editorCanEdit = canEdit && Boolean(state?.canEdit) && editorReady && !familyBlocked;
   const classificationCanEdit = canEdit && Boolean(state?.canEdit) && Boolean(state);
 
   const applyZoom = useCallback((z: number) => {
@@ -304,7 +330,12 @@ export function CropSemanticEditorClient({
   const renderSupportOverlayFull = useCallback(() => {
     const support = supportMaskRef.current;
     const ctx = supportCtxRef.current;
-    if (!support || !ctx) return;
+    if (!ctx) return;
+    if (editingSupportRef.current || !support) {
+      const canvas = supportCanvasRef.current;
+      if (canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
 
     const displayMask = displaySupportMask(support);
     ensureSupportOverlayBuffer(displayMask.width, displayMask.height);
@@ -441,7 +472,7 @@ export function CropSemanticEditorClient({
   const loadEditor = useCallback(async (signal?: AbortSignal) => {
     const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
     resetEditor();
-    setStatus("Loading crop semantic mask");
+    setStatus(editingSupport ? "Loading crop support mask" : "Loading crop semantic mask");
     try {
       const response = await fetch(API_CROP_SEMANTIC_MASK(cropId), {
         method: "GET",
@@ -455,9 +486,13 @@ export function CropSemanticEditorClient({
       if (!loadGuard.isCurrent()) return;
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
-      paletteRef.current = buildPalette(semanticOverlayLabels(nextState, semanticMode), opacityRef.current);
+      const nextSupportLabel = nextState.supportLabels.sliceSupport;
+      paletteRef.current = buildPalette(
+        editingSupport ? supportMaskLabels(nextSupportLabel) : semanticOverlayLabels(nextState, semanticMode),
+        opacityRef.current,
+      );
       supportPaletteRef.current = buildPalette(
-        supportMaskLabels(Labels.SLICE_SUPPORT),
+        supportMaskLabels(nextSupportLabel),
         supportOpacityRef.current,
       );
 
@@ -470,8 +505,10 @@ export function CropSemanticEditorClient({
       }
 
       let latestBytes: Uint8Array | null = null;
-      const latestSemantic = nextState.latestSemanticMasks[semanticMode];
-      if (latestSemantic?.url) {
+      const latestSemantic = editingSupport ? null : nextState.latestSemanticMasks[semanticMode];
+      if (editingSupport) {
+        latestBytes = supportBytes;
+      } else if (latestSemantic?.url) {
         const assetResponse = await fetch(latestSemantic.url, { cache: "no-store", signal });
         if (!assetResponse.ok) throw new Error(`CROP_SEMANTIC_MASK_ASSET_FAILED_${assetResponse.status}`);
         latestBytes = new Uint8Array(await assetResponse.arrayBuffer());
@@ -518,25 +555,27 @@ export function CropSemanticEditorClient({
       overlayCtx.clearRect(0, 0, width, height);
       baseCtx.drawImage(img, 0, 0);
 
-      const supportMask = supportBytes ? new MaskBuffer(width, height, Labels.BG) : null;
+      const supportMask = supportBytes ? new MaskBuffer(width, height, nextState.supportLabels.background as LabelId) : null;
       if (supportMask && supportBytes) {
         supportMask.data.set(supportBytes);
       }
       supportMaskRef.current = supportMask;
 
-      const semanticMask = new MaskBuffer(
+      const editorMask = new MaskBuffer(
         width,
         height,
-        nextState.semanticLabels[semanticMode].backgroundValue as LabelId,
+        editingSupport
+          ? (nextState.supportLabels.background as LabelId)
+          : (nextState.semanticLabels[semanticMode].backgroundValue as LabelId),
       );
       if (latestBytes) {
         if (latestBytes.byteLength !== width * height) throw new Error("SAVED_MASK_DIMENSIONS_MISMATCH");
-        semanticMask.data.set(latestBytes);
+        editorMask.data.set(latestBytes);
       }
-      maskRef.current = semanticMask;
+      maskRef.current = editorMask;
 
       supportCtx.clearRect(0, 0, width, height);
-      if (supportMask) renderSupportOverlayFull();
+      if (!editingSupport && supportMask) renderSupportOverlayFull();
       renderOverlayFull();
       setEditorReady(true);
       setHasUnsavedChanges(false);
@@ -548,15 +587,19 @@ export function CropSemanticEditorClient({
     } catch (error) {
       if (signal?.aborted) return;
       setEditorReady(false);
-      setStatus(errorMessage(error, "Crop semantic editor failed"));
+      setStatus(errorMessage(error, editingSupport ? "Crop support editor failed" : "Crop semantic editor failed"));
     }
-  }, [cropId, fitToContainer, renderOverlayFull, renderSupportOverlayFull, resetEditor, semanticMode]);
+  }, [cropId, editingSupport, fitToContainer, renderOverlayFull, renderSupportOverlayFull, resetEditor, semanticMode]);
 
   useEffect(() => {
     const controller = new AbortController();
     void loadEditor(controller.signal);
     return () => controller.abort();
   }, [loadEditor]);
+
+  useEffect(() => {
+    editingSupportRef.current = editingSupport;
+  }, [editingSupport]);
 
   useEffect(() => {
     opacityRef.current = opacity;
@@ -628,6 +671,17 @@ export function CropSemanticEditorClient({
   }, [activeLabel, paintLabels]);
 
   useEffect(() => {
+    const family = state?.annotationFamily;
+    if (!family || family.state === "EMPTY" || family.state === "CONFLICT" || hasUnsavedChanges) return;
+    if (family.state !== activeFamily) {
+      setActiveFamily(family.state);
+      if (family.state === "CU_SUPPORT") {
+        setCuSupportTarget(family.families.cuSupport.hasSupport ? "support" : "copper");
+      }
+    }
+  }, [activeFamily, hasUnsavedChanges, state?.annotationFamily]);
+
+  useEffect(() => {
     setSelectedSliceClass(state?.latestClassification?.class ?? "");
   }, [state?.latestClassification?.class]);
 
@@ -654,13 +708,14 @@ export function CropSemanticEditorClient({
     if (!mask || !editorCanEdit) return;
     const paintLabel = getPaintLabelForTool({
       tool,
-      maskMode: "semantic",
+      maskMode: editingSupport ? "support" : "semantic",
       activeLabel,
+      supportBackgroundLabel: supportBackgroundValue,
     });
     const patch = applyCropBrush({
       mask,
       supportMask,
-      constrainToSupport: semanticMode === "COPPER" && Boolean(supportMask),
+      constrainToSupport: !editingSupport && semanticMode === "COPPER" && Boolean(supportMask),
       x,
       y,
       radius: brushRadius,
@@ -684,13 +739,14 @@ export function CropSemanticEditorClient({
     const patch = applyCropPolygonFill({
       mask,
       supportMask,
-      constrainToSupport: semanticMode === "COPPER" && Boolean(supportMask),
       points,
       label: getPaintLabelForTool({
         tool,
-        maskMode: "semantic",
+        maskMode: editingSupport ? "support" : "semantic",
         activeLabel,
+        supportBackgroundLabel: supportBackgroundValue,
       }),
+      constrainToSupport: !editingSupport && semanticMode === "COPPER" && Boolean(supportMask),
     });
     if (!patch) {
       resetLasso();
@@ -884,25 +940,32 @@ export function CropSemanticEditorClient({
     markDirty();
   }
 
-  function switchMode(nextMode: CropSemanticMode) {
-    if (nextMode !== semanticMode && hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) {
+  function familyBlockedReason(family: CropAnnotationFamily) {
+    const annotation = state?.annotationFamily;
+    if (!annotation || annotation.state === "EMPTY" || annotation.state === "CONFLICT") return null;
+    if (!annotation.blockedFamilies.includes(family)) return null;
+    const active = annotation.activeFamily ? FAMILY_LABELS[annotation.activeFamily] : "the opposite family";
+    return `${FAMILY_LABELS[family]} is unavailable because this crop already contains ${active} annotation. Remove that annotation to switch families.`;
+  }
+
+  function selectFamily(nextFamily: CropAnnotationFamily, nextTarget?: "support" | "copper") {
+    const blockedReason = familyBlockedReason(nextFamily);
+    if (blockedReason) {
+      setStatus(blockedReason);
       return;
     }
-    const guard = semanticFamilyModeGuard(state?.semanticFamily, nextMode);
-    if (guard.resetRequired && pendingFamilyResetMode !== nextMode) {
-      const confirmed = window.confirm(
-        `Reset semantic family to ${MODE_LABELS[nextMode]}? Existing opposite-family semantic versions remain historical and will be superseded when you save the next ${MODE_LABELS[nextMode]} mask.`,
-      );
-      if (!confirmed) return;
-      setPendingFamilyResetMode(nextMode);
-      setStatus(`Semantic family reset armed for ${MODE_LABELS[nextMode]}. Save a new semantic mask to apply it.`);
-    } else if (!guard.resetRequired) {
-      setPendingFamilyResetMode(null);
+    if (
+      (nextFamily !== activeFamily || (nextTarget && nextTarget !== cuSupportTarget)) &&
+      hasUnsavedChanges &&
+      !window.confirm("Discard unsaved crop annotation changes?")
+    ) {
+      return;
     }
-    if (nextMode === semanticMode) return;
     resetLasso();
-    setSemanticMode(nextMode);
-    setActiveLabel(defaultLabelForSemanticMode(nextMode));
+    setActiveFamily(nextFamily);
+    if (nextFamily === "CU_SUPPORT" && nextTarget) setCuSupportTarget(nextTarget);
+    const nextMode = semanticModeForFamily(nextFamily);
+    setActiveLabel(nextFamily === "CU_SUPPORT" && nextTarget === "support" ? supportLabelValue : defaultLabelForSemanticMode(nextMode));
   }
 
   function selectTool(nextTool: Tool) {
@@ -915,14 +978,26 @@ export function CropSemanticEditorClient({
     const supportMask = state?.currentSupportMask;
     if (!mask || !editorCanEdit || !hasUnsavedChanges) return;
     setIsSaving(true);
-    setStatus("Saving crop semantic mask");
+    setStatus(editingSupport ? "Saving crop support mask" : "Saving crop semantic mask");
     try {
+      if (editingSupport) {
+        const response = await uploadEditorMask(API_CROP_SUPPORT_MASK_UPLOAD(cropId), {
+          data: mask.data,
+          width: mask.width,
+          height: mask.height,
+        });
+        const data = await response.json().catch(() => null);
+        if (!data?.ok) throw new Error(data?.error ?? "CROP_SUPPORT_MASK_SAVE_FAILED");
+        await loadEditor();
+        setHasUnsavedChanges(false);
+        setStatus("Saved");
+        setTimeout(() => setStatus(""), 800);
+        return;
+      }
+
       const headers: Record<string, string> = {
         "x-semantic-mode": semanticMode,
       };
-      if (semanticFamilyResetArmed) {
-        headers["x-semantic-family-reset"] = "true";
-      }
       if (semanticMode === "COPPER" && supportMask) {
         headers["x-support-mask-version-id"] = supportMask.id;
       }
@@ -937,7 +1012,6 @@ export function CropSemanticEditorClient({
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
       setHasUnsavedChanges(false);
-      setPendingFamilyResetMode(null);
       if (nextState.classificationDerivation?.ok === false) {
         setStatus(`Saved; classification derivation failed: ${nextState.classificationDerivation.error}`);
       } else if (nextState.classificationDerivation?.classification) {
@@ -950,7 +1024,7 @@ export function CropSemanticEditorClient({
         setTimeout(() => setStatus(""), 800);
       }
     } catch (error) {
-      setStatus(errorMessage(error, "Crop semantic mask save failed"));
+      setStatus(errorMessage(error, editingSupport ? "Crop support mask save failed" : "Crop semantic mask save failed"));
     } finally {
       setIsSaving(false);
     }
@@ -981,8 +1055,7 @@ export function CropSemanticEditorClient({
   }
 
   async function reloadLatest() {
-    if (hasUnsavedChanges && !window.confirm("Discard unsaved semantic crop mask changes?")) return;
-    setPendingFamilyResetMode(null);
+    if (hasUnsavedChanges && !window.confirm("Discard unsaved crop annotation changes?")) return;
     await loadEditor();
   }
 
@@ -1075,14 +1148,18 @@ export function CropSemanticEditorClient({
         ]
       : []),
   ];
+  const sapHeartwoodBlockedReason = familyBlockedReason("SAP_HEARTWOOD");
+  const cuSupportBlockedReason = familyBlockedReason("CU_SUPPORT");
+  const familyConflict = state?.annotationFamily.state === "CONFLICT";
+  const activeEditLabel = editingSupport ? "support mask" : `${MODE_LABELS[semanticMode]} semantic mask`;
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
       <div className="border-b border-border bg-muted p-3">
         <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>{annotationFamilyLabel(state)}</span>
           <span>{supportReadinessLabel(state)}</span>
-          <span>{semanticFamilyLabel(state?.semanticFamily)}</span>
-          <span>{semanticVersionLabel(state, semanticMode)}</span>
+          <span>{editingSupport ? "Editing support mask" : semanticVersionLabel(state, semanticMode)}</span>
           <span>{classificationLabel(state)}</span>
           {state?.cropReadiness && (
             <span>Export readiness: {state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}</span>
@@ -1090,53 +1167,68 @@ export function CropSemanticEditorClient({
           {state?.cropReadiness?.readinessReasons.includes("CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH") && (
             <span>Classification conflicts with active semantic family.</span>
           )}
-          {semanticMode === "SAP_HEARTWOOD" && <span>Support geometry derives from semantic foreground.</span>}
-          {semanticMode === "COPPER" && state?.currentSupportMask && <span>Outside-support pixels are locked.</span>}
-          {semanticMode === "COPPER" && !state?.currentSupportMask && (
+          {activeFamily === "SAP_HEARTWOOD" && <span>Support geometry derives from semantic foreground.</span>}
+          {activeFamily === "CU_SUPPORT" && cuSupportTarget === "copper" && state?.currentSupportMask && (
+            <span>Outside-support pixels are locked.</span>
+          )}
+          {activeFamily === "CU_SUPPORT" && cuSupportTarget === "copper" && !state?.currentSupportMask && (
             <span>Copper drafts can save now; support is required before export.</span>
           )}
-          {semanticMode === "COPPER" && <span>Non-copper wood remains background inside support.</span>}
+          {activeFamily === "CU_SUPPORT" && cuSupportTarget === "support" && (
+            <span>Draw the complete support region for the physical slice.</span>
+          )}
         </div>
 
-        {(semanticFamilyBlocked || semanticFamilyResetArmed || state?.semanticFamily.state === "CONFLICT") && (
+        {(sapHeartwoodBlockedReason || cuSupportBlockedReason || familyConflict) && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
             <AlertTriangleIcon className="size-4 text-destructive" aria-hidden="true" />
-            {semanticFamilyBlocked ? (
-              <>
-                <span>
-                  {activeModeGuard.error === "SEMANTIC_FAMILY_CONFLICT"
-                    ? "Semantic family conflict requires an explicit reset before saving."
-                    : `${MODE_LABELS[semanticMode]} requires an explicit reset because ${MODE_LABELS[state?.semanticFamily.activeMode ?? "SAP_HEARTWOOD"]} is active.`}
-                </span>
-                <button className={idleButtonClass} onClick={() => switchMode(semanticMode)} disabled={isSaving}>
-                  Reset to {MODE_LABELS[semanticMode]}
-                </button>
-              </>
-            ) : (
+            {familyConflict ? (
               <span>
-                Reset armed for {MODE_LABELS[semanticMode]}. The next save will supersede opposite-family semantic versions and derived auto classifications.
+                This crop has both annotation families. Erase and save one family before adding more annotation.
               </span>
+            ) : (
+              <span>{sapHeartwoodBlockedReason ?? cuSupportBlockedReason}</span>
             )}
           </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            className={semanticMode === "SAP_HEARTWOOD" ? activeButtonClass : idleButtonClass}
-            aria-pressed={semanticMode === "SAP_HEARTWOOD"}
-            onClick={() => switchMode("SAP_HEARTWOOD")}
-            disabled={isSaving}
+            className={activeFamily === "SAP_HEARTWOOD" ? activeButtonClass : idleButtonClass}
+            aria-pressed={activeFamily === "SAP_HEARTWOOD"}
+            onClick={() => selectFamily("SAP_HEARTWOOD")}
+            disabled={isSaving || Boolean(sapHeartwoodBlockedReason)}
           >
-            Sap/Heartwood
+            Sapwood / Heartwood
           </button>
           <button
-            className={semanticMode === "COPPER" ? activeButtonClass : idleButtonClass}
-            aria-pressed={semanticMode === "COPPER"}
-            onClick={() => switchMode("COPPER")}
-            disabled={isSaving}
+            className={activeFamily === "CU_SUPPORT" ? activeButtonClass : idleButtonClass}
+            aria-pressed={activeFamily === "CU_SUPPORT"}
+            onClick={() => selectFamily("CU_SUPPORT", cuSupportTarget)}
+            disabled={isSaving || Boolean(cuSupportBlockedReason)}
           >
-            Copper
+            Cu / Support mask
           </button>
+          {activeFamily === "CU_SUPPORT" && (
+            <>
+              <button
+                className={cuSupportTarget === "support" ? activeButtonClass : idleButtonClass}
+                aria-pressed={cuSupportTarget === "support"}
+                onClick={() => selectFamily("CU_SUPPORT", "support")}
+                disabled={!editorReady || isSaving}
+              >
+                {TARGET_LABELS.support}
+              </button>
+              <button
+                className={cuSupportTarget === "copper" ? activeButtonClass : idleButtonClass}
+                aria-pressed={cuSupportTarget === "copper"}
+                onClick={() => selectFamily("CU_SUPPORT", "copper")}
+                disabled={!editorReady || isSaving}
+              >
+                {TARGET_LABELS.copper}
+              </button>
+            </>
+          )}
           <button
             className={tool === "brush" ? activeButtonClass : idleButtonClass}
             aria-pressed={tool === "brush"}
@@ -1188,17 +1280,18 @@ export function CropSemanticEditorClient({
               Commit
             </button>
           )}
-          {paintLabels.map((label) => (
-            <button
-              key={`${semanticMode}-${label.id}`}
-              className={activeLabel === label.id ? activeButtonClass : idleButtonClass}
-              aria-pressed={activeLabel === label.id}
-              onClick={() => setActiveLabel(label.id)}
-              disabled={!editorCanEdit}
-            >
-              {label.name}
-            </button>
-          ))}
+          {!editingSupport &&
+            paintLabels.map((label) => (
+              <button
+                key={`${semanticMode}-${label.id}`}
+                className={activeLabel === label.id ? activeButtonClass : idleButtonClass}
+                aria-pressed={activeLabel === label.id}
+                onClick={() => setActiveLabel(label.id)}
+                disabled={!editorCanEdit}
+              >
+                {label.name}
+              </button>
+            ))}
           <div className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
             <span>Size {brushRadius}px</span>
             <input
@@ -1237,7 +1330,7 @@ export function CropSemanticEditorClient({
             title="Save"
           >
             <SaveIcon className="size-4" aria-hidden="true" />
-            Save semantic mask
+            Save {activeEditLabel}
           </button>
           <label className="flex min-h-11 items-center gap-2">
             <span className="text-xs text-muted-foreground">Slice classification</span>

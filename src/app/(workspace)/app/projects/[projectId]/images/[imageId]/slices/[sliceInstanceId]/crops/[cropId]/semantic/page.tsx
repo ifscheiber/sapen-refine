@@ -1,4 +1,4 @@
-import { CropSemanticEditorPage } from "@/features/editor/CropSemanticEditorPage";
+import { redirect } from "next/navigation";
 
 export default async function Page({
   params,
@@ -11,12 +11,8 @@ export default async function Page({
   }>;
 }) {
   const { projectId, imageId, sliceInstanceId, cropId } = await params;
-  return (
-    <CropSemanticEditorPage
-      projectId={projectId}
-      imageId={imageId}
-      sliceInstanceId={sliceInstanceId}
-      cropId={cropId}
-    />
+  redirect(
+    `/app/projects/${projectId}/images/${imageId}/crop/slices/${sliceInstanceId}/crops/${cropId}` +
+      "?mode=SAP_HEARTWOOD&target=semantic",
   );
 }

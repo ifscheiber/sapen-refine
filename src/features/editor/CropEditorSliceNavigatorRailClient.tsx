@@ -19,7 +19,7 @@ import {
   SliceStatusBadges,
 } from "./ImageCropSliceNavigatorClient";
 
-type CropEditorMode = "support" | "semantic" | "workbench";
+type CropEditorMode = "editor" | "support" | "semantic";
 
 type EnsuredCrop = {
   id: string;
@@ -35,7 +35,7 @@ function cropEditorHref(params: {
   const base =
     `/app/projects/${params.navigator.projectId}/images/${params.navigator.imageId}` +
     `/crop/slices/${params.sliceInstanceId}/crops/${params.cropId}`;
-  return params.editorMode === "workbench" ? base : `${base}/${params.editorMode}`;
+  return params.editorMode === "editor" ? base : `${base}/${params.editorMode}`;
 }
 
 function currentEditorHref(

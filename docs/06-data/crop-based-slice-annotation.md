@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-097 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model, RB-094 implements image-level BBox set confirmation, RB-095 implements whole-image slice navigation, RB-096 implements the selected crop workbench, and RB-097 implements semantic-family exclusivity guards.
+This page defines the crop-based slice annotation workflow for RB-086 through RB-092 and links it to the RB-093/RB-123 crop workflow UX orchestration work. RB-086 implements persistent source-image BBox proposals. RB-087 implements server-generated derived slice crops from active BBox versions. RB-088 implements crop-space support-mask editing. RB-089 implements crop-constrained semantic annotation. RB-090 implements auto classification suggestions from crop semantic masks. RB-091 implements crop training exports, RB-092 implements shared crop readiness plus review/approval UI integration, RB-093 defines the staged user-facing route/state model, RB-094 implements image-level BBox set confirmation, RB-095 implements whole-image slice navigation, RB-096 implemented the earlier selected crop workbench, and RB-123 implements the unified crop annotation editor plus annotation-family exclusivity guards.
 
 The crop workflow is now the product annotation path for large images and iPad-constrained annotation work. RB-104 removed the legacy full-image editor route; the shared source-image canvas remains for BBox-stage planning and assisted correction.
 
@@ -14,8 +14,8 @@ The planned workflow is:
 Original image
 -> BBox proposal
 -> derived slice crop
--> selected crop workbench
--> mode-aware support/semantic annotation
+-> selected-crop unified editor
+-> mode-aware support/semantic annotation family
 -> auto-suggested slice classification
 -> review/approval
 -> export with crop and source-image provenance
@@ -27,9 +27,8 @@ The RB-093 UX orchestration splits that technical flow into staged user routes:
 BBox stage
 -> confirm BBox set
 -> slice navigator
--> selected-slice crop workbench
--> support
--> semantic
+-> selected-crop unified editor
+-> support or semantic target
 -> classification/readiness
 ```
 
@@ -159,9 +158,9 @@ Rules:
 - Sap/Heartwood semantic save does not require an explicit support mask. Its non-background semantic foreground is the support geometry source for readiness/export.
 - Copper semantic draft save does not require an explicit support mask, but Copper readiness/export requires an approved crop support mask for the same crop.
 - When a Copper semantic save references support, the server loads that support mask version and rejects non-background semantic pixels outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
-- RB-097 allows only one active semantic family per crop: `SAP_HEARTWOOD`, `COPPER`, `NONE`, or unresolved `CONFLICT`.
-- Saving the opposite family without explicit reset is rejected with `SEMANTIC_FAMILY_RESET_REQUIRED`; unresolved legacy conflicts are rejected with `SEMANTIC_FAMILY_CONFLICT`.
-- Explicit reset uses `x-semantic-family-reset: true`, appends a new semantic version, and marks opposite-family active semantic versions plus their auto-derived classifications as `SUPERSEDED`.
+- RB-123 allows only one active annotation family per crop: `Sapwood / Heartwood`, `Cu / Support mask`, empty, or unresolved conflict.
+- The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu/Support is occupied by copper pixels or support-mask foreground pixels.
+- Saving non-empty data in the opposite family is rejected with `CROP_ANNOTATION_FAMILY_CONFLICT`; all-background saves are allowed so users can clear the current family without deleting historical versions.
 - Browser responses include app-mediated mask asset URLs and do not expose private storage keys.
 - Export consumers must inspect `supportGeometrySource`: Sap/Heartwood may use `SEMANTIC_FOREGROUND`, while Copper uses `EXPLICIT_SUPPORT_MASK`.
 - Semantic masks and support masks may share a crop coordinate space, but they remain separate artifact families.
@@ -258,13 +257,13 @@ Current implemented behavior:
 - RB-091 crop training exports for ready crop candidates with approved support, semantic, and classification lineage,
 - RB-092 crop readiness and review actions in the project export panel, BBox crop panel, crop support editor, and crop semantic editor,
 - RB-095 slice navigator status derived from active BBoxes, current/stale crop versions, latest crop artifacts, classification versions, and crop readiness,
-- RB-096 selected crop workbench with crop preview, mode-aware Sap/Heartwood/Copper guidance, status, readiness, and embedded whole-image slice navigation,
+- RB-123 unified selected-crop editor with annotation-family controls, crop mask tools, status, readiness, review actions, and embedded whole-image slice navigation,
 - historical/default full-image saved mask coordinate space is still `IMAGE_PIXEL`,
 - large-image warnings for crop workflow source-image handling are documented in `docs/03-features/editor.md`.
 
 Planned crop behavior:
 
-- guided crop workflow routes for image-level BBox confirmation, whole-image slice navigation, selected crop workbench orchestration, and semantic-family conflict guards are implemented by RB-094 through RB-097,
+- guided crop workflow routes for image-level BBox confirmation, whole-image slice navigation, selected-crop unified editing, and annotation-family conflict guards are implemented by RB-094 through RB-123,
 - source-image-space reprojected crop-mask export remains deferred.
 
 ## Related Docs

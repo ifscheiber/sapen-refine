@@ -97,14 +97,12 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: /Crop workbench:/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Start Sap/Heartwood semantic" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Crop annotation editor:/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Start Sap/Heartwood semantic" }).click();
-  await expect(page).toHaveURL(/\/semantic\?mode=SAP_HEARTWOOD$/);
-  await expect(page.getByRole("heading", { name: /Semantic crop mask:/ })).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
 
   const semanticSurface = page.getByLabel("Mask drawing surface");
@@ -127,7 +125,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save semantic mask" }).click();
+  await page.getByRole("button", { name: "Save Sap/Heartwood semantic mask" }).click();
   await expect(page.getByText(/Saved; suggested Sap\/Heartwood slice|Saved/)).toBeVisible();
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
 

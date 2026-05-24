@@ -10,6 +10,11 @@ import {
 
 import { prisma } from "@/server/db";
 import {
+  familyLabelValuesForProject,
+  semanticBytesOccupyAnnotationFamily,
+  supportBytesOccupyAnnotationFamily,
+} from "@/server/domain/cropAnnotationFamilies";
+import {
   buildCropSemanticFamilyState,
   classConflictsWithSemanticFamily,
   type CropSemanticFamilyState,
@@ -452,6 +457,7 @@ export function evaluateCropWorkflowReadiness(params: {
   classificationAny: CropClassificationVersion | null;
   classificationApproved: CropClassificationVersion | null;
   semanticFamily: CropSemanticFamilyState;
+  annotationFamilyConflict?: boolean;
   semanticSupportValidationReason?: string | null;
 }) {
   const reasons = new Set<string>();
@@ -477,7 +483,7 @@ export function evaluateCropWorkflowReadiness(params: {
     reasons.add(supportAny ? "SUPPORT_NOT_APPROVED" : "MISSING_SUPPORT_MASK");
   }
   if (!semanticApproved) reasons.add(semanticAny ? "SEMANTIC_NOT_APPROVED" : "MISSING_SEMANTIC_MASK");
-  if (params.semanticFamily.state === "CONFLICT") {
+  if (params.semanticFamily.state === "CONFLICT" || params.annotationFamilyConflict) {
     reasons.add("SEMANTIC_FAMILY_CONFLICT");
   }
   if (
@@ -689,6 +695,43 @@ function latestSemanticFromFamily(
     )[0] ?? null;
 }
 
+async function keepSupportVersionWithForeground(params: {
+  db: CropReadinessDb;
+  projectId: string;
+  version: CropArtifactVersion | null;
+}) {
+  if (!params.version) return null;
+  const labels = await familyLabelValuesForProject(params.db, params.projectId);
+  const bytes = await getObjectBytes(params.version.storageKey);
+  return supportBytesOccupyAnnotationFamily({ supportBytes: bytes, labels }) ? params.version : null;
+}
+
+async function keepSemanticVersionsWithForeground(params: {
+  db: CropReadinessDb;
+  projectId: string;
+  versions: Record<CropSemanticMode, CropArtifactVersion | null>;
+}) {
+  const labels = await familyLabelValuesForProject(params.db, params.projectId);
+  const entries = await Promise.all(
+    Object.entries(params.versions).map(async ([mode, version]) => {
+      if (!version) return [mode, null] as const;
+      const semanticMode = mode as CropSemanticMode;
+      const bytes = await getObjectBytes(version.storageKey);
+      const occupied = semanticBytesOccupyAnnotationFamily({
+        semanticMode,
+        semanticBytes: bytes,
+        labels,
+      });
+      return [semanticMode, occupied ? version : null] as const;
+    }),
+  );
+
+  return {
+    SAP_HEARTWOOD: entries.find(([mode]) => mode === CropSemanticMode.SAP_HEARTWOOD)?.[1] ?? null,
+    COPPER: entries.find(([mode]) => mode === CropSemanticMode.COPPER)?.[1] ?? null,
+  };
+}
+
 async function loadLatestCropClassificationVersion(params: {
   db: CropReadinessDb;
   projectId: string;
@@ -793,42 +836,80 @@ export async function resolveCropWorkflowReadiness(params: {
       }),
     ]);
 
-    const semanticAny = latestSemanticFromFamily(semanticFamilyAny);
-    const semanticApproved = latestSemanticFromFamily(semanticFamilyApproved);
-    const semanticFamily = buildCropSemanticFamilyState(Object.values(semanticFamilyAny));
+    const [
+      supportAnyWithForeground,
+      supportApprovedWithForeground,
+      semanticFamilyAnyWithForeground,
+      semanticFamilyApprovedWithForeground,
+    ] = await Promise.all([
+      keepSupportVersionWithForeground({
+        db,
+        projectId: crop.projectId,
+        version: supportAny,
+      }),
+      keepSupportVersionWithForeground({
+        db,
+        projectId: crop.projectId,
+        version: supportApproved,
+      }),
+      keepSemanticVersionsWithForeground({
+        db,
+        projectId: crop.projectId,
+        versions: semanticFamilyAny,
+      }),
+      keepSemanticVersionsWithForeground({
+        db,
+        projectId: crop.projectId,
+        versions: semanticFamilyApproved,
+      }),
+    ]);
+
+    const semanticAny = latestSemanticFromFamily(semanticFamilyAnyWithForeground);
+    const semanticApproved = latestSemanticFromFamily(semanticFamilyApprovedWithForeground);
+    const semanticFamily = buildCropSemanticFamilyState(Object.values(semanticFamilyAnyWithForeground));
+    const annotationFamilyConflict = Boolean(
+      semanticFamilyAnyWithForeground.SAP_HEARTWOOD &&
+        (semanticFamilyAnyWithForeground.COPPER || supportAnyWithForeground),
+    );
     const supportPolicy = cropSemanticSupportPolicy(semanticApproved ?? semanticAny);
     const semanticSupportValidationReason = await validateApprovedSemanticSupportPair({
       supportRequired: supportPolicy.supportRequired,
-      supportApproved,
+      supportApproved: supportApprovedWithForeground,
       semanticApproved,
     });
     const readiness = evaluateCropWorkflowReadiness({
       crop,
-      supportAny,
-      supportApproved,
+      supportAny: supportAnyWithForeground,
+      supportApproved: supportApprovedWithForeground,
       semanticAny,
       semanticApproved,
       classificationAny,
       classificationApproved,
       semanticFamily,
+      annotationFamilyConflict,
       semanticSupportValidationReason,
     });
 
     candidates.push({
       crop,
-      supportMask: supportApproved,
+      supportMask: supportApprovedWithForeground,
       semanticMask: semanticApproved,
       classification: classificationApproved,
-      latestSupportMask: supportAny,
+      latestSupportMask: supportAnyWithForeground,
       latestSemanticMask: semanticAny,
       latestClassification: classificationAny,
       semanticFamily,
-      supportGeometrySource: semanticFamily.state === "CONFLICT" ? null : supportPolicy.supportGeometrySource,
+      supportGeometrySource:
+        semanticFamily.state === "CONFLICT" || annotationFamilyConflict
+          ? null
+          : supportPolicy.supportGeometrySource,
       readinessStatus: readiness.status,
       readinessReasons: readiness.reasons,
       nextActions: readiness.nextActions,
       reviewActions: {
-        supportMask: supportAny ? cropReviewActionsForVersion(supportAny, params.role) : null,
+        supportMask: supportAnyWithForeground
+          ? cropReviewActionsForVersion(supportAnyWithForeground, params.role)
+          : null,
         semanticMask: semanticAny ? cropReviewActionsForVersion(semanticAny, params.role) : null,
         classification: classificationAny ? cropReviewActionsForVersion(classificationAny, params.role) : null,
       },

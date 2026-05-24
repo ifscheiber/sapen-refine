@@ -111,6 +111,29 @@ export type CropSemanticFamilyState = {
   blockedModes: CropSemanticMode[];
   resetRequiredModes: CropSemanticMode[];
 };
+export type CropAnnotationFamily = "SAP_HEARTWOOD" | "CU_SUPPORT";
+export type CropAnnotationFamilyState = {
+  state: "EMPTY" | CropAnnotationFamily | "CONFLICT";
+  activeFamily: CropAnnotationFamily | null;
+  occupiedFamilies: CropAnnotationFamily[];
+  conflictFamilies: CropAnnotationFamily[];
+  blockedFamilies: CropAnnotationFamily[];
+  families: {
+    sapHeartwood: {
+      occupied: boolean;
+      semanticMaskVersionId: string | null;
+      hasSapwood: boolean;
+      hasHeartwood: boolean;
+    };
+    cuSupport: {
+      occupied: boolean;
+      copperMaskVersionId: string | null;
+      supportMaskVersionId: string | null;
+      hasCopper: boolean;
+      hasSupport: boolean;
+    };
+  };
+};
 export type CropWorkflowNextAction =
   | "OPEN_SUPPORT_EDITOR"
   | "OPEN_SEMANTIC_EDITOR"
@@ -251,6 +274,7 @@ export type CropSupportMaskState = {
     reviewActions: CropReviewActions;
     url: string;
   } | null;
+  annotationFamily: CropAnnotationFamilyState;
   supportReadiness: {
     status: string;
     label: string;
@@ -275,6 +299,7 @@ export type CropSemanticMaskState = {
   labelSchemaVersionId: string;
   supportRequired: boolean;
   supportPolicy: CropSemanticSupportPolicy;
+  supportLabels: { background: number; sliceSupport: number };
   semanticLabels: Record<
     CropSemanticMode,
     {
@@ -332,6 +357,7 @@ export type CropSemanticMaskState = {
     } | null
   >;
   semanticFamily: CropSemanticFamilyState;
+  annotationFamily: CropAnnotationFamilyState;
   semanticReadiness: {
     status: string;
     label: string;

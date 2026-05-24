@@ -7,6 +7,12 @@ import {
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import {
+  assertCropSupportFamilySaveAllowed,
+  cropAnnotationFamilyErrorResponse,
+  cropAnnotationFamilyLockKey,
+  resolveCropAnnotationFamilyState,
+} from "@/server/domain/cropAnnotationFamilies";
+import {
   cropReviewActionsForVersion,
   resolveCropWorkflowReadiness,
   sanitizeCropWorkflowCandidate,
@@ -21,6 +27,7 @@ import {
   isVersionAllocationError,
   withVersionAllocationLock,
 } from "@/server/domain/versionAllocation";
+import { getObjectBytes } from "@/server/storage/s3";
 
 type CropSupportDb = typeof prisma;
 
@@ -309,6 +316,7 @@ export async function loadCropSupportMaskStateForUser(params: {
   const { crop, membership } = await getCropWithMembership(db, params.cropId, params.userId);
   const { labelSchemaVersionId, supportLabels } = await supportLabelsForProject(db, crop.projectId);
   const latestSupportMask = await getLatestCropSupportMaskVersion(db, crop);
+  const annotationFamily = await resolveCropAnnotationFamilyState({ db, crop });
   const serializedLatest = latestSupportMask
     ? serializeSupportMask(latestSupportMask, crop.sourceImageId, membership.role)
     : null;
@@ -329,6 +337,7 @@ export async function loadCropSupportMaskStateForUser(params: {
     supportLabels,
     exists: Boolean(serializedLatest),
     latestSupportMask: serializedLatest,
+    annotationFamily,
     supportReadiness: supportReadiness(serializedLatest),
     cropReadiness: readinessCandidate ? sanitizeCropWorkflowCandidate(readinessCandidate) : null,
   };
@@ -344,6 +353,7 @@ export async function createCropSupportMaskVersionForUser(params: {
   width: number;
   height: number;
   format?: string | null;
+  supportBytes?: Uint8Array;
 }, db: CropSupportDb = prisma) {
   const { crop, membership } = await getCropWithMembership(db, params.cropId, params.userId);
   if (!canEdit(membership.role)) throw new CropSupportMaskWorkflowError("FORBIDDEN");
@@ -358,66 +368,79 @@ export async function createCropSupportMaskVersionForUser(params: {
 
   const { labelSchemaVersionId } = await supportLabelsForProject(db, crop.projectId);
   const scopeKey = cropSupportMaskScopeKey(crop.id);
+  const supportBytes = params.supportBytes ?? await getObjectBytes(params.storageKey);
 
   await db.$transaction((tx) =>
     withVersionAllocationLock(
       tx,
-      annotationArtifactVersionFamilyKey({
-        imageId: crop.sourceImageId,
-        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
-        scopeKey,
-      }),
+      cropAnnotationFamilyLockKey(crop.id),
       async () => {
-        const artifact = await tx.annotationArtifact.upsert({
-          where: {
-            imageId_kind_scopeKey: {
-              imageId: crop.sourceImageId,
-              kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
-              scopeKey,
-            },
-          },
-          update: {},
-          create: {
-            projectId: crop.projectId,
+        await assertCropSupportFamilySaveAllowed({
+          db: tx,
+          crop,
+          supportBytes,
+        });
+
+        await withVersionAllocationLock(
+          tx,
+          annotationArtifactVersionFamilyKey({
             imageId: crop.sourceImageId,
             kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
             scopeKey,
-            createdById: params.userId,
+          }),
+          async () => {
+            const artifact = await tx.annotationArtifact.upsert({
+              where: {
+                imageId_kind_scopeKey: {
+                  imageId: crop.sourceImageId,
+                  kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+                  scopeKey,
+                },
+              },
+              update: {},
+              create: {
+                projectId: crop.projectId,
+                imageId: crop.sourceImageId,
+                kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+                scopeKey,
+                createdById: params.userId,
+              },
+              select: { id: true },
+            });
+
+            const last = await tx.annotationArtifactVersion.findFirst({
+              where: { artifactId: artifact.id },
+              orderBy: { version: "desc" },
+              select: { version: true },
+            });
+
+            const version = await tx.annotationArtifactVersion.create({
+              data: {
+                artifactId: artifact.id,
+                version: (last?.version ?? 0) + 1,
+                storageKey: params.storageKey,
+                contentType: params.contentType ?? "application/octet-stream",
+                size: params.size,
+                checksum: params.checksum ?? null,
+                width: params.width,
+                height: params.height,
+                coordinateSpace: "CROP_PIXEL",
+                coordinateTransform: cropSupportCoordinateTransform(crop),
+                format: params.format?.trim() || "u8raw-v1",
+                labelSchemaVersionId,
+                derivedCropId: crop.id,
+                sliceInstanceId: crop.sliceInstanceId,
+                createdById: params.userId,
+              },
+              select: { id: true },
+            });
+
+            await tx.sliceInstance.update({
+              where: { id: crop.sliceInstanceId },
+              data: { supportArtifactVersionId: version.id },
+            });
           },
-          select: { id: true },
-        });
-
-        const last = await tx.annotationArtifactVersion.findFirst({
-          where: { artifactId: artifact.id },
-          orderBy: { version: "desc" },
-          select: { version: true },
-        });
-
-        const version = await tx.annotationArtifactVersion.create({
-          data: {
-            artifactId: artifact.id,
-            version: (last?.version ?? 0) + 1,
-            storageKey: params.storageKey,
-            contentType: params.contentType ?? "application/octet-stream",
-            size: params.size,
-            checksum: params.checksum ?? null,
-            width: params.width,
-            height: params.height,
-            coordinateSpace: "CROP_PIXEL",
-            coordinateTransform: cropSupportCoordinateTransform(crop),
-            format: params.format?.trim() || "u8raw-v1",
-            labelSchemaVersionId,
-            derivedCropId: crop.id,
-            sliceInstanceId: crop.sliceInstanceId,
-            createdById: params.userId,
-          },
-          select: { id: true },
-        });
-
-        await tx.sliceInstance.update({
-          where: { id: crop.sliceInstanceId },
-          data: { supportArtifactVersionId: version.id },
-        });
+        );
       },
     ),
   );
@@ -429,6 +452,9 @@ export function cropSupportMaskErrorResponse(error: unknown): { error: string; s
   if (isVersionAllocationError(error)) {
     return { error: error.code, status: error.status };
   }
+
+  const annotationFamilyPayload = cropAnnotationFamilyErrorResponse(error);
+  if (annotationFamilyPayload) return annotationFamilyPayload;
 
   if (error instanceof CropSupportMaskWorkflowError) {
     const status =

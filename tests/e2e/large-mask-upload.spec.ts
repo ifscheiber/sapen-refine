@@ -112,8 +112,7 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
-  await page.getByRole("link", { name: "Start Sap/Heartwood semantic" }).click();
-  await expect(page).toHaveURL(/\/semantic\?mode=SAP_HEARTWOOD$/);
+  await expect(page.getByRole("heading", { name: /Crop annotation editor:/ })).toBeVisible();
 
   const semanticSurface = page.getByLabel("Mask drawing surface");
   await expect(semanticSurface).toBeVisible();
@@ -128,7 +127,7 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save semantic mask" }).click();
+  await page.getByRole("button", { name: "Save Sap/Heartwood semantic mask" }).click();
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
   await expect
     .poll(async () =>

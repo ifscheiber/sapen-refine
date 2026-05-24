@@ -37,7 +37,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - The app-mediated upload path accepts PNG and JPEG images only. SVG and other formats are rejected before an image row is created.
 - Uploaded images appear in the image workspace with app-mediated previews, validation/readiness hints, T-number state, additive mask-version counts where available, and links to metadata and the crop workflow.
 - `/app/projects/[projectId]/images/[imageId]` shows immutable technical image metadata and editable image-level acquisition/sample metadata.
-- The image list and metadata page link to the crop workflow entry route for image-level BBox set confirmation. After confirmation, selected slices open the crop workbench before the support or semantic crop editors. RB-104 removed the legacy full-image editor link from these pages.
+- The image list and metadata page link to the crop workflow entry route for image-level BBox set confirmation. After confirmation, selected slices open the unified crop annotation editor directly. RB-104 removed the legacy full-image editor link from these pages.
 
 ## Current Data Captured
 
@@ -111,5 +111,5 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - Historical/default full-image semantic/support artifacts may still exist through APIs, but product annotation is crop-first. Crop workflows save crop-scoped support geometry per derived crop.
 - Tiling, downscaled working masks, sparse/patch uploads, hard multi-tab locking, and large-image edit-session soft locks remain deferred.
-- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092/RB-096/RB-097/RB-100 support multiple BBox slice proposals, derived crop generation, selected crop workbench orchestration, crop support-mask editing, mode-aware crop semantic editing, semantic-family reset guards, draft semantic-derived classification suggestions, crop training export, and crop-aware review/readiness. Slice-specific metadata, source-image-space crop-mask reprojection, and multi-object pixel-perfect support editing remain deferred.
+- RB-086/RB-087/RB-088/RB-089/RB-090/RB-091/RB-092/RB-096/RB-100/RB-123 support multiple BBox slice proposals, derived crop generation, direct unified crop editing, crop support-mask editing, mode-aware crop semantic editing, byte-derived annotation-family guards, draft semantic-derived classification suggestions, crop training export, and crop-aware review/readiness. Slice-specific metadata, source-image-space crop-mask reprojection, and multi-object pixel-perfect support editing remain deferred.
 - RB-053 exports approved semantic/support/classification data only and warns about missing metadata or missing approved components.

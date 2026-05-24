@@ -5,9 +5,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import sharp from "sharp";
 
+import { Labels } from "@/mask/labels";
 import { sha256Checksum } from "@/server/uploads/integrity";
 import type { createSliceBoundingBoxForUser as CreateSliceBoundingBoxForUser } from "@/server/domain/sliceBboxes";
 import type { generateCropForSliceBBox as GenerateCropForSliceBBox } from "@/server/domain/sliceCrops";
+import type { createCropSemanticMaskVersionForUser as CreateCropSemanticMaskVersionForUser } from "@/server/domain/cropSemanticMasks";
 import type {
   createCropSupportMaskVersionForUser as CreateCropSupportMaskVersionForUser,
   loadCropSupportMaskStateForUser as LoadCropSupportMaskStateForUser,
@@ -21,6 +23,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 let createSliceBoundingBoxForUser: typeof CreateSliceBoundingBoxForUser;
 let generateCropForSliceBBox: typeof GenerateCropForSliceBBox;
+let createCropSemanticMaskVersionForUser: typeof CreateCropSemanticMaskVersionForUser;
 let createCropSupportMaskVersionForUser: typeof CreateCropSupportMaskVersionForUser;
 let loadCropSupportMaskStateForUser: typeof LoadCropSupportMaskStateForUser;
 let storage: typeof import("@/server/storage/s3");
@@ -33,11 +36,13 @@ describe("crop support mask workflow", () => {
   let labelSchemaVersionId: string;
   let suffix: string;
   const sourceKeys = new Set<string>();
+  const semanticKeys = new Set<string>();
   const supportKeys = new Set<string>();
 
   beforeAll(async () => {
     ({ createSliceBoundingBoxForUser } = await import("@/server/domain/sliceBboxes"));
     ({ generateCropForSliceBBox } = await import("@/server/domain/sliceCrops"));
+    ({ createCropSemanticMaskVersionForUser } = await import("@/server/domain/cropSemanticMasks"));
     ({
       createCropSupportMaskVersionForUser,
       loadCropSupportMaskStateForUser,
@@ -87,7 +92,7 @@ describe("crop support mask workflow", () => {
         .catch(() => [])
       : [];
     await Promise.all(
-      [...sourceKeys, ...supportKeys, ...cropKeys.map((crop) => crop.storageKey)]
+      [...sourceKeys, ...semanticKeys, ...supportKeys, ...cropKeys.map((crop) => crop.storageKey)]
         .filter(Boolean)
         .map((key) => storage.deleteObjectBestEffort(key)),
     );
@@ -146,6 +151,32 @@ describe("crop support mask workflow", () => {
       prisma,
     );
     return { box, crop };
+  }
+
+  async function saveSapHeartwoodSemantic(params: {
+    crop: Awaited<ReturnType<typeof createCrop>>["crop"];
+    bytes: Uint8Array;
+    name: string;
+  }) {
+    const storageKey = `tests/crop-support/${suffix}/${params.crop.id}-${params.name}-sap.msk`;
+    semanticKeys.add(storageKey);
+    await storage.putObject(storageKey, params.bytes, "application/octet-stream");
+    return createCropSemanticMaskVersionForUser(
+      {
+        cropId: params.crop.id,
+        userId: ownerId,
+        semanticMode: "SAP_HEARTWOOD",
+        storageKey,
+        contentType: "application/octet-stream",
+        size: params.bytes.byteLength,
+        checksum: sha256Checksum(params.bytes),
+        width: params.crop.cropWidth,
+        height: params.crop.cropHeight,
+        format: "u8raw-v1",
+        semanticBytes: params.bytes,
+      },
+      prisma,
+    );
   }
 
   it("saves and reloads a crop-space SLICE_SUPPORT_MASK version linked to crop and slice", async () => {
@@ -271,5 +302,69 @@ describe("crop support mask workflow", () => {
         prisma,
       ),
     ).rejects.toMatchObject({ code: "MASK_DIMENSIONS_MISMATCH" });
+  });
+
+  it("blocks support masks until Sapwood/Heartwood annotation is cleared", async () => {
+    const { crop } = await createCrop();
+    const sapBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    sapBytes[crop.cropWidth + 1] = Labels.SAPWOOD;
+    await saveSapHeartwoodSemantic({ crop, bytes: sapBytes, name: "family-lock" });
+
+    const supportBytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    supportBytes.fill(Labels.SLICE_SUPPORT, crop.cropWidth + 1, crop.cropWidth * 2);
+    await expect(
+      createCropSupportMaskVersionForUser(
+        {
+          cropId: crop.id,
+          userId: ownerId,
+          storageKey: `tests/crop-support/${suffix}/${crop.id}-support-blocked.msk`,
+          contentType: "application/octet-stream",
+          size: supportBytes.byteLength,
+          checksum: sha256Checksum(supportBytes),
+          width: crop.cropWidth,
+          height: crop.cropHeight,
+          format: "u8raw-v1",
+          supportBytes,
+        },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "CROP_ANNOTATION_FAMILY_CONFLICT" });
+
+    await saveSapHeartwoodSemantic({
+      crop,
+      bytes: new Uint8Array(crop.cropWidth * crop.cropHeight),
+      name: "family-lock-cleared",
+    });
+
+    const storageKey = `tests/crop-support/${suffix}/${crop.id}-support-unlocked.msk`;
+    supportKeys.add(storageKey);
+    await storage.putObject(storageKey, supportBytes, "application/octet-stream");
+    const state = await createCropSupportMaskVersionForUser(
+      {
+        cropId: crop.id,
+        userId: ownerId,
+        storageKey,
+        contentType: "application/octet-stream",
+        size: supportBytes.byteLength,
+        checksum: sha256Checksum(supportBytes),
+        width: crop.cropWidth,
+        height: crop.cropHeight,
+        format: "u8raw-v1",
+        supportBytes,
+      },
+      prisma,
+    );
+
+    expect(state.annotationFamily).toMatchObject({
+      state: "CU_SUPPORT",
+      activeFamily: "CU_SUPPORT",
+      blockedFamilies: ["SAP_HEARTWOOD"],
+      families: {
+        cuSupport: {
+          occupied: true,
+          hasSupport: true,
+        },
+      },
+    });
   });
 });

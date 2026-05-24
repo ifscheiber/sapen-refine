@@ -140,22 +140,26 @@ describe("safe version allocation concurrency", () => {
     const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
     bytes[crop.cropWidth + 1] = Labels.SLICE_SUPPORT;
 
-    const requests = [0, 1].map((index) =>
-      createCropSupportMaskVersionForUser(
+    const requests = [0, 1].map(async (index) => {
+      const storageKey = `tests/version-allocation/${suffix}/${crop.id}-support-${index}.msk`;
+      objectKeys.add(storageKey);
+      await storage.putObject(storageKey, bytes, "application/octet-stream");
+      return createCropSupportMaskVersionForUser(
         {
           cropId: crop.id,
           userId: ownerId,
-          storageKey: `tests/version-allocation/${suffix}/${crop.id}-support-${index}.msk`,
+          storageKey,
           contentType: "application/octet-stream",
           size: bytes.byteLength,
           checksum: sha256Checksum(bytes),
           width: crop.cropWidth,
           height: crop.cropHeight,
           format: "u8raw-v1",
+          supportBytes: bytes,
         },
         prisma,
-      ),
-    );
+      );
+    });
 
     await Promise.all(requests);
 
@@ -170,16 +174,19 @@ describe("safe version allocation concurrency", () => {
   it("allocates distinct versions for concurrent crop semantic saves and derived classifications", async () => {
     const { crop } = await createCrop();
 
-    const requests = [Labels.SAPWOOD, Labels.HEARTWOOD].map((label, index) => {
+    const requests = [Labels.SAPWOOD, Labels.HEARTWOOD].map(async (label, index) => {
       const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
       bytes[crop.cropWidth + 1 + index] = label;
+      const storageKey = `tests/version-allocation/${suffix}/${crop.id}-semantic-${index}.msk`;
+      objectKeys.add(storageKey);
+      await storage.putObject(storageKey, bytes, "application/octet-stream");
       return createCropSemanticMaskVersionForUser(
         {
           cropId: crop.id,
           userId: ownerId,
           supportMaskVersionId: null,
           semanticMode: "SAP_HEARTWOOD",
-          storageKey: `tests/version-allocation/${suffix}/${crop.id}-semantic-${index}.msk`,
+          storageKey,
           contentType: "application/octet-stream",
           size: bytes.byteLength,
           checksum: sha256Checksum(bytes),

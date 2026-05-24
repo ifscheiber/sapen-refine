@@ -141,6 +141,7 @@ export const POST = withApiErrorHandling(async function POST(
         width: integrity.width,
         height: integrity.height,
         format: integrity.format,
+        supportBytes: upload.bytes,
       });
     } catch (error) {
       await deleteObjectBestEffort(storageKey);

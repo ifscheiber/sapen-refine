@@ -18,12 +18,11 @@ Rules:
 | `src/server/domain/exports.ts` | 1770 lines | training/crop readiness, manifest construction, package-source construction, export caps, async job processing, download authorization | High | `tests/integration/export-workflow.test.ts`, export cap tests, RB-109 DB constraints |
 | `src/server/domain/predictionAnalysisExports.ts` | 1685 lines | prediction-analysis readiness, QA metric inputs, manifest construction, package sources, caps, async job processing, downloads | High | `tests/integration/prediction-analysis-export.test.ts`, metric unit tests |
 | `src/features/editor/EditorClient.tsx` | 1692 lines | source-image canvas, BBox planning, assisted correction, save state, review/classification actions, overlays | High | editor helper/canvas tests, desktop and crop E2E smoke |
-| `src/features/editor/CropSemanticEditorClient.tsx` | 1365 lines | crop canvas, support overlay, semantic-family guards, save/reload, classification overrides, review actions | High | crop semantic integration tests, crop mask operation tests, E2E crop closeout |
-| `src/features/editor/CropSupportEditorClient.tsx` | 953 lines | crop canvas, support mask state, save/reload, review actions | Medium | crop support integration tests, mask upload route contract tests |
+| `src/features/editor/CropSemanticEditorClient.tsx` | 1365+ lines | unified crop canvas, support overlay, annotation-family guards, support/semantic save/reload, classification overrides, review actions | High | crop semantic/support integration tests, crop mask operation tests, E2E crop closeout |
 | `src/server/domain/predictionImportBatches.ts` | 1335 lines | ZIP manifest parsing, staging, membership, item claiming, stale recovery, processing, retry, serialization | High | `tests/integration/prediction-import-batches.test.ts`, lease unit tests |
 | `src/server/domain/storageCleanup.ts` | 1099 lines | option parsing, key classification, cleanup candidates, consistency findings, hard-drift policy, execution, audit | High | `tests/integration/storage-cleanup.test.ts`, cleanup unit/route-contract tests |
 | `src/server/domain/cropReadiness.ts` | 1031 lines | readiness rules, review-action availability, lineage validation, serialization, summary counts | Medium | crop semantic/export integration tests, slice navigator tests |
-| `src/server/domain/cropSemanticMasks.ts` | 1006 lines | state loading, support-lineage validation, semantic-family reset, value validation, version creation, readiness serialization | Medium | crop semantic integration tests, slice-domain unit tests |
+| `src/server/domain/cropSemanticMasks.ts` | 1006+ lines | state loading, support-lineage validation, annotation-family state serialization, value validation, version creation, readiness serialization | Medium | crop semantic integration tests, slice-domain unit tests |
 
 ## Recommended Extraction Slices
 
@@ -56,7 +55,7 @@ Wait for RB-113 real iPad Safari evidence or a concrete canvas/pointer feature.
 
 Move:
 
-- shared pointer stroke/lasso state between crop semantic and crop support editors,
+- shared pointer stroke/lasso state across semantic and support targets in the unified crop editor,
 - fit/zoom/canvas backing setup shared by crop editors,
 - preview overlay rendering helpers that are already behavior-identical.
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-098 closes the adjusted sprint with browser smoke coverage for Copper readiness, semantic-family reset UX, BBox re-entry, and legacy editor removal. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor surface.
+This page defines the staged user-facing crop workflow selected by RB-093. RB-094 implements the image-level BBox stage and BBox set confirmation portion of this workflow. RB-095 implements the whole-image slice navigator and per-slice status badges. RB-098 closes the adjusted sprint with browser smoke coverage for Copper readiness, annotation-family locking, BBox re-entry, and legacy editor removal. RB-103 implements BBox-stage re-entry from crop editors. RB-104 removes the legacy full-image editor surface. RB-123 removes the intermediate crop workbench and makes the unified crop annotation editor the selected-crop surface.
 
 The crop workflow is a route-addressable staged workflow, not a hidden client-only state machine.
 
@@ -13,9 +13,9 @@ Open crop workflow for an image
 -> mark slice work areas on the source image
 -> confirm the BBox set
 -> navigate slices with whole-image context
--> open the selected slice crop workbench
--> draw or verify support mask
--> draw semantic mask with mode-aware support policy
+-> open the unified crop annotation editor for the selected crop
+-> choose Sapwood / Heartwood or Cu / Support mask
+-> draw the selected family with mode-aware support policy
 -> derive or review classification
 -> review readiness and export eligibility
 ```
@@ -27,10 +27,10 @@ The BBox stage uses planning language. BBoxes are rough crop work areas and must
 - `/app/projects/[projectId]/images/[imageId]/crop` - crop workflow entry route. It resolves persisted workflow state and sends the user to the right stage.
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - implemented image-level "Step 1: mark slice work areas" stage.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - implemented slice navigator entry. It requires a confirmed BBox set and redirects to the first selected slice when active slices exist.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - implemented compatibility selected-slice route. It redirects to the current crop workbench when a current crop exists.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - implemented selected crop workbench with mode-aware guidance, crop preview, status, readiness, and embedded slice navigation.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - implemented crop workflow support mask tool route.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - implemented crop workflow semantic mask tool route.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - implemented compatibility selected-slice route. It redirects to the current crop editor when a current crop exists.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - canonical unified crop annotation editor with family selector, crop mask tools, status/readiness, classification/review controls, and embedded slice navigation.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - compatibility alias that redirects to the unified editor with the support target selected.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - compatibility alias that redirects to the unified editor with the semantic target selected.
 
 Compatibility crop routes remain deep-linkable:
 
@@ -74,30 +74,30 @@ Confirming a BBox set records workflow intent only. It does not approve BBoxes a
 
 RB-094 stores confirmation in `ImageCropWorkflowState`. BBox creation, replacement, and deletion remain append-only through `SliceBoundingBoxVersion`; when they happen after confirmation, the image-level workflow state becomes `BBOX_NEEDS_UPDATE` until the set is confirmed again.
 
-RB-103 makes this edit/re-confirm loop reachable from crop semantic and support editors. Opening `/crop/bboxes` after confirmation shows the confirmed BBoxes but keeps mutation controls locked until the user clicks `Edit BBoxes`. Navigation-only re-entry keeps the workflow in `BBOX_CONFIRMED`; replacing or deleting BBoxes after the explicit unlock marks the set `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set` before continuing.
+RB-103 makes this edit/re-confirm loop reachable from crop annotation editors. Opening `/crop/bboxes` after confirmation shows the confirmed BBoxes but keeps mutation controls locked until the user clicks `Edit BBoxes`. Navigation-only re-entry keeps the workflow in `BBOX_CONFIRMED`; replacing or deleting BBoxes after the explicit unlock marks the set `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set` before continuing.
 
 ### Slice Navigator
 
-The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the crop support and semantic editors. RB-103 adds an `Edit BBoxes` action to that rail so users can return to the image-level BBox stage without leaving the crop workflow.
+The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the unified crop annotation editor. RB-103 adds an `Edit BBoxes` action to that rail so users can return to the image-level BBox stage without leaving the crop workflow.
 
-Clicking a slice in the editor rail opens the same editor mode for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected crop workbench when a current crop exists.
+Clicking a slice in the editor rail opens the unified editor for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected crop editor when a current crop exists.
 
-### Crop Workbench
+### Unified Crop Annotation Editor
 
-The crop workbench is the main annotation landing surface for a selected slice crop. RB-096 implements it at `/crop/slices/[sliceInstanceId]/crops/[cropId]` as an orchestration layer around existing support and semantic crop editors. It shows the selected crop preview, semantic family/status, support status, semantic status, classification status, readiness reasons, next action guidance, and the embedded whole-image slice navigator.
+The unified crop annotation editor is the main annotation surface for a selected slice crop. RB-123 implements it at `/crop/slices/[sliceInstanceId]/crops/[cropId]` by reusing the crop semantic canvas and integrating support-mask editing into the same route. It shows the crop canvas, annotation family selector, support/semantic/classification status, readiness reasons, review controls, and embedded whole-image slice navigator.
 
-Crop support and semantic editors remain deep-linkable tool surfaces and expose the full crop mask tool palette: Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
+The old support and semantic editor routes remain deep-linkable compatibility aliases but redirect to the unified editor with `target=support` or `target=semantic`. The editor exposes Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
 
 Semantic annotation follows the mode-aware support policy. Sap/Heartwood can be edited without an explicit support mask and derives support geometry from semantic foreground. Copper can be drafted before support exists, but approved explicit support is required before Copper readiness/export; when support exists, Copper brush and lasso edits are clipped to support.
 
-### Semantic Family And Classification
+### Annotation Family And Classification
 
-One slice should use exactly one semantic family for active crop semantic annotation:
+One crop should use exactly one active annotation family:
 
-- Sap/Heartwood mode for sapwood, heartwood, and optional unknown labels.
-- Copper mode for copper and optional unknown labels.
+- Sapwood / Heartwood for sapwood and heartwood semantic labels.
+- Cu / Support mask for copper semantic labels and explicit physical support masks.
 
-RB-097 implements explicit family reset. Switching from an active Sap/Heartwood family to Copper, or from Copper to Sap/Heartwood, requires confirmation and the next save sends `x-semantic-family-reset: true`. Opposite-family active semantic versions and their auto-derived classifications become `SUPERSEDED`; historical bytes remain. Conflicting legacy active data surfaces as `CONFLICT` and readiness `REVIEW_REQUIRED` until reset.
+RB-123 replaces explicit semantic-family reset with byte-derived annotation-family locking. The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu/Support is occupied by copper pixels or support-mask foreground pixels. Saving non-empty data in the opposite family fails with `CROP_ANNOTATION_FAMILY_CONFLICT`. Saving an all-background version for the occupied family is allowed and unlocks the other family without deleting historical versions. Conflicting legacy active data surfaces as `CONFLICT` and readiness `REVIEW_REQUIRED` until one family is cleared.
 
 Classification follows semantic content. Auto-derived classifications are attributable draft suggestions unless reviewed or manually overridden through the existing classification versioning model. Manual overrides remain allowed, but an override that contradicts the active semantic family produces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` and is not export-ready.
 
@@ -108,11 +108,11 @@ Current runtime ownership:
 - `src/features/editor/EditorClient.tsx` for BBox-stage source-image controls and assisted correction.
 - `src/features/editor/ImageCropBBoxesPage.tsx` for the staged image-level BBox workflow route.
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` for the whole-image slice navigator route.
-- `src/features/editor/CropWorkbenchPage.tsx` for the selected crop workbench route.
+- `src/features/editor/CropSemanticEditorPage.tsx` for the selected crop unified editor route.
 - `src/server/domain/imageCropWorkflow.ts` for persisted BBox set confirmation state and status resolution.
 - `src/server/domain/cropSliceNavigator.ts` for per-slice navigator status composition from active BBoxes, crop versions, and crop readiness.
-- `src/features/editor/CropSupportEditorPage.tsx` for crop support editing.
-- `src/features/editor/CropSemanticEditorPage.tsx` for crop semantic editing and classification override controls.
+- `src/features/editor/CropSemanticEditorClient.tsx` for support-mask editing, semantic-mask editing, classification override controls, and review controls.
+- `src/server/domain/cropAnnotationFamilies.ts` for byte-derived annotation-family state and save-time conflict enforcement.
 - `GET /api/projects/[projectId]/crop-readiness` for crop readiness summaries.
 
-The unified selected-slice crop workbench and semantic-family guardrails are owned by RB-096 and RB-097. RB-103 owns explicit navigation from crop editors back to the BBox stage and smoke coverage for editing/re-confirming BBoxes after crop inspection. RB-104 owns removal of the legacy full-image editor route while preserving BBox-stage drawing and assisted correction through non-legacy surfaces. Final smoke/closeout is owned by RB-098.
+The selected-crop editor and annotation-family guardrails are owned by RB-123, building on RB-096/RB-097. RB-103 owns explicit navigation from crop editors back to the BBox stage and smoke coverage for editing/re-confirming BBoxes after crop inspection. RB-104 owns removal of the legacy full-image editor route while preserving BBox-stage drawing and assisted correction through non-legacy surfaces. Final smoke/closeout is owned by RB-098.
