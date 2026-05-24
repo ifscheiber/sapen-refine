@@ -85,7 +85,7 @@ export async function ProjectsWorkspacePage({
     ? projects.find((project) => project.id === projectId)
     : projects[0];
 
-  const activeTab = tab === "settings" ? "settings" : "images";
+  const activeTab = tab === "settings" ? "settings" : "overview";
   const canCreateProject = activeProject ? false : await resolveProjectCreateCapability(user.id);
 
   if (!activeProject) {
@@ -138,16 +138,12 @@ export async function ProjectsWorkspacePage({
       canViewPredictionImports(membershipRole) ||
       canViewCorrectionTasks(membershipRole)
     : false;
-  const effectiveTab = activeTab === "settings" && canEditProject ? "settings" : "images";
-  const projectRootHref = `/app/projects/${activeProject.id}`;
+  const effectiveTab = activeTab === "settings" && canEditProject ? "settings" : "overview";
   const settingsHref = `/app/projects/${activeProject.id}?tab=settings`;
   const ownerLabel = activeProject.createdBy?.name ?? activeProject.createdBy?.email ?? "—";
-  const localTabs = [
-    { label: "Images", href: projectRootHref, active: effectiveTab === "images" },
-    ...(canEditProject
-      ? [{ label: "Project Settings", href: settingsHref, active: effectiveTab === "settings" }]
-      : []),
-  ];
+  const localTabs = canEditProject
+    ? [{ label: "Project Settings", href: settingsHref, active: effectiveTab === "settings" }]
+    : [];
 
   return (
     <WorkspacePageLayout
@@ -205,11 +201,7 @@ export async function ProjectsWorkspacePage({
           </div>
         </WorkspaceContextRow>
       }
-      localTabs={
-        <WorkspaceLocalTabs
-          tabs={localTabs}
-        />
-      }
+      localTabs={localTabs.length > 0 ? <WorkspaceLocalTabs tabs={localTabs} /> : undefined}
       main={
         effectiveTab === "settings" ? (
           <div className="pl-4">
@@ -246,7 +238,7 @@ export async function ProjectsWorkspacePage({
           <WorkspaceUtilitySection title="Primary actions">
             <ProjectOperationsNav
               projectId={activeProject.id}
-              current={effectiveTab === "images" ? "images" : "overview"}
+              current="overview"
               role={membershipRole ?? undefined}
               orientation="vertical"
             />

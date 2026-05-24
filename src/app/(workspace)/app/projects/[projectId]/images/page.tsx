@@ -1,6 +1,6 @@
-import { ProjectImagesPage } from "@/features/images/ProjectImagesPage";
+import { redirect } from "next/navigation";
 
 export default async function ImagesPage(props: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await props.params;
-  return <ProjectImagesPage projectId={projectId} />;
+  redirect(`/app/projects/${projectId}`);
 }

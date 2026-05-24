@@ -33,11 +33,9 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   const projectId = projectMatch?.[1];
   expect(projectId).toBeTruthy();
 
-  await page
-    .getByRole("navigation", { name: "Project navigation" })
-    .getByRole("link", { name: "Images" })
-    .click();
-  await expect(page).toHaveURL(/\/images$/);
+  await expect(
+    page.getByRole("navigation", { name: "Project navigation" }).getByRole("link", { name: "Images" }),
+  ).toHaveCount(0);
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
   await expect(page.getByText("T-number: missing")).toBeVisible();

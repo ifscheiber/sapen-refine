@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import {
   BarChart3,
   FileArchive,
-  ImageIcon,
   ListTodo,
   UploadCloud,
 } from "lucide-react";
@@ -197,13 +196,6 @@ export async function ProjectOverview({ projectId }: { projectId: string }) {
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <OperationLink
-              href={`/app/projects/${project.id}/images`}
-              icon={ImageIcon}
-              title="Images"
-              description="Upload images, review metadata readiness, and open the annotation editor."
-              metric={`${imageCount} images`}
-            />
             {canViewCorrectionTasks(role) ? (
               <OperationLink
                 href={`/app/projects/${project.id}/tasks`}

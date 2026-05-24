@@ -6,7 +6,7 @@ Important files:
 
 - `src/app/(workspace)/app/projects/[projectId]/images/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/images/[imageId]/page.tsx`
-- `src/features/images/ProjectImagesPage.tsx`
+- `src/features/projects/ProjectsWorkspacePage.tsx`
 - `src/features/images/ImagesClient.tsx`
 - `src/features/images/ImageMetadataPage.tsx`
 - `src/features/images/ImageMetadataClient.tsx`
@@ -29,8 +29,8 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 ## Current Desktop Browser Workflow
 
-- `/app/projects/[projectId]` uses the active-project workspace as the primary image list for the selected project.
-- `/app/projects/[projectId]/images` remains a dedicated project-image route for existing navigation and tests.
+- `/app/projects/[projectId]` uses the active-project workspace as the canonical image list/upload surface for the selected project.
+- `/app/projects/[projectId]/images` is a compatibility redirect to `/app/projects/[projectId]`; visible navigation should not link to it as a separate workspace.
 - Editable project roles can upload an image through `POST /api/projects/[projectId]/images/upload`.
 - Browser image reads use app-mediated asset routes rather than direct MinIO URLs.
 - Browser helper types in `src/lib/projectsClient.ts` mirror that app-mediated route surface and do not expose `ImageAsset.storageKey`.

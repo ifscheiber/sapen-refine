@@ -1,22 +1,20 @@
 import Link from "next/link";
-import { ArrowLeftIcon, FolderOpenIcon, ImagesIcon, ListTodoIcon } from "lucide-react";
+import { ArrowLeftIcon, FolderOpenIcon, ListTodoIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AppEmptyState } from "./AppEmptyState";
 
-export type MissingResourceAction = "projects" | "project" | "images" | "tasks";
+export type MissingResourceAction = "projects" | "project" | "tasks";
 
 const ACTION_LABELS: Record<MissingResourceAction, string> = {
   projects: "Projects",
   project: "Project overview",
-  images: "Project images",
   tasks: "Project tasks",
 };
 
 const ACTION_ICONS: Record<MissingResourceAction, typeof ArrowLeftIcon> = {
   projects: FolderOpenIcon,
   project: ArrowLeftIcon,
-  images: ImagesIcon,
   tasks: ListTodoIcon,
 };
 

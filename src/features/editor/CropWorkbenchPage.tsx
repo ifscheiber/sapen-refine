@@ -262,10 +262,7 @@ export async function CropWorkbenchPage({
         <AppMissingResource
           title="Crop not found or no longer available"
           description="The crop may have been replaced, the database may have been rebuilt, or the copied link may be stale."
-          actions={[
-            { kind: "images", href: `/app/projects/${projectId}/images` },
-            { kind: "project", href: `/app/projects/${projectId}` },
-          ]}
+          actions={[{ kind: "project", href: `/app/projects/${projectId}` }]}
         />
       </AppMain>
     );
@@ -289,10 +286,7 @@ export async function CropWorkbenchPage({
         <AppMissingResource
           title="Image not found or no longer available"
           description="The image may have been removed, the database may have been rebuilt, or the copied link may be stale."
-          actions={[
-            { kind: "images", href: `/app/projects/${projectId}/images` },
-            { kind: "project", href: `/app/projects/${projectId}` },
-          ]}
+          actions={[{ kind: "project", href: `/app/projects/${projectId}` }]}
         />
       </AppMain>
     );
@@ -310,10 +304,7 @@ export async function CropWorkbenchPage({
         <AppMissingResource
           title="Slice not found or no longer available"
           description="The selected slice may have been replaced when the image-level BBox set changed."
-          actions={[
-            { kind: "project", href: `/app/projects/${projectId}` },
-            { kind: "images", href: `/app/projects/${projectId}/images` },
-          ]}
+          actions={[{ kind: "project", href: `/app/projects/${projectId}` }]}
         />
       </AppMain>
     );

@@ -17,7 +17,7 @@ Current stable browser routes:
 - `/app/projects`
 - `/app/projects/new`
 - `/app/projects/[projectId]`
-- `/app/projects/[projectId]/images`
+- `/app/projects/[projectId]/images` redirects to `/app/projects/[projectId]`
 - `/app/projects/[projectId]/images/[imageId]`
 - `/app/projects/[projectId]/images/[imageId]/crop`
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes`

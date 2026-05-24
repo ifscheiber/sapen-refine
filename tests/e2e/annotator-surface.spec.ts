@@ -17,7 +17,8 @@ test("annotator workspace hides operational surfaces while keeping image annotat
   await expect(page.getByRole("link", { name: "Project Settings" })).toHaveCount(0);
 
   const projectNavigation = page.getByRole("navigation", { name: "Project navigation" });
-  await expect(projectNavigation.getByRole("link", { name: "Images" })).toBeVisible();
+  await expect(projectNavigation.getByRole("link", { name: "Overview" })).toBeVisible();
+  await expect(projectNavigation.getByRole("link", { name: "Images" })).toHaveCount(0);
   await expect(projectNavigation.getByRole("link", { name: "Exports" })).toHaveCount(0);
   await expect(projectNavigation.getByRole("link", { name: "Tasks" })).toHaveCount(0);
   await expect(projectNavigation.getByRole("link", { name: "Prediction Imports" })).toHaveCount(0);

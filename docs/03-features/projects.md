@@ -53,7 +53,7 @@ Route files are thin wrappers around `src/features/projects`.
 - Project creation and project selection live in the authenticated shell sidebar (`src/components/shell/AppSidebar.tsx`), which lists visible annotation projects and links to `/app/projects/[projectId]`.
 - `/app/projects/[projectId]` shows the active-project workspace for one project only. The primary tab lists images for that selected project, and `?tab=settings` shows editable name/description for `OWNER` and `QA`.
 - Annotator/`LABELER` users see the focused project/image annotation workspace only: no project creation, project settings, tasks, exports, prediction imports, prediction-analysis, or worker/operator actions.
-- The workspace right rail shows project status counts and links to images, tasks, exports, and prediction imports through `src/features/projects/ProjectOperationsNav.tsx` only when the user's project role has those capabilities.
+- The workspace right rail shows project status counts and links to the project overview, tasks, exports, and prediction imports through `src/features/projects/ProjectOperationsNav.tsx` only when the user's project role has those capabilities. Image listing/upload lives on the project overview itself.
 - `/app/projects/[projectId]/exports` shows the training export panel and the separated prediction-analysis export panel.
 - `/app/projects/[projectId]/prediction-imports` shows RB-061 prediction batch import operations for project `OWNER`/`QA`; Annotator/`LABELER` users do not see or access this route.
 - `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue for project `OWNER`/`QA`; Annotator/`LABELER` users do not see or access this route.

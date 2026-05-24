@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, FolderKanban, ImageIcon, ListTodo, UploadCloud } from "lucide-react";
+import { BarChart3, FolderKanban, ListTodo, UploadCloud } from "lucide-react";
 import type { AnnotationProjectRole } from "@prisma/client";
 
 import { cn } from "@/components/ui/utils";
@@ -10,7 +10,7 @@ import {
 } from "@/server/auth/policies";
 
 type ProjectOperationsNavItem = {
-  key: "overview" | "images" | "tasks" | "exports" | "prediction-imports";
+  key: "overview" | "tasks" | "exports" | "prediction-imports";
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -33,12 +33,6 @@ export function ProjectOperationsNav({
       label: "Overview",
       href: `/app/projects/${projectId}`,
       icon: FolderKanban,
-    },
-    {
-      key: "images",
-      label: "Images",
-      href: `/app/projects/${projectId}/images`,
-      icon: ImageIcon,
     },
     {
       key: "tasks",

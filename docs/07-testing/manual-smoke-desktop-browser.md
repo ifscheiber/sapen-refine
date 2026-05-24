@@ -19,7 +19,7 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Log in as a named tester or local seeded admin. | Browser lands in `/app` or the requested `next` route. |  |  |
 | Open `/app/projects`. | Project list renders and session persists after reload. |  |  |
 | Create a new project. | App redirects to the project detail route. |  |  |
-| Open project image list. | Image list renders and upload control is visible for editable roles. |  |  |
+| Open the project route. | The overview image list renders and upload control is visible for editable roles. |  |  |
 | Upload a normal PNG/JPEG image. | Image uploads through the app and appears in the list. |  |  |
 | If practical, upload a full-resolution image near 6000x4000. | Editor opens only after the full-size canvas/mask buffer are ready; saving a tiny semantic stroke completes without `MASK_BYTE_LENGTH_MISMATCH`. |  |  |
 | If practical, upload a large image above 6000x4000 and no larger than 8000x6000. | Image uploads with a large-image memory warning. |  |  |

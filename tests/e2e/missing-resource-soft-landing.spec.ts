@@ -24,7 +24,7 @@ async function createProject(page: Page, name: string) {
 }
 
 async function uploadFixtureAndGetImageId(page: Page, projectId: string) {
-  await page.goto(`/app/projects/${projectId}/images`);
+  await page.goto(`/app/projects/${projectId}`);
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
   const metadataHref = await page.getByRole("link", { name: "Metadata" }).getAttribute("href");
@@ -60,6 +60,19 @@ test("unknown workspace routes render SaPen Annotate not-found UX", async ({ pag
   );
 });
 
+test("removed project images route redirects to project overview", async ({ page }) => {
+  await login(page);
+  const projectId = await createProject(page, `RB-122 Redirect ${Date.now()}`);
+
+  await page.goto(`/app/projects/${projectId}/images`);
+
+  await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
+  await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Project navigation" }).getByRole("link", { name: "Images" }),
+  ).toHaveCount(0);
+});
+
 test("project/image mismatches soft land without breaking valid metadata links", async ({ page }) => {
   await login(page);
 
@@ -71,8 +84,8 @@ test("project/image mismatches soft land without breaking valid metadata links",
 
   await expect(page.getByRole("heading", { name: "Image not found" })).toBeVisible();
   await expect(page.getByText("Image not found or no longer available")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Project images" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Project overview" })).toHaveAttribute(
     "href",
-    `/app/projects/${projectB}/images`,
+    `/app/projects/${projectB}`,
   );
 });

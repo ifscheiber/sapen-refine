@@ -29,10 +29,7 @@ export async function ImageCropWorkflowEntryPage({
         <AppMissingResource
           title="Image not found or no longer available"
           description="The image may have been removed, the database may have been rebuilt, or the copied link may be stale."
-          actions={[
-            { kind: "images", href: `/app/projects/${projectId}/images` },
-            { kind: "project", href: `/app/projects/${projectId}` },
-          ]}
+          actions={[{ kind: "project", href: `/app/projects/${projectId}` }]}
         />
       </AppMain>
     );
