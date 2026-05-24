@@ -1,6 +1,3 @@
-import Link from "next/link";
-
-import { LogoutButton } from "@/components/LogoutButton";
 import { AppSidebar } from "./AppSidebar";
 import { AppTopbar } from "./AppTopbar";
 
@@ -9,30 +6,38 @@ type ShellUser = {
   email: string;
 };
 
+export type ShellProject = {
+  id: string;
+  name: string;
+  updatedLabel: string;
+  myRole: string | null;
+  ownerLabel: string | null;
+  imageCount: number;
+  openReviewCount: number;
+};
+
 export function AppShell({
   user,
+  projects,
   children,
 }: {
   user: ShellUser;
+  projects: ShellProject[];
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <div className="grid min-h-dvh md:grid-cols-[16rem_1fr]">
-        <AppSidebar />
-        <div className="flex min-w-0 flex-col">
+    <div className="dark min-h-dvh bg-[var(--app-background)] text-[var(--text-primary)]">
+      <div className="flex min-h-dvh flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <AppTopbar user={user} />
-          {children}
+          <div className="flex min-h-[calc(100dvh-3.5rem)]">
+            <AppSidebar projects={projects} />
+            <main className="min-w-0 flex-1 bg-[var(--workspace-background)]">
+              {children}
+            </main>
+          </div>
         </div>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t bg-card p-2 md:hidden">
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <Link className="rounded-md px-3 py-2 text-center hover:bg-accent" href="/app/projects">
-            Projects
-          </Link>
-          <LogoutButton className="justify-center" />
-        </div>
-      </nav>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export const GET = withApiErrorHandling(async function GET() {
         select: { role: true },
         take: 1,
       },
+      _count: { select: { images: true } },
     },
   });
 
@@ -32,6 +33,7 @@ export const GET = withApiErrorHandling(async function GET() {
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       myRole: p.members[0]?.role ?? null,
+      imageCount: p._count.images,
     })),
   });
 });

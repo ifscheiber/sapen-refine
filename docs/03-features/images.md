@@ -29,12 +29,13 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 ## Current Desktop Browser Workflow
 
-- `/app/projects/[projectId]/images` lists images for the project.
+- `/app/projects/[projectId]` uses the active-project workspace as the primary image list for the selected project.
+- `/app/projects/[projectId]/images` remains a dedicated project-image route for existing navigation and tests.
 - Editable project roles can upload an image through `POST /api/projects/[projectId]/images/upload`.
 - Browser image reads use app-mediated asset routes rather than direct MinIO URLs.
 - Browser helper types in `src/lib/projectsClient.ts` mirror that app-mediated route surface and do not expose `ImageAsset.storageKey`.
 - The app-mediated upload path accepts PNG and JPEG images only. SVG and other formats are rejected before an image row is created.
-- Uploaded images appear in the image list with validation/readiness hints, T-number state, and links to metadata and the crop workflow.
+- Uploaded images appear in the image workspace with app-mediated previews, validation/readiness hints, T-number state, additive mask-version counts where available, and links to metadata and the crop workflow.
 - `/app/projects/[projectId]/images/[imageId]` shows immutable technical image metadata and editable image-level acquisition/sample metadata.
 - The image list and metadata page link to the crop workflow entry route for image-level BBox set confirmation. After confirmation, selected slices open the crop workbench before the support or semantic crop editors. RB-104 removed the legacy full-image editor link from these pages.
 
@@ -65,7 +66,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 - `POST /api/projects/[projectId]/images/upload` is the current customer-trial browser path. It checks upload size, content type, checksum hints, PNG/JPEG dimensions, object stat metadata, and then records a validated image row.
 - `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain present only as disabled legacy/internal compatibility paths. After auth/RBAC they return `410 PRESIGNED_UPLOADS_DISABLED`. The supported customer-trial browser helper is `apiUploadImage`, not the presign/commit pair.
-- `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI.
+- `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI. The response adds `updatedAt` and `maskVersionCount` for the workspace table while preserving existing fields.
 - `GET /api/images/[imageId]/metadata` returns the image metadata bundle, membership role, edit capability, and computed completeness summary.
 - `PATCH /api/images/[imageId]/metadata` updates acquisition/sample metadata for editable project roles and rejects immutable image facts such as checksums or dimensions.
 - `GET /api/images/[imageId]/slice` returns default-slice state, latest support mask, latest classification, and support label byte values.

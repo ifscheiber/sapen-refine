@@ -5,7 +5,12 @@ export function AppSection({
   children,
 }: React.ComponentProps<"section">) {
   return (
-    <section className={cn("rounded-lg border bg-card p-4 text-card-foreground", className)}>
+    <section
+      className={cn(
+        "rounded-md border border-[var(--border-default)] bg-[var(--workspace-panel)] p-4 text-[var(--text-primary)]",
+        className,
+      )}
+    >
       {children}
     </section>
   );

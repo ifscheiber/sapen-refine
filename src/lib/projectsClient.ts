@@ -4,6 +4,7 @@ export type ApiProject = {
   createdAt?: string;
   updatedAt?: string;
   myRole?: string | null;
+  imageCount?: number;
 };
 
 export type ApiImage = {
@@ -19,6 +20,8 @@ export type ApiImage = {
   uploadedBy?: { email: string; name: string | null } | null;
   sampleMetadata?: { tNumber: string | null } | null;
   createdAt: string;
+  updatedAt?: string | null;
+  maskVersionCount?: number;
 };
 
 export async function apiListProjects(): Promise<ApiProject[]> {

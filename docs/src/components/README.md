@@ -9,6 +9,7 @@
 - `src/components/ui/*` - reusable UI primitives.
 - `src/components/shell/*` - authenticated workspace shell components.
 - `src/components/shell/AppMissingResource.tsx` - reusable missing-resource soft landing with project/images/tasks navigation actions.
+- `src/components/workspace/*` - SaPen Core-aligned workspace layout, local tabs, contextual rows, utility rail, and sidebar section primitives mirrored locally for SaPen Annotate.
 - `src/components/LogoutButton.tsx` - logout action shared by shell variants.
 
 ## Public Interfaces / Routes / Functions
@@ -18,6 +19,7 @@ These components are consumed by route layouts under `src/app/(workspace)/app` a
 ## Invariants And Constraints
 
 - Tablet and desktop layouts should remain usable across viewport sizes.
+- Authenticated workspace pages should use the shell/sidebar/workspace primitives instead of ad hoc project-directory layouts.
 - Editor controls must preserve annotation state and not bypass backend mask-version invariants.
 - Components should not become the only source of domain validation.
 

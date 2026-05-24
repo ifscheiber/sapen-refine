@@ -27,8 +27,16 @@ export const GET = withApiErrorHandling(async function GET(
       uploadedBy: { select: { email: true, name: true } },
       sampleMetadata: { select: { tNumber: true } },
       createdAt: true,
+      updatedAt: true,
+      artifacts: { select: { _count: { select: { versions: true } } } },
     },
   });
 
-  return NextResponse.json({ ok: true, images });
+  return NextResponse.json({
+    ok: true,
+    images: images.map(({ artifacts, ...image }) => ({
+      ...image,
+      maskVersionCount: artifacts.reduce((total, artifact) => total + artifact._count.versions, 0),
+    })),
+  });
 });

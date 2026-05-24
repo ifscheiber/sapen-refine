@@ -2,7 +2,17 @@
 
 ## Status
 
-Ready for implementation
+Completed
+
+## Implementation notes
+
+- Mirrored the SaPen Core compact dark AppShell, top bar, contextual sidebar, workspace header, context row, local tabs, and utility rail locally in SaPen Annotate.
+- Project creation and project selection now live in the left contextual sidebar.
+- `/app/projects` and `/app/projects/[projectId]` render a route-addressable active-project workspace; the main content shows images for the active project only.
+- Quick Analysis was intentionally not added to the top navigation or workspace tabs for this slice.
+- The image workspace uses existing app-mediated image asset routes for previews and falls back to a dark placeholder when previews fail.
+- API changes are additive only: project/image responses keep existing fields and add image/count fields for the workspace UI.
+- Design documentation was updated in `docs/03-features/projects.md`, `docs/03-features/images.md`, `docs/src/app/README.md`, `docs/src/app/routes.md`, `docs/src/components/README.md`, `docs/05-design-system/tokens.md`, `docs/05-design-system/theming.md`, and `docs/01-architecture/design-system.md`.
 
 ## Type
 

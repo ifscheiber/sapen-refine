@@ -9,9 +9,8 @@ Important files:
 - `src/app/(workspace)/app/projects/[projectId]/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/exports/page.tsx`
 - `src/app/(workspace)/app/projects/[projectId]/prediction-imports/page.tsx`
-- `src/features/projects/ProjectsIndex.tsx`
+- `src/features/projects/ProjectsWorkspacePage.tsx`
 - `src/features/projects/NewProjectPage.tsx`
-- `src/features/projects/ProjectOverview.tsx`
 - `src/features/projects/ProjectOperationsNav.tsx`
 - `src/features/projects/ProjectExportsPage.tsx`
 - `src/features/projects/ProjectPredictionImportsPage.tsx`
@@ -49,9 +48,11 @@ Route files are thin wrappers around `src/features/projects`.
 
 ## Current Desktop Browser Workflow
 
-- `/app/projects` lists projects where the authenticated user has membership.
+- `/app/projects` opens the authenticated project workspace and selects the most recently updated visible annotation project.
 - `/app/projects/new` creates a project through `POST /api/projects`.
-- `/app/projects/[projectId]` shows the project overview as a status/action hub: editable name/description for `OWNER` and `QA`, active label schema state, membership role, timestamps, readiness counts, and links to images, tasks, exports, and prediction imports.
+- Project creation and project selection live in the authenticated shell sidebar (`src/components/shell/AppSidebar.tsx`), which lists visible annotation projects and links to `/app/projects/[projectId]`.
+- `/app/projects/[projectId]` shows the active-project workspace for one project only. The primary tab lists images for that selected project, and `?tab=settings` shows editable name/description for `OWNER` and `QA`.
+- The workspace right rail shows project status counts and links to images, tasks, exports, and prediction imports through `src/features/projects/ProjectOperationsNav.tsx`.
 - `/app/projects/[projectId]/exports` shows the training export panel and the separated prediction-analysis export panel.
 - `/app/projects/[projectId]/prediction-imports` shows RB-061 prediction batch import operations for project `OWNER`/`QA` and a permission notice for other project members.
 - `/app/projects/[projectId]/tasks` shows the RB-058 active-learning correction task queue with prediction-run task creation, active/mine/all views, claim/start/dismiss controls, owner/QA priority controls, and links to the RB-059 assisted correction editor.

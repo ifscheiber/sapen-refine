@@ -5,8 +5,13 @@ export function AppMain({
   children,
 }: React.ComponentProps<"main">) {
   return (
-    <main className={cn("flex-1 px-4 py-6 pb-20 md:px-6 md:pb-6", className)}>
+    <div
+      className={cn(
+        "min-h-full flex-1 bg-[var(--workspace-background)] px-4 py-6 pb-10 text-[var(--text-primary)] md:px-6 md:pb-6",
+        className,
+      )}
+    >
       {children}
-    </main>
+    </div>
   );
 }
