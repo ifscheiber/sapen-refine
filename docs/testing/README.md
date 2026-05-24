@@ -67,6 +67,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/version-allocation.test.ts` covers RB-107 advisory-lock helper behavior and Prisma `P2002` normalization to `VERSION_ALLOCATION_CONFLICT`.
 - `tests/unit/api-route-error-contracts.test.ts` covers RB-106 route classification and enforces `withApiErrorHandling` on every protected API route method.
 - `tests/unit/audit-coverage-matrix.test.ts` covers RB-116 audit matrix governance by scanning every API mutation route, checking known operational entrypoints, and enforcing controlled classification values from `docs/testing/audit-coverage-matrix.md`.
+- `tests/unit/cli-secret-handling.test.ts` covers RB-117 script secret precedence, file/env/stdin input, deprecated `--password` warnings without secret echo, script help output, and active docs avoiding password command arguments.
 - `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths, protected workspace paths, RB-072 unauthenticated API JSON `401`, RB-079 workspace path forwarding, page redirects, and same-origin guard precedence.
 - `tests/unit/workspace-redirect.test.ts` covers RB-079 workspace login `next` target preservation and fallback behavior.
 

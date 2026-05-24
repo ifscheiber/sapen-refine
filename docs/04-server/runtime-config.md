@@ -19,8 +19,9 @@ Use `.env.example` as the local template:
 - `EXPORT_JOB_LEASE_SECONDS`, `EXPORT_JOB_MAX_ATTEMPTS`, `EXPORT_JOB_RETRY_DELAY_SECONDS`, `EXPORT_JOB_MAX_JOBS_PER_TICK`, `EXPORT_JOB_WORKER_INTERVAL_SECONDS`, `EXPORT_JOB_PROCESSOR_ID` - RB-112 single-host export worker lease, bounded retry, and loop controls.
 - `BATCH_STAGING_COMPLETED_RETENTION_DAYS`, `BATCH_STAGING_FAILED_RETENTION_DAYS`, `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS`, `STORAGE_CLEANUP_MAX_DELETE_PER_RUN` - RB-066 storage cleanup retention and execute limits.
 - `SLICE_CROP_DEFAULT_PADDING_PX` - RB-087 default derived crop padding in pixels. Allowed values are `0`, `16`, `32`, and `64`; default is `32`.
-- `SAPEN_JOB_BASE_URL`, `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD` - optional API-script credentials for the prediction-import and export workers; these are consumed by `scripts/process-prediction-import-batch.mjs` and `scripts/process-export-jobs.mjs`, not by `src/server/runtime/config.ts`.
-- `SAPEN_CLEANUP_BASE_URL`, `SAPEN_CLEANUP_EMAIL`, `SAPEN_CLEANUP_PASSWORD` - optional API-script credentials for `scripts/storage-cleanup.mjs`; use a named global `ADMIN` account.
+- `SAPEN_JOB_BASE_URL`, `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD_FILE`, `SAPEN_JOB_PASSWORD` - optional API-script credentials for the prediction-import and export workers; these are consumed by `scripts/process-prediction-import-batch.mjs` and `scripts/process-export-jobs.mjs`, not by `src/server/runtime/config.ts`. Prefer `SAPEN_JOB_PASSWORD_FILE` for mounted secrets.
+- `SAPEN_CLEANUP_BASE_URL`, `SAPEN_CLEANUP_EMAIL`, `SAPEN_CLEANUP_PASSWORD_FILE`, `SAPEN_CLEANUP_PASSWORD` - optional API-script credentials for `scripts/storage-cleanup.mjs`; use a named global `ADMIN` account. Prefer `SAPEN_CLEANUP_PASSWORD_FILE` for mounted secrets.
+- `SAPEN_TRIAL_USER_PASSWORD_FILE`, `SAPEN_TRIAL_USER_PASSWORD` - optional password input for `scripts/create-trial-user.mjs`; prefer file or stdin input for manual user creation.
 - `SHOW_DEMO_CREDENTIALS`, `LOGIN_RATE_LIMIT_MAX_FAILURES`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS`, `LOGIN_RATE_LIMIT_LOCK_SECONDS`, `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - auth/session hardening controls.
 
 ## Customer Trial Variables
@@ -34,8 +35,8 @@ Required trial values:
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - internal PostgreSQL settings.
 - `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_FORCE_PATH_STYLE` - internal MinIO/S3 settings.
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `NEXT_PROXY_CLIENT_MAX_BODY_SIZE`, `PREDICTION_BATCH_MAX_ITEMS`, `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_ITEM_MAX_ATTEMPTS`, `PREDICTION_BATCH_LEASE_SECONDS`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS`, `PREDICTION_IMPORT_PROCESSOR_ID`, `EXPORT_JOB_LEASE_SECONDS`, `EXPORT_JOB_MAX_ATTEMPTS`, `EXPORT_JOB_RETRY_DELAY_SECONDS`, `EXPORT_JOB_MAX_JOBS_PER_TICK`, `EXPORT_JOB_WORKER_INTERVAL_SECONDS`, `EXPORT_JOB_PROCESSOR_ID`, `BATCH_STAGING_COMPLETED_RETENTION_DAYS`, `BATCH_STAGING_FAILED_RETENTION_DAYS`, `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS`, `STORAGE_CLEANUP_MAX_DELETE_PER_RUN`, `SLICE_CROP_DEFAULT_PADDING_PX`, `CADDY_MAX_BODY_SIZE` - upload/body, worker lease, cleanup retention, crop padding, and batch-processing limits.
-- `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD` - named owner/QA account for optional prediction-import and export worker scripts; leave empty if processing manually.
-- `SAPEN_CLEANUP_EMAIL`, `SAPEN_CLEANUP_PASSWORD` - named global admin account for optional cleanup script credentials; dry-run first.
+- `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD_FILE`, `SAPEN_JOB_PASSWORD` - named owner/QA account for optional prediction-import and export worker scripts; leave empty if processing manually. Prefer the file variable where deployment tooling can mount secrets.
+- `SAPEN_CLEANUP_EMAIL`, `SAPEN_CLEANUP_PASSWORD_FILE`, `SAPEN_CLEANUP_PASSWORD` - named global admin account for optional cleanup script credentials; dry-run first. Prefer the file variable where deployment tooling can mount secrets.
 - `SHOW_DEMO_CREDENTIALS=false` - keep shared seed credentials hidden for customer trials unless explicitly accepted.
 - `LOGIN_RATE_LIMIT_MAX_FAILURES=5`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS=900`, `LOGIN_RATE_LIMIT_LOCK_SECONDS=900` - DB-backed login lockout defaults.
 - `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS=900` - throttle session activity writes.

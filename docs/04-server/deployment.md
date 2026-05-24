@@ -70,13 +70,13 @@ RB-064 hides shared seed credentials in production/trial unless `SHOW_DEMO_CREDE
 Create the first named administrator/project owner:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester' --global-role ADMIN
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/alice_password app npm run trial:user:create -- --email alice@example.com --name 'Alice Tester' --global-role ADMIN
 ```
 
 The first tester can log in, create a project, and run global-admin operational dry-runs. Add additional testers to a known project ID from the project URL:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email bob@example.com --password 'replace-with-unique-password' --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/bob_password app npm run trial:user:create -- --email bob@example.com --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
 ```
 
 To rotate a trial user's password, rerun the same command with a new password. To revoke active sessions for that user:
@@ -146,13 +146,13 @@ Project `OWNER`/`QA` users can create, inspect, process, and retry prediction im
 For one-shot operational runs, use the API-based script while the app container is running:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --batch '<batch-id>' --limit 25 --email 'owner@example.com' --password '<owner-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='owner@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run jobs:prediction-import -- --base-url http://localhost:3000 --batch '<batch-id>' --limit 25
 ```
 
 To process due pending/retry/stale batches without naming one batch:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<qa-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='qa@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5
 ```
 
 The script logs in through the normal app API and calls bounded processing passes. It does not run inference and does not expose MinIO.
@@ -164,14 +164,14 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f prediction-import-worker
 ```
 
-Before enabling the worker, set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` in `deploy/trial.env` to a named project `OWNER` or `QA` account. Keep `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_LEASE_SECONDS`, and `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` bounded. The default trial path is one worker process; do not scale multiple worker replicas unless the lease assumptions are reviewed.
+Before enabling the worker, set `SAPEN_JOB_EMAIL` and preferably `SAPEN_JOB_PASSWORD_FILE` in `deploy/trial.env` to a named project `OWNER` or `QA` account. Use `SAPEN_JOB_PASSWORD` only when file-mounted secrets are not available. Keep `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_LEASE_SECONDS`, and `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` bounded. The default trial path is one worker process; do not scale multiple worker replicas unless the lease assumptions are reviewed.
 
 ## Export Job Processing
 
 Training, crop-training, and prediction-analysis export create routes enqueue RB-112 jobs. Process due export jobs manually with:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run exports:process -- --base-url http://localhost:3000 --max-jobs 2 --email 'owner@example.com' --password '<owner-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='owner@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run exports:process -- --base-url http://localhost:3000 --max-jobs 2
 ```
 
 Optional always-on export worker:
@@ -191,7 +191,7 @@ Set a named global `ADMIN` cleanup account in `deploy/trial.env` if you want to 
 
 ```text
 SAPEN_CLEANUP_EMAIL=admin@example.com
-SAPEN_CLEANUP_PASSWORD=<admin-password>
+SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password
 ```
 
 Dry-run is the default:

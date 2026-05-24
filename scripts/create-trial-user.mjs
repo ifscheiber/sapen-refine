@@ -5,14 +5,26 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 import { ensureGlobalRole } from "./trial-bootstrap-lib.mjs";
+import {
+  markDeprecatedPasswordFlag,
+  resolveSecretInput,
+} from "./secret-input.mjs";
 
 const { Pool } = pg;
 
 function usage() {
-  console.error(`Usage:
-node scripts/create-trial-user.mjs --email tester@example.com --password '<password>' --name 'Tester Name' [--global-role USER|ADMIN] [--project-id demo_project] [--project-role LABELER]
+  console.log(`Usage:
+node scripts/create-trial-user.mjs --email tester@example.com --name 'Tester Name' [secret options] [--global-role USER|ADMIN] [--project-id demo_project] [--project-role LABELER]
 
 Creates or updates a named trial user and optionally adds project membership.
+
+Secret input precedence:
+  --password-file, SAPEN_TRIAL_USER_PASSWORD_FILE, SAPEN_TRIAL_USER_PASSWORD, --password-stdin, deprecated --password.
+
+Secret options:
+  --password-file <path>  Read the trial user password from a mounted secret file.
+  --password-stdin        Read the trial user password from stdin.
+  --password <password>   Deprecated compatibility option. Prefer file, env, or stdin input.
 `);
 }
 
@@ -20,6 +32,14 @@ function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === "--help" || token === "-h") {
+      args.help = true;
+      continue;
+    }
+    if (token === "--password-stdin") {
+      args["password-stdin"] = true;
+      continue;
+    }
     if (!token.startsWith("--")) {
       throw new Error(`Unexpected argument: ${token}`);
     }
@@ -31,6 +51,9 @@ function parseArgs(argv) {
     }
 
     args[key] = value;
+    if (key === "password") {
+      markDeprecatedPasswordFlag(args);
+    }
     i += 1;
   }
   return args;
@@ -61,17 +84,30 @@ async function ensureRequestedGlobalRoles(prisma, userId, role) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    usage();
+    return;
+  }
   const email = args.email?.trim().toLowerCase();
-  const password = args.password;
   const name = args.name?.trim();
   const projectId = args["project-id"]?.trim();
   const projectRole = args["project-role"]?.trim() || "LABELER";
   const globalRole = args["global-role"]?.trim() || "USER";
 
-  if (!email || !password) {
+  if (!email) {
     usage();
     process.exit(1);
   }
+  const password = resolveSecretInput({
+    cliPassword: args.password,
+    cliPasswordFile: args["password-file"],
+    cliPasswordStdin: Boolean(args["password-stdin"]),
+    envPassword: process.env.SAPEN_TRIAL_USER_PASSWORD,
+    envPasswordFile: process.env.SAPEN_TRIAL_USER_PASSWORD_FILE,
+    envPasswordName: "SAPEN_TRIAL_USER_PASSWORD",
+    envPasswordFileName: "SAPEN_TRIAL_USER_PASSWORD_FILE",
+    secretDescription: "trial user password",
+  }).secret;
   assertProjectRole(projectRole);
   assertGlobalRole(globalRole);
 

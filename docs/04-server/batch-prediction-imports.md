@@ -67,19 +67,19 @@ Processing is explicit and bounded:
 - Optional script:
 
 ```bash
-npm run jobs:prediction-import -- --batch <batch-id> --limit 25 --email owner@example.com --password '<password>'
+SAPEN_JOB_EMAIL=owner@example.com SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password npm run jobs:prediction-import -- --batch <batch-id> --limit 25
 ```
 
 Without `--batch`, the script processes due batches:
 
 ```bash
-npm run jobs:prediction-import -- --limit 25 --max-jobs 5 --email qa@example.com --password '<password>'
+SAPEN_JOB_EMAIL=qa@example.com SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password npm run jobs:prediction-import -- --limit 25 --max-jobs 5
 ```
 
 Loop mode is for the optional single-host worker:
 
 ```bash
-npm run jobs:prediction-import -- --loop --interval 30 --limit 25 --max-jobs 5 --email qa@example.com --password '<password>'
+SAPEN_JOB_EMAIL=qa@example.com SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password npm run jobs:prediction-import -- --loop --interval 30 --limit 25 --max-jobs 5
 ```
 
 The processor claims only `PENDING` or due `RETRY_PENDING` items, marks them `PROCESSING`, sets `processorId`, `processorRunId`, `leaseExpiresAt`, and `lastHeartbeatAt`, increments `attemptCount`, reads staged bytes, and calls `importPredictionMaskForUser` from `src/server/domain/predictionImport.ts`. Successful items store the created `AnnotationArtifactVersion` and `PredictionArtifactProvenance` ids and clear the lease.
@@ -92,7 +92,7 @@ Normal annotator concurrency is unrelated to this runner. Browser users can log 
 
 RB-065 chooses Option A for the customer trial: an optional Docker Compose worker service using PostgreSQL as the queue/lease store. There is no Redis, BullMQ, RabbitMQ, distributed coordination, GPU execution, or model inference in this slice.
 
-Enable the optional worker profile after creating a named project `OWNER` or `QA` account for `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` in `deploy/trial.env` as described in [deployment-trial.md](deployment-trial.md):
+Enable the optional worker profile after creating a named project `OWNER` or `QA` account for `SAPEN_JOB_EMAIL` plus `SAPEN_JOB_PASSWORD_FILE` or `SAPEN_JOB_PASSWORD` in `deploy/trial.env` as described in [deployment-trial.md](deployment-trial.md):
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker
@@ -102,13 +102,13 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml lo
 One-shot processing remains available when an always-on worker is not desired:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='qa@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5
 ```
 
 For a single batch:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --batch '<batch-id>' --limit 25 --email 'qa@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='qa@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run jobs:prediction-import -- --base-url http://localhost:3000 --batch '<batch-id>' --limit 25
 ```
 
 Use a named job account, not shared demo credentials, so batch processing remains attributable. The processor metadata records the configured `PREDICTION_IMPORT_PROCESSOR_ID`; the audit actor remains the authenticated named account used by the script.
@@ -182,13 +182,13 @@ Storage cleanup is a separate operational path. `POST /api/storage-cleanup` and 
 Run dry-run first:
 
 ```bash
-npm run storage:cleanup -- --category batch-staging --batch '<batch-id>' --email admin@example.com --password '<admin-password>'
+SAPEN_CLEANUP_EMAIL=admin@example.com SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password npm run storage:cleanup -- --category batch-staging --batch '<batch-id>'
 ```
 
 Execute with an explicit limit:
 
 ```bash
-npm run storage:cleanup -- --execute --category batch-staging --batch '<batch-id>' --limit 100 --email admin@example.com --password '<admin-password>'
+SAPEN_CLEANUP_EMAIL=admin@example.com SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password npm run storage:cleanup -- --execute --category batch-staging --batch '<batch-id>' --limit 100
 ```
 
 The cleanup service deletes only eligible temporary staging objects after the configured retention period. It never deletes committed raw images, committed artifact versions, imported prediction artifact versions, export manifests/packages, or active/retryable batch item sources. Full runbook: [storage-retention-cleanup.md](storage-retention-cleanup.md).

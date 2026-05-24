@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+import {
+  markDeprecatedPasswordFlag,
+  resolveSecretInput,
+} from "./secret-input.mjs";
+
 const DEFAULT_BASE_URL =
   process.env.SAPEN_JOB_BASE_URL || process.env.APP_BASE_URL || "http://localhost:3000";
 const DEFAULT_PROCESSOR_ID =
@@ -25,13 +30,19 @@ function parsePositiveInteger(value, flagName) {
 }
 
 function parseArgs(argv) {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    return { help: true };
+  }
+
   const args = {
     baseUrl: DEFAULT_BASE_URL,
     maxJobs: process.env.EXPORT_JOB_MAX_JOBS_PER_TICK
       ? parsePositiveInteger(process.env.EXPORT_JOB_MAX_JOBS_PER_TICK, "EXPORT_JOB_MAX_JOBS_PER_TICK")
       : undefined,
     email: process.env.SAPEN_JOB_EMAIL || "",
-    password: process.env.SAPEN_JOB_PASSWORD || "",
+    password: "",
+    passwordFile: "",
+    passwordStdin: false,
     processorId: DEFAULT_PROCESSOR_ID,
     loop: false,
     intervalSeconds: DEFAULT_INTERVAL_SECONDS,
@@ -52,7 +63,13 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--password" && next) {
       args.password = next;
+      markDeprecatedPasswordFlag(args);
       index += 1;
+    } else if (arg === "--password-file" && next) {
+      args.passwordFile = next;
+      index += 1;
+    } else if (arg === "--password-stdin") {
+      args.passwordStdin = true;
     } else if (arg === "--processor-id" && next) {
       args.processorId = next;
       index += 1;
@@ -71,9 +88,42 @@ function parseArgs(argv) {
   }
 
   if (!args.email) throw new Error("--email or SAPEN_JOB_EMAIL is required");
-  if (!args.password) throw new Error("--password or SAPEN_JOB_PASSWORD is required");
+  args.password = resolveSecretInput({
+    cliPassword: args.password,
+    cliPasswordFile: args.passwordFile,
+    cliPasswordStdin: args.passwordStdin,
+    envPassword: process.env.SAPEN_JOB_PASSWORD,
+    envPasswordFile: process.env.SAPEN_JOB_PASSWORD_FILE,
+    envPasswordName: "SAPEN_JOB_PASSWORD",
+    envPasswordFileName: "SAPEN_JOB_PASSWORD_FILE",
+    secretDescription: "operator password",
+  }).secret;
   if (!args.processorId.trim()) throw new Error("--processor-id must not be empty");
   return args;
+}
+
+function printHelp() {
+  console.log(`Usage:
+npm run exports:process -- [options]
+
+Options:
+  --max-jobs <n>          Maximum due export jobs for this pass.
+  --base-url <url>        App base URL. Defaults to SAPEN_JOB_BASE_URL, APP_BASE_URL, or http://localhost:3000.
+  --email <email>         Operator account email. Defaults to SAPEN_JOB_EMAIL.
+  --password-file <path>  Read the operator password from a mounted secret file.
+  --password-stdin        Read the operator password from stdin.
+  --processor-id <id>     Non-secret processor label.
+  --interval <seconds>    Loop interval.
+  --loop                  Run continuously.
+  --recover-stale         Recover stale PROCESSING jobs. Default.
+  --no-recover-stale      Do not recover stale PROCESSING jobs.
+  --help                  Show this help.
+
+Secret input precedence:
+  --password-file, SAPEN_JOB_PASSWORD_FILE, SAPEN_JOB_PASSWORD, --password-stdin, deprecated --password.
+
+Deprecated:
+  --password <password> is retained temporarily for compatibility but can leak via shell history or process lists.`);
 }
 
 function sessionCookieFromHeaders(headers) {
@@ -126,6 +176,10 @@ function sleep(milliseconds) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    printHelp();
+    return;
+  }
   const baseUrl = args.baseUrl.replace(/\/$/, "");
   let cookie = await login(baseUrl, args);
 

@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+import {
+  markDeprecatedPasswordFlag,
+  resolveSecretInput,
+} from "./secret-input.mjs";
+
 const DEFAULT_BASE_URL =
   process.env.SAPEN_CLEANUP_BASE_URL || process.env.APP_BASE_URL || "http://localhost:3000";
 
@@ -12,10 +17,16 @@ function parsePositiveInteger(value, flagName) {
 }
 
 function parseArgs(argv) {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    return { help: true };
+  }
+
   const args = {
     baseUrl: DEFAULT_BASE_URL,
     email: process.env.SAPEN_CLEANUP_EMAIL || "",
-    password: process.env.SAPEN_CLEANUP_PASSWORD || "",
+    password: "",
+    passwordFile: "",
+    passwordStdin: false,
     execute: false,
     dryRun: true,
     category: undefined,
@@ -38,7 +49,13 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--password" && next) {
       args.password = next;
+      markDeprecatedPasswordFlag(args);
       index += 1;
+    } else if (arg === "--password-file" && next) {
+      args.passwordFile = next;
+      index += 1;
+    } else if (arg === "--password-stdin") {
+      args.passwordStdin = true;
     } else if (arg === "--execute") {
       args.execute = true;
       args.dryRun = false;
@@ -72,8 +89,44 @@ function parseArgs(argv) {
   }
 
   if (!args.email) throw new Error("--email or SAPEN_CLEANUP_EMAIL is required");
-  if (!args.password) throw new Error("--password or SAPEN_CLEANUP_PASSWORD is required");
+  args.password = resolveSecretInput({
+    cliPassword: args.password,
+    cliPasswordFile: args.passwordFile,
+    cliPasswordStdin: args.passwordStdin,
+    envPassword: process.env.SAPEN_CLEANUP_PASSWORD,
+    envPasswordFile: process.env.SAPEN_CLEANUP_PASSWORD_FILE,
+    envPasswordName: "SAPEN_CLEANUP_PASSWORD",
+    envPasswordFileName: "SAPEN_CLEANUP_PASSWORD_FILE",
+    secretDescription: "cleanup operator password",
+  }).secret;
   return args;
+}
+
+function printHelp() {
+  console.log(`Usage:
+npm run storage:cleanup -- [options]
+
+Options:
+  --base-url <url>                 App base URL. Defaults to SAPEN_CLEANUP_BASE_URL, APP_BASE_URL, or http://localhost:3000.
+  --email <email>                  Admin account email. Defaults to SAPEN_CLEANUP_EMAIL.
+  --password-file <path>           Read the admin password from a mounted secret file.
+  --password-stdin                 Read the admin password from stdin.
+  --execute                        Delete eligible temporary objects.
+  --dry-run                        Report candidates without deleting. Default.
+  --category <all|batch-staging|upload-orphans>
+  --project <project-id>
+  --batch <batch-id>
+  --limit <n>
+  --completed-retention-days <n>
+  --failed-retention-days <n>
+  --presigned-retention-hours <n>
+  --help                           Show this help.
+
+Secret input precedence:
+  --password-file, SAPEN_CLEANUP_PASSWORD_FILE, SAPEN_CLEANUP_PASSWORD, --password-stdin, deprecated --password.
+
+Deprecated:
+  --password <password> is retained temporarily for compatibility but can leak via shell history or process lists.`);
 }
 
 function sessionCookieFromHeaders(headers) {
@@ -111,6 +164,10 @@ function requestBody(args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    printHelp();
+    return;
+  }
   const baseUrl = args.baseUrl.replace(/\/$/, "");
   const login = await fetch(`${baseUrl}/api/auth/login`, {
     method: "POST",

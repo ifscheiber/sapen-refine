@@ -30,8 +30,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open `/api/projects` without a session. | Returns JSON `401 UNAUTHENTICATED`; browser pages still redirect to `/login`. |  |  |
 | Confirm public exposure. | Only Caddy is reachable publicly; MinIO console/S3 are not exposed. |  |  |
 | Run backup command or confirm backup schedule. | PostgreSQL, MinIO, and Caddy backup procedure is documented for this trial. |  |  |
-| If enabling batch prediction imports, set named worker credentials and start optional worker. | `SAPEN_JOB_EMAIL`/`SAPEN_JOB_PASSWORD` belong to a named owner/QA account; `prediction-import-worker` runs only when the `worker` profile is enabled. |  |  |
-| If enabling cleanup operations, set named admin cleanup credentials or prepare an admin login. | `SAPEN_CLEANUP_EMAIL`/`SAPEN_CLEANUP_PASSWORD` belong to a named global admin account; cleanup dry-run is available before execute. |  |  |
+| If enabling batch prediction imports, set named worker credentials and start optional worker. | `SAPEN_JOB_EMAIL` plus `SAPEN_JOB_PASSWORD_FILE` or `SAPEN_JOB_PASSWORD` belong to a named owner/QA account; `prediction-import-worker` runs only when the `worker` profile is enabled. |  |  |
+| If enabling cleanup operations, set named admin cleanup credentials or prepare an admin login. | `SAPEN_CLEANUP_EMAIL` plus `SAPEN_CLEANUP_PASSWORD_FILE` or `SAPEN_CLEANUP_PASSWORD` belong to a named global admin account; cleanup dry-run is available before execute. |  |  |
 
 ## Desktop Browser Smoke
 

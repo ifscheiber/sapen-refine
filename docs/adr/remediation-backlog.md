@@ -148,6 +148,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-116; RB-116-A is P3 before production operations use of bootstrap scripts.
 
+## RB-117 - CLI Secret Handling Password Flag Deprecation (Resolved)
+
+Context: Operator scripts for export jobs, prediction-import processing, storage cleanup, and trial-user creation accepted `--password` command-line arguments, and active docs included examples that normalized command-line password passing.
+
+Impact: Password arguments can leak through shell history, terminal scrollback, process inspection, copied support commands, and CI logs.
+
+Resolution: Implemented by RB-117 optimized ticket. Operator scripts now prefer file-mounted secrets, environment variables, and explicit stdin input before the deprecated `--password` compatibility flag. Help output documents the preferred inputs, deprecated `--password` emits a warning without the secret value, and active docs use file/env examples instead of password command arguments.
+
+Remaining follow-up: Remove deprecated `--password` compatibility after customer-trial operator docs and automation no longer need the transition path. RB-116-A remains the separate trial-bootstrap operator-attribution follow-up.
+
+Affected modules: `scripts/process-export-jobs.mjs`, `scripts/process-prediction-import-batch.mjs`, `scripts/storage-cleanup.mjs`, `scripts/create-trial-user.mjs`, deployment/runbook docs, deployment templates, and CLI secret handling tests.
+
+Owner: Codex.
+
+Priority: Resolved by RB-117; removal of compatibility is future P3 cleanup.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.

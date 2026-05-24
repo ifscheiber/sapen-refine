@@ -27,7 +27,7 @@ Use the combined report plus verification report as the planning baseline. The o
 10. [RB-114 - Storage/DB Consistency Operations Hardening](done/RB-114-storage-db-consistency-operations-hardening-optimized-post-RB112.md) - completed
 11. [RB-115 - System Actor Attribution Model ADR](done/RB-115-system-actor-attribution-model-adr-optimized-post-RB114.md) - completed
 12. [RB-116 - Audit Coverage Matrix And Guard](done/RB-116-audit-coverage-matrix-and-guard-optimized-post-RB115.md) - completed
-13. [RB-117 - CLI Secret Handling Password Flag Deprecation](RB-117-cli-secret-handling-password-flag-deprecation.md)
+13. [RB-117 - CLI Secret Handling Password Flag Deprecation](done/RB-117-cli-secret-handling-password-flag-deprecation-optimized-post-RB116.md) - completed
 14. [RB-118 - Upload Content Safety Hardening Design](RB-118-upload-content-safety-hardening-design.md)
 15. [RB-119 - Documentation Governance Polish After Deep Review](RB-119-doc-governance-polish-after-deep-review.md)
 16. [RB-120 - Opportunistic Large Module Decomposition](RB-120-opportunistic-large-module-decomposition.md)

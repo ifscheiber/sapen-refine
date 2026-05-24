@@ -99,7 +99,7 @@ Do not run `npm run seed` or `prisma db seed` for customer-facing trials unless 
 Create the first named administrator/project owner:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email alice@example.com --password 'replace-with-unique-password' --name 'Alice Tester' --global-role ADMIN
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/alice_password app npm run trial:user:create -- --email alice@example.com --name 'Alice Tester' --global-role ADMIN
 ```
 
 This account can log in, create the first project, and run global-admin operational commands such as storage cleanup dry-runs. After a project exists, add additional named testers to the project:
@@ -107,7 +107,7 @@ This account can log in, create the first project, and run global-admin operatio
 Add a tester to an existing project:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:user:create -- --email bob@example.com --password 'replace-with-unique-password' --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/bob_password app npm run trial:user:create -- --email bob@example.com --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
 ```
 
 Rotate a password by rerunning the command for the same email with a new password. To revoke active sessions:
@@ -167,7 +167,7 @@ This is a single-host customer-trial guard. It is not a distributed quota system
 
 Normal annotation work does not use a queue. The optional workers are for bounded prediction-import batch processing and async export package generation.
 
-Set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` to a named project `OWNER` or `QA` account, then start the needed worker:
+Set `SAPEN_JOB_EMAIL` and preferably `SAPEN_JOB_PASSWORD_FILE` to a named project `OWNER` or `QA` account, then start the needed worker. Use `SAPEN_JOB_PASSWORD` only when file-mounted secrets are not available:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker
@@ -179,8 +179,8 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml lo
 One-shot processing remains available:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run exports:process -- --base-url http://localhost:3000 --max-jobs 2 --email 'owner@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='qa@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_JOB_EMAIL='owner@example.com' -e SAPEN_JOB_PASSWORD_FILE=/run/secrets/sapen_job_password app npm run exports:process -- --base-url http://localhost:3000 --max-jobs 2
 ```
 
 Keep one default process per worker type for the trial. There is no Redis, RabbitMQ, distributed worker coordination, GPU execution, inference execution, or streaming export writer in this deployment.

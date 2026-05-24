@@ -83,25 +83,25 @@ These routes now return `410 PRESIGNED_UPLOADS_DISABLED` after authentication an
 Dry-run is the default. On a trial deployment prepared with [deployment-trial.md](deployment-trial.md), run it first:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --email 'admin@example.com' --password '<admin-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup
 ```
 
 Project-scoped dry-run:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --project '<project-id>' --category all --email 'admin@example.com' --password '<admin-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --project '<project-id>' --category all
 ```
 
 Batch-staging dry-run:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --category batch-staging --batch '<batch-id>' --email 'admin@example.com' --password '<admin-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --category batch-staging --batch '<batch-id>'
 ```
 
 Execute requires `--execute`:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --execute --category all --limit 100 --email 'admin@example.com' --password '<admin-password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --execute --category all --limit 100
 ```
 
 Use a named global `ADMIN` account for cleanup. Do not use shared demo credentials for customer-facing trial operations.
@@ -111,7 +111,7 @@ RB-076 verified this dry-run command against the local trial Compose stack; the 
 The same script can run outside Compose against a deployed app:
 
 ```bash
-SAPEN_CLEANUP_BASE_URL=https://annotate.example.com SAPEN_CLEANUP_EMAIL=admin@example.com SAPEN_CLEANUP_PASSWORD='<admin-password>' npm run storage:cleanup -- --dry-run
+SAPEN_CLEANUP_BASE_URL=https://annotate.example.com SAPEN_CLEANUP_EMAIL=admin@example.com SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password npm run storage:cleanup -- --dry-run
 ```
 
 ## API
