@@ -19,6 +19,7 @@ This page documents environment variables required by the current app and local 
 - `SAPEN_JOB_BASE_URL`, `SAPEN_JOB_EMAIL`, `SAPEN_JOB_PASSWORD_FILE`, `SAPEN_JOB_PASSWORD` - optional API script/worker settings; use a named owner/QA account for customer trials. Prefer the file variable for mounted secrets.
 - `SAPEN_CLEANUP_BASE_URL`, `SAPEN_CLEANUP_EMAIL`, `SAPEN_CLEANUP_PASSWORD_FILE`, `SAPEN_CLEANUP_PASSWORD` - optional API cleanup script settings; use a named global admin account and dry-run first. Prefer the file variable for mounted secrets.
 - `SAPEN_TRIAL_USER_PASSWORD_FILE`, `SAPEN_TRIAL_USER_PASSWORD` - optional `npm run trial:user:create` password input. Prefer file or stdin input for manual user creation.
+- `SAPEN_OPERATOR_EMAIL`, `SAPEN_REQUIRE_OPERATOR_ATTRIBUTION`, `SAPEN_ALLOW_LOCAL_SYSTEM_ACTOR` - trial bootstrap and trial-user attribution controls. Use a named operator for customer-trial/prod commands; allow `system:local-bootstrap` only for explicit local development setup.
 - `SHOW_DEMO_CREDENTIALS`, `LOGIN_RATE_LIMIT_MAX_FAILURES`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS`, `LOGIN_RATE_LIMIT_LOCK_SECONDS`, `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - RB-064 auth/session hardening settings.
 
 Local defaults in `.env.example` use project-specific ports:

@@ -175,7 +175,7 @@ export async function ensureDefaultLabelSchema(prisma, createdById = null) {
   return schema;
 }
 
-export async function ensureTrialBootstrap(prisma, { actorId = null } = {}) {
+export async function ensureTrialBootstrap(prisma, { actorId = null, actorContext } = {}) {
   const adminRole = await ensureRole(prisma, "ADMIN");
   const userRole = await ensureRole(prisma, "USER");
   const labelSchema = await ensureDefaultLabelSchema(prisma, actorId);
@@ -187,6 +187,7 @@ export async function ensureTrialBootstrap(prisma, { actorId = null } = {}) {
       entity: "System",
       entityId: labelSchema.id,
       details: {
+        ...(actorContext ? { actorContext } : {}),
         roles: [adminRole.name, userRole.name],
         labelSchema: {
           id: labelSchema.id,

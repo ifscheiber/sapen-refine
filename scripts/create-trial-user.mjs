@@ -4,6 +4,10 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
+import {
+  resolveOperatorActorContext,
+  withAuditActorContext,
+} from "./operator-actor-context.mjs";
 import { ensureGlobalRole } from "./trial-bootstrap-lib.mjs";
 import {
   markDeprecatedPasswordFlag,
@@ -14,7 +18,7 @@ const { Pool } = pg;
 
 function usage() {
   console.log(`Usage:
-node scripts/create-trial-user.mjs --email tester@example.com --name 'Tester Name' [secret options] [--global-role USER|ADMIN] [--project-id demo_project] [--project-role LABELER]
+node scripts/create-trial-user.mjs --email tester@example.com --name 'Tester Name' [secret options] [operator attribution] [--global-role USER|ADMIN] [--project-id demo_project] [--project-role LABELER]
 
 Creates or updates a named trial user and optionally adds project membership.
 
@@ -25,6 +29,13 @@ Secret options:
   --password-file <path>  Read the trial user password from a mounted secret file.
   --password-stdin        Read the trial user password from stdin.
   --password <password>   Deprecated compatibility option. Prefer file, env, or stdin input.
+
+Operator attribution:
+  --operator-email <email>       Record the named operator in AuditLog details.actorContext.
+  SAPEN_OPERATOR_EMAIL           Environment alternative to --operator-email.
+  --allow-local-system-actor     Local-development only fallback to system:local-bootstrap.
+  SAPEN_ALLOW_LOCAL_SYSTEM_ACTOR Environment alternative for the local fallback.
+  SAPEN_REQUIRE_OPERATOR_ATTRIBUTION=true or NODE_ENV=production requires operator identity.
 `);
 }
 
@@ -38,6 +49,10 @@ function parseArgs(argv) {
     }
     if (token === "--password-stdin") {
       args["password-stdin"] = true;
+      continue;
+    }
+    if (token === "--allow-local-system-actor") {
+      args["allow-local-system-actor"] = true;
       continue;
     }
     if (!token.startsWith("--")) {
@@ -98,6 +113,11 @@ async function main() {
     usage();
     process.exit(1);
   }
+  const actorContext = resolveOperatorActorContext({
+    cliOperatorEmail: args["operator-email"],
+    allowLocalSystemActor: Boolean(args["allow-local-system-actor"]),
+    scriptLabel: "create-trial-user",
+  });
   const password = resolveSecretInput({
     cliPassword: args.password,
     cliPasswordFile: args["password-file"],
@@ -161,13 +181,13 @@ async function main() {
         action: "TRIAL_USER_UPSERT",
         entity: "User",
         entityId: user.id,
-        details: {
+        details: withAuditActorContext({
           actorKind: "TRIAL_USER_CLI",
           email: user.email,
           globalRoles,
           projectId: projectId ?? null,
           projectRole: projectId ? projectRole : null,
-        },
+        }, actorContext),
       },
     });
 

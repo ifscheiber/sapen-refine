@@ -140,13 +140,29 @@ Impact: Audit coverage could regress silently as export workers, prediction impo
 
 Resolution: Implemented by RB-116 optimized ticket. `docs/testing/audit-coverage-matrix.md` now classifies current API mutation methods, operational scripts, worker processor entrypoints, and high-cost rate-limit bucket writes. `tests/unit/audit-coverage-matrix.test.ts` scans API route exports and fails when a mutation method is missing from the matrix.
 
-Remaining follow-up: RB-116-A should add explicit operator attribution for trial bootstrap and trial-user scripts before those scripts are used as production operational tooling. RB-115-B and RB-115-C remain the broader unattended-worker and external-system provenance follow-ups.
+Remaining follow-up: RB-115-B and RB-115-C remain the broader unattended-worker and external-system provenance follow-ups. RB-116-A resolved the trial bootstrap and trial-user script attribution gap.
 
 Affected modules: `docs/testing/audit-coverage-matrix.md`, `tests/unit/audit-coverage-matrix.test.ts`, audit/RBAC docs, ticket README, and current operational scripts.
 
 Owner: Codex.
 
 Priority: Resolved by RB-116; RB-116-A is P3 before production operations use of bootstrap scripts.
+
+## RB-116-A - Trial Bootstrap Operator Attribution (Resolved)
+
+Context: `scripts/trial-bootstrap.mjs` and `scripts/create-trial-user.mjs` can create roles, label schemas, users, memberships, and audit rows for customer-trial setup. Before RB-116-A, those audit rows did not include explicit operator/system actor context.
+
+Impact: Customer-facing bootstrap operations could leave only anonymous or script-local audit details, weakening attribution for administrative setup actions.
+
+Resolution: Implemented by RB-116-A. Trial bootstrap and trial-user scripts now require `SAPEN_OPERATOR_EMAIL` or `--operator-email` for customer-trial/prod use, support only an explicit local `system:local-bootstrap` fallback, and write RB-115-A-style `details.actorContext`.
+
+Remaining follow-up: Remove deprecated `--password` compatibility for `scripts/create-trial-user.mjs` after RB-117's transition period. Broader unattended-worker and external-system provenance remain RB-115-B/RB-115-C.
+
+Affected modules: `scripts/trial-bootstrap.mjs`, `scripts/create-trial-user.mjs`, `scripts/trial-bootstrap-lib.mjs`, CLI attribution tests, deployment/runtime docs, and `docs/testing/audit-coverage-matrix.md`.
+
+Owner: Codex.
+
+Priority: Resolved by RB-116-A.
 
 ## RB-117 - CLI Secret Handling Password Flag Deprecation (Resolved)
 
@@ -156,7 +172,7 @@ Impact: Password arguments can leak through shell history, terminal scrollback, 
 
 Resolution: Implemented by RB-117 optimized ticket. Operator scripts now prefer file-mounted secrets, environment variables, and explicit stdin input before the deprecated `--password` compatibility flag. Help output documents the preferred inputs, deprecated `--password` emits a warning without the secret value, and active docs use file/env examples instead of password command arguments.
 
-Remaining follow-up: Remove deprecated `--password` compatibility after customer-trial operator docs and automation no longer need the transition path. RB-116-A remains the separate trial-bootstrap operator-attribution follow-up.
+Remaining follow-up: Remove deprecated `--password` compatibility after customer-trial operator docs and automation no longer need the transition path. RB-116-A has separately resolved trial-bootstrap operator attribution.
 
 Affected modules: `scripts/process-export-jobs.mjs`, `scripts/process-prediction-import-batch.mjs`, `scripts/storage-cleanup.mjs`, `scripts/create-trial-user.mjs`, deployment/runbook docs, deployment templates, and CLI secret handling tests.
 

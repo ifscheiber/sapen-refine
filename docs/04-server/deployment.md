@@ -35,7 +35,7 @@ Run from the repository root:
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml build
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d postgres minio
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile tools run --rm migrate
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm app npm run trial:bootstrap
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='owner@example.com' app npm run trial:bootstrap
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up -d
 ```
 
@@ -48,7 +48,7 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml up
 
 Do not use `prisma migrate dev` for the customer trial. `migrate dev` is local development tooling; trial deployment uses `prisma migrate deploy` through the `migrate` Compose service.
 
-Do not use the local development seed for customer-facing trial setup unless shared demo credentials have been explicitly accepted. The trial path runs `npm run trial:bootstrap` to create roles and the default label schema without demo users or projects.
+Do not use the local development seed for customer-facing trial setup unless shared demo credentials have been explicitly accepted. The trial path runs `npm run trial:bootstrap` to create roles and the default label schema without demo users or projects. Provide `SAPEN_OPERATOR_EMAIL` or `--operator-email` for customer-trial/prod bootstrap commands so audit rows include `details.actorContext`; the local system fallback must be explicitly enabled and is not a production operations model.
 
 ## Verify Runtime
 
@@ -70,13 +70,13 @@ RB-064 hides shared seed credentials in production/trial unless `SHOW_DEMO_CREDE
 Create the first named administrator/project owner:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/alice_password app npm run trial:user:create -- --email alice@example.com --name 'Alice Tester' --global-role ADMIN
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='owner@example.com' -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/alice_password app npm run trial:user:create -- --email alice@example.com --name 'Alice Tester' --global-role ADMIN
 ```
 
 The first tester can log in, create a project, and run global-admin operational dry-runs. Add additional testers to a known project ID from the project URL:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/bob_password app npm run trial:user:create -- --email bob@example.com --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='owner@example.com' -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/bob_password app npm run trial:user:create -- --email bob@example.com --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
 ```
 
 To rotate a trial user's password, rerun the same command with a new password. To revoke active sessions for that user:
