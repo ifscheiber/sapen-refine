@@ -14,7 +14,10 @@ Token groups:
 - muted, border, input, ring,
 - destructive, warning, success, info,
 - shell/sidebar,
+- Core-aligned application shell surfaces, login surfaces, borders, text, brand/accent, focus, and warning tokens,
 - annotation labels,
 - typography, radius, and shadow.
 
 Production components should consume tokens through semantic Tailwind classes. Raw hex/RGB values are limited to `src/design/**` and label definitions.
+
+DESIGN-001 adds a small SaPen Core-aligned token subset for the login shell without replacing the full app theme. The new variables include `--app-background`, `--shell-topbar-bg`, `--workspace-surface`, `--workspace-surface-strong`, `--workspace-input-background`, `--border-subtle`, `--border-default`, `--accent-primary`, `--accent-primary-hover`, `--text-primary`, `--text-secondary`, `--text-muted`, `--brand`, `--brand-hover`, and `--focus-ring`.

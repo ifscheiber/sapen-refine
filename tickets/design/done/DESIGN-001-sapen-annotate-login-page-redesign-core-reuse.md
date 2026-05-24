@@ -2,7 +2,14 @@
 
 ## Status
 
-Ready for implementation
+Completed
+
+## Implementation notes
+
+- Implemented the dark split-card `/login` shell in `src/app/(public)/login/LoginForm.tsx`.
+- Preserved the existing `POST /api/auth/login` payload, API contract, error display, and `next`/`redirectTo` handling.
+- Removed public demo credential rendering from the login page.
+- Documented the auth UI change in `docs/03-features/auth.md` and the additive Core-aligned design tokens in `docs/05-design-system/tokens.md` and `docs/05-design-system/theming.md`.
 
 ## Type
 
