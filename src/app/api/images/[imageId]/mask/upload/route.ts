@@ -13,6 +13,7 @@ import {
   withVersionAllocationLock,
 } from "@/server/domain/versionAllocation";
 import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -41,6 +42,11 @@ export const POST = withApiErrorHandling(async function POST(
   if (!membership || !canAnnotate(membership.role)) {
     return apiError("FORBIDDEN", 403);
   }
+  await enforceHighCostRouteLimit({
+    family: "upload:mask",
+    userId: user.id,
+    scope: [image.projectId, image.id],
+  });
 
   let upload;
   try {

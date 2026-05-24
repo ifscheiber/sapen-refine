@@ -87,6 +87,8 @@ This page lists the current API route handlers under `src/app/api`.
 ## Invariants And Constraints
 
 - Project and image API routes must enforce authenticated access and project membership.
+- RB-111 high-cost mutation families are rate limited through the shared DB-backed limiter after auth and before expensive body/storage/package work. Enforced families are image upload, mask/editor/crop artifact saves, slice metadata/BBox/classification/crop-generation saves, training and prediction-analysis export creation, prediction import upload/process/retry, and storage cleanup/admin operations.
+- Excluded mutation routes are intentionally low-cost or already strongly bounded by domain semantics: project create/update, review transitions, correction-task status management, model/prediction-run metadata creation, disabled legacy presign/commit compatibility routes, and auth login/logout. Login keeps its separate auth throttle.
 - Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
 - New browser helper code must use the app-mediated upload/read routes. RB-105 keeps the legacy presign/commit route files only as disabled compatibility surface; they return `PRESIGNED_UPLOADS_DISABLED` and must not be used by new UI work.
@@ -102,6 +104,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Crop readiness APIs and export readiness use `src/server/domain/cropReadiness.ts` so crop editor review actions, project crop-readiness summaries, and crop-training export skips share the same `READY`/`PARTIAL`/`NOT_READY`/`REVIEW_REQUIRED` decisions without exposing private storage keys.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry. Crop-training manifests record `supportGeometrySource` as `SEMANTIC_FOREGROUND` for supportless Sap/Heartwood or `EXPLICIT_SUPPORT_MASK` for Copper. The RB-091/RB-092 `crop_training` target is exclusive, uses ready crop candidates only, preserves source-image/crop transform provenance, and lists partial/not-ready/review-required crops in `skippedCropItems`.
+- Export creation applies RB-111 trial caps before ZIP packaging: training/crop-training exports default to 500 package items and 512 MiB estimated input bytes; prediction-analysis exports have the same default cap. Cap failures return `413` with the relevant export error code.
 - Export ZIP packaging verifies every packaged raw image, artifact version, and derived crop against the persisted checksum and size before adding bytes to the archive. Mismatches fail creation with `EXPORT_OBJECT_INTEGRITY_MISMATCH`; missing checksum/size metadata fails with existing export integrity metadata errors.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, include QA metrics as evaluation metadata where approved references exist, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
@@ -113,6 +116,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Correction-task APIs expose prediction/run/provenance summaries but not private artifact storage keys. `OWNER`/`QA` can create and manage tasks; `LABELER` can claim/start/dismiss own or unassigned active tasks; `VIEWER` is read-only.
 - Assisted correction APIs are mutation-oriented and therefore allow `OWNER`, `QA`, and eligible `LABELER` users only. Prediction bytes are streamed through the app; storage keys are not returned.
 - API routes should return stable error codes that clients can handle.
+- High-cost rate-limit failures return `429 RATE_LIMITED` with `Retry-After` and `retryAfterSeconds`.
 - RB-072 standardizes auth/RBAC/domain route failures as flat JSON `{ ok: false, error: "CODE" }`; unauthenticated `/api/**` requests return `401 UNAUTHENTICATED` instead of an HTML/login redirect.
 - RB-106 requires every protected API route method to be exported through `withApiErrorHandling` and guarded by the route inventory in `tests/unit/api-route-error-contracts.test.ts`. Public API routes are limited to health/readiness and auth login/logout/me.
 - RB-055/RB-081 upload/artifact error codes include `UNSUPPORTED_CONTENT_TYPE`, `UPLOAD_TOO_LARGE`, `IMAGE_DIMENSIONS_UNREADABLE`, `IMAGE_DIMENSIONS_UNSUPPORTED`, `CHECKSUM_MISMATCH`, `MASK_FORMAT_UNSUPPORTED`, `MASK_BYTE_LENGTH_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_KEY_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
@@ -123,6 +127,7 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-058 correction-task error codes include `FORBIDDEN`, `PREDICTION_RUN_NOT_FOUND`, `CORRECTION_TASK_NOT_FOUND`, `INVALID_TASK_REASON`, `INVALID_TASK_SCOPE`, `INVALID_TASK_STATUS`, `INVALID_PREDICTION_TARGET_TYPE`, `INVALID_TASK_ACTION`, `INVALID_TASK_PRIORITY`, `INVALID_TASK_STATUS_TRANSITION`, `ASSIGNEE_REQUIRED`, `ASSIGNEE_NOT_PROJECT_MEMBER`, and `CORRECTION_TASK_ALREADY_EXISTS`.
 - RB-059 assisted-correction error codes include `CORRECTION_TASK_NOT_FOUND`, `CORRECTION_TASK_IMAGE_MISSING`, `CORRECTION_TARGET_UNSUPPORTED`, `SOURCE_PREDICTION_MISSING`, `SOURCE_PREDICTION_MISMATCH`, `SOURCE_PREDICTION_NOT_FOUND`, `SOURCE_ARTIFACT_NOT_PREDICTION`, `SEMANTIC_MASK_VALUES_INVALID`, and reused upload/object errors.
 - RB-060 prediction-analysis export error codes include `FORBIDDEN`, `PROJECT_NOT_FOUND`, `USER_NOT_FOUND`, `PREDICTION_TARGET_INVALID`, `NO_PREDICTION_ANALYSIS_CANDIDATES`, `PREDICTION_ANALYSIS_EXPORT_NOT_FOUND`, `EXPORT_NOT_READY`, and `EXPORT_FILE_NOT_FOUND`.
+- RB-111 export cap error codes include `EXPORT_ITEM_LIMIT_EXCEEDED`, `EXPORT_BYTE_LIMIT_EXCEEDED`, `PREDICTION_ANALYSIS_EXPORT_ITEM_LIMIT_EXCEEDED`, and `PREDICTION_ANALYSIS_EXPORT_BYTE_LIMIT_EXCEEDED`.
 - RB-086/RB-094 BBox proposal and confirmation error codes include `FORBIDDEN`, `IMAGE_NOT_FOUND`, `BBOX_NOT_FOUND`, `BBOX_VERSION_STALE`, `BBOX_SET_EMPTY`, `IMAGE_DIMENSIONS_REQUIRED`, `BBOX_TOO_SMALL`, `BBOX_OUT_OF_BOUNDS`, and integer-field errors such as `X_INTEGER_REQUIRED`.
 - RB-087 slice crop error codes include `FORBIDDEN`, `IMAGE_NOT_FOUND`, `CROP_NOT_FOUND`, `BBOX_NOT_FOUND`, `BBOX_VERSION_STALE`, `BBOX_DELETED`, `IMAGE_DIMENSIONS_REQUIRED`, `BBOX_OUT_OF_BOUNDS`, `CROP_PADDING_INVALID`, `CROP_SOURCE_IMAGE_UNSUPPORTED`, and `CROP_IMAGE_GENERATION_FAILED`.
 - RB-088 crop support-mask error codes include `FORBIDDEN`, `CROP_NOT_FOUND`, `CROP_COORDINATE_SPACE_INVALID`, `CROP_LINEAGE_INVALID`, `MASK_SIZE_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `SUPPORT_MASK_VALUES_INVALID`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
@@ -134,7 +139,7 @@ This page lists the current API route handlers under `src/app/api`.
 ## Known Gaps
 
 - Audit logging now covers the main auth/project/upload/artifact/metadata/review/export/prediction/correction paths, but no admin audit UI exists yet.
-- RB-053 and RB-060/RB-067 exports are synchronous and trial-sized. RB-061/RB-065 cover batch prediction import jobs only; RB-066 covers temporary storage cleanup without adding a cleanup UI. Advanced export filters, export history UI, metrics dashboards, and production-grade queue workers remain deferred.
+- RB-053 and RB-060/RB-067 exports are synchronous and trial-sized with RB-111 caps/rate limits. RB-061/RB-065 cover batch prediction import jobs only; RB-066 covers temporary storage cleanup without adding a cleanup UI. Advanced export filters, export history UI, metrics dashboards, async/streaming export jobs, and production-grade queue workers remain deferred.
 
 ## Related Tickets / Docs
 

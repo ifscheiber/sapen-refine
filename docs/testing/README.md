@@ -37,6 +37,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/integration/assisted-correction.test.ts` covers RB-059 correction context authorization, prediction-mask reads, semantic/support `HUMAN_CORRECTION` saves, parent/task links, task status transitions through review, source prediction immutability, export eligibility for approved human corrections, and unsupported classification correction.
 - `tests/integration/prediction-analysis-export.test.ts` covers RB-060/RB-067 prediction-analysis export readiness/creation/download authorization, proposal manifest safety language, model/prediction provenance, confidence/uncertainty metadata, separated prediction/human/ground-truth package paths, semantic/support QA metrics, missing-reference/not-computed reasons, Copper-not-support metrics boundaries, training export route separation, and manifest-only classification prediction proposals.
 - `tests/integration/auth-hardening.test.ts` covers RB-064 DB-backed hashed login throttling, lockout, and successful bucket clearing.
+- `tests/integration/high-cost-rate-limit.test.ts` covers RB-111 DB-backed high-cost write limiter persistence, over-threshold rejection, and window reset behavior.
 - `tests/unit/mask-serialize.test.ts` covers mask serialization round trips and invalid headers.
 - `tests/unit/auth-hardening.test.ts` covers RB-064 central permission helpers, login redirect sanitization, same-origin mutation guard decisions, and session last-seen throttling.
 - `tests/unit/metadata-validation.test.ts` covers RB-050 metadata parsing, completeness/readiness calculation, and immutable-field validation.
@@ -48,6 +49,9 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, display sizing helpers, and RB-086 image-rectangle normalization from pointer points.
 - `tests/unit/editor-helpers.test.ts` covers RB-068 extracted editor API path builders, review/classification/correction display helpers, abort detection, pointer ignore decisions, RB-070 eraser tool/value behavior, RB-080 exact editor mask upload payload construction for large masks and typed-array views, and RB-089/RB-100 crop semantic brush mutation.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, upload limit parsing, and the RB-087 slice crop padding default/preset validation.
+- `tests/unit/high-cost-rate-limit.test.ts` covers RB-111 rate-limit family policy mapping plus allow/deny/retry calculations.
+- `tests/unit/high-cost-route-inventory.test.ts` guards representative expensive mutation routes so they remain wired to the shared high-cost limiter.
+- `tests/unit/export-trial-caps.test.ts` covers RB-111 export item/byte cap decisions and stable cap error metadata.
 - `tests/unit/storage-cleanup.test.ts` covers RB-066 temporary-object key classification, retention cutoffs, and age calculations.
 - `tests/unit/prediction-import-batch-leases.test.ts` covers RB-065 lease expiry, stale legacy processing detection, and retry/fail recovery state selection.
 - `tests/unit/prediction-analysis-metrics.test.ts` covers RB-067 binary support IoU/Dice, semantic per-label/macro metrics, confusion matrix counts, empty-union behavior, unknown byte handling, support label lookup, not-computed payloads, and dimension mismatch handling.

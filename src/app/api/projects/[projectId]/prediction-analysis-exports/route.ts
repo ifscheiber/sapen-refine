@@ -6,6 +6,7 @@ import {
   predictionAnalysisExportErrorResponse,
 } from "@/server/domain/predictionAnalysisExports";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const POST = withApiErrorHandling(async function POST(
   req: Request,
@@ -13,6 +14,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const user = await requireUser();
   const { projectId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "export:prediction-analysis-create",
+    userId: user.id,
+    scope: [projectId],
+  });
   const body = await req.json().catch(() => null);
 
   try {

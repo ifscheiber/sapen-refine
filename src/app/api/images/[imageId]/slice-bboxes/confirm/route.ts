@@ -7,6 +7,7 @@ import {
 } from "@/server/domain/sliceBboxes";
 import { ensureCurrentCropsForImageForUser } from "@/server/domain/sliceCrops";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const POST = withApiErrorHandling(async function POST(
   _req: Request,
@@ -14,6 +15,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const user = await requireUser();
   const { imageId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [imageId],
+  });
 
   try {
     const state = await confirmImageBBoxSetForUser({ imageId, userId: user.id });

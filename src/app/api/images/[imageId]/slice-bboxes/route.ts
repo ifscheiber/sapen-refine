@@ -7,6 +7,7 @@ import {
   sliceBoundingBoxErrorResponse,
 } from "@/server/domain/sliceBboxes";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const GET = withApiErrorHandling(async function GET(
   _req: Request,
@@ -14,6 +15,11 @@ export const GET = withApiErrorHandling(async function GET(
 ) {
   const user = await requireUser();
   const { imageId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [imageId],
+  });
 
   try {
     const state = await listSliceBoundingBoxesForUser({ imageId, userId: user.id });

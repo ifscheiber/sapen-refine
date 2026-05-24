@@ -7,6 +7,7 @@ import {
   updateImageMetadataForUser,
 } from "@/server/domain/metadata";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const GET = withApiErrorHandling(async function GET(
   _req: Request,
@@ -31,6 +32,11 @@ export const PATCH = withApiErrorHandling(async function PATCH(
 ) {
   const user = await requireUser();
   const { imageId } = await ctx.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [imageId],
+  });
   const body = await req.json().catch(() => null);
 
   try {

@@ -22,6 +22,11 @@ import {
   ExportObjectIntegrityError,
   getVerifiedExportObjectBytes,
 } from "@/server/domain/exportObjectIntegrity";
+import {
+  assertExportWithinTrialCaps,
+  ExportTrialCapError,
+  trainingExportTrialLimits,
+} from "@/server/domain/exportTrialCaps";
 import { getObjectBytes, putObject } from "@/server/storage/s3";
 import { normalizeChecksum } from "@/server/uploads/integrity";
 
@@ -422,6 +427,10 @@ function hasBlockingIntegrityWarnings(manifest: { warnings: Array<{ code: string
       "MISSING_SUPPORT_MASK_INTEGRITY_METADATA",
     ].includes(warning.code),
   );
+}
+
+function safeByteSize(value: number | null | undefined) {
+  return Number.isFinite(value) && value && value > 0 ? value : 0;
 }
 
 function warningsForSelectedTargets(candidate: ExportCandidate, targets: ApiExportTarget[]) {
@@ -1014,6 +1023,42 @@ async function buildZipPackage(params: {
   });
 }
 
+function estimateTrainingExportBytes(params: {
+  manifest: Awaited<ReturnType<typeof buildManifest>>;
+  candidates: ExportCandidate[];
+  manifestBytes: Uint8Array;
+}) {
+  let total = params.manifestBytes.byteLength;
+  for (const item of params.manifest.items) {
+    const candidate = params.candidates.find((entry) => entry.image.id === item.image.id);
+    if (!candidate) continue;
+    total += safeByteSize(candidate.image.size);
+    if (item.semanticMask && candidate.semanticMask) {
+      total += safeByteSize(candidate.semanticMask.size);
+    }
+    if (item.supportMask && candidate.supportMask) {
+      total += safeByteSize(candidate.supportMask.size);
+    }
+  }
+  return total;
+}
+
+function assertTrainingExportCaps(params: {
+  manifest: Awaited<ReturnType<typeof buildManifest>>;
+  candidates: ExportCandidate[];
+  manifestBytes: Uint8Array;
+}) {
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount: params.manifest.summary.itemCount,
+      estimatedBytes: estimateTrainingExportBytes(params),
+    },
+    limits: trainingExportTrialLimits(),
+    itemCode: "EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "EXPORT_BYTE_LIMIT_EXCEEDED",
+  });
+}
+
 async function buildCropTrainingZipPackage(params: {
   manifest: Awaited<ReturnType<typeof buildCropTrainingManifest>>;
   candidates: CropExportCandidate[];
@@ -1061,6 +1106,41 @@ async function buildCropTrainingZipPackage(params: {
     type: "uint8array",
     compression: "DEFLATE",
     compressionOptions: { level: 6 },
+  });
+}
+
+function estimateCropTrainingExportBytes(params: {
+  manifest: Awaited<ReturnType<typeof buildCropTrainingManifest>>;
+  candidates: CropExportCandidate[];
+  manifestBytes: Uint8Array;
+}) {
+  let total = params.manifestBytes.byteLength;
+  for (const item of params.manifest.cropItems) {
+    const candidate = params.candidates.find((entry) => entry.crop.id === item.derivedCrop.id);
+    if (!candidate?.semanticMask) continue;
+    total += safeByteSize(candidate.crop.sourceImage.size);
+    total += safeByteSize(candidate.crop.byteSize);
+    if (item.supportMask && candidate.supportMask) {
+      total += safeByteSize(candidate.supportMask.size);
+    }
+    total += safeByteSize(candidate.semanticMask.size);
+  }
+  return total;
+}
+
+function assertCropTrainingExportCaps(params: {
+  manifest: Awaited<ReturnType<typeof buildCropTrainingManifest>>;
+  candidates: CropExportCandidate[];
+  manifestBytes: Uint8Array;
+}) {
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount: params.manifest.summary.cropItemCount,
+      estimatedBytes: estimateCropTrainingExportBytes(params),
+    },
+    limits: trainingExportTrialLimits(),
+    itemCode: "EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "EXPORT_BYTE_LIMIT_EXCEEDED",
   });
 }
 
@@ -1115,6 +1195,13 @@ function exportObjectIntegrityWarning(error: ExportObjectIntegrityError) {
 
 function exportFailureWarning(error: unknown) {
   if (error instanceof ExportObjectIntegrityError) return exportObjectIntegrityWarning(error);
+  if (error instanceof ExportTrialCapError) {
+    return {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    };
+  }
   return {
     code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
     message: error instanceof Error ? error.message : "Unknown export failure",
@@ -1184,6 +1271,11 @@ async function createCropTrainingExportBatch(params: {
       candidates: params.readiness.cropCandidates,
     });
     const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+    assertCropTrainingExportCaps({
+      manifest,
+      candidates: params.readiness.cropCandidates,
+      manifestBytes,
+    });
     const packageBytes = await buildCropTrainingZipPackage({
       manifest,
       candidates: params.readiness.cropCandidates,
@@ -1355,6 +1447,11 @@ export async function createTrainingExportForUser(params: {
       throw new TrainingExportError("EXPORT_INTEGRITY_METADATA_MISSING");
     }
     const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+    assertTrainingExportCaps({
+      manifest,
+      candidates: readiness.candidates,
+      manifestBytes,
+    });
     const packageBytes = await buildZipPackage({
       manifest,
       candidates: readiness.candidates,
@@ -1550,6 +1647,9 @@ export async function readTrainingExportFileForUser(params: {
 
 export function exportErrorResponse(error: unknown): { error: string; status: number } {
   if (error instanceof ExportObjectIntegrityError) {
+    return { error: error.code, status: error.status };
+  }
+  if (error instanceof ExportTrialCapError) {
     return { error: error.code, status: error.status };
   }
   if (error instanceof TrainingExportError) {

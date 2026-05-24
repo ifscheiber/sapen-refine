@@ -109,6 +109,8 @@ Default trial limits:
 - App prediction batch ZIP upload: 100 MiB.
 - Prediction batch items per ZIP: 200.
 - Prediction batch process pass: 25 items.
+- Training export package: 500 items / 512 MiB estimated input bytes.
+- Prediction-analysis export package: 500 items / 512 MiB estimated input bytes.
 - Next proxy request body: 120mb.
 - Caddy request body: 120 MB.
 
@@ -119,8 +121,23 @@ Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other f
 Raise limits in all relevant places:
 
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
+- `TRAINING_EXPORT_MAX_ITEMS`, `TRAINING_EXPORT_MAX_BYTES`, `PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS`, or `PREDICTION_ANALYSIS_EXPORT_MAX_BYTES` in `deploy/trial.env`.
 - `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` in `deploy/trial.env`.
 - `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
+
+## High-Cost Write Rate Limits
+
+RB-111 adds PostgreSQL-backed high-cost write limits for expensive authenticated mutation paths. The limiter stores hashed logical buckets only and returns `429 RATE_LIMITED` with `Retry-After` and `retryAfterSeconds` when a bucket is over limit.
+
+Default trial limits:
+
+- Image uploads: 20 requests per 60 seconds.
+- Mask/editor/crop/slice save endpoints: 120 requests per 60 seconds.
+- Training and prediction-analysis export creation: 5 requests per 600 seconds.
+- Prediction import upload/process/retry endpoints: 10 requests per 600 seconds.
+- Cleanup/admin operations: 10 requests per 600 seconds.
+
+Tune these through `HIGH_COST_*` variables in `deploy/trial.env`. This is a single-host operational guard for the customer trial, not a distributed quota/billing system. RB-112 remains the follow-up for production-scale async or streaming export jobs.
 
 ## Batch Prediction Import Processing
 

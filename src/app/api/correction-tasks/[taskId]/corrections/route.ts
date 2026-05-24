@@ -8,6 +8,7 @@ import {
 } from "@/server/domain/assistedCorrection";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 import { integrityErrorPayload } from "@/server/uploads/integrity";
 import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
@@ -25,6 +26,11 @@ export const POST = withApiErrorHandling(async function POST(
     const payload = assistedCorrectionErrorResponse(error);
     return apiErrorFromPayload(payload);
   }
+  await enforceHighCostRouteLimit({
+    family: "save:editor-artifact",
+    userId: user.id,
+    scope: [context.task.projectId, taskId],
+  });
 
   let upload;
   try {

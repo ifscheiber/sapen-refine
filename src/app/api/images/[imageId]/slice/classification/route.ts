@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/server/auth/rbac";
 import { setSliceClassificationForUser, sliceErrorResponse } from "@/server/domain/slices";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
@@ -10,6 +11,11 @@ export const PATCH = withApiErrorHandling(async function PATCH(
 ) {
   const user = await requireUser();
   const { imageId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [imageId],
+  });
   const body = await req.json().catch(() => null);
 
   try {

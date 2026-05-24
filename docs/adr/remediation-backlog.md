@@ -86,6 +86,20 @@ Owner: Codex.
 
 Priority: Resolved by RB-110.
 
+## RB-111 - High-Cost Write Rate Limits And Trial Caps (Resolved)
+
+Context: Login throttling, same-origin mutation protection, upload byte checks, and stable API error contracts existed, but expensive authenticated write paths could still be called repeatedly. Synchronous training and prediction-analysis exports also lacked explicit item/byte caps before ZIP packaging.
+
+Impact: A trial user or script could repeatedly trigger CPU, memory, DB, and object-storage work through uploads, editor saves, export creation, prediction-import processing, or cleanup/admin operations. Large export requests could also build unbounded packages inside the synchronous trial path.
+
+Resolution: Implemented by RB-111 optimized ticket. High-cost mutation routes now use a shared PostgreSQL-backed limiter keyed by route family plus hashed user/scope buckets and return stable `429 RATE_LIMITED` JSON with retry metadata. Training, crop-training, and prediction-analysis export creation now checks configurable item and estimated-byte caps before ZIP package generation. Prediction batch upload/item caps remain enforced through the existing upload and manifest validation.
+
+Affected modules: `src/server/http/highCostRateLimit.ts`, `src/server/http/apiErrors.ts`, `src/server/runtime/config.ts`, high-cost `src/app/api/**` mutation routes, `src/server/domain/exports.ts`, `src/server/domain/predictionAnalysisExports.ts`, Prisma migrations, deployment docs, and limiter/export-cap tests.
+
+Owner: Codex.
+
+Priority: Resolved by RB-111.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.

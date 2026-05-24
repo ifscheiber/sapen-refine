@@ -6,6 +6,7 @@ import {
   processPredictionImportBatchForUser,
 } from "@/server/domain/predictionImportBatches";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const POST = withApiErrorHandling(async function POST(
   req: Request,
@@ -13,6 +14,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const user = await requireUser();
   const { batchId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "prediction-import:process-or-retry",
+    userId: user.id,
+    scope: [batchId],
+  });
   const body = await req.json().catch(() => null);
 
   try {

@@ -23,6 +23,7 @@
 - `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 crop training export target and `ExportItem.derivedCropId` provenance links.
 - `prisma/migrations/20260523153000_image_crop_workflow_state/migration.sql` - RB-094 image-level BBox set confirmation workflow state.
 - `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql` - RB-109 review/export DB check constraints and migration preflight checks.
+- `prisma/migrations/20260524113000_high_cost_rate_limit_buckets/migration.sql` - RB-111 hashed high-cost write limiter bucket persistence.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -43,6 +44,7 @@
 - Current stable `ExportItem.role` values have DB-enforced reference-shape checks for image, full-image artifact/classification, crop, prediction proposal, correction reference, and approved-reference rows. The role/reference matrix is documented in `docs/prisma/schema.md`; unknown future roles remain unconstrained until their semantics are explicitly modeled.
 - Model predictions remain provenance/proposal records until a human creates and approves separate ground-truth artifact or classification versions.
 - `AuthLoginThrottle` stores hashed login failure buckets only; it must not store raw email or IP values.
+- `HighCostRateLimitBucket` stores hashed route-family/user/scope buckets for expensive authenticated write limits. It must not store raw user ids, project ids, request bodies, object keys, or uploaded contents.
 - `PredictionImportBatchItem` leases are for single-host trial background import processing only. `SUCCEEDED` items are terminal and must not be reprocessed into duplicate prediction artifacts.
 - `PredictionImportBatchItem.stagingPurgedAt` marks temporary source objects deleted by cleanup. Purged failed/skipped items cannot be reset for retry without re-uploading source data.
 - `SliceBoundingBoxVersion` rows are append-only proposal history. Replacement appends a new active version; deletion appends a `DELETED` version. BBoxes use `CoordinateSpace.SOURCE_IMAGE_PIXEL` and are not support masks.

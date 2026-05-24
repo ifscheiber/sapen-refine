@@ -7,6 +7,7 @@ import {
   sliceClassificationErrorResponse,
 } from "@/server/domain/sliceClassifications";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const GET = withApiErrorHandling(async function GET(
   _req: Request,
@@ -33,6 +34,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const user = await requireUser();
   const { sliceInstanceId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [sliceInstanceId],
+  });
   const body = await req.json().catch(() => null);
 
   try {

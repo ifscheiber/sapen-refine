@@ -141,16 +141,27 @@ Default trial limits:
 - Prediction batch ZIP upload: 100 MiB.
 - Prediction batch items per ZIP: 200.
 - Prediction batch process pass: 25 items.
+- Training export package: 500 items / 512 MiB estimated input bytes.
+- Prediction-analysis export package: 500 items / 512 MiB estimated input bytes.
 - Next proxy request body: 120mb.
 - Caddy request body: 120 MB.
 
 Raise app, Next proxy, and Caddy limits together:
 
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.
+- `TRAINING_EXPORT_MAX_ITEMS`, `TRAINING_EXPORT_MAX_BYTES`, `PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS`, or `PREDICTION_ANALYSIS_EXPORT_MAX_BYTES` in `deploy/trial.env`.
 - `NEXT_PROXY_CLIENT_MAX_BODY_SIZE` in `deploy/trial.env`; rebuild/restart the app image when changing it.
 - `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
 
 Supported raw image uploads are PNG and JPEG. Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` when the request reaches the app. If the Next proxy or Caddy rejects/truncates first, the app may not produce the intended JSON error, so keep both proxy limits above the app limits. Trial full-resolution annotation supports normal images up to `6000x4000`, large-warning images up to `8000x6000`, and rejects larger images with `IMAGE_DIMENSIONS_UNSUPPORTED`.
+
+## High-Cost Write Rate Limits
+
+Expensive authenticated mutation routes use DB-backed high-cost write buckets in the app database. Over-limit requests return `429 RATE_LIMITED` with `Retry-After` and `retryAfterSeconds`.
+
+Default trial values are: 20 image uploads per 60 seconds, 120 editor/crop/slice saves per 60 seconds, 5 export creates per 600 seconds, 10 prediction-import upload/process/retry calls per 600 seconds, and 10 cleanup/admin calls per 600 seconds. Tune them with the `HIGH_COST_*` variables in `deploy/trial.env`.
+
+This is a single-host customer-trial guard. It is not a distributed quota system, and RB-112 remains required for production-scale async/streaming exports.
 
 ## Optional Prediction Import Worker
 

@@ -11,6 +11,7 @@ import {
 } from "@/server/domain/cropSemanticMasks";
 import { cropSemanticFamilySaveGuard } from "@/server/domain/cropSemanticFamily";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -31,6 +32,11 @@ export const POST = withApiErrorHandling(async function POST(
     if (!preflight.canEdit) {
       return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
     }
+    await enforceHighCostRouteLimit({
+      family: "save:crop-artifact",
+      userId: user.id,
+      scope: [preflight.crop.projectId, cropId],
+    });
 
     const supportMaskVersionId = req.headers.get("x-support-mask-version-id")?.trim() || null;
     const semanticMode = parseCropSemanticMode(req.headers.get("x-semantic-mode")?.trim());
@@ -188,6 +194,7 @@ export const POST = withApiErrorHandling(async function POST(
 
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
+    if (error instanceof Error && error.message === "RATE_LIMITED") throw error;
     const payload = cropSemanticMaskErrorResponse(error);
     return apiErrorFromPayload(payload);
   }

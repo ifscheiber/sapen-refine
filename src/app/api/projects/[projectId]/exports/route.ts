@@ -7,6 +7,7 @@ import {
   parseExportTargets,
 } from "@/server/domain/exports";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const POST = withApiErrorHandling(async function POST(
   req: Request,
@@ -14,6 +15,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const user = await requireUser();
   const { projectId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "export:create",
+    userId: user.id,
+    scope: [projectId],
+  });
   const body = await req.json().catch(() => null);
 
   try {

@@ -6,6 +6,7 @@ import {
   predictionImportBatchErrorResponse,
 } from "@/server/domain/predictionImportBatches";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 function payloadInvalid() {
   return NextResponse.json(
@@ -20,6 +21,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const user = await requireUser();
   const { predictionRunId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "prediction-import:upload",
+    userId: user.id,
+    scope: [predictionRunId],
+  });
 
   const form = await req.formData().catch(() => null);
   if (!form) return payloadInvalid();

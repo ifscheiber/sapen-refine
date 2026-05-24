@@ -40,6 +40,7 @@
 - `src/server/domain/sliceClassifications.ts` - RB-090 slice-instance manual override APIs, semantic-mask classification derivation, provenance serialization, and audit events.
 - `src/server/domain/cropReadiness.ts` - RB-092 shared crop readiness resolver, crop review-action availability, sanitized readiness serialization, and crop export skip policy.
 - `src/server/http/apiErrors.ts` - RB-072 flat JSON API error helpers for auth/RBAC/domain route failures.
+- `src/server/http/highCostRateLimit.ts` - RB-111 hashed DB-backed high-cost write limiter for expensive authenticated mutation families.
 - `src/server/domain/versionAllocation.ts` - RB-107 PostgreSQL advisory-lock helper for append-only artifact, crop, BBox, and classification version allocation.
 - `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helper utilities, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
 - `src/server/domain/exportObjectIntegrity.ts` - export-time object-byte checksum/size verification before ZIP packaging.
@@ -57,6 +58,7 @@
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
 - `createPredictionImportBatchFromZipForUser`, `processPredictionImportBatchForUser`, `retryPredictionImportBatchForUser`, and batch list/detail helpers implement the RB-061 single-host DB-backed batch import baseline.
 - `runStorageCleanup` implements the RB-066 admin-only dry-run/execute cleanup path for temporary batch staging and abandoned presigned upload objects.
+- `enforceHighCostRouteLimit` applies RB-111 route-family rate limits for high-cost authenticated writes and throws `RATE_LIMITED` with retry metadata when the hashed bucket is over limit.
 - `createCorrectionTasksForPredictionRunForUser`, `listProjectCorrectionTasksForUser`, `getCorrectionTaskForUser`, and `updateCorrectionTaskForUser` implement the RB-058 correction task queue service layer.
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.
 - `resolveProjectPredictionAnalysisReadiness`, `createPredictionAnalysisExportForUser`, `getPredictionAnalysisExportForUser`, and `readPredictionAnalysisExportFileForUser` implement the RB-060/RB-067 prediction-analysis export service layer with QA metrics in the manifest.
@@ -79,6 +81,7 @@
 - Runtime config must not expose secrets to the client bundle.
 - Current artifact integrity checks use `sha256:<hex>` checksums, validated image dimensions, and S3/MinIO object stat checks before database commit where practical.
 - API errors use the flat `{ ok: false, error: "CODE" }` response shape for the current trial contract.
+- High-cost write limits use PostgreSQL buckets keyed by route family plus hashed user/scope. They protect image upload, mask/editor/crop saves, slice metadata saves, export creation, prediction import upload/process/retry, and cleanup/admin operations. Over-limit API responses use `429 RATE_LIMITED`, `Retry-After`, and `retryAfterSeconds`.
 - Append-only version writers must allocate versions inside a transaction-scoped advisory lock keyed by the logical version family before reading latest version and inserting `latest + 1`. Do not add ad hoc per-route retry loops or in-process locks for version allocation.
 - Prediction provenance/import services are proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
 - Prediction batch import services must not expose staging keys, must process items through the RB-057 import service, and must not create correction tasks or approved ground truth automatically.
@@ -98,7 +101,7 @@
 ## Known Gaps
 
 - Audit logging is still not exposed through an admin UI.
-- Login has DB-backed throttling; general API write rate limiting remains deferred.
+- Login and high-cost write endpoints have DB-backed throttling. This remains a single-host trial guard, not a distributed quota/billing system.
 - Training and prediction-analysis export generation are synchronous and intended for trial-sized datasets; large export job handling and metric dashboards remain deferred.
 - RB-065 adds an optional single-host worker path for RB-061 batch prediction imports. RB-066 adds temporary staged-object cleanup without a cleanup UI. Production-scale queue infrastructure and slice-classification prediction correction remain deferred.
 

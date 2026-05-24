@@ -7,6 +7,7 @@ import {
   sliceBoundingBoxErrorResponse,
 } from "@/server/domain/sliceBboxes";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 
 export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
@@ -14,6 +15,11 @@ export const PATCH = withApiErrorHandling(async function PATCH(
 ) {
   const user = await requireUser();
   const { bboxVersionId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [bboxVersionId],
+  });
 
   try {
     const body = await req.json().catch(() => null);
@@ -35,6 +41,11 @@ export const DELETE = withApiErrorHandling(async function DELETE(
 ) {
   const user = await requireUser();
   const { bboxVersionId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "save:slice-metadata",
+    userId: user.id,
+    scope: [bboxVersionId],
+  });
 
   try {
     const box = await deleteSliceBoundingBoxForUser({ bboxVersionId, userId: user.id });

@@ -21,6 +21,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 `ExportTarget.CROP_TRAINING` and `ExportItem.derivedCropId` links for crop package provenance.
 - `prisma/migrations/20260523153000_image_crop_workflow_state/migration.sql` - RB-094 `ImageCropWorkflowState` and `ImageCropBBoxSetStatus` for image-level BBox set confirmation.
 - `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql` - RB-109 DB check constraints for review decision targets and current export item role/reference shapes.
+- `prisma/migrations/20260524113000_high_cost_rate_limit_buckets/migration.sql` - RB-111 high-cost write limiter bucket table.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -41,6 +42,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `PredictionArtifactProvenance` - per-image prediction proposal metadata linked to a prediction run, optional prediction artifact version, optional slice instance, target type, predicted class, confidence/uncertainty, per-class scores, output stats, and output checksum.
 - `PredictionImportBatchJob`, `PredictionImportBatchItem` - RB-061/RB-066 DB-backed ZIP batch prediction import bookkeeping, item status/error/retry state, staging purge markers, and links to created prediction artifact/provenance rows.
 - `AuditLog` - generic audit rows used by RB-055 upload, artifact, export events, RB-064 auth/project/review/provenance events, RB-065 batch runner events, and RB-066 storage cleanup events.
+- `AuthLoginThrottle`, `HighCostRateLimitBucket` - hashed operational throttling buckets for login failures and RB-111 high-cost authenticated write limits.
 
 ## Invariants And Constraints
 
@@ -85,13 +87,14 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `ExportTarget.CROP_TRAINING` is accepted only through the exclusive `crop_training` training export target and cannot be mixed with full-image export targets.
 - `ExportItem.predictionProvenanceId` records exact prediction items for prediction-analysis exports without making those predictions ground truth. RB-067 QA metric summaries are export metadata, not schema-level labels.
 - `AnnotationTask.predictionRunId` and `AnnotationTask.predictionProvenanceId` are nullable links for future model-prediction correction queues; `modelSource` is not the reproducible source of truth.
+- `HighCostRateLimitBucket` is operational state only. It stores route family plus a hashed user/scope key, request count, window start, and timestamps. It must not be used as audit history and must not persist raw user/project ids, request payloads, storage keys, or upload contents.
 
 ## Known Gaps
 
 - Slice-specific metadata and multi-slice/multi-object support-mask editing remain deferred.
 - One-default-slice support/classification workflows exist after RB-051. Source-image BBox proposals for multiple candidate slices exist after RB-086, derived crop generation exists after RB-087, per-crop support masks exist after RB-088, support-constrained per-crop semantic masks exist after RB-089, draft auto classification suggestions from crop semantic masks exist after RB-090, crop training export packages exist after RB-091, and image-level BBox set confirmation exists after RB-094.
 - Review/approval is implemented as a minimal RB-052 workflow; reviewer dashboards and bulk review remain deferred.
-- RB-053 implements synchronous owner-only training export generation. RB-060/RB-067 implement separate synchronous owner/QA prediction-analysis exports with QA metrics. RB-061 implements DB-backed prediction import batches, RB-065 adds single-host worker leases/recovery, and RB-066 adds temporary staging/orphan cleanup. Advanced filters, export history UI, metrics dashboards, cleanup UI, and production-scale workers remain deferred.
+- RB-053 implements synchronous owner-only training export generation. RB-060/RB-067 implement separate synchronous owner/QA prediction-analysis exports with QA metrics. RB-061 implements DB-backed prediction import batches, RB-065 adds single-host worker leases/recovery, RB-066 adds temporary staging/orphan cleanup, and RB-111 adds trial caps/rate limits for high-cost writes. Advanced filters, export history UI, metrics dashboards, cleanup UI, async export jobs, and production-scale workers remain deferred.
 - Checksum/dimension enforcement for current upload, mask, support-mask, and export paths is implemented by RB-055. RB-066 handles identifiable temporary/orphan cleanup, but committed artifact retention remains out of scope.
 - RB-056 implements provenance persistence, RB-057 implements one-at-a-time prediction mask import, RB-058/RB-059 implement correction queues and assisted correction, RB-060 implements prediction-analysis exports, RB-061 implements ZIP-based batch prediction import jobs, RB-065 implements batch-runner hardening, RB-066 implements temporary staging purge markers, and RB-067 implements export-time QA metrics without schema changes.
 

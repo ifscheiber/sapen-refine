@@ -20,6 +20,11 @@ import {
   getVerifiedExportObjectBytes,
 } from "@/server/domain/exportObjectIntegrity";
 import {
+  assertExportWithinTrialCaps,
+  ExportTrialCapError,
+  predictionAnalysisExportTrialLimits,
+} from "@/server/domain/exportTrialCaps";
+import {
   PREDICTION_QA_COMPARISON,
   PREDICTION_QA_METRICS_VERSION,
   computeBinaryMaskMetrics,
@@ -488,6 +493,10 @@ function expectedMaskByteLength(version: SelectedArtifactVersion) {
 function checksumMatches(version: SelectedArtifactVersion, bytes: Uint8Array) {
   const expected = normalizeChecksum(version.checksum);
   return !expected || expected === sha256(bytes);
+}
+
+function safeByteSize(value: number | null | undefined) {
+  return Number.isFinite(value) && value && value > 0 ? value : 0;
 }
 
 async function loadMetricLabels(
@@ -1035,6 +1044,44 @@ async function buildZipPackage(params: {
   });
 }
 
+function estimatePredictionAnalysisExportBytes(params: {
+  manifest: Awaited<ReturnType<typeof buildManifest>>;
+  manifestBytes: Uint8Array;
+}) {
+  let total = params.manifestBytes.byteLength;
+  const addedImages = new Set<string>();
+  for (const item of params.manifest.items) {
+    if (!addedImages.has(item.image.path)) {
+      total += safeByteSize(item.image.size);
+      addedImages.add(item.image.path);
+    }
+    total += safeByteSize(item.prediction.artifact?.size);
+    total += safeByteSize(item.humanCorrection?.size);
+    if (
+      item.approvedGroundTruthReference &&
+      "artifactVersionId" in item.approvedGroundTruthReference
+    ) {
+      total += safeByteSize(item.approvedGroundTruthReference.size);
+    }
+  }
+  return total;
+}
+
+function assertPredictionAnalysisExportCaps(params: {
+  manifest: Awaited<ReturnType<typeof buildManifest>>;
+  manifestBytes: Uint8Array;
+}) {
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount: params.manifest.summary.itemCount,
+      estimatedBytes: estimatePredictionAnalysisExportBytes(params),
+    },
+    limits: predictionAnalysisExportTrialLimits(),
+    itemCode: "PREDICTION_ANALYSIS_EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "PREDICTION_ANALYSIS_EXPORT_BYTE_LIMIT_EXCEEDED",
+  });
+}
+
 function sanitizeExportBatch(batch: {
   id: string;
   projectId: string;
@@ -1089,6 +1136,13 @@ function exportObjectIntegrityWarning(error: ExportObjectIntegrityError) {
 
 function exportFailureWarning(error: unknown) {
   if (error instanceof ExportObjectIntegrityError) return exportObjectIntegrityWarning(error);
+  if (error instanceof ExportTrialCapError) {
+    return {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    };
+  }
   return {
     code: error instanceof PredictionAnalysisExportError ? error.code : "PREDICTION_ANALYSIS_EXPORT_FAILED",
     message: error instanceof Error ? error.message : "Unknown export failure",
@@ -1185,6 +1239,7 @@ export async function createPredictionAnalysisExportForUser(params: {
       candidates: readiness.candidates,
     });
     const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+    assertPredictionAnalysisExportCaps({ manifest, manifestBytes });
     const packageBytes = await buildZipPackage({
       manifest,
       candidates: readiness.candidates,
@@ -1380,6 +1435,9 @@ export async function readPredictionAnalysisExportFileForUser(params: {
 
 export function predictionAnalysisExportErrorResponse(error: unknown): { error: string; status: number } {
   if (error instanceof ExportObjectIntegrityError) {
+    return { error: error.code, status: error.status };
+  }
+  if (error instanceof ExportTrialCapError) {
     return { error: error.code, status: error.status };
   }
   if (error instanceof PredictionAnalysisExportError) {

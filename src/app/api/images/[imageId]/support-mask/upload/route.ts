@@ -9,6 +9,7 @@ import {
 } from "@/server/domain/slices";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -30,6 +31,11 @@ export const POST = withApiErrorHandling(async function POST(
     if (!preflight.canEdit) {
       return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
     }
+    await enforceHighCostRouteLimit({
+      family: "upload:mask",
+      userId: user.id,
+      scope: [preflight.image.projectId, imageId],
+    });
 
     let upload;
     try {
@@ -144,6 +150,7 @@ export const POST = withApiErrorHandling(async function POST(
       latestSupportMask: state.latestSupportMask,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "RATE_LIMITED") throw error;
     const payload = sliceErrorResponse(error);
     return apiErrorFromPayload(payload);
   }

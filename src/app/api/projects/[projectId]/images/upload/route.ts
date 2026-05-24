@@ -7,6 +7,7 @@ import { requireProjectRole } from "@/server/auth/rbac";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { prisma } from "@/server/db";
 import { withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -41,6 +42,11 @@ export const POST = withApiErrorHandling(async function POST(
 ) {
   const { projectId } = await ctx.params;
   const { user } = await requireProjectRole(projectId, PROJECT_ANNOTATE_ROLES);
+  await enforceHighCostRouteLimit({
+    family: "upload:image",
+    userId: user.id,
+    scope: [projectId],
+  });
 
   const contentLength = readContentLength(req.headers);
   if (contentLength !== null) {
