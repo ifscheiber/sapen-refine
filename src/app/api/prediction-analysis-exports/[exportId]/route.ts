@@ -5,8 +5,9 @@ import {
   getPredictionAnalysisExportForUser,
   predictionAnalysisExportErrorResponse,
 } from "@/server/domain/predictionAnalysisExports";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ exportId: string }> },
 ) {
@@ -18,6 +19,6 @@ export async function GET(
     return NextResponse.json({ ok: true, export: exportBatch });
   } catch (error) {
     const payload = predictionAnalysisExportErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

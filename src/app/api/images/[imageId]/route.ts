@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> }
 ) {
@@ -15,7 +16,7 @@ export async function GET(
   });
 
   if (!image) {
-    return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
+    return apiError("IMAGE_NOT_FOUND", 404);
   }
 
   // Authorization: User muss Projektmitglied sein
@@ -25,8 +26,8 @@ export async function GET(
   });
 
   if (!membership) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    return apiError("FORBIDDEN", 403);
   }
 
   return NextResponse.redirect(new URL(`/api/images/${image.id}/asset`, _req.url));
-}
+});

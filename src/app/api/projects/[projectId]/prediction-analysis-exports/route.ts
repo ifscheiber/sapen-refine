@@ -5,8 +5,9 @@ import {
   createPredictionAnalysisExportForUser,
   predictionAnalysisExportErrorResponse,
 } from "@/server/domain/predictionAnalysisExports";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ projectId: string }> },
 ) {
@@ -23,6 +24,6 @@ export async function POST(
     return NextResponse.json({ ok: true, export: exportBatch });
   } catch (error) {
     const payload = predictionAnalysisExportErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

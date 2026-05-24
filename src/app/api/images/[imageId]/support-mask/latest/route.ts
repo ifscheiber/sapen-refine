@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/server/auth/rbac";
 import { loadSliceStateForUser, sliceErrorResponse } from "@/server/domain/slices";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> },
 ) {
@@ -32,6 +33,6 @@ export async function GET(
     });
   } catch (error) {
     const payload = sliceErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

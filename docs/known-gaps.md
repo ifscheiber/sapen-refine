@@ -55,7 +55,7 @@ This page summarizes known limitations after the RB-040 through RB-069 baseline,
 
 - RB-070 adds explicit editor eraser UX for desktop and iPad-sized annotation work.
 - RB-071 covers this architecture/docs/backlog consistency hotfix.
-- RB-072 hardens representative route-level API auth/error contracts while leaving broader compatibility-route cleanup incremental.
+- RB-072 hardens route-level API auth/error contracts, and RB-106 completes protected API route wrapper coverage with a static route-inventory guard.
 - RB-079 fixes stale workspace session cookies so browser workspace routes redirect to login instead of throwing `UNAUTHORIZED`.
 - RB-073 hardens trial Docker build-context and Compose secret handling.
 - RB-074 cleans up stale client API wrappers and documents compatibility presign policy.

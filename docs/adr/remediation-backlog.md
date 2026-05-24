@@ -16,19 +16,19 @@ Owner: Codex.
 
 Priority: Resolved by RB-105.
 
-## RB-106 - Protected API Error Contract Completion
+## RB-106 - Protected API Error Contract Completion (Resolved)
 
 Context: RB-072 added flat JSON API error helpers and representative route coverage, but many protected routes still call `requireUser()` or `requireProjectRole()` before a route-level `try/catch` or without `withApiErrorHandling`. A stale but present session cookie bypasses proxy missing-cookie handling and can still throw outside the stable API error contract.
 
 Impact: Some customer-facing fetch/XHR failures can return generic framework errors instead of stable `{ ok: false, error: "UNAUTHENTICATED" }` or `FORBIDDEN` JSON responses. This weakens client error handling and makes production troubleshooting inconsistent.
 
-Proposed next step: Wrap every non-public `src/app/api/**/route.ts` handler in `withApiErrorHandling` or a shared authenticated route helper. Add a static/unit guard that identifies protected route files missing the wrapper unless explicitly exempted.
+Resolution: Implemented by RB-106 optimized ticket. Every protected `src/app/api/**/route.ts` HTTP method now exports through `withApiErrorHandling`, formerly unwrapped binary/download and domain routes return flat JSON on auth/domain failures before streaming, and `tests/unit/api-route-error-contracts.test.ts` inventories every route with public/protected classification. The guard fails when protected route methods are not wrapped or when a new route lacks classification.
 
 Affected modules: `src/app/api/**/route.ts`, `src/server/http/apiErrors.ts`, API docs, and route/API contract tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-106.
 
 ## RB-107 - Artifact Version Allocation Concurrency Hardening
 

@@ -6,8 +6,9 @@ import {
   replaceSliceBoundingBoxForUser,
   sliceBoundingBoxErrorResponse,
 } from "@/server/domain/sliceBboxes";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
   props: { params: Promise<{ bboxVersionId: string }> },
 ) {
@@ -24,11 +25,11 @@ export async function PATCH(
     return NextResponse.json({ ok: true, box });
   } catch (error) {
     const payload = sliceBoundingBoxErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});
 
-export async function DELETE(
+export const DELETE = withApiErrorHandling(async function DELETE(
   _req: Request,
   props: { params: Promise<{ bboxVersionId: string }> },
 ) {
@@ -40,6 +41,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true, box });
   } catch (error) {
     const payload = sliceBoundingBoxErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

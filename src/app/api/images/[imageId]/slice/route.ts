@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/server/auth/rbac";
 import { loadSliceStateForUser, sliceErrorResponse } from "@/server/domain/slices";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
 function withSupportMaskUrl(imageId: string, state: Awaited<ReturnType<typeof loadSliceStateForUser>>) {
   return {
@@ -15,7 +16,7 @@ function withSupportMaskUrl(imageId: string, state: Awaited<ReturnType<typeof lo
   };
 }
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> },
 ) {
@@ -27,6 +28,6 @@ export async function GET(
     return NextResponse.json({ ok: true, ...withSupportMaskUrl(imageId, state) });
   } catch (error) {
     const payload = sliceErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

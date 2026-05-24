@@ -6,8 +6,9 @@ import {
   sliceBoundingBoxErrorResponse,
 } from "@/server/domain/sliceBboxes";
 import { ensureCurrentCropsForImageForUser } from "@/server/domain/sliceCrops";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   _req: Request,
   props: { params: Promise<{ imageId: string }> },
 ) {
@@ -20,6 +21,6 @@ export async function POST(
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
     const payload = sliceBoundingBoxErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

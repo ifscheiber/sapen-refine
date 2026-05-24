@@ -5,8 +5,9 @@ import {
   getPredictionImportBatchForUser,
   predictionImportBatchErrorResponse,
 } from "@/server/domain/predictionImportBatches";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ batchId: string }> },
 ) {
@@ -18,6 +19,6 @@ export async function GET(
     return NextResponse.json({ ok: true, batch });
   } catch (error) {
     const payload = predictionImportBatchErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

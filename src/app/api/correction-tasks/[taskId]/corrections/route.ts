@@ -7,10 +7,11 @@ import {
   saveCorrectionForTaskForUser,
 } from "@/server/domain/assistedCorrection";
 import { recordAuditEvent } from "@/server/domain/audit";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 import { integrityErrorPayload } from "@/server/uploads/integrity";
 import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ taskId: string }> },
 ) {
@@ -22,7 +23,7 @@ export async function POST(
     context = await loadCorrectionContextForUser({ taskId, userId: user.id });
   } catch (error) {
     const payload = assistedCorrectionErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
 
   let upload;
@@ -64,6 +65,6 @@ export async function POST(
     return NextResponse.json({ ok: true, correction: result });
   } catch (error) {
     const payload = assistedCorrectionErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

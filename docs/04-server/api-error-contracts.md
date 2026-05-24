@@ -2,14 +2,15 @@
 
 ## Purpose
 
-RB-072 standardizes representative API authentication, authorization, and domain failure responses for customer-trial browser and script callers.
+RB-072 introduced shared API authentication, authorization, and domain failure helpers. RB-106 completes the protected-route convention so every protected `src/app/api/**/route.ts` handler is wrapped by `withApiErrorHandling`.
 
 ## Evidence
 
 - `src/server/http/apiErrors.ts` owns the shared flat JSON error helpers.
 - `src/proxy.ts` returns JSON `401` for unauthenticated `/api/**` requests while keeping browser page redirects for `/app/**`.
-- Representative API route handlers use `withApiErrorHandling` for thrown auth/RBAC failures and `apiErrorFromPayload` for domain error mappers.
-- `tests/unit/api-errors.test.ts`, `tests/unit/proxy-public-paths.test.ts`, and `tests/e2e/api-error-contracts.spec.ts` cover the current contract.
+- Protected API route handlers use `withApiErrorHandling` for thrown auth/RBAC failures and `apiErrorFromPayload` for domain error mappers.
+- `tests/unit/api-route-error-contracts.test.ts` inventories every API route and fails when protected route methods are not exported through `withApiErrorHandling`.
+- `tests/unit/api-errors.test.ts`, `tests/unit/proxy-public-paths.test.ts`, and `tests/e2e/api-error-contracts.spec.ts` cover the response contract.
 
 ## Error Shape
 
@@ -50,22 +51,17 @@ Unauthenticated API requests return JSON `401`. Unauthenticated workspace page r
 
 RB-079 keeps that split for stale or invalid session cookies. `src/proxy.ts` forwards the requested `/app/**` path to the workspace layout through an internal request header, and the layout redirects to login when `getUserFromSessionCookie()` cannot resolve a valid DB session.
 
-## Current Coverage
+## Route Convention
 
-RB-072 applies the shared helper to representative high-risk route families:
+Route authors must classify each new `src/app/api/**/route.ts` file in `tests/unit/api-route-error-contracts.test.ts`.
 
-- project list/create/update;
-- project image list/upload;
-- image metadata, asset, and latest-mask reads;
-- review transitions;
-- training export creation/download;
-- model/prediction provenance reads and creates;
-- prediction mask import;
-- prediction batch process/retry/process-due;
-- correction task detail/update;
-- storage cleanup.
+- `public-api` is reserved for `health`, `ready`, and auth login/logout/me endpoints.
+- `protected-api` is the default for routes that require a session, project access, private storage access, mutation permissions, or domain-owned private data.
+- Protected route methods must be exported as `export const METHOD = withApiErrorHandling(async function METHOD(...) { ... })`.
+- Domain-specific failures should be converted with `apiErrorFromPayload(domainErrorResponse(error))`.
+- Binary and download routes may return streamed `Response` objects on success, but their auth and domain failure paths must still return flat JSON before streaming starts.
 
-Some lower-risk or compatibility routes still return the older flat string form directly. They remain acceptable when they already return JSON and stable codes; broader migration can be handled incrementally.
+The unit guard intentionally has no protected-route allowlist. If an exceptional route is ever needed, document the reason in the guard and adjacent API docs.
 
 ## Upload / Mask Errors
 

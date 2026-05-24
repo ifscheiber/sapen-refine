@@ -23,6 +23,14 @@ test("api auth and authorization failures return stable json errors", async ({ r
   const authHeaders = { cookie: sessionCookie! };
 
   await expectJsonError(
+    await request.get("/api/images/not-a-real-image/slice-bboxes", {
+      headers: { cookie: `${SESSION_COOKIE_NAME}=stale-invalid-session` },
+    }),
+    401,
+    "UNAUTHENTICATED",
+  );
+
+  await expectJsonError(
     await request.post("/api/projects/demo_project/exports", {
       data: { targets: ["combined"] },
       headers: authHeaders,
@@ -95,6 +103,24 @@ test("legacy presigned upload compatibility routes return disabled json errors a
     ok: true,
     image: { id: expect.any(String) },
   });
+
+  await expectJsonError(
+    await request.post(`/api/images/${uploaded.image.id}/slice-bboxes`, {
+      data: { x: 0, y: 0, width: 1, height: 1 },
+      headers: authHeaders,
+    }),
+    400,
+    "BBOX_TOO_SMALL",
+  );
+
+  await expectJsonError(
+    await request.post(`/api/images/${uploaded.image.id}/slice-bboxes/confirm`, {
+      data: {},
+      headers: authHeaders,
+    }),
+    400,
+    "BBOX_SET_EMPTY",
+  );
 
   await expectJsonError(
     await request.post(`/api/images/${uploaded.image.id}/mask/presign`, {

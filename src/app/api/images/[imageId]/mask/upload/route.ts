@@ -7,6 +7,7 @@ import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getProjectLabelSchemaVersionId } from "@/server/domain/labelSchema";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -15,7 +16,7 @@ import {
 } from "@/server/uploads/integrity";
 import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ imageId: string }> }
 ) {
@@ -26,14 +27,14 @@ export async function POST(
     where: { id: imageId },
     select: { id: true, projectId: true, width: true, height: true },
   });
-  if (!image) return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
+  if (!image) return apiError("IMAGE_NOT_FOUND", 404);
 
   const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
   if (!membership || !canAnnotate(membership.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    return apiError("FORBIDDEN", 403);
   }
 
   let upload;
@@ -167,4 +168,4 @@ export async function POST(
     });
     return NextResponse.json({ ok: false, error: code }, { status: 500 });
   }
-}
+});

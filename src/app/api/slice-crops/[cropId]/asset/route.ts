@@ -4,10 +4,10 @@ import {
   readSliceCropAssetForUser,
   sliceCropErrorResponse,
 } from "@/server/domain/sliceCrops";
-import { apiErrorFromPayload } from "@/server/http/apiErrors";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 import { inlineContentDisposition } from "@/server/http/contentDisposition";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ cropId: string }> },
 ) {
@@ -27,4 +27,4 @@ export async function GET(
   } catch (error) {
     return apiErrorFromPayload(sliceCropErrorResponse(error));
   }
-}
+});

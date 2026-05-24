@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { PROJECT_READ_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
+import { withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   ctx: { params: Promise<{ projectId: string; imageId: string }> }
 ) {
@@ -21,4 +22,4 @@ export async function GET(
   }
 
   return NextResponse.json({ ok: true, url: `/api/images/${image.id}/asset` });
-}
+});

@@ -10,6 +10,7 @@ import {
   parseCropSemanticMode,
 } from "@/server/domain/cropSemanticMasks";
 import { cropSemanticFamilySaveGuard } from "@/server/domain/cropSemanticFamily";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
   integrityErrorPayload,
@@ -18,7 +19,7 @@ import {
 } from "@/server/uploads/integrity";
 import { maskUploadDiagnosticsFromError, readMaskUploadRequest } from "@/server/uploads/maskRequest";
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ cropId: string }> },
 ) {
@@ -188,6 +189,6 @@ export async function POST(
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
     const payload = cropSemanticMaskErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

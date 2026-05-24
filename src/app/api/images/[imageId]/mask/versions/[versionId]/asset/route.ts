@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
-
 import { requireUser } from "@/server/auth/rbac";
 import { toArrayBuffer } from "@/server/bytes";
 import { prisma } from "@/server/db";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 import { getObjectBytes } from "@/server/storage/s3";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string; versionId: string }> }
 ) {
@@ -28,14 +27,14 @@ export async function GET(
   });
 
   if (!version || version.artifact.imageId !== imageId) {
-    return NextResponse.json({ error: "MASK_VERSION_NOT_FOUND" }, { status: 404 });
+    return apiError("MASK_VERSION_NOT_FOUND", 404);
   }
 
   const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: version.artifact.image.projectId, userId: user.id } },
     select: { role: true },
   });
-  if (!membership) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (!membership) return apiError("FORBIDDEN", 403);
 
   const bytes = await getObjectBytes(version.storageKey);
   return new Response(toArrayBuffer(bytes), {
@@ -46,4 +45,4 @@ export async function GET(
       "x-mask-format": version.format,
     },
   });
-}
+});

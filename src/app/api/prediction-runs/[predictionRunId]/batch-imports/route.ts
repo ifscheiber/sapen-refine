@@ -5,6 +5,7 @@ import {
   createPredictionImportBatchFromZipForUser,
   predictionImportBatchErrorResponse,
 } from "@/server/domain/predictionImportBatches";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
 function payloadInvalid() {
   return NextResponse.json(
@@ -13,7 +14,7 @@ function payloadInvalid() {
   );
 }
 
-export async function POST(
+export const POST = withApiErrorHandling(async function POST(
   req: Request,
   props: { params: Promise<{ predictionRunId: string }> },
 ) {
@@ -38,6 +39,6 @@ export async function POST(
     return NextResponse.json({ ok: true, batch });
   } catch (error) {
     const payload = predictionImportBatchErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

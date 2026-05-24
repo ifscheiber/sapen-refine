@@ -1,13 +1,12 @@
-import { NextResponse } from "next/server";
-
 import { requireUser } from "@/server/auth/rbac";
 import { toArrayBuffer } from "@/server/bytes";
 import {
   assistedCorrectionErrorResponse,
   readPredictionMaskForCorrectionTask,
 } from "@/server/domain/assistedCorrection";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ taskId: string }> },
 ) {
@@ -27,6 +26,6 @@ export async function GET(
     });
   } catch (error) {
     const payload = assistedCorrectionErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

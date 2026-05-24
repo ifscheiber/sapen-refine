@@ -6,8 +6,9 @@ import {
   resolveProjectExportReadiness,
   sanitizeReadiness,
 } from "@/server/domain/exports";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ projectId: string }> },
 ) {
@@ -19,6 +20,6 @@ export async function GET(
     return NextResponse.json({ ok: true, ...sanitizeReadiness(readiness) });
   } catch (error) {
     const payload = exportErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

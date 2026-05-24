@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/server/auth/rbac";
 import { setSliceClassificationForUser, sliceErrorResponse } from "@/server/domain/slices";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling(async function PATCH(
   req: Request,
   props: { params: Promise<{ imageId: string }> },
 ) {
@@ -20,6 +21,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
     const payload = sliceErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});

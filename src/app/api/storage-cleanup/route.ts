@@ -5,9 +5,9 @@ import {
   runStorageCleanup,
   storageCleanupErrorResponse,
 } from "@/server/domain/storageCleanup";
-import { apiErrorFromPayload } from "@/server/http/apiErrors";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function POST(req: Request) {
+export const POST = withApiErrorHandling(async function POST(req: Request) {
   try {
     const user = await requireUser();
     const body = await req.json().catch(() => null);
@@ -17,4 +17,4 @@ export async function POST(req: Request) {
     const payload = storageCleanupErrorResponse(error);
     return apiErrorFromPayload(payload);
   }
-}
+});

@@ -5,8 +5,9 @@ import {
   getSliceCropForUser,
   sliceCropErrorResponse,
 } from "@/server/domain/sliceCrops";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ cropId: string }> },
 ) {
@@ -18,6 +19,6 @@ export async function GET(
     return NextResponse.json({ ok: true, crop });
   } catch (error) {
     const payload = sliceCropErrorResponse(error);
-    return NextResponse.json({ ok: false, error: payload.error }, { status: payload.status });
+    return apiErrorFromPayload(payload);
   }
-}
+});
