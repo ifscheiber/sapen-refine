@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { expect, test, type APIResponse } from "@playwright/test";
 
 const SESSION_COOKIE_NAME = "sapen_annotate_session";
@@ -47,6 +50,68 @@ test("api auth and authorization failures return stable json errors", async ({ r
     }),
     403,
     "CLEANUP_FORBIDDEN",
+  );
+});
+
+test("legacy presigned upload compatibility routes return disabled json errors after auth", async ({ request }) => {
+  const login = await request.post("/api/auth/login", {
+    data: { email: "labeler@sapen.local", password: "labeler1234" },
+  });
+  expect(login.ok()).toBe(true);
+  const sessionCookie = login.headers()["set-cookie"]?.split(";")[0];
+  expect(sessionCookie).toBeTruthy();
+  const authHeaders = { cookie: sessionCookie! };
+
+  await expectJsonError(
+    await request.post("/api/projects/demo_project/images/presign", {
+      data: { contentType: "image/png", size: 128 },
+      headers: authHeaders,
+    }),
+    410,
+    "PRESIGNED_UPLOADS_DISABLED",
+  );
+
+  await expectJsonError(
+    await request.post("/api/projects/demo_project/images/commit", {
+      data: { key: "projects/demo_project/images/legacy.png" },
+      headers: authHeaders,
+    }),
+    410,
+    "PRESIGNED_UPLOADS_DISABLED",
+  );
+
+  const imageBytes = readFileSync(path.resolve("public/apple-touch-icon.png"));
+  const upload = await request.post("/api/projects/demo_project/images/upload", {
+    data: imageBytes,
+    headers: {
+      ...authHeaders,
+      "content-type": "image/png",
+      "x-filename": `legacy-presign-contract-${Date.now()}.png`,
+    },
+  });
+  expect(upload.status()).toBe(201);
+  const uploaded = await upload.json() as { ok: boolean; image: { id: string } };
+  expect(uploaded).toMatchObject({
+    ok: true,
+    image: { id: expect.any(String) },
+  });
+
+  await expectJsonError(
+    await request.post(`/api/images/${uploaded.image.id}/mask/presign`, {
+      data: { contentType: "application/octet-stream", size: 128 },
+      headers: authHeaders,
+    }),
+    410,
+    "PRESIGNED_UPLOADS_DISABLED",
+  );
+
+  await expectJsonError(
+    await request.post(`/api/images/${uploaded.image.id}/mask/commit`, {
+      data: { key: `projects/demo_project/images/${uploaded.image.id}/mask.u8raw` },
+      headers: authHeaders,
+    }),
+    410,
+    "PRESIGNED_UPLOADS_DISABLED",
   );
 });
 

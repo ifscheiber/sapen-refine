@@ -28,13 +28,13 @@ Current helper route targets:
 - Client wrappers may normalize fetch errors, but backend APIs remain the source of truth.
 - Do not duplicate authorization or domain validation only in client code.
 - Browser-facing `src/lib` types must not expose private storage details such as `storageKey`, bucket names, MinIO/S3 endpoints, or presigned upload internals.
-- Compatibility presign/commit API routes may remain under `src/app/api`, but they are not the supported `src/lib` browser contract.
+- Compatibility presign/commit API routes remain under `src/app/api` as disabled legacy surface, but they are not the supported `src/lib` browser contract.
 
 ## Known Gaps
 
 - Error handling is simple and should become more structured as workflows mature.
 - `src/lib` intentionally stays small. Feature-specific editors may still use local route builders where that keeps ownership clearer, but those route builders must follow the same app-mediated storage contract.
-- Presign/commit server routes remain compatibility endpoints and should be removed or feature-flagged only in a later explicit storage-compatibility slice.
+- Presign/commit server routes are disabled by RB-105. Any future direct-upload compatibility should be implemented as a new staging-key design, not by re-enabling final-key presigned PUTs.
 
 ## Related Tickets / Docs
 

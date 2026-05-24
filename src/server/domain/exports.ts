@@ -18,6 +18,10 @@ import {
   sanitizeCropWorkflowCandidate,
   type CropWorkflowCandidate,
 } from "@/server/domain/cropReadiness";
+import {
+  ExportObjectIntegrityError,
+  getVerifiedExportObjectBytes,
+} from "@/server/domain/exportObjectIntegrity";
 import { getObjectBytes, putObject } from "@/server/storage/s3";
 import { normalizeChecksum } from "@/server/uploads/integrity";
 
@@ -976,12 +980,30 @@ async function buildZipPackage(params: {
     const candidate = params.candidates.find((entry) => entry.image.id === item.image.id);
     if (!candidate) continue;
 
-    zip.file(item.image.path, await getObjectBytes(candidate.image.storageKey));
+    zip.file(item.image.path, await getVerifiedExportObjectBytes({
+      storageKey: candidate.image.storageKey,
+      expectedChecksum: candidate.image.checksum,
+      expectedSize: candidate.image.size,
+      resourceType: "ImageAsset",
+      resourceId: candidate.image.id,
+    }));
     if (item.semanticMask && candidate.semanticMask) {
-      zip.file(item.semanticMask.path, await getObjectBytes(candidate.semanticMask.storageKey));
+      zip.file(item.semanticMask.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.semanticMask.storageKey,
+        expectedChecksum: candidate.semanticMask.checksum,
+        expectedSize: candidate.semanticMask.size,
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: candidate.semanticMask.id,
+      }));
     }
     if (item.supportMask && candidate.supportMask) {
-      zip.file(item.supportMask.path, await getObjectBytes(candidate.supportMask.storageKey));
+      zip.file(item.supportMask.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.supportMask.storageKey,
+        expectedChecksum: candidate.supportMask.checksum,
+        expectedSize: candidate.supportMask.size,
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: candidate.supportMask.id,
+      }));
     }
   }
 
@@ -1003,12 +1025,36 @@ async function buildCropTrainingZipPackage(params: {
     const candidate = params.candidates.find((entry) => entry.crop.id === item.derivedCrop.id);
     if (!candidate?.semanticMask) continue;
 
-    zip.file(item.originalImage.path, await getObjectBytes(candidate.crop.sourceImage.storageKey));
-    zip.file(item.derivedCrop.path, await getObjectBytes(candidate.crop.storageKey));
+    zip.file(item.originalImage.path, await getVerifiedExportObjectBytes({
+      storageKey: candidate.crop.sourceImage.storageKey,
+      expectedChecksum: candidate.crop.sourceImage.checksum,
+      expectedSize: candidate.crop.sourceImage.size,
+      resourceType: "ImageAsset",
+      resourceId: candidate.crop.sourceImage.id,
+    }));
+    zip.file(item.derivedCrop.path, await getVerifiedExportObjectBytes({
+      storageKey: candidate.crop.storageKey,
+      expectedChecksum: candidate.crop.checksum,
+      expectedSize: candidate.crop.byteSize,
+      resourceType: "DerivedSliceCrop",
+      resourceId: candidate.crop.id,
+    }));
     if (item.supportMask && candidate.supportMask) {
-      zip.file(item.supportMask.path, await getObjectBytes(candidate.supportMask.storageKey));
+      zip.file(item.supportMask.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.supportMask.storageKey,
+        expectedChecksum: candidate.supportMask.checksum,
+        expectedSize: candidate.supportMask.size,
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: candidate.supportMask.id,
+      }));
     }
-    zip.file(item.semanticMask.path, await getObjectBytes(candidate.semanticMask.storageKey));
+    zip.file(item.semanticMask.path, await getVerifiedExportObjectBytes({
+      storageKey: candidate.semanticMask.storageKey,
+      expectedChecksum: candidate.semanticMask.checksum,
+      expectedSize: candidate.semanticMask.size,
+      resourceType: "AnnotationArtifactVersion",
+      resourceId: candidate.semanticMask.id,
+    }));
   }
 
   return zip.generateAsync({
@@ -1056,6 +1102,22 @@ function sanitizeExportBatch(batch: {
             package: `/api/exports/${batch.id}/download?file=package`,
           }
         : null,
+  };
+}
+
+function exportObjectIntegrityWarning(error: ExportObjectIntegrityError) {
+  return {
+    code: error.code,
+    message: error.message,
+    details: error.details,
+  };
+}
+
+function exportFailureWarning(error: unknown) {
+  if (error instanceof ExportObjectIntegrityError) return exportObjectIntegrityWarning(error);
+  return {
+    code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
+    message: error instanceof Error ? error.message : "Unknown export failure",
   };
 }
 
@@ -1230,12 +1292,7 @@ async function createCropTrainingExportBatch(params: {
       where: { id: batch.id },
       data: {
         status: "FAILED",
-        warnings: [
-          {
-            code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
-            message: error instanceof Error ? error.message : "Unknown export failure",
-          },
-        ],
+        warnings: [exportFailureWarning(error)],
       },
     }).catch(() => undefined);
     throw error;
@@ -1397,12 +1454,7 @@ export async function createTrainingExportForUser(params: {
       where: { id: batch.id },
       data: {
         status: "FAILED",
-        warnings: [
-          {
-            code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
-            message: error instanceof Error ? error.message : "Unknown export failure",
-          },
-        ],
+        warnings: [exportFailureWarning(error)],
       },
     }).catch(() => undefined);
     throw error;
@@ -1497,6 +1549,9 @@ export async function readTrainingExportFileForUser(params: {
 }
 
 export function exportErrorResponse(error: unknown): { error: string; status: number } {
+  if (error instanceof ExportObjectIntegrityError) {
+    return { error: error.code, status: error.status };
+  }
   if (error instanceof TrainingExportError) {
     const status =
       error.code === "FORBIDDEN"

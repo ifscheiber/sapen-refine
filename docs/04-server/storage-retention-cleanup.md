@@ -20,7 +20,7 @@ Defaults are suitable for the Strato-style customer trial:
 ```text
 completed batch staging objects: 7 days
 failed/cancelled/error batch staging objects: 14 days
-abandoned presigned image/mask uploads: 24 hours
+abandoned presigned image/mask uploads from historical compatibility-route use: 24 hours
 maximum deletions per execute run: 500
 active or retryable batch staging objects: never cleaned
 ```
@@ -69,14 +69,14 @@ projects/<projectId>/prediction-import-batches/<batchId>/<item>.msk
 
 The current code does not persist the original uploaded ZIP as a separate source object. `BATCH_SOURCE_ZIP` exists as an explicit category for possible temporary ZIP objects under the same batch prefix.
 
-Presigned compatibility routes remain enabled:
+Presigned compatibility routes remain present but disabled after RB-105:
 
 - `POST /api/projects/[projectId]/images/presign`
 - `POST /api/projects/[projectId]/images/commit`
 - `POST /api/images/[imageId]/mask/presign`
 - `POST /api/images/[imageId]/mask/commit`
 
-Uncommitted objects from these routes are identifiable by age and prefix under `projects/<projectId>/images/...` or `projects/<projectId>/masks/<imageId>/...msk`. RB-066 handles them as `ABANDONED_PRESIGNED_UPLOAD` after the presigned retention window. App-mediated upload/read paths remain preferred for the customer trial.
+These routes now return `410 PRESIGNED_UPLOADS_DISABLED` after authentication and project membership checks, so new abandoned presigned upload objects should not be created by normal app flows. Historical uncommitted objects from earlier enabled route versions are identifiable by age and prefix under `projects/<projectId>/images/...` or `projects/<projectId>/masks/<imageId>/...msk`. RB-066 still handles them as `ABANDONED_PRESIGNED_UPLOAD` after the presigned retention window. App-mediated upload/read paths are the supported customer-trial path.
 
 ## Operational Commands
 

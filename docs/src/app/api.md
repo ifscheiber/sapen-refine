@@ -15,8 +15,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects` - creates a project and owner membership.
 - `PATCH /api/projects/[projectId]` - updates project name/description for `OWNER` and `QA`; attaches the default active label schema when missing.
 - `GET /api/projects/[projectId]/images` - lists images for a project.
-- `POST /api/projects/[projectId]/images/presign` - creates a presigned PNG/JPEG raw-image upload URL for legacy/internal compatibility.
-- `POST /api/projects/[projectId]/images/commit` - validates a private uploaded PNG/JPEG object and records a validated raw image for legacy/internal compatibility.
+- `POST /api/projects/[projectId]/images/presign` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
+- `POST /api/projects/[projectId]/images/commit` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
 - `POST /api/projects/[projectId]/images/upload` - uploads a PNG/JPEG raw image through the app server, verifies checksum/dimensions/object metadata, stores it in S3/MinIO, and records the validated image row.
 - `GET /api/projects/[projectId]/images/[imageId]/view` - returns an app-mediated image asset URL after membership check.
 - `GET /api/images/[imageId]` - redirects to the app-mediated image asset route after membership check.
@@ -26,8 +26,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/asset` - streams image bytes through the app after membership check.
 - `GET /api/images/[imageId]/mask/latest` - returns latest mask version metadata and view URL.
 - `GET /api/images/[imageId]/mask/versions/[versionId]/asset` - streams mask bytes through the app after membership check.
-- `POST /api/images/[imageId]/mask/presign` - creates a presigned semantic-mask upload URL for legacy/internal compatibility.
-- `POST /api/images/[imageId]/mask/commit` - validates a private uploaded `u8raw-v1` mask object and records a new draft semantic mask version for legacy/internal compatibility.
+- `POST /api/images/[imageId]/mask/presign` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
+- `POST /api/images/[imageId]/mask/commit` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
 - `POST /api/images/[imageId]/mask/upload` - uploads `u8raw-v1` mask bytes through the app server, verifies byte length/dimensions/checksum/object metadata, and records a new draft semantic `AnnotationArtifactVersion`.
 - `GET /api/images/[imageId]/slice` - returns default-slice state, support label values, latest support mask, and latest classification.
 - `POST /api/images/[imageId]/slice/ensure` - creates or returns the default slice instance for editable project roles.
@@ -89,7 +89,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Project and image API routes must enforce authenticated access and project membership.
 - Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.
-- New browser helper code should use the app-mediated upload/read routes. Compatibility presign/commit routes remain server-side API surface for now, but `src/lib` no longer exposes them as the supported browser contract.
+- New browser helper code must use the app-mediated upload/read routes. RB-105 keeps the legacy presign/commit route files only as disabled compatibility surface; they return `PRESIGNED_UPLOADS_DISABLED` and must not be used by new UI work.
 - Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
 - Support-mask APIs must not accept semantic mask versions as physical support geometry.
 - Slice BBox proposal APIs must validate integer source-image pixel geometry against persisted image dimensions and must not treat BBoxes as support geometry.
@@ -102,6 +102,7 @@ This page lists the current API route handlers under `src/app/api`.
 - Review APIs only allow `DRAFT -> SUBMITTED` and `SUBMITTED -> APPROVED/REJECTED`; reject requires a comment or reason.
 - Crop readiness APIs and export readiness use `src/server/domain/cropReadiness.ts` so crop editor review actions, project crop-readiness summaries, and crop-training export skips share the same `READY`/`PARTIAL`/`NOT_READY`/`REVIEW_REQUIRED` decisions without exposing private storage keys.
 - Export APIs use latest approved semantic/support/classification versions only, keep target concepts separate, and do not treat Copper semantic masks as support geometry. Crop-training manifests record `supportGeometrySource` as `SEMANTIC_FOREGROUND` for supportless Sap/Heartwood or `EXPLICIT_SUPPORT_MASK` for Copper. The RB-091/RB-092 `crop_training` target is exclusive, uses ready crop candidates only, preserves source-image/crop transform provenance, and lists partial/not-ready/review-required crops in `skippedCropItems`.
+- Export ZIP packaging verifies every packaged raw image, artifact version, and derived crop against the persisted checksum and size before adding bytes to the archive. Mismatches fail creation with `EXPORT_OBJECT_INTEGRITY_MISMATCH`; missing checksum/size metadata fails with existing export integrity metadata errors.
 - Export creation/download is restricted to project `OWNER` in RB-053 and does not expose private MinIO storage keys in browser API responses.
 - Prediction-analysis export APIs are separate from RB-053 export targets. They include model proposals for QA only, mark predictions as `groundTruth: false`, include QA metrics as evaluation metadata where approved references exist, restrict create/download to project `OWNER`/`QA`, and do not expose private storage keys or private model checkpoint paths.
 - Prediction provenance/import APIs do not approve prediction artifacts and do not expose private storage keys. Direct model-run reads are admin-only because they may include internal checkpoint paths; project members read reduced model summaries through prediction-run responses.
@@ -127,6 +128,7 @@ This page lists the current API route handlers under `src/app/api`.
 - RB-089 crop semantic-mask error codes include `FORBIDDEN`, `CROP_NOT_FOUND`, `CROP_COORDINATE_SPACE_INVALID`, `CROP_LINEAGE_INVALID`, `SUPPORT_MASK_REQUIRED`, `SUPPORT_MASK_LINEAGE_MISMATCH`, `SEMANTIC_MODE_INVALID`, `SEMANTIC_MASK_VALUES_INVALID`, `SEMANTIC_OUTSIDE_SUPPORT`, `MASK_SIZE_MISMATCH`, `MASK_DIMENSIONS_MISMATCH`, `OBJECT_WRITE_FAILED`, and `OBJECT_STAT_FAILED`.
 - RB-090 classification derivation and slice-instance classification error codes include `FORBIDDEN`, `SLICE_NOT_FOUND`, `SLICE_LINEAGE_INVALID`, `SLICE_CLASS_INVALID`, `SEMANTIC_MASK_NOT_FOUND`, `SEMANTIC_MASK_LINEAGE_INVALID`, `SEMANTIC_LABELS_MISSING`, `CLASSIFICATION_THRESHOLD_INVALID`, `CLASSIFICATION_DERIVATION_DB_ERROR`, and `CLASSIFICATION_DERIVATION_FAILED`.
 - RB-091 crop training export adds the `crop_training` target and `EXPORT_TARGET_COMBINATION_INVALID` when it is mixed with full-image export targets.
+- RB-105 disabled legacy presign/commit compatibility uploads with `PRESIGNED_UPLOADS_DISABLED` and added export object-byte verification using `EXPORT_OBJECT_INTEGRITY_MISMATCH` for stored-byte/checksum or size mismatches.
 
 ## Known Gaps
 

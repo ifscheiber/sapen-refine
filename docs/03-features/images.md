@@ -64,7 +64,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 ## Current API Surface
 
 - `POST /api/projects/[projectId]/images/upload` is the current customer-trial browser path. It checks upload size, content type, checksum hints, PNG/JPEG dimensions, object stat metadata, and then records a validated image row.
-- `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain legacy/internal compatibility paths. Presign accepts PNG/JPEG only, and commit re-reads the private object before persisting verified metadata. The supported customer-trial browser helper is `apiUploadImage`, not the presign/commit pair.
+- `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain present only as disabled legacy/internal compatibility paths. After auth/RBAC they return `410 PRESIGNED_UPLOADS_DISABLED`. The supported customer-trial browser helper is `apiUploadImage`, not the presign/commit pair.
 - `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI.
 - `GET /api/images/[imageId]/metadata` returns the image metadata bundle, membership role, edit capability, and computed completeness summary.
 - `PATCH /api/images/[imageId]/metadata` updates acquisition/sample metadata for editable project roles and rejects immutable image facts such as checksums or dimensions.
@@ -102,11 +102,11 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Images above `6000x4000` and within the trial maximum are accepted but marked with a large-image warning because source-image BBox planning and image decoding may use significant browser memory, especially on iPad.
 - Optional client checksum hints are normalized and checked against the server-computed `sha256:<hex>` value; mismatches return `CHECKSUM_MISMATCH`.
 - Storage keys are generated or constrained server-side. Browser API responses do not include private object-store URLs or storage keys.
-- Successful upload and compatibility commit events create `IMAGE_UPLOAD_ACCEPTED` audit rows. Rejected uploads create `IMAGE_UPLOAD_REJECTED` rows where the request is authenticated and reaches application code.
+- Successful app-mediated upload events create `IMAGE_UPLOAD_ACCEPTED` audit rows. Rejected uploads create `IMAGE_UPLOAD_REJECTED` rows where the request is authenticated and reaches application code.
 
 ## MVP Limitations
 
-- Legacy presigned upload/view routes remain for compatibility, but the trial browser workflow and `src/lib` helper contract use app-mediated upload and read paths so MinIO can stay private.
+- Legacy presigned upload routes remain present but disabled. The trial browser workflow and `src/lib` helper contract use app-mediated upload and read paths so MinIO can stay private.
 - Metadata completeness is visible as readiness information. Missing T-number and missing technical metadata are warnings, not hard blockers yet.
 - Historical/default full-image semantic/support artifacts may still exist through APIs, but product annotation is crop-first. Crop workflows save crop-scoped support geometry per derived crop.
 - Tiling, downscaled working masks, sparse/patch uploads, hard multi-tab locking, and large-image edit-session soft locks remain deferred.

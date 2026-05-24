@@ -40,17 +40,18 @@
 - `src/server/domain/sliceClassifications.ts` - RB-090 slice-instance manual override APIs, semantic-mask classification derivation, provenance serialization, and audit events.
 - `src/server/domain/cropReadiness.ts` - RB-092 shared crop readiness resolver, crop review-action availability, sanitized readiness serialization, and crop export skip policy.
 - `src/server/http/apiErrors.ts` - RB-072 flat JSON API error helpers for auth/RBAC/domain route failures.
-- `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helpers, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
+- `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helper utilities, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
+- `src/server/domain/exportObjectIntegrity.ts` - export-time object-byte checksum/size verification before ZIP packaging.
 
 ## Public Interfaces / Routes / Functions
 
 - `requireUser()` throws `UNAUTHORIZED` for route/domain callers without a valid session.
 - `requireProjectRole(projectId, allowed)` enforces project membership roles.
 - `requireWorkspaceUser()` and `requireWorkspaceProjectRole(projectId, allowed)` are for App Router workspace pages; they redirect stale/anonymous sessions to login and avoid exposing project existence through raw page errors.
-- `presignGetObject(key)` and `presignPutObject(key, contentType)` wrap S3 presigned URLs.
+- `presignGetObject(key)` and `presignPutObject(key, contentType)` wrap S3 presigned URLs for server-only utility use. RB-105 disables the browser-facing presign/commit upload routes so final persisted object keys are not client-writeable.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
-- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the owner-only training export workflow, including RB-053 full-image targets and the exclusive RB-091 `crop_training` target.
+- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the owner-only training export workflow, including RB-053 full-image targets, the exclusive RB-091 `crop_training` target, and RB-105 export object-byte verification.
 - `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
 - `createPredictionImportBatchFromZipForUser`, `processPredictionImportBatchForUser`, `retryPredictionImportBatchForUser`, and batch list/detail helpers implement the RB-061 single-host DB-backed batch import baseline.

@@ -30,7 +30,7 @@ The current editor surfaces support the crop workflow and assisted correction. U
 - Crop workflow semantic route: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
 - Crop support route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/support`.
 - Crop semantic route: `/app/projects/[projectId]/images/[imageId]/slices/[sliceInstanceId]/crops/[cropId]/semantic`.
-- Full-image mask APIs: `/api/images/[imageId]/mask/presign`, `/api/images/[imageId]/mask/commit`, `/api/images/[imageId]/mask/latest`; these remain for compatibility/history and assisted-correction backing behavior, but no longer have a general full-image annotation product route.
+- Full-image mask APIs: `/api/images/[imageId]/mask/upload`, `/api/images/[imageId]/mask/latest`; the legacy `/mask/presign` and `/mask/commit` routes remain present but disabled with `PRESIGNED_UPLOADS_DISABLED` and no longer back editor saves.
 - Support/classification APIs: `/api/images/[imageId]/support-mask/*`, `/api/images/[imageId]/slice/*`.
 - BBox proposal APIs: `/api/images/[imageId]/slice-bboxes`, `/api/slice-bboxes/[bboxVersionId]`.
 - Derived crop APIs: `/api/images/[imageId]/slice-crops`, `/api/slice-bboxes/[bboxVersionId]/crop`, `/api/slice-crops/[cropId]/asset`.

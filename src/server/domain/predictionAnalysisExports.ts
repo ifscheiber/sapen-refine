@@ -16,6 +16,10 @@ import { canExportPredictionAnalysis } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
+  ExportObjectIntegrityError,
+  getVerifiedExportObjectBytes,
+} from "@/server/domain/exportObjectIntegrity";
+import {
   PREDICTION_QA_COMPARISON,
   PREDICTION_QA_METRICS_VERSION,
   computeBinaryMaskMetrics,
@@ -982,21 +986,45 @@ async function buildZipPackage(params: {
     const candidate = params.candidates.find((entry) => entry.prediction.id === item.prediction.predictionProvenanceId);
     if (!candidate) continue;
     if (!addedImages.has(item.image.path)) {
-      zip.file(item.image.path, await getObjectBytes(candidate.prediction.image.storageKey));
+      zip.file(item.image.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.prediction.image.storageKey,
+        expectedChecksum: candidate.prediction.image.checksum,
+        expectedSize: candidate.prediction.image.size,
+        resourceType: "ImageAsset",
+        resourceId: candidate.prediction.image.id,
+      }));
       addedImages.add(item.image.path);
     }
     if (item.prediction.path && candidate.prediction.artifactVersion) {
-      zip.file(item.prediction.path, await getObjectBytes(candidate.prediction.artifactVersion.storageKey));
+      zip.file(item.prediction.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.prediction.artifactVersion.storageKey,
+        expectedChecksum: candidate.prediction.artifactVersion.checksum,
+        expectedSize: candidate.prediction.artifactVersion.size,
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: candidate.prediction.artifactVersion.id,
+      }));
     }
     if (item.humanCorrection && candidate.humanCorrection) {
-      zip.file(item.humanCorrection.path, await getObjectBytes(candidate.humanCorrection.storageKey));
+      zip.file(item.humanCorrection.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.humanCorrection.storageKey,
+        expectedChecksum: candidate.humanCorrection.checksum,
+        expectedSize: candidate.humanCorrection.size,
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: candidate.humanCorrection.id,
+      }));
     }
     if (
       item.approvedGroundTruthReference &&
       "artifactVersionId" in item.approvedGroundTruthReference &&
       candidate.approvedGroundTruthArtifact
     ) {
-      zip.file(item.approvedGroundTruthReference.path, await getObjectBytes(candidate.approvedGroundTruthArtifact.storageKey));
+      zip.file(item.approvedGroundTruthReference.path, await getVerifiedExportObjectBytes({
+        storageKey: candidate.approvedGroundTruthArtifact.storageKey,
+        expectedChecksum: candidate.approvedGroundTruthArtifact.checksum,
+        expectedSize: candidate.approvedGroundTruthArtifact.size,
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: candidate.approvedGroundTruthArtifact.id,
+      }));
     }
   }
 
@@ -1048,6 +1076,22 @@ function sanitizeExportBatch(batch: {
             package: `/api/prediction-analysis-exports/${batch.id}/download?file=package`,
           }
         : null,
+  };
+}
+
+function exportObjectIntegrityWarning(error: ExportObjectIntegrityError) {
+  return {
+    code: error.code,
+    message: error.message,
+    details: error.details,
+  };
+}
+
+function exportFailureWarning(error: unknown) {
+  if (error instanceof ExportObjectIntegrityError) return exportObjectIntegrityWarning(error);
+  return {
+    code: error instanceof PredictionAnalysisExportError ? error.code : "PREDICTION_ANALYSIS_EXPORT_FAILED",
+    message: error instanceof Error ? error.message : "Unknown export failure",
   };
 }
 
@@ -1247,12 +1291,7 @@ export async function createPredictionAnalysisExportForUser(params: {
       where: { id: batch.id },
       data: {
         status: "FAILED",
-        warnings: [
-          {
-            code: error instanceof PredictionAnalysisExportError ? error.code : "PREDICTION_ANALYSIS_EXPORT_FAILED",
-            message: error instanceof Error ? error.message : "Unknown export failure",
-          },
-        ],
+        warnings: [exportFailureWarning(error)],
       },
     }).catch(() => undefined);
     throw error;
@@ -1340,6 +1379,9 @@ export async function readPredictionAnalysisExportFileForUser(params: {
 }
 
 export function predictionAnalysisExportErrorResponse(error: unknown): { error: string; status: number } {
+  if (error instanceof ExportObjectIntegrityError) {
+    return { error: error.code, status: error.status };
+  }
   if (error instanceof PredictionAnalysisExportError) {
     return { error: error.code, status: error.status };
   }

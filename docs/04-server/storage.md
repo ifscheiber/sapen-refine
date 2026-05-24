@@ -1,6 +1,6 @@
 # Server Storage
 
-Storage helpers create S3/MinIO presigned URLs for compatibility paths and app-mediated object reads/writes for the browser trial path.
+Storage helpers provide app-mediated S3/MinIO object reads/writes for the browser trial path. The low-level presign helpers still exist, but RB-105 disables the legacy presign/commit upload routes so they no longer issue client-writeable final object URLs.
 
 Key files:
 
@@ -16,8 +16,9 @@ Trial browser invariant:
 - App-mediated image uploads support only PNG and JPEG. SVG is not accepted as a raw training image upload format.
 - Raw image and mask API responses must not expose private MinIO/S3 URLs or credentials.
 - Browser-facing helpers in `src/lib` use app-mediated routes and do not expose `storageKey`, bucket names, endpoints, upload URLs, or download URL internals.
-- Presign/commit routes for images and semantic masks remain legacy/internal compatibility endpoints for now. They are not the recommended customer-trial browser contract and should not be used by new UI work unless a later ticket explicitly revisits direct upload compatibility.
-- RB-066 cleanup may delete only temporary/staged objects after retention: batch staging files, possible temporary batch ZIPs under the batch staging prefix, and identifiable abandoned presigned image/mask uploads. Database references protect raw images, artifact versions, prediction artifacts, and exports.
+- Presign/commit routes for images and semantic masks remain as disabled legacy/internal compatibility endpoints. After auth/RBAC they return `410 PRESIGNED_UPLOADS_DISABLED`; any future direct-upload compatibility must use staging keys and a fresh server-owned final key.
+- Export packaging verifies each packaged image, artifact version, and derived crop against persisted checksum and size before writing ZIP bytes.
+- RB-066 cleanup may delete only temporary/staged objects after retention: batch staging files, possible temporary batch ZIPs under the batch staging prefix, and historical abandoned presigned image/mask uploads created before RB-105. Database references protect raw images, artifact versions, prediction artifacts, and exports.
 
 Operational cleanup runbook:
 

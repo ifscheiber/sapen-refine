@@ -16,7 +16,7 @@ This page records the RB-049 decisions for replacing the MVP persistence model w
 | `MaskVersion` | Replaced after development DB reset. | `AnnotationArtifactVersion` with label schema version, review state, provenance, coordinate space, checksum/size/dimension metadata, actor attribution, and source/parent support. |
 | `MaskKind.PREDICTION` | Replaced. | `AnnotationArtifactKind.PREDICTION_MASK` plus RB-056 `ModelRun`/`PredictionRun`/`PredictionArtifactProvenance` records. |
 | `MaskKind.REFINED` | Removed. | Current editor saves map to `AnnotationArtifactKind.SEMANTIC_MASK` versions with `ArtifactReviewState.DRAFT` and `ArtifactProvenance.HUMAN_ANNOTATION`. |
-| Current upload/read/commit routes | Kept as compatibility API surface. | Route handlers now persist validated `ImageAsset`, `AnnotationArtifact`, and `AnnotationArtifactVersion` records with RB-055 integrity checks. |
+| Current upload/read/commit routes | App-mediated upload/read routes remain current; final-key presign/commit compatibility is disabled by RB-105. | App-mediated route handlers persist validated `ImageAsset`, `AnnotationArtifact`, and `AnnotationArtifactVersion` records with RB-055 integrity checks. Disabled presign/commit routes return `PRESIGNED_UPLOADS_DISABLED`. |
 | Current user/session attribution | Kept and extended. | `User`, `Role`, `UserGlobalRole`, `Session`, and `AuditLog` remain; image, artifact, review, and export records now include actor fields. |
 
 ## Compatibility Layer

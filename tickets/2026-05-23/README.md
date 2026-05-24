@@ -15,7 +15,7 @@ Use the combined report plus verification report as the planning baseline. The o
 
 ## Recommended Order
 
-1. [RB-105 - Presigned Compatibility Upload Immutability Gap](RB-105-presigned-compatibility-upload-immutability-gap.md)
+1. [RB-105 - Presigned Compatibility Upload Immutability Gap](done/RB-105-presigned-compatibility-upload-immutability-gap-optimized.md) - completed
 2. [RB-106 - Protected API Error Contract Completion](RB-106-protected-api-error-contract-completion.md)
 3. [RB-108 - Root Architecture Current-Flow Drift](RB-108-root-architecture-current-flow-drift.md)
 4. [RB-107 - Safe Version Allocation Concurrency Hardening](RB-107-safe-version-allocation-concurrency-hardening.md)

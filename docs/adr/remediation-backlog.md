@@ -2,19 +2,19 @@
 
 Deferred work discovered during repository hygiene should be recorded here instead of expanding active ticket scope.
 
-## RB-105 - Presigned Compatibility Upload Immutability Gap
+## RB-105 - Presigned Compatibility Upload Immutability Gap (Resolved)
 
 Context: The legacy/internal image and semantic-mask presign/commit routes return presigned `PutObject` URLs for the final object keys that are later persisted in `ImageAsset.storageKey` or `AnnotationArtifactVersion.storageKey`. The app validates the object at commit time, but the presigned URL can still overwrite the same key until it expires. Export packaging then reads current object bytes from storage without recomputing the bytes against the persisted checksum before writing the ZIP package.
 
 Impact: A client holding a still-valid presigned URL can mutate a committed raw image or committed mask object after database persistence. This violates raw-image/artifact immutability and can make DB checksums, export manifests, and ZIP package bytes disagree.
 
-Proposed next step: Disable or feature-flag presign/commit compatibility routes before production use. If compatibility remains required, presign only staging keys, validate on commit, copy/write validated bytes to a fresh non-presigned final key, persist that final key, delete the staging object, and add export-time checksum verification for packaged object bytes.
+Resolution: Implemented by RB-105 optimized ticket. The image and mask presign/commit compatibility routes now authenticate and authorize the caller, then return stable `410 PRESIGNED_UPLOADS_DISABLED` JSON without issuing final-key presigned URLs, reading client-written objects, or persisting committed rows. Training, crop-training, and prediction-analysis ZIP packaging now reads object bytes through `getVerifiedExportObjectBytes` and compares actual bytes against persisted checksum and size before archive insertion.
 
 Affected modules: `src/app/api/projects/[projectId]/images/presign`, `src/app/api/projects/[projectId]/images/commit`, `src/app/api/images/[imageId]/mask/presign`, `src/app/api/images/[imageId]/mask/commit`, `src/server/storage/s3.ts`, `src/server/domain/exports.ts`, storage docs, and compatibility-route tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-105.
 
 ## RB-106 - Protected API Error Contract Completion
 
@@ -685,7 +685,7 @@ Impact: Future code may accidentally reintroduce direct-storage assumptions or d
 
 Resolution: Implemented by RB-074 optimized ticket. `src/lib/projectsClient.ts` and `src/lib/imagesApi.ts` now expose app-mediated browser helpers only, latest-mask helper types no longer include private keys, stale presign/commit helper exports were removed, and tests lock the client helper storage contract.
 
-Remaining follow-up: Server presign/commit routes remain legacy/internal compatibility endpoints. Removing or feature-flagging them should be a later explicit storage-compatibility ticket if the team no longer needs them.
+Follow-up status: RB-105 later disabled the server presign/commit compatibility routes by default. Future direct-upload compatibility should be tracked as a new staging-key design ticket if it is needed.
 
 Affected modules: `src/lib`, compatibility presign routes, API/storage docs, and any wrapper tests retained by the slice.
 

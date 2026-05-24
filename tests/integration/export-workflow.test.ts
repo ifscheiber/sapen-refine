@@ -256,8 +256,8 @@ describe("training export workflow", () => {
       },
       select: { id: true },
     });
-    const cropBytes = minimalPng(`crop-${name}`);
-    const cropStorageKey = `tests/export/${suffix}/crop-${name}.png`;
+    const cropBytes = minimalPng(`derived-crop-${name}`);
+    const cropStorageKey = `tests/export/${suffix}/derived-crop-${name}.png`;
     await storage.putObject(cropStorageKey, cropBytes, "image/png");
     const crop = await prisma.derivedSliceCrop.create({
       data: {
@@ -1080,6 +1080,100 @@ describe("training export workflow", () => {
         prisma,
       ),
     ).rejects.toBeInstanceOf(exportsDomain.TrainingExportError);
+  });
+
+  it("fails export when selected approved artifact object bytes do not match persisted checksum", async () => {
+    const imageId = await createImage("corrupted-artifact-bytes");
+    const semanticVersionId = await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "corrupted-artifact-semantic",
+    });
+    const artifactVersion = await prisma.annotationArtifactVersion.findUniqueOrThrow({
+      where: { id: semanticVersionId },
+      select: { storageKey: true, checksum: true, size: true },
+    });
+    await storage.putObject(
+      artifactVersion.storageKey,
+      new Uint8Array([0xff, 0x00, 0xff]),
+      "application/octet-stream",
+    );
+
+    await expect(
+      exportsDomain.createTrainingExportForUser(
+        { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+        prisma,
+      ),
+    ).rejects.toMatchObject({
+      code: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
+      details: expect.objectContaining({
+        resourceType: "AnnotationArtifactVersion",
+        resourceId: semanticVersionId,
+        expectedChecksum: artifactVersion.checksum,
+        expectedSize: artifactVersion.size,
+        actualSize: 3,
+      }),
+    });
+
+    const failedBatch = await prisma.exportBatch.findFirst({
+      where: { projectId, status: "FAILED" },
+      orderBy: { createdAt: "desc" },
+      select: { warnings: true },
+    });
+    expect(failedBatch?.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
+          details: expect.objectContaining({
+            resourceType: "AnnotationArtifactVersion",
+            resourceId: semanticVersionId,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("fails crop training export when derived crop object bytes do not match persisted checksum", async () => {
+    const { crop } = await createCropFixture("corrupted-crop-bytes");
+    const supportVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "corrupted-crop-support",
+    });
+    const semanticVersionId = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: supportVersionId,
+      semanticMode: "COPPER",
+      name: "corrupted-crop-semantic",
+    });
+    await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: semanticVersionId,
+      supportMaskVersionId: supportVersionId,
+      name: "corrupted-crop-classification",
+    });
+    const cropRecord = await prisma.derivedSliceCrop.findUniqueOrThrow({
+      where: { id: crop.id },
+      select: { storageKey: true, checksum: true, byteSize: true },
+    });
+    await storage.putObject(cropRecord.storageKey, new Uint8Array([0x01, 0x02]), "image/png");
+
+    await expect(
+      exportsDomain.createTrainingExportForUser(
+        { projectId, userId: ownerId, targets: ["crop_training"] },
+        prisma,
+      ),
+    ).rejects.toMatchObject({
+      code: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
+      details: expect.objectContaining({
+        resourceType: "DerivedSliceCrop",
+        resourceId: crop.id,
+        expectedChecksum: cropRecord.checksum,
+        expectedSize: cropRecord.byteSize,
+        actualSize: 2,
+      }),
+    });
   });
 
   it("fails export when selected approved artifacts are missing integrity metadata", async () => {
