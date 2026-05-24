@@ -7,7 +7,7 @@ import {
 
 import { canViewAudit } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
-import { recordAuditEvent } from "@/server/domain/audit";
+import { AUDIT_ACTOR_LABELS, recordAuditEvent, withAuditActorContext } from "@/server/domain/audit";
 import { getRuntimeConfig } from "@/server/runtime/config";
 import { deleteObject, getObjectBytes, listObjectsByPrefix, statObject } from "@/server/storage/s3";
 import { normalizeChecksum, sha256Checksum } from "@/server/uploads/integrity";
@@ -1000,13 +1000,19 @@ async function recordCleanupAudit(params: {
     action: params.options.execute ? "STORAGE_CLEANUP_EXECUTED" : "STORAGE_CLEANUP_DRY_RUN",
     entity: "StorageCleanup",
     actorId: params.actorId,
-    details: {
-      ...summary,
-      category: params.options.category,
-      projectId: params.options.projectId ?? null,
-      batchId: params.options.batchId ?? null,
-      limit: params.options.limit,
-    },
+    details: withAuditActorContext(
+      {
+        ...summary,
+        category: params.options.category,
+        projectId: params.options.projectId ?? null,
+        batchId: params.options.batchId ?? null,
+        limit: params.options.limit,
+      },
+      {
+        triggeredBy: { type: "OPERATOR", userId: params.actorId },
+        performedBy: { type: "OPERATOR", label: AUDIT_ACTOR_LABELS.storageCleanup },
+      },
+    ),
   }, db);
 
   if (!params.options.execute) return;
@@ -1021,13 +1027,19 @@ async function recordCleanupAudit(params: {
       entity: "StorageObject",
       entityId: result.key,
       actorId: params.actorId,
-      details: {
-        category: result.category,
-        reason: result.reason,
-        batchId: result.batchId,
-        itemId: result.itemId,
-        projectId: result.projectId,
-      },
+      details: withAuditActorContext(
+        {
+          category: result.category,
+          reason: result.reason,
+          batchId: result.batchId,
+          itemId: result.itemId,
+          projectId: result.projectId,
+        },
+        {
+          triggeredBy: { type: "OPERATOR", userId: params.actorId },
+          performedBy: { type: "OPERATOR", label: AUDIT_ACTOR_LABELS.storageCleanup },
+        },
+      ),
     }, db);
   }
 }

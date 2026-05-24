@@ -13,7 +13,11 @@ import {
 
 import { canImportPrediction, canProcessPredictionBatch } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
-import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  AUDIT_ACTOR_LABELS,
+  recordAuditEvent,
+  withAuditActorContext,
+} from "@/server/domain/audit";
 import {
   BATCH_ITEM_STALE_PROCESSING_RECOVERED,
   calculateLeaseExpiresAt,
@@ -164,6 +168,18 @@ type ProcessorContext = {
   processorRunId: string;
   leaseSeconds: number;
 };
+
+function predictionImportWorkerActorContext(userId: string, processor: ProcessorContext) {
+  return {
+    triggeredBy: { type: "USER", userId },
+    performedBy: {
+      type: "WORKER",
+      label: AUDIT_ACTOR_LABELS.predictionImportWorker,
+      processorId: processor.processorId,
+      processorRunId: processor.processorRunId,
+    },
+  } as const;
+}
 
 type BatchProcessResult = {
   batch: SelectedBatch;
@@ -753,16 +769,19 @@ async function recordItemAudit(params: {
     entity: "PredictionImportBatchItem",
     entityId: params.item.id,
     actorId: params.actorId,
-    details: {
-      projectId: params.batch.projectId,
-      predictionRunId: params.batch.predictionRunId,
-      batchId: params.batch.id,
-      imageId: params.item.imageId ?? null,
-      targetType: params.item.targetType ?? null,
-      processorId: params.processor.processorId,
-      processorRunId: params.processor.processorRunId,
-      ...(params.details ?? {}),
-    },
+    details: withAuditActorContext(
+      {
+        projectId: params.batch.projectId,
+        predictionRunId: params.batch.predictionRunId,
+        batchId: params.batch.id,
+        imageId: params.item.imageId ?? null,
+        targetType: params.item.targetType ?? null,
+        processorId: params.processor.processorId,
+        processorRunId: params.processor.processorRunId,
+        ...(params.details ?? {}),
+      },
+      predictionImportWorkerActorContext(params.actorId, params.processor),
+    ),
   }, db);
 }
 
@@ -851,15 +870,18 @@ async function recoverStaleItemsForBatch(params: {
       entity: "PredictionImportBatchJob",
       entityId: params.batch.id,
       actorId: params.userId,
-      details: {
-        projectId: params.batch.projectId,
-        predictionRunId: params.batch.predictionRunId,
-        processorId: params.processor.processorId,
-        processorRunId: params.processor.processorRunId,
-        recoveredCount,
-        retryPendingCount,
-        failedCount,
-      },
+      details: withAuditActorContext(
+        {
+          projectId: params.batch.projectId,
+          predictionRunId: params.batch.predictionRunId,
+          processorId: params.processor.processorId,
+          processorRunId: params.processor.processorRunId,
+          recoveredCount,
+          retryPendingCount,
+          failedCount,
+        },
+        predictionImportWorkerActorContext(params.userId, params.processor),
+      ),
     }, db);
     await refreshBatchSummary(params.batch.id, db);
   }
@@ -1067,15 +1089,18 @@ export async function processPredictionImportBatchForUser(params: {
     entity: "PredictionImportBatchJob",
     entityId: params.batchId,
     actorId: params.userId,
-    details: {
-      projectId: batch.projectId,
-      predictionRunId: batch.predictionRunId,
-      requestedLimit: limit,
-      recoverStale,
-      staleRecoveredCount: staleRecovery.recoveredCount,
-      processorId: processor.processorId,
-      processorRunId: processor.processorRunId,
-    },
+    details: withAuditActorContext(
+      {
+        projectId: batch.projectId,
+        predictionRunId: batch.predictionRunId,
+        requestedLimit: limit,
+        recoverStale,
+        staleRecoveredCount: staleRecovery.recoveredCount,
+        processorId: processor.processorId,
+        processorRunId: processor.processorRunId,
+      },
+      predictionImportWorkerActorContext(params.userId, processor),
+    ),
   }, db);
 
   await db.predictionImportBatchJob.update({
@@ -1099,18 +1124,21 @@ export async function processPredictionImportBatchForUser(params: {
     entity: "PredictionImportBatchJob",
     entityId: params.batchId,
     actorId: params.userId,
-    details: {
-      projectId: batch.projectId,
-      predictionRunId: batch.predictionRunId,
-      requestedLimit: limit,
-      processedCount: claimed.length,
-      succeededCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.SUCCEEDED).length,
-      failedCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.FAILED).length,
-      retryPendingCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.RETRY_PENDING).length,
-      staleRecoveredCount: staleRecovery.recoveredCount,
-      processorId: processor.processorId,
-      processorRunId: processor.processorRunId,
-    },
+    details: withAuditActorContext(
+      {
+        projectId: batch.projectId,
+        predictionRunId: batch.predictionRunId,
+        requestedLimit: limit,
+        processedCount: claimed.length,
+        succeededCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.SUCCEEDED).length,
+        failedCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.FAILED).length,
+        retryPendingCount: outcomes.filter((outcome) => outcome.status === PredictionImportBatchItemStatus.RETRY_PENDING).length,
+        staleRecoveredCount: staleRecovery.recoveredCount,
+        processorId: processor.processorId,
+        processorRunId: processor.processorRunId,
+      },
+      predictionImportWorkerActorContext(params.userId, processor),
+    ),
   });
 
   return {
@@ -1217,13 +1245,16 @@ export async function processDuePredictionImportBatchesForUser(params: {
     action: "PREDICTION_IMPORT_BATCH_DUE_PROCESS_COMPLETED",
     entity: "PredictionImportBatchJob",
     actorId: params.userId,
-    details: {
-      ...summary,
-      requestedLimit: limit,
-      requestedMaxJobs: maxJobs,
-      recoverStale,
-      batchIds: results.map((result) => result.batch.id),
-    },
+    details: withAuditActorContext(
+      {
+        ...summary,
+        requestedLimit: limit,
+        requestedMaxJobs: maxJobs,
+        recoverStale,
+        batchIds: results.map((result) => result.batch.id),
+      },
+      predictionImportWorkerActorContext(params.userId, processor),
+    ),
   }, db);
 
   return { ...summary, results };

@@ -407,7 +407,17 @@ describe("prediction import batch workflow", () => {
       orderBy: { createdAt: "desc" },
       select: { details: true },
     });
-    expect(audit?.details).toMatchObject({ processorId: "vitest-worker" });
+    expect(audit?.details).toMatchObject({
+      processorId: "vitest-worker",
+      actorContext: {
+        triggeredBy: { type: "USER", userId: ownerId },
+        performedBy: {
+          type: "WORKER",
+          label: "prediction-import-worker",
+          processorId: "vitest-worker",
+        },
+      },
+    });
   });
 
   it("recovers stale processing leases before retrying eligible items", async () => {

@@ -248,9 +248,15 @@ describe("storage cleanup workflow", () => {
 
     const audit = await prisma.auditLog.findFirst({
       where: { action: "STORAGE_CLEANUP_OBJECT_DELETED", entityId: stagedItem.stagingKey },
-      select: { id: true },
+      select: { id: true, details: true },
     });
     expect(audit).toBeTruthy();
+    expect(audit?.details).toMatchObject({
+      actorContext: {
+        triggeredBy: { type: "OPERATOR", userId: adminId },
+        performedBy: { type: "OPERATOR", label: "storage-cleanup" },
+      },
+    });
   });
 
   it("requires a global admin actor", async () => {

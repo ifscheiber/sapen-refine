@@ -124,7 +124,7 @@ Impact: Future scheduled workers, cleanup automation, audit coverage checks, and
 
 Resolution: Implemented by RB-115 optimized ticket. ADR-007 adopts explicit actor-context semantics: current user foreign keys remain the request attribution, `processorId` and `processorRunId` are non-secret execution metadata, and future unattended or external-system work must add explicit `triggeredBy` / `performedBy` actor context before production use.
 
-Remaining follow-up: RB-115-A should add concrete audit actor context fields or structured audit details, RB-115-B should add unattended worker actor context, and RB-115-C should define external-system/Core handoff provenance before Core integration.
+Remaining follow-up: RB-115-A is implemented with structured `AuditLog.details.actorContext`; RB-115-B should add unattended worker actor context, and RB-115-C should define external-system/Core handoff provenance before Core integration.
 
 Affected modules: `docs/08-adr/ADR-007-system-actor-attribution-model.md`, auth/RBAC/audit docs, remediation backlog, RB-116 audit matrix planning, future worker scripts, and future Core handoff contracts.
 

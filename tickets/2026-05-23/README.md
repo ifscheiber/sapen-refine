@@ -42,7 +42,7 @@ Use the combined report plus verification report as the planning baseline. The o
 
 ## RB-115 Follow-Ups
 
-- [RB-115-A - Audit Actor Context Fields](RB-115-A-audit-actor-context-fields.md)
+- [RB-115-A - Audit Actor Context Fields](done/RB-115-A-audit-actor-context-fields-optimized.md) - completed
 - [RB-115-B - Unattended Worker Actor Context](RB-115-B-unattended-worker-actor-context.md)
 - [RB-115-C - Core Handoff Actor Provenance Contract](RB-115-C-core-handoff-actor-provenance-contract.md)
 

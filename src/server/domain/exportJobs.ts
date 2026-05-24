@@ -3,7 +3,7 @@ import { ExportStatus, ExportTarget, type AnnotationProjectRole } from "@prisma/
 
 import { canExportPredictionAnalysis, canExportTraining } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
-import { recordAuditEvent } from "@/server/domain/audit";
+import { AUDIT_ACTOR_LABELS, recordAuditEvent, withAuditActorContext } from "@/server/domain/audit";
 import { ExportObjectIntegrityError } from "@/server/domain/exportObjectIntegrity";
 import { ExportTrialCapError } from "@/server/domain/exportTrialCaps";
 import {
@@ -239,15 +239,26 @@ async function failClaimedJob(params: {
     entity: "ExportBatch",
     entityId: params.exportId,
     actorId: params.userId,
-    details: {
-      projectId: batch.projectId,
-      target: batch.target,
-      errorCode: code,
-      processorId: params.processor.processorId,
-      processorRunId: params.processor.processorRunId,
-      attemptCount: batch.jobAttemptCount,
-      maxAttempts: batch.jobMaxAttempts,
-    },
+    details: withAuditActorContext(
+      {
+        projectId: batch.projectId,
+        target: batch.target,
+        errorCode: code,
+        processorId: params.processor.processorId,
+        processorRunId: params.processor.processorRunId,
+        attemptCount: batch.jobAttemptCount,
+        maxAttempts: batch.jobMaxAttempts,
+      },
+      {
+        triggeredBy: { type: "USER", userId: params.userId },
+        performedBy: {
+          type: "WORKER",
+          label: AUDIT_ACTOR_LABELS.exportWorker,
+          processorId: params.processor.processorId,
+          processorRunId: params.processor.processorRunId,
+        },
+      },
+    ),
   });
 
   return { exportId: params.exportId, target: params.target, status, errorCode: code };
@@ -348,12 +359,23 @@ export async function processDueExportJobsForUser(params: {
     action: "EXPORT_JOB_DUE_PROCESS_COMPLETED",
     entity: "ExportBatch",
     actorId: params.userId,
-    details: {
-      ...summary,
-      requestedMaxJobs: maxJobs,
-      recoverStale,
-      exportIds: results.map((result) => result.exportId),
-    },
+    details: withAuditActorContext(
+      {
+        ...summary,
+        requestedMaxJobs: maxJobs,
+        recoverStale,
+        exportIds: results.map((result) => result.exportId),
+      },
+      {
+        triggeredBy: { type: "USER", userId: params.userId },
+        performedBy: {
+          type: "WORKER",
+          label: AUDIT_ACTOR_LABELS.exportWorker,
+          processorId: processor.processorId,
+          processorRunId: processor.processorRunId,
+        },
+      },
+    ),
   });
 
   return { ...summary, results };

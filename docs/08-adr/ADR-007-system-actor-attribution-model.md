@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for RB-115.
+Accepted for RB-115. RB-115-A implements the current structured audit-details representation.
 
 ## Context
 
@@ -68,6 +68,38 @@ For current trial workflows:
 
 Do not introduce reserved system `User` rows now. Do not introduce a broad `Actor` table now. Future migrations may add explicit fields or a normalized actor table if audit queries, scheduled automation, or external integrations require it.
 
+## RB-115-A Implementation
+
+RB-115-A keeps `AuditLog.actorId` as the backwards-compatible primary authenticated user/operator reference and stores structured actor context in `AuditLog.details.actorContext` for worker and operator paths that need separate trigger and performer attribution.
+
+The current structured shape is:
+
+```json
+{
+  "actorContext": {
+    "triggeredBy": {
+      "type": "USER",
+      "userId": "..."
+    },
+    "performedBy": {
+      "type": "WORKER",
+      "label": "export-worker",
+      "processorId": "...",
+      "processorRunId": "..."
+    }
+  }
+}
+```
+
+Canonical actor types are `USER`, `OPERATOR`, `SYSTEM`, `WORKER`, and `EXTERNAL_SYSTEM`. Current canonical performer labels are `export-worker`, `prediction-import-worker`, and `storage-cleanup`. Actor context must not contain passwords, tokens, signed URLs, raw headers, cookies, or other secrets.
+
+Implementation evidence:
+
+- `src/server/domain/audit.ts` defines the canonical actor types, labels, validation helper, and `details.actorContext` merge helper.
+- `src/server/domain/exportJobs.ts` records export-job processing actor context.
+- `src/server/domain/predictionImportBatches.ts` records prediction-import worker actor context.
+- `src/server/domain/storageCleanup.ts` records cleanup operator actor context.
+
 ## Existing Row Compatibility
 
 Accept as-is for the customer trial:
@@ -103,7 +135,7 @@ RB-116 should classify each mutation path by one of these attribution mechanisms
 
 ## Follow-Up Plan
 
-- RB-115-A should add explicit audit actor context fields or structured details for `triggeredBy`, `performedBy`, actor type, and actor label.
+- RB-115-A adds structured `AuditLog.details.actorContext` for `triggeredBy`, `performedBy`, actor type, actor label, and worker processor metadata.
 - RB-115-B should add unattended worker actor context for scheduled export, prediction-import, and cleanup worker operation.
 - RB-115-C should define the external-system actor/provenance contract required before SaPen Core handoff implementation.
 
