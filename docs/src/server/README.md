@@ -86,6 +86,7 @@
 - Correction task services rank and route prediction correction work only; they do not create approved human artifacts or mark predictions export-ready.
 - Assisted correction services create draft human correction artifact versions only; review/approval is still required before export.
 - Prediction-analysis export services are QA/debug services only; they mark predictions as proposals, keep prediction/human paths separate, store metrics as evaluation metadata only, and do not change training export eligibility.
+- Review and export services must continue to write rows matching RB-109 DB constraints: review decisions target exactly one supported version family, and current `ExportItem.role` rows match the documented role/reference matrix. Export target selection, package path semantics, and cross-table lineage validation remain service-layer responsibilities.
 - Slice BBox services create crop-planning proposal versions only. They validate source-image pixel bounds, append replacement/deletion versions, and do not create support masks or export-ready ground truth.
 - Image-level BBox confirmation records workflow intent only. It snapshots active BBox version ids, does not approve BBoxes as ground truth, and becomes `NEEDS_UPDATE` after confirmed BBox edits.
 - Slice crop services generate private derived PNG crops from current active BBox versions only. They clamp configurable padding to source-image bounds, record requested/applied padding separately, store `CROP_PIXEL` transform metadata, and do not create support geometry.

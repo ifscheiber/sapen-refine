@@ -22,6 +22,7 @@
 - `prisma/migrations/20260523123000_slice_classification_semantic_derivation/migration.sql` - RB-090 slice-classification source/reason and semantic/support/crop lineage persistence.
 - `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 crop training export target and `ExportItem.derivedCropId` provenance links.
 - `prisma/migrations/20260523153000_image_crop_workflow_state/migration.sql` - RB-094 image-level BBox set confirmation workflow state.
+- `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql` - RB-109 review/export DB check constraints and migration preflight checks.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -38,6 +39,8 @@
 - Raw images and mask versions must remain attributable and integrity-checked before database commit where practical.
 - Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, and exact version references.
 - Append-only version numbers for `AnnotationArtifactVersion`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, and `SliceClassificationVersion` are allocated by application writers under RB-107 PostgreSQL transaction advisory locks, with the existing unique constraints acting as a final guard.
+- `ReviewDecision` rows have a DB-enforced exact-one-target check: exactly one of `artifactVersionId` or `sliceClassificationVersionId` must be present.
+- Current stable `ExportItem.role` values have DB-enforced reference-shape checks for image, full-image artifact/classification, crop, prediction proposal, correction reference, and approved-reference rows. The role/reference matrix is documented in `docs/prisma/schema.md`; unknown future roles remain unconstrained until their semantics are explicitly modeled.
 - Model predictions remain provenance/proposal records until a human creates and approves separate ground-truth artifact or classification versions.
 - `AuthLoginThrottle` stores hashed login failure buckets only; it must not store raw email or IP values.
 - `PredictionImportBatchItem` leases are for single-host trial background import processing only. `SUCCEEDED` items are terminal and must not be reprocessed into duplicate prediction artifacts.
@@ -49,6 +52,7 @@
 - Crop semantic masks are crop-scoped `SEMANTIC_MASK` artifact versions. `AnnotationArtifactVersion.supportMaskVersionId` references the exact crop support-mask version used as the editing constraint, and `cropSemanticMode` records whether the crop semantic draft is `SAP_HEARTWOOD` or `COPPER`.
 - Auto-derived crop classifications are draft `SliceClassificationVersion` rows with `source = AUTO_FROM_SEMANTIC_MASK`, a stable derivation reason, and links to the source semantic mask, support mask, and crop. Manual crop overrides append separate `source = MANUAL` rows.
 - `ExportTarget.CROP_TRAINING` records RB-091 crop ground-truth packages. `ExportItem.derivedCropId` links crop package rows back to the exact `DerivedSliceCrop` used for original image, crop PNG, crop support-mask, crop semantic-mask, and crop classification roles.
+- `ExportItem.predictionProvenanceId` is required for constrained prediction-analysis item roles except the shared `image` role, where it remains optional because full-image training exports and prediction-analysis exports both use that role.
 
 ## Known Gaps
 

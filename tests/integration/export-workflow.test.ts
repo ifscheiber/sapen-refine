@@ -524,16 +524,40 @@ describe("training export workflow", () => {
         imageId: true,
         artifactVersionId: true,
         sliceClassificationVersionId: true,
+        predictionProvenanceId: true,
+        derivedCropId: true,
       },
     });
     expect(persistedItems).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ role: "image", imageId }),
-        expect.objectContaining({ role: "semantic-mask", artifactVersionId: semanticVersionId }),
-        expect.objectContaining({ role: "support-mask", artifactVersionId: supportVersionId }),
+        expect.objectContaining({
+          role: "image",
+          imageId,
+          artifactVersionId: null,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
+          derivedCropId: null,
+        }),
+        expect.objectContaining({
+          role: "semantic-mask",
+          artifactVersionId: semanticVersionId,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
+          derivedCropId: null,
+        }),
+        expect.objectContaining({
+          role: "support-mask",
+          artifactVersionId: supportVersionId,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
+          derivedCropId: null,
+        }),
         expect.objectContaining({
           role: "slice-classification",
+          artifactVersionId: null,
           sliceClassificationVersionId: classificationVersionId,
+          predictionProvenanceId: null,
+          derivedCropId: null,
         }),
       ]),
     );
@@ -616,26 +640,45 @@ describe("training export workflow", () => {
         imageId: true,
         artifactVersionId: true,
         sliceClassificationVersionId: true,
+        predictionProvenanceId: true,
         derivedCropId: true,
       },
     });
     expect(persistedItems).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ role: "original-image", derivedCropId: crop.id }),
-        expect.objectContaining({ role: "derived-crop", derivedCropId: crop.id }),
+        expect.objectContaining({
+          role: "original-image",
+          artifactVersionId: null,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
+          derivedCropId: crop.id,
+        }),
+        expect.objectContaining({
+          role: "derived-crop",
+          artifactVersionId: null,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
+          derivedCropId: crop.id,
+        }),
         expect.objectContaining({
           role: "crop-support-mask",
           artifactVersionId: supportVersionId,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
           derivedCropId: crop.id,
         }),
         expect.objectContaining({
           role: "crop-semantic-mask",
           artifactVersionId: semanticVersionId,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: null,
           derivedCropId: crop.id,
         }),
         expect.objectContaining({
           role: "crop-slice-classification",
+          artifactVersionId: null,
           sliceClassificationVersionId: classificationVersionId,
+          predictionProvenanceId: null,
           derivedCropId: crop.id,
         }),
       ]),

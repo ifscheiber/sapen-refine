@@ -19,7 +19,7 @@ Use the combined report plus verification report as the planning baseline. The o
 2. [RB-106 - Protected API Error Contract Completion](done/RB-106-protected-api-error-contract-completion-optimized.md) - completed
 3. [RB-108 - Root Architecture Current-Flow Drift](done/RB-108-root-architecture-current-flow-drift-optimized.md) - completed
 4. [RB-107 - Safe Version Allocation Concurrency Hardening](done/RB-107-safe-version-allocation-concurrency-hardening-optimized.md) - completed
-5. [RB-109 - DB Constraint Hardening For Review And Export Integrity](RB-109-db-constraint-hardening-review-export-integrity.md)
+5. [RB-109 - DB Constraint Hardening For Review And Export Integrity](done/RB-109-db-constraint-hardening-review-export-integrity-optimized.md) - completed
 6. [RB-111 - High-Cost Write Rate Limits And Trial Caps](RB-111-high-cost-write-rate-limits-and-trial-caps.md)
 7. [RB-112 - Async And Streaming Export Job Hardening](RB-112-async-streaming-export-job-hardening.md)
 8. [RB-113 - Real iPad Safari Trial Gate Execution](RB-113-real-ipad-safari-trial-gate-execution.md)

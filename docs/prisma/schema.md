@@ -20,6 +20,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260523123000_slice_classification_semantic_derivation/migration.sql` - RB-090 classification source, derivation reason, and crop semantic/support/crop lineage links.
 - `prisma/migrations/20260523133000_crop_training_export_contract/migration.sql` - RB-091 `ExportTarget.CROP_TRAINING` and `ExportItem.derivedCropId` links for crop package provenance.
 - `prisma/migrations/20260523153000_image_crop_workflow_state/migration.sql` - RB-094 `ImageCropWorkflowState` and `ImageCropBBoxSetStatus` for image-level BBox set confirmation.
+- `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql` - RB-109 DB check constraints for review decision targets and current export item role/reference shapes.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -58,7 +59,23 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - Crop support masks are `SLICE_SUPPORT_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, support-only bytes, and explicit crop/slice lineage. They define support geometry for the selected crop; crop padding itself remains non-geometry.
 - Crop semantic masks are `SEMANTIC_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, mode-specific semantic bytes, explicit crop/slice lineage, and exact support-mask lineage. They do not define support geometry.
 - `ExportTarget.CROP_TRAINING` is the RB-091 ground-truth crop package target. `ExportItem.derivedCropId` links each original-image, derived-crop, crop support-mask, crop semantic-mask, and crop classification export row to the exact `DerivedSliceCrop`.
-- `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; the exact-one-target invariant is enforced by `src/server/domain/review.ts`.
+- `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; `ReviewDecision_exactly_one_target_chk` enforces exactly one target at the database layer.
+- `ExportItem` stores exact persisted package references. RB-109 adds DB checks for the current stable roles while leaving unknown future role strings unconstrained until they have an explicit contract.
+- Current DB-enforced `ExportItem.role` matrix:
+
+| Role(s) | Required references | Optional references | Forbidden references | Meaning |
+| --- | --- | --- | --- | --- |
+| `image` | `imageId` | `predictionProvenanceId` | `artifactVersionId`, `sliceClassificationVersionId`, `derivedCropId` | Full-image training input or prediction-analysis source image. |
+| `semantic-mask`, `support-mask` | `imageId`, `artifactVersionId` | none | `sliceClassificationVersionId`, `predictionProvenanceId`, `derivedCropId` | Full-image approved training artifact. |
+| `slice-classification` | `imageId`, `sliceClassificationVersionId` | none | `artifactVersionId`, `predictionProvenanceId`, `derivedCropId` | Full-image slice classification export row. |
+| `original-image`, `derived-crop` | `imageId`, `derivedCropId` | none | `artifactVersionId`, `sliceClassificationVersionId`, `predictionProvenanceId` | Crop-training source image and generated crop asset rows. |
+| `crop-semantic-mask`, `crop-support-mask` | `imageId`, `artifactVersionId`, `derivedCropId` | none | `sliceClassificationVersionId`, `predictionProvenanceId` | Crop-scoped approved artifact rows. |
+| `crop-slice-classification` | `imageId`, `sliceClassificationVersionId`, `derivedCropId` | none | `artifactVersionId`, `predictionProvenanceId` | Crop-training classification row. |
+| `prediction-proposal` | `imageId`, `predictionProvenanceId` | `artifactVersionId` | `sliceClassificationVersionId`, `derivedCropId` | Prediction-analysis proposal; classification proposals can be manifest-only without artifact bytes. |
+| `human-correction-reference` | `imageId`, `artifactVersionId`, `predictionProvenanceId` | none | `sliceClassificationVersionId`, `derivedCropId` | Prediction-analysis human correction artifact reference. |
+| `approved-ground-truth-reference` | `imageId`, exactly one of `artifactVersionId` or `sliceClassificationVersionId`, `predictionProvenanceId` | none | `derivedCropId` | Prediction-analysis approved human reference. |
+
+- Export selection semantics, target compatibility, manifest fields, package paths, and cross-table lineage such as artifact kind or prediction target type remain enforced by `src/server/domain/exports.ts` and `src/server/domain/predictionAnalysisExports.ts`, not by DB checks.
 - Current image writes persist `ImageValidationStatus.VALIDATED` only after server-side PNG/JPEG validation and object stat verification.
 - Current mask writes persist `AnnotationArtifactVersion` checksum, byte size, dimensions, `u8raw-v1` format, and `IMAGE_PIXEL` coordinate space after validation.
 - `PredictionRun` is project-scoped and references exactly one `ModelRun`.

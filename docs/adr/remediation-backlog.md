@@ -58,19 +58,19 @@ Owner: Codex.
 
 Priority: Resolved by RB-108.
 
-## RB-109 - DB Constraint Hardening For Review And Export Integrity
+## RB-109 - DB Constraint Hardening For Review And Export Integrity (Resolved)
 
 Context: The 2026-05-23 combined deep review verified that several important persisted invariants are enforced by service code but not by the database. `ReviewDecision` allows nullable `artifactVersionId` and nullable `sliceClassificationVersionId` without a DB check that exactly one target is present. `ExportItem` stores nullable references plus a free-text `role`, while domain code controls valid role/reference combinations.
 
 Impact: Current application paths are disciplined, but future scripts, migrations, manual maintenance, or new route handlers could create ambiguous review/export rows. Ambiguous records weaken auditability and export reproducibility and are harder to repair after customer data exists.
 
-Proposed next step: Add low-risk raw SQL constraints where Prisma cannot express them directly. Start with an exact-one-target `ReviewDecision` check constraint, then add export item role/reference constraints or introduce a typed export item role enum. Cover invalid inserts with focused DB integration tests and update persisted-domain documentation.
+Resolution: Implemented by RB-109 optimized ticket. `ReviewDecision` now has a PostgreSQL exact-one-target check constraint, and current stable `ExportItem.role` values have named role/reference shape constraints backed by migration preflight checks. The role/reference matrix is documented in the Prisma schema docs, while target compatibility and cross-table lineage semantics remain in the export service layer.
 
-Affected modules: `prisma/schema.prisma`, future Prisma migrations, `src/server/domain/review.ts`, `src/server/domain/exports.ts`, export/review integration tests, and `docs/prisma/README.md`.
+Affected modules: Prisma migrations, `docs/prisma/README.md`, `docs/prisma/schema.md`, `src/server/domain/review.ts`, `src/server/domain/exports.ts`, `src/server/domain/predictionAnalysisExports.ts`, and export/review DB integration tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P2.
+Priority: Resolved by RB-109.
 
 ## RB-110 - External Handoff Archive Validation
 

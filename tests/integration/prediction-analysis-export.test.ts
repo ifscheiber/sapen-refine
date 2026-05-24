@@ -425,22 +425,48 @@ describe("prediction analysis export workflow", () => {
 
     const persistedItems = await prisma.exportItem.findMany({
       where: { exportBatchId: exportBatch.id },
-      select: { role: true, predictionProvenanceId: true, artifactVersionId: true },
+      select: {
+        role: true,
+        imageId: true,
+        predictionProvenanceId: true,
+        artifactVersionId: true,
+        sliceClassificationVersionId: true,
+        derivedCropId: true,
+      },
     });
     expect(persistedItems).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          role: "image",
+          imageId,
+          artifactVersionId: null,
+          sliceClassificationVersionId: null,
+          predictionProvenanceId: imported.predictionProvenanceId,
+          derivedCropId: null,
+        }),
+        expect.objectContaining({
           role: "prediction-proposal",
+          imageId,
           predictionProvenanceId: imported.predictionProvenanceId,
           artifactVersionId: imported.artifactVersionId,
+          sliceClassificationVersionId: null,
+          derivedCropId: null,
         }),
         expect.objectContaining({
           role: "human-correction-reference",
+          imageId,
+          predictionProvenanceId: imported.predictionProvenanceId,
           artifactVersionId: humanReference.correctionVersionId,
+          sliceClassificationVersionId: null,
+          derivedCropId: null,
         }),
         expect.objectContaining({
           role: "approved-ground-truth-reference",
+          imageId,
+          predictionProvenanceId: imported.predictionProvenanceId,
           artifactVersionId: humanReference.approvedVersionId,
+          sliceClassificationVersionId: null,
+          derivedCropId: null,
         }),
       ]),
     );
