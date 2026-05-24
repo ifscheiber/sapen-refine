@@ -67,6 +67,8 @@ RB-066 adds storage-cleanup audit events for dry-run summaries, execute summarie
 
 RB-115-A adds the concrete structured representation for these mixed human/worker audit events. `AuditLog.actorId` remains the backwards-compatible primary user/operator reference. Worker and operator paths that need split attribution add `details.actorContext` with `triggeredBy` and `performedBy` objects. Canonical actor types are `USER`, `OPERATOR`, `SYSTEM`, `WORKER`, and `EXTERNAL_SYSTEM`; current labels are `export-worker`, `prediction-import-worker`, and `storage-cleanup`. Actor context must not include secrets, passwords, tokens, signed URLs, raw headers, or cookies.
 
+RB-116 adds `docs/testing/audit-coverage-matrix.md` as the current mutation attribution matrix and `tests/unit/audit-coverage-matrix.test.ts` as the guard. New API mutation methods must be classified in the matrix before the test suite passes. The matrix also classifies operational scripts and high-cost rate-limit bucket writes.
+
 ## Deferred
 
 Audit UI, full user-management workflows, cleanup UI, unattended worker system actors, and external-system/Core handoff provenance remain deferred. RB-065/RB-112 use named owner/QA job accounts plus non-secret processor metadata for the single-host trial worker paths; RB-066/RB-114 use a named admin account for cleanup and consistency reporting. RB-115-A supplies structured actor context for the current worker/operator audit rows without changing the `AuditLog` schema.

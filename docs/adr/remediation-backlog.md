@@ -132,6 +132,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-115; follow-ups are P2 before broader unattended automation/Core handoff.
 
+## RB-116 - Audit Coverage Matrix And Guard (Resolved)
+
+Context: New mutation routes and operational entrypoints could be added without classifying their durable audit mechanism, system actor context, or explicit exemption.
+
+Impact: Audit coverage could regress silently as export workers, prediction imports, cleanup operations, and admin scripts evolve.
+
+Resolution: Implemented by RB-116 optimized ticket. `docs/testing/audit-coverage-matrix.md` now classifies current API mutation methods, operational scripts, worker processor entrypoints, and high-cost rate-limit bucket writes. `tests/unit/audit-coverage-matrix.test.ts` scans API route exports and fails when a mutation method is missing from the matrix.
+
+Remaining follow-up: RB-116-A should add explicit operator attribution for trial bootstrap and trial-user scripts before those scripts are used as production operational tooling. RB-115-B and RB-115-C remain the broader unattended-worker and external-system provenance follow-ups.
+
+Affected modules: `docs/testing/audit-coverage-matrix.md`, `tests/unit/audit-coverage-matrix.test.ts`, audit/RBAC docs, ticket README, and current operational scripts.
+
+Owner: Codex.
+
+Priority: Resolved by RB-116; RB-116-A is P3 before production operations use of bootstrap scripts.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.

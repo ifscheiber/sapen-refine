@@ -116,7 +116,7 @@ Require follow-up before broader automation:
 
 ## RB-116 Classification Basis
 
-RB-116 should classify each mutation path by one of these attribution mechanisms:
+RB-116 classifies mutation paths in `docs/testing/audit-coverage-matrix.md` using these attribution mechanisms:
 
 - `human-user-domain-row` - append-only domain row with a non-null human user FK.
 - `human-user-audit-log` - explicit `AuditLog.actorId` tied to a named user.
