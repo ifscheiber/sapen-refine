@@ -25,7 +25,7 @@ Use the combined report plus verification report as the planning baseline. The o
 8. [RB-113 - Real iPad Safari Trial Gate Execution](RB-113-real-ipad-safari-trial-gate-execution-optimized-post-RB112.md)
 9. [RB-110 - External Handoff Archive Validation](done/RB-110-external-handoff-archive-validation-optimized-post-RB109.md) - completed
 10. [RB-114 - Storage/DB Consistency Operations Hardening](done/RB-114-storage-db-consistency-operations-hardening-optimized-post-RB112.md) - completed
-11. [RB-115 - System Actor Attribution Model ADR](RB-115-system-actor-attribution-model-adr.md)
+11. [RB-115 - System Actor Attribution Model ADR](done/RB-115-system-actor-attribution-model-adr-optimized-post-RB114.md) - completed
 12. [RB-116 - Audit Coverage Matrix And Guard](RB-116-audit-coverage-matrix-and-guard.md)
 13. [RB-117 - CLI Secret Handling Password Flag Deprecation](RB-117-cli-secret-handling-password-flag-deprecation.md)
 14. [RB-118 - Upload Content Safety Hardening Design](RB-118-upload-content-safety-hardening-design.md)
@@ -39,6 +39,12 @@ Use the combined report plus verification report as the planning baseline. The o
 - RB-108 is documentation-only but should happen early because `ARCHITECTURE.md` is the agent/contributor entry point.
 - RB-107 should precede DB constraint work because it fixes live write behavior rather than only rejecting invalid rows.
 - RB-113 remains a real-device manual gate and must not be marked complete without actual iPad Safari evidence.
+
+## RB-115 Follow-Ups
+
+- [RB-115-A - Audit Actor Context Fields](RB-115-A-audit-actor-context-fields.md)
+- [RB-115-B - Unattended Worker Actor Context](RB-115-B-unattended-worker-actor-context.md)
+- [RB-115-C - Core Handoff Actor Provenance Contract](RB-115-C-core-handoff-actor-provenance-contract.md)
 
 ## Completion Protocol
 

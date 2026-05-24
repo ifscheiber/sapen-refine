@@ -19,6 +19,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Model preprediction/active-learning ADR: [08-adr/ADR-004-model-preprediction-active-learning.md](08-adr/ADR-004-model-preprediction-active-learning.md)
 - Crop-based slice annotation ADR: [08-adr/ADR-005-crop-based-slice-annotation.md](08-adr/ADR-005-crop-based-slice-annotation.md)
 - Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
+- System actor attribution ADR: [08-adr/ADR-007-system-actor-attribution-model.md](08-adr/ADR-007-system-actor-attribution-model.md)
 
 ## Module Docs
 
@@ -42,6 +43,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Training export contract: [06-data/training-export-contract.md](06-data/training-export-contract.md)
 - Crop-based slice annotation: [06-data/crop-based-slice-annotation.md](06-data/crop-based-slice-annotation.md)
 - Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
+- System actor attribution ADR: [08-adr/ADR-007-system-actor-attribution-model.md](08-adr/ADR-007-system-actor-attribution-model.md)
 - Coordinate spaces and transforms: [06-data/coordinate-spaces-and-transforms.md](06-data/coordinate-spaces-and-transforms.md)
 - Prediction analysis export contract: [06-data/prediction-analysis-export-contract.md](06-data/prediction-analysis-export-contract.md)
 - Prediction QA metrics contract: [06-data/prediction-qa-metrics-contract.md](06-data/prediction-qa-metrics-contract.md)

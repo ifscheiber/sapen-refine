@@ -63,8 +63,8 @@ RB-064 adds audit coverage for:
 
 Existing RB-055 through RB-061 coverage remains in place for image upload acceptance/rejection, semantic/support mask commits, export creation/download, prediction imports, correction-task updates, assisted corrections, and prediction batch processing. RB-065 extends prediction batch processing audit details with `processorId`, `processorRunId`, item claim/success/failure/retry events, stale recovery events, and due-batch worker pass summaries.
 
-RB-066 adds storage-cleanup audit events for dry-run summaries, execute summaries, per-object deletion, skipped objects, and deletion failures. Cleanup requires a named global `ADMIN` account so temporary-object purge actions remain attributable.
+RB-066 adds storage-cleanup audit events for dry-run summaries, execute summaries, per-object deletion, skipped objects, and deletion failures. Cleanup requires a named global `ADMIN` account so temporary-object purge actions remain attributable. RB-115 defines the current system actor model: current operator and worker scripts are attributed to authenticated named users as `triggeredBy`, while `processorId` and `processorRunId` are non-secret `performedBy` execution metadata rather than authenticated principals.
 
 ## Deferred
 
-Audit UI, general API write rate limiting, full user-management workflows, cleanup UI, and dedicated system-actor login semantics remain deferred. RB-065 uses a named owner/QA job account plus non-secret processor metadata for the single-host trial worker path; RB-066 uses a named admin account for cleanup.
+Audit UI, full user-management workflows, cleanup UI, explicit actor-context fields, unattended worker system actors, and external-system/Core handoff provenance remain deferred. RB-065/RB-112 use named owner/QA job accounts plus non-secret processor metadata for the single-host trial worker paths; RB-066/RB-114 use a named admin account for cleanup and consistency reporting.

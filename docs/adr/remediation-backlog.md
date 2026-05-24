@@ -116,6 +116,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-112.
 
+## RB-115 - System Actor Attribution Model ADR (Resolved)
+
+Context: AGENTS.md requires production writes to be attributable to an authenticated user or explicitly identified system actor. RB-112 export jobs, RB-065 prediction import processing, and RB-114 cleanup/consistency reporting all use named authenticated users plus processor metadata, but the conceptual model was not documented.
+
+Impact: Future scheduled workers, cleanup automation, audit coverage checks, and SaPen Core handoff could otherwise drift into ambiguous `createdById = null`, processor-only, or anonymous audit patterns.
+
+Resolution: Implemented by RB-115 optimized ticket. ADR-007 adopts explicit actor-context semantics: current user foreign keys remain the request attribution, `processorId` and `processorRunId` are non-secret execution metadata, and future unattended or external-system work must add explicit `triggeredBy` / `performedBy` actor context before production use.
+
+Remaining follow-up: RB-115-A should add concrete audit actor context fields or structured audit details, RB-115-B should add unattended worker actor context, and RB-115-C should define external-system/Core handoff provenance before Core integration.
+
+Affected modules: `docs/08-adr/ADR-007-system-actor-attribution-model.md`, auth/RBAC/audit docs, remediation backlog, RB-116 audit matrix planning, future worker scripts, and future Core handoff contracts.
+
+Owner: Codex.
+
+Priority: Resolved by RB-115; follow-ups are P2 before broader unattended automation/Core handoff.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
