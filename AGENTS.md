@@ -24,11 +24,11 @@ Primary purpose:
 - export reviewed datasets for model training.
 
 Future extensions:
-- assisted annotation from model pre-predictions,
-- uncertainty/ranking-based correction queues,
+- broader assisted annotation from model pre-predictions,
+- expanded uncertainty/ranking-based correction queues,
 - explicit Core-to-Annotate handoff workflows.
 
-Standalone Annotation Mode is the primary product mode. Core correction and pre-prediction workflows are future/secondary modes and must not distort the ground-truth data model.
+Standalone Annotation Mode is the primary product mode. Prediction import, correction tasks, assisted correction, and prediction-analysis export exist as secondary provenance-bearing workflows. Broader model assistance and SaPen Core handoff remain future/deferred integrations and must not distort the ground-truth data model.
 
 ---
 

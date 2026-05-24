@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page records the repository state after the RB-049 through RB-069 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, storage-cleanup, prediction QA metrics, editor decomposition, customer-trial handoff, trial-hardening, RB-076 local deployment dry-run, RB-077 iPad deferred-tracking, RB-085 through RB-092 crop-workflow slices, RB-094 image-level BBox workflow confirmation, RB-095 slice navigation, RB-096 selected crop workbench orchestration, and RB-097 semantic-family guardrails.
+This page records the repository state after the RB-049 through RB-069 annotation-domain, workflow, export, artifact-integrity, provenance, prediction-import, correction, prediction-analysis, batch-import, project-operations routing, auth/RBAC/audit, batch-runner hardening, storage-cleanup, prediction QA metrics, editor decomposition, customer-trial handoff, trial-hardening, RB-076 local deployment dry-run, RB-077 iPad deferred-tracking, RB-085 through RB-098 crop-workflow slices, RB-104 legacy full-image editor removal, and the RB-105 through RB-118 review-hardening sequence.
 
 ## Important Files
 
@@ -17,9 +17,11 @@ This page records the repository state after the RB-049 through RB-069 annotatio
 - `src/server/http/contentDisposition.ts` - shared safe `Content-Disposition` header helper for app-mediated image/export downloads.
 - `scripts/create-handoff-archive.mjs` - reproducible clean-worktree handoff ZIP command.
 - `scripts/trial-bootstrap.mjs` and `scripts/create-trial-user.mjs` - customer-trial bootstrap and named-user setup commands.
+- `scripts/operator-actor-context.mjs` - RB-116-A operator/system actor-context helper for trial bootstrap scripts.
 - `src/mask` - current label constants, mask buffers, serialization, patching, and overlay rendering.
 - `src/components/shell` and `src/design` - reusable workspace shell, UI primitives, design tokens, and editor canvas constants.
 - `tests/e2e/desktop-browser-smoke.spec.ts` and `tests/e2e/ipad-viewport-prep.spec.ts` - current browser smoke coverage.
+- `tests/unit/docs-link-governance.test.ts` - RB-119 local Markdown link/index guard.
 - `tickets/deferred/` - deferred manual gates and backlog tickets that are not actionable until their trigger conditions exist.
 
 ## Current Baseline
@@ -33,16 +35,17 @@ The current validation baseline is green:
 - `npm run build`
 - `npm run test`
 - `npm run test:e2e`
+- `npm run check:docs-links`
 - `npm run check:design-hardcoding`
 - `npm run handoff:archive -- --dry-run`
 
-There is no `check:docs-links` script in `package.json` yet.
+`npm run check:docs-links` checks governed local Markdown links in `AGENTS.md`, `ARCHITECTURE.md`, `docs/**/*.md`, and `tickets/2026-05-23/README.md`; links are resolved relative to the source file.
 
 ## Current Application Model
 
 - Local login uses `src/app/api/auth/login/route.ts`, `src/server/auth/session.ts`, and the `User`/`Session` tables. RB-064 adds sanitized app-relative redirects, hidden demo credentials outside dev/explicit opt-in, hashed `AuthLoginThrottle` buckets, and throttled session `lastSeenAt` writes.
 - Project membership is the current access boundary through `AnnotationProject` and `AnnotationProjectMember`; `src/server/auth/policies.ts` defines the central project/global role policy used by protected project/image/domain workflows.
-- Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes remain present but disabled with `PRESIGNED_UPLOADS_DISABLED`. Current raw image writes validate PNG/JPEG bytes, checksum, dimensions, size, and object metadata before persisting `ImageAsset`.
+- Image upload uses app-mediated trial paths in `src/app/api/projects/[projectId]/images/upload/route.ts`; legacy presign/commit routes remain present but disabled with `PRESIGNED_UPLOADS_DISABLED`. Current raw image writes validate PNG/JPEG bytes, checksum, dimensions, size, and object metadata before persisting `ImageAsset`. RB-118 documents that this is authenticated-trial integrity validation, not public upload malware/content-safety scanning.
 - Browser image reads use app-mediated routes such as `src/app/api/images/[imageId]/asset/route.ts` and `src/app/api/images/[imageId]/view/route.ts`.
 - App-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 - The legacy full-image editor route was removed by RB-104. `src/features/editor/EditorClient.tsx` remains as a shared source-image canvas for the crop BBox stage and assisted-correction route.
@@ -58,9 +61,11 @@ There is no `check:docs-links` script in `package.json` yet.
 - Prediction mask import uses `src/app/api/prediction-runs/[predictionRunId]/predictions/route.ts` to validate and store private `PREDICTION_MASK` proposal artifacts linked to `PredictionArtifactProvenance`.
 - Project operations use route-addressable pages: `/app/projects/[projectId]` for status/actions, `/images` for image work, `/tasks` for correction queues, `/exports` for training and prediction-analysis exports, and `/prediction-imports` for prediction batch imports.
 - Batch prediction import uses `src/app/api/prediction-runs/[predictionRunId]/batch-imports/route.ts`, `src/app/api/prediction-import-batches/*`, `src/server/domain/predictionImportBatches.ts`, `src/server/domain/predictionImportBatchLeases.ts`, and `/app/projects/[projectId]/prediction-imports` to create ZIP-backed DB jobs/items and process items through the RB-057 import service. RB-065 adds bounded process-due worker processing, processor identity, and stale `PROCESSING` lease recovery for prediction-import items only.
-- Storage cleanup uses `src/app/api/storage-cleanup/route.ts`, `src/server/domain/storageCleanup.ts`, and `scripts/storage-cleanup.mjs` to dry-run or execute deletion of temporary batch staging objects and identifiable abandoned presigned uploads. It requires global `ADMIN` and protects committed raw images, artifact versions, prediction artifacts, and export packages.
+- Storage cleanup uses `src/app/api/storage-cleanup/route.ts`, `src/server/domain/storageCleanup.ts`, and `scripts/storage-cleanup.mjs` to dry-run or execute deletion of temporary batch staging objects and identifiable abandoned presigned uploads. It requires global `ADMIN`, protects committed raw images, artifact versions, prediction artifacts, and export packages, and reports RB-114 storage/DB consistency findings without breaking the existing cleanup response fields.
 - Prediction-analysis QA metrics use `src/server/domain/predictionAnalysisMetrics.ts` and `src/server/domain/predictionAnalysisExports.ts` to compare semantic/support prediction artifacts against approved human references and embed metric or not-computed payloads in the QA manifest.
 - Training, crop-training, and prediction-analysis export package creation verifies object bytes against persisted checksum and size before ZIP insertion.
+- High-cost mutation families are rate limited through the RB-111 single-host DB-backed limiter; this is an operational trial guard, not a distributed quota/billing system.
+- Trial bootstrap and trial-user scripts write RB-115-A-style actor context after RB-116-A. RB-115-B and RB-115-C remain follow-ups for broader unattended worker and external/Core handoff provenance.
 - Handoff packaging uses `npm run handoff:archive` to create a ZIP from tracked files, include `handoff-manifest.json`, exclude local/private artifacts, and reject dirty worktrees unless `--allow-dirty` is explicit.
 - RB-076 verified the current single-host Compose trial path locally through [../04-server/trial-deployment-dry-run-2026-05-22.md](../04-server/trial-deployment-dry-run-2026-05-22.md). Real Strato HTTPS and iPad Safari validation remain separate gates.
 
@@ -91,8 +96,8 @@ There is no `check:docs-links` script in `package.json` yet.
 - The current schema models label schemas, annotation tasks/sessions, acquisition/sample metadata structures, review decisions, slice instances/classifications, BBox proposal versions, image-level BBox workflow state, derived crop versions, crop semantic/support lineage, semantic-derived classification provenance, export records, RB-056/RB-057 prediction provenance/import records, RB-058/RB-059 correction workflows, RB-060/RB-067 prediction-analysis exports and QA metrics, RB-061 batch prediction import jobs, RB-065 batch item processor/lease fields, and RB-066 batch staging purge markers. RB-063 adds route-addressable project operations pages without schema changes.
 - Copper masks are semantic material annotations; RB-051 adds the first separate support-mask workflow for one default slice per image.
 - RB-086 adds rough BBox proposals for candidate slices, RB-087 adds derived crop generation, RB-088 adds crop support-mask editing, RB-089 adds crop semantic annotation, RB-090 adds auto classification suggestions with manual override provenance, RB-091 adds crop training export, RB-092 adds shared crop readiness/review integration, and RB-094 adds persisted BBox set confirmation. Source-image-space crop-mask reprojection remains deferred.
-- Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. RB-067 adds export-time QA metrics without a dashboard. RB-112 adds single-host async export jobs for trial-sized packages. Malware scanning, general API write rate limiting, streaming/distributed export packaging, production-scale queue infrastructure/system actors, committed-artifact retention, cleanup dashboards, and metrics dashboards remain deferred.
-- Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate and `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md` tracks manual execution.
+- Upload and auth hardening now cover the current raw image, semantic mask, support mask, prediction import, export, login, and cross-site mutation paths. RB-065 adds an optional single-host Compose worker for batch prediction imports. RB-066 adds admin-only temporary storage cleanup without a UI. RB-067 adds export-time QA metrics without a dashboard. RB-111 adds single-host high-cost write limits, RB-112 adds single-host async export jobs for trial-sized packages, RB-114 adds storage/DB consistency reporting, RB-115 through RB-116-A harden actor/audit governance, and RB-118 documents upload content-safety prerequisites. Implemented upload quarantine/scanning/normalization, streaming/distributed export packaging, production-scale queue infrastructure/system actors, committed-artifact retention, cleanup dashboards, and metrics dashboards remain deferred.
+- Real iPad Safari validation remains deferred until deployment/device access is available; [../07-testing/manual-smoke-ipad-safari-gate.md](../07-testing/manual-smoke-ipad-safari-gate.md) is the ready-to-run gate, `tickets/deferred/RB-077-B-real-ipad-safari-trial-gate-execution.md` tracks the original manual gate, and `../../tickets/2026-05-23/RB-113-real-ipad-safari-trial-gate-execution-optimized-post-RB112.md` tracks the active post-RB-112 sprint gate. Do not mark it complete without physical iPad Safari evidence.
 - The 2026-05-21 trial-hardening sequence is documented in `tickets/2026-05-21`: RB-070 adds editor eraser UX, RB-071 covers this docs/backlog consistency hotfix, RB-072 covers route-level API auth/error contracts, RB-073 covers trial deployment hygiene, RB-074 cleans up stale client API wrappers, RB-075 covers Prisma audit/version policy, RB-082 covers missing-resource/not-found page UX, RB-076 covers the local deployment dry run, RB-077 completes iPad gate preparation/deferred tracking, and RB-077-B/RB-078 now live in `tickets/deferred/` until real device/trial evidence exists.
 
 ## Related Tickets / Docs

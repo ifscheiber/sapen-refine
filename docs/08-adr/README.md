@@ -2,7 +2,9 @@
 
 The canonical remediation backlog lives in `docs/adr`. ADR files are currently split between `docs/architecture/decisions` and this numbered `docs/08-adr` folder.
 
-This folder exists for the numbered RB-043 documentation structure and links back to:
+This folder contains the numbered current ADRs used by the implementation docs. The operational backlog entry point remains `docs/adr/remediation-backlog.md`; older historical decisions may remain under `docs/architecture/decisions/`.
+
+Current index:
 
 - `docs/adr/README.md`
 - `docs/adr/remediation-backlog.md`

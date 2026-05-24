@@ -20,6 +20,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Crop-based slice annotation ADR: [08-adr/ADR-005-crop-based-slice-annotation.md](08-adr/ADR-005-crop-based-slice-annotation.md)
 - Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
 - System actor attribution ADR: [08-adr/ADR-007-system-actor-attribution-model.md](08-adr/ADR-007-system-actor-attribution-model.md)
+- Upload content safety ADR: [08-adr/ADR-008-upload-content-safety.md](08-adr/ADR-008-upload-content-safety.md)
 
 ## Module Docs
 
@@ -44,6 +45,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Crop-based slice annotation: [06-data/crop-based-slice-annotation.md](06-data/crop-based-slice-annotation.md)
 - Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
 - System actor attribution ADR: [08-adr/ADR-007-system-actor-attribution-model.md](08-adr/ADR-007-system-actor-attribution-model.md)
+- Upload content safety ADR: [08-adr/ADR-008-upload-content-safety.md](08-adr/ADR-008-upload-content-safety.md)
 - Coordinate spaces and transforms: [06-data/coordinate-spaces-and-transforms.md](06-data/coordinate-spaces-and-transforms.md)
 - Prediction analysis export contract: [06-data/prediction-analysis-export-contract.md](06-data/prediction-analysis-export-contract.md)
 - Prediction QA metrics contract: [06-data/prediction-qa-metrics-contract.md](06-data/prediction-qa-metrics-contract.md)
@@ -76,3 +78,5 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 ## Structure Note
 
 The docs mirror the actual repository where practical. Source docs live under `docs/src/...` because implementation code lives under `src/...`; operational and architectural docs live in topic folders.
+
+Local Markdown links in this tree are resolved relative to the file that contains them. The rejected 2026-05-23 static-review claim that `docs/README.md` links to `docs/src/...` were broken must not be reintroduced; those links are valid from this file.

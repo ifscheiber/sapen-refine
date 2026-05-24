@@ -35,7 +35,7 @@ Use the combined report plus verification report as the planning baseline. The o
 18. [RB-118-C - Malware Scanner Integration](RB-118-C-malware-scanner-integration.md)
 19. [RB-118-D - Upload Rejection Audit And Cleanup](RB-118-D-upload-rejection-audit-and-cleanup.md)
 20. [RB-118-E - Reverse Proxy Upload Limit Alignment](RB-118-E-reverse-proxy-upload-limit-alignment.md)
-21. [RB-119 - Documentation Governance Polish After Deep Review](RB-119-doc-governance-polish-after-deep-review.md)
+21. [RB-119 - Documentation Governance Polish After Deep Review](done/RB-119-doc-governance-polish-after-deep-review-optimized-post-RB118.md) - completed
 22. [RB-120 - Opportunistic Large Module Decomposition](RB-120-opportunistic-large-module-decomposition.md)
 
 ## Priority Notes

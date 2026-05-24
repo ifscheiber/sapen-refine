@@ -2,7 +2,7 @@
 
 ## Status
 
-RB-069 and RB-073 prepare the repository for a real single-host customer trial handoff. RB-076 completed a local single-host Compose dry run on 2026-05-22 and verified build, migrate, trial bootstrap, named users, Caddy-routed health/readiness, desktop browser smoke, large-mask save regression, worker/cleanup commands, and backup/restore commands. Real Strato deployment, public HTTPS certificate issuance, and real iPad Safari validation remain pending until a deployed URL and device access exist.
+RB-069 and RB-073 prepare the repository for a real single-host customer trial handoff. RB-076 completed a local single-host Compose dry run on 2026-05-22 and verified build, migrate, trial bootstrap, named users, Caddy-routed health/readiness, desktop browser smoke, large-mask save regression, worker/cleanup commands, and backup/restore commands. RB-111 through RB-118 add high-cost write limits, async exports, storage/DB consistency reporting, actor/audit governance, CLI secret hygiene, and upload content-safety design. Real Strato deployment, public HTTPS certificate issuance, and real iPad Safari validation remain pending until a deployed URL and device access exist.
 
 ## Ready
 
@@ -15,6 +15,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - Docker/Compose hygiene: Docker build context excludes local/private/generated artifacts, `minio-init` no longer embeds MinIO credentials in the Compose command string, and the image includes OpenSSL for Prisma generate/migrate/runtime compatibility.
 - Header hygiene: app-mediated image/export download routes use shared `Content-Disposition` filename sanitization with ASCII fallback and UTF-8 `filename*`.
 - Dependency audit hygiene: RB-075 aligns Prisma CLI/client/adapter versions, overrides Prisma CLI's vulnerable `@hono/node-server` transitive dependency within the 1.19.x line, and brings `npm audit --json` to 0 vulnerabilities without `npm audit fix --force`.
+- Governance hygiene: RB-119 adds `npm run check:docs-links` for governed local Markdown links; RB-118 explicitly limits current upload claims to authenticated trial integrity validation, not public content-safety scanning.
 
 ## Pending Before Customer Pilot
 
@@ -30,6 +31,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - High availability, object replication, point-in-time recovery, and production monitoring.
 - Enterprise IdP or external identity provider integration.
 - Public MinIO console or S3 API exposure.
+- Public or broad untrusted uploads before the ADR-008 quarantine/scanner/normalization follow-ups are implemented.
 - GPU inference, model training orchestration, or distributed queue infrastructure.
 - Advanced iPad multi-touch zoom/pan gestures beyond current pointer-event drawing behavior.
 - Streaming/distributed export jobs or production-scale metrics dashboards.

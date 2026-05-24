@@ -11,6 +11,7 @@ This page defines the current validation baseline and the intended testing direc
 - `npm run typecheck`
 - `npm run build`
 - `npm run test`
+- `npm run check:docs-links`
 - `npm run check:design-hardcoding`
 - `npm run handoff:archive -- --dry-run` for RB-069 clean handoff packaging.
 - `npm run test:e2e` after `npm run build` when local PostgreSQL/MinIO are running and seeded.
@@ -69,6 +70,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/api-route-error-contracts.test.ts` covers RB-106 route classification and enforces `withApiErrorHandling` on every protected API route method.
 - `tests/unit/audit-coverage-matrix.test.ts` covers RB-116 audit matrix governance by scanning every API mutation route, checking known operational entrypoints, and enforcing controlled classification values from `docs/testing/audit-coverage-matrix.md`.
 - `tests/unit/cli-secret-handling.test.ts` covers RB-117 script secret precedence, file/env/stdin input, deprecated `--password` warnings without secret echo, script help output, and active docs avoiding password command arguments.
+- `tests/unit/docs-link-governance.test.ts` covers RB-119 local Markdown link governance for `AGENTS.md`, `ARCHITECTURE.md`, `docs/**/*.md`, and `tickets/2026-05-23/README.md`; it resolves links relative to the source file and intentionally ignores external URLs.
 - `tests/unit/proxy-public-paths.test.ts` covers public operational/auth/browser-asset paths, protected workspace paths, RB-072 unauthenticated API JSON `401`, RB-079 workspace path forwarding, page redirects, and same-origin guard precedence.
 - `tests/unit/workspace-redirect.test.ts` covers RB-079 workspace login `next` target preservation and fallback behavior.
 
