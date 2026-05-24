@@ -16,6 +16,11 @@ import {
   getSupportLabelValues,
   SliceWorkflowError,
 } from "@/server/domain/slices";
+import {
+  annotationArtifactVersionFamilyKey,
+  isVersionAllocationError,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 
 type CropSupportDb = typeof prisma;
 
@@ -354,63 +359,77 @@ export async function createCropSupportMaskVersionForUser(params: {
   const { labelSchemaVersionId } = await supportLabelsForProject(db, crop.projectId);
   const scopeKey = cropSupportMaskScopeKey(crop.id);
 
-  await db.$transaction(async (tx) => {
-    const artifact = await tx.annotationArtifact.upsert({
-      where: {
-        imageId_kind_scopeKey: {
-          imageId: crop.sourceImageId,
-          kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
-          scopeKey,
-        },
-      },
-      update: {},
-      create: {
-        projectId: crop.projectId,
+  await db.$transaction((tx) =>
+    withVersionAllocationLock(
+      tx,
+      annotationArtifactVersionFamilyKey({
         imageId: crop.sourceImageId,
         kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
         scopeKey,
-        createdById: params.userId,
+      }),
+      async () => {
+        const artifact = await tx.annotationArtifact.upsert({
+          where: {
+            imageId_kind_scopeKey: {
+              imageId: crop.sourceImageId,
+              kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+              scopeKey,
+            },
+          },
+          update: {},
+          create: {
+            projectId: crop.projectId,
+            imageId: crop.sourceImageId,
+            kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+            scopeKey,
+            createdById: params.userId,
+          },
+          select: { id: true },
+        });
+
+        const last = await tx.annotationArtifactVersion.findFirst({
+          where: { artifactId: artifact.id },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
+
+        const version = await tx.annotationArtifactVersion.create({
+          data: {
+            artifactId: artifact.id,
+            version: (last?.version ?? 0) + 1,
+            storageKey: params.storageKey,
+            contentType: params.contentType ?? "application/octet-stream",
+            size: params.size,
+            checksum: params.checksum ?? null,
+            width: params.width,
+            height: params.height,
+            coordinateSpace: "CROP_PIXEL",
+            coordinateTransform: cropSupportCoordinateTransform(crop),
+            format: params.format?.trim() || "u8raw-v1",
+            labelSchemaVersionId,
+            derivedCropId: crop.id,
+            sliceInstanceId: crop.sliceInstanceId,
+            createdById: params.userId,
+          },
+          select: { id: true },
+        });
+
+        await tx.sliceInstance.update({
+          where: { id: crop.sliceInstanceId },
+          data: { supportArtifactVersionId: version.id },
+        });
       },
-      select: { id: true },
-    });
-
-    const last = await tx.annotationArtifactVersion.findFirst({
-      where: { artifactId: artifact.id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
-
-    const version = await tx.annotationArtifactVersion.create({
-      data: {
-        artifactId: artifact.id,
-        version: (last?.version ?? 0) + 1,
-        storageKey: params.storageKey,
-        contentType: params.contentType ?? "application/octet-stream",
-        size: params.size,
-        checksum: params.checksum ?? null,
-        width: params.width,
-        height: params.height,
-        coordinateSpace: "CROP_PIXEL",
-        coordinateTransform: cropSupportCoordinateTransform(crop),
-        format: params.format?.trim() || "u8raw-v1",
-        labelSchemaVersionId,
-        derivedCropId: crop.id,
-        sliceInstanceId: crop.sliceInstanceId,
-        createdById: params.userId,
-      },
-      select: { id: true },
-    });
-
-    await tx.sliceInstance.update({
-      where: { id: crop.sliceInstanceId },
-      data: { supportArtifactVersionId: version.id },
-    });
-  });
+    ),
+  );
 
   return loadCropSupportMaskStateForUser(params, db);
 }
 
 export function cropSupportMaskErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof CropSupportMaskWorkflowError) {
     const status =
       error.code === "FORBIDDEN"

@@ -40,6 +40,7 @@
 - `src/server/domain/sliceClassifications.ts` - RB-090 slice-instance manual override APIs, semantic-mask classification derivation, provenance serialization, and audit events.
 - `src/server/domain/cropReadiness.ts` - RB-092 shared crop readiness resolver, crop review-action availability, sanitized readiness serialization, and crop export skip policy.
 - `src/server/http/apiErrors.ts` - RB-072 flat JSON API error helpers for auth/RBAC/domain route failures.
+- `src/server/domain/versionAllocation.ts` - RB-107 PostgreSQL advisory-lock helper for append-only artifact, crop, BBox, and classification version allocation.
 - `src/server/storage/s3.ts` - active AWS SDK S3/MinIO client setup, presign helper utilities, object writes/reads, object stat verification, best-effort deletes, and storage readiness check.
 - `src/server/domain/exportObjectIntegrity.ts` - export-time object-byte checksum/size verification before ZIP packaging.
 
@@ -67,6 +68,7 @@
 - `resolveCropWorkflowReadiness`, `resolveCropWorkflowReadinessForUser`, and `sanitizeCropWorkflowReadiness` implement the RB-092 shared crop readiness service used by crop editors, project readiness APIs, and crop-training exports.
 - `checkReadiness()` checks database and storage availability for `/api/ready`.
 - `apiError`, `apiErrorFromPayload`, `apiErrorFromUnknown`, and `withApiErrorHandling` implement the RB-072 route-level JSON error contract.
+- `withVersionAllocationLock` serializes append-only version writes by logical family key and maps version unique conflicts to `VERSION_ALLOCATION_CONFLICT`.
 
 ## Invariants And Constraints
 
@@ -77,6 +79,7 @@
 - Runtime config must not expose secrets to the client bundle.
 - Current artifact integrity checks use `sha256:<hex>` checksums, validated image dimensions, and S3/MinIO object stat checks before database commit where practical.
 - API errors use the flat `{ ok: false, error: "CODE" }` response shape for the current trial contract.
+- Append-only version writers must allocate versions inside a transaction-scoped advisory lock keyed by the logical version family before reading latest version and inserting `latest + 1`. Do not add ad hoc per-route retry loops or in-process locks for version allocation.
 - Prediction provenance/import services are proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
 - Prediction batch import services must not expose staging keys, must process items through the RB-057 import service, and must not create correction tasks or approved ground truth automatically.
 - Storage cleanup must use DB references as the deletion safety boundary and must not delete committed raw images, committed artifact versions, imported prediction artifacts, or export packages.

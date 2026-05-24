@@ -30,19 +30,19 @@ Owner: Codex.
 
 Priority: Resolved by RB-106.
 
-## RB-107 - Artifact Version Allocation Concurrency Hardening
+## RB-107 - Artifact Version Allocation Concurrency Hardening (Resolved)
 
 Context: Multiple save paths allocate artifact or classification version numbers by reading the latest version and inserting `latest + 1`. This pattern appears in full-image semantic masks, default support masks, crop support masks, crop semantic masks, slice classifications, assisted corrections, and prediction imports.
 
 Impact: Two saves for the same artifact family or slice instance can race on unique constraints such as `@@unique([artifactId, version])` and `@@unique([sliceInstanceId, version])`. One save may fail after object storage writes have occurred, causing confusing save failures and storage churn. This risk increases with multi-tab editing or multiple annotators.
 
-Proposed next step: Use a transaction-level advisory lock, atomic per-artifact/per-slice counters, or bounded retry on Prisma `P2002` for version creation. Pair this with the deferred edit-session/multi-tab warning so users can see when they are editing a stale or concurrently edited target.
+Resolution: Implemented by RB-107 optimized ticket. Append-only artifact, crop, BBox, prediction-import, assisted-correction, and slice-classification writers now use a shared PostgreSQL transaction-scoped advisory lock helper before reading the latest version and inserting the next row. Version-family conflicts normalize to stable `VERSION_ALLOCATION_CONFLICT` responses, and BBox replace/delete races return the existing `BBOX_VERSION_STALE` conflict. Remaining multi-tab UX warning is still deferred.
 
 Affected modules: `src/app/api/images/[imageId]/mask/upload`, `src/server/domain/slices.ts`, `src/server/domain/cropSupportMasks.ts`, `src/server/domain/cropSemanticMasks.ts`, `src/server/domain/sliceClassifications.ts`, `src/server/domain/assistedCorrection.ts`, `src/server/domain/predictionImport.ts`, editor save UX, and save/versioning tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1/P2.
+Priority: Resolved by RB-107.
 
 ## RB-108 - Root Architecture Current-Flow Drift (Resolved)
 

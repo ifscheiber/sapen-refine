@@ -6,6 +6,11 @@ import sharp from "sharp";
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  derivedSliceCropVersionFamilyKey,
+  isVersionAllocationError,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 import { getRuntimeConfig } from "@/server/runtime/config";
 import {
   deleteObjectBestEffort,
@@ -504,87 +509,93 @@ export async function generateCropForSliceBBox(params: {
       contentType: SLICE_CROP_CONTENT_TYPE,
     });
 
-    const created = await db.$transaction(async (tx) => {
-      const latest = await tx.derivedSliceCrop.findFirst({
-        where: { sliceInstanceId: bbox.sliceInstanceId },
-        orderBy: { version: "desc" },
-        select: { version: true },
-      });
-      const nextVersion = (latest?.version ?? 0) + 1;
-
-      const crop = await tx.derivedSliceCrop.create({
-        data: {
-          projectId: bbox.projectId,
-          sourceImageId: bbox.imageId,
-          sourceImageChecksum: sourceImage.checksum,
-          sourceImageWidth: sourceImage.width,
-          sourceImageHeight: sourceImage.height,
-          sliceInstanceId: bbox.sliceInstanceId,
-          bboxVersionId: bbox.id,
-          version: nextVersion,
-          sourceX: geometry.sourceX,
-          sourceY: geometry.sourceY,
-          sourceWidth: geometry.sourceWidth,
-          sourceHeight: geometry.sourceHeight,
-          cropX: geometry.cropX,
-          cropY: geometry.cropY,
-          cropWidth: geometry.cropWidth,
-          cropHeight: geometry.cropHeight,
-          paddingRequestedPx,
-          paddingAppliedLeftPx: geometry.paddingAppliedLeftPx,
-          paddingAppliedTopPx: geometry.paddingAppliedTopPx,
-          paddingAppliedRightPx: geometry.paddingAppliedRightPx,
-          paddingAppliedBottomPx: geometry.paddingAppliedBottomPx,
-          paddingClipped: geometry.paddingClipped,
-          coordinateSpace: "CROP_PIXEL",
-          transformToSourceJson: geometry.transformToSourceJson,
-          storageKey,
-          checksum,
-          contentType: SLICE_CROP_CONTENT_TYPE,
-          byteSize: cropPng.byteLength,
-          format: SLICE_CROP_FORMAT,
-          metadataJson: {
-            sourceContentType: sourceImage.contentType,
-            generatedFromBBoxVersion: bbox.version,
-          },
-          createdById: params.userId,
-        },
-        select: { id: true },
-      });
-      const selected = await tx.derivedSliceCrop.findUniqueOrThrow({
-        where: { id: crop.id },
-        select: cropSelect,
-      });
-
-      await recordAuditEvent(
-        {
-          action: "SLICE_CROP_GENERATED",
-          entity: "DerivedSliceCrop",
-          entityId: crop.id,
-          actorId: params.userId,
-          details: {
-            projectId: bbox.projectId,
-            imageId: bbox.imageId,
-            sliceInstanceId: bbox.sliceInstanceId,
-            bboxVersionId: bbox.id,
-            cropVersion: selected.version,
-            paddingRequestedPx,
-            paddingClipped: selected.paddingClipped,
-            sourceRect: {
-              x: selected.sourceX,
-              y: selected.sourceY,
-              width: selected.sourceWidth,
-              height: selected.sourceHeight,
-            },
-            cropDimensions: { width: selected.cropWidth, height: selected.cropHeight },
-            checksum,
-          },
-        },
+    const created = await db.$transaction((tx) =>
+      withVersionAllocationLock(
         tx,
-      );
+        derivedSliceCropVersionFamilyKey(bbox.sliceInstanceId),
+        async () => {
+          const latest = await tx.derivedSliceCrop.findFirst({
+            where: { sliceInstanceId: bbox.sliceInstanceId },
+            orderBy: { version: "desc" },
+            select: { version: true },
+          });
+          const nextVersion = (latest?.version ?? 0) + 1;
 
-      return selected;
-    });
+          const crop = await tx.derivedSliceCrop.create({
+            data: {
+              projectId: bbox.projectId,
+              sourceImageId: bbox.imageId,
+              sourceImageChecksum: sourceImage.checksum,
+              sourceImageWidth: sourceImage.width,
+              sourceImageHeight: sourceImage.height,
+              sliceInstanceId: bbox.sliceInstanceId,
+              bboxVersionId: bbox.id,
+              version: nextVersion,
+              sourceX: geometry.sourceX,
+              sourceY: geometry.sourceY,
+              sourceWidth: geometry.sourceWidth,
+              sourceHeight: geometry.sourceHeight,
+              cropX: geometry.cropX,
+              cropY: geometry.cropY,
+              cropWidth: geometry.cropWidth,
+              cropHeight: geometry.cropHeight,
+              paddingRequestedPx,
+              paddingAppliedLeftPx: geometry.paddingAppliedLeftPx,
+              paddingAppliedTopPx: geometry.paddingAppliedTopPx,
+              paddingAppliedRightPx: geometry.paddingAppliedRightPx,
+              paddingAppliedBottomPx: geometry.paddingAppliedBottomPx,
+              paddingClipped: geometry.paddingClipped,
+              coordinateSpace: "CROP_PIXEL",
+              transformToSourceJson: geometry.transformToSourceJson,
+              storageKey,
+              checksum,
+              contentType: SLICE_CROP_CONTENT_TYPE,
+              byteSize: cropPng.byteLength,
+              format: SLICE_CROP_FORMAT,
+              metadataJson: {
+                sourceContentType: sourceImage.contentType,
+                generatedFromBBoxVersion: bbox.version,
+              },
+              createdById: params.userId,
+            },
+            select: { id: true },
+          });
+          const selected = await tx.derivedSliceCrop.findUniqueOrThrow({
+            where: { id: crop.id },
+            select: cropSelect,
+          });
+
+          await recordAuditEvent(
+            {
+              action: "SLICE_CROP_GENERATED",
+              entity: "DerivedSliceCrop",
+              entityId: crop.id,
+              actorId: params.userId,
+              details: {
+                projectId: bbox.projectId,
+                imageId: bbox.imageId,
+                sliceInstanceId: bbox.sliceInstanceId,
+                bboxVersionId: bbox.id,
+                cropVersion: selected.version,
+                paddingRequestedPx,
+                paddingClipped: selected.paddingClipped,
+                sourceRect: {
+                  x: selected.sourceX,
+                  y: selected.sourceY,
+                  width: selected.sourceWidth,
+                  height: selected.sourceHeight,
+                },
+                cropDimensions: { width: selected.cropWidth, height: selected.cropHeight },
+                checksum,
+              },
+            },
+            tx,
+          );
+
+          return selected;
+        },
+      ),
+    );
 
     return serializeCrop(created);
   } catch (error) {
@@ -595,6 +606,10 @@ export async function generateCropForSliceBBox(params: {
 }
 
 export function sliceCropErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof SliceCropWorkflowError) {
     const status =
       error.code === "FORBIDDEN"

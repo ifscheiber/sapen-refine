@@ -9,6 +9,11 @@ import {
   markImageBBoxWorkflowChanged,
   serializeImageBBoxWorkflow,
 } from "@/server/domain/imageCropWorkflow";
+import {
+  isVersionAllocationError,
+  sliceBoundingBoxVersionFamilyKey,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 
 type SliceBBoxDb = PrismaClient | Prisma.TransactionClient;
 
@@ -352,72 +357,87 @@ export async function replaceSliceBoundingBoxForUser(params: {
 
   const box = validateSliceBoundingBoxInput(params.box, bbox.image);
 
-  const created = await db.$transaction(async (tx) => {
-    const next = await tx.sliceBoundingBoxVersion.create({
-      data: {
-        projectId: bbox.projectId,
-        imageId: bbox.imageId,
-        sliceInstanceId: bbox.sliceInstanceId,
-        version: bbox.version + 1,
-        x: box.x,
-        y: box.y,
-        width: box.width,
-        height: box.height,
-        coordinateSpace: "SOURCE_IMAGE_PIXEL",
-        provenance: "HUMAN_ANNOTATION",
-        createdById: params.userId,
-        metadataJson: { replacesBBoxVersionId: bbox.id },
-      },
-      select: {
-        id: true,
-        sliceInstanceId: true,
-        version: true,
-        status: true,
-        x: true,
-        y: true,
-        width: true,
-        height: true,
-        coordinateSpace: true,
-        provenance: true,
-        createdAt: true,
-        createdBy: { select: { id: true, email: true, name: true } },
-      },
-    });
+  const created = await db.$transaction((tx) =>
+    withVersionAllocationLock(
+      tx,
+      sliceBoundingBoxVersionFamilyKey(bbox.sliceInstanceId),
+      async () => {
+        const latest = await tx.sliceBoundingBoxVersion.findFirst({
+          where: { sliceInstanceId: bbox.sliceInstanceId },
+          orderBy: { version: "desc" },
+          select: { id: true, version: true, status: true },
+        });
+        if (!latest || latest.id !== bbox.id || latest.status !== "ACTIVE") {
+          throw new SliceBoundingBoxWorkflowError("BBOX_VERSION_STALE");
+        }
 
-    await tx.sliceInstance.update({
-      where: { id: bbox.sliceInstanceId },
-      data: { boundingBox: currentBoundingBoxSummary(next) },
-    });
+        const next = await tx.sliceBoundingBoxVersion.create({
+          data: {
+            projectId: bbox.projectId,
+            imageId: bbox.imageId,
+            sliceInstanceId: bbox.sliceInstanceId,
+            version: latest.version + 1,
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            coordinateSpace: "SOURCE_IMAGE_PIXEL",
+            provenance: "HUMAN_ANNOTATION",
+            createdById: params.userId,
+            metadataJson: { replacesBBoxVersionId: bbox.id },
+          },
+          select: {
+            id: true,
+            sliceInstanceId: true,
+            version: true,
+            status: true,
+            x: true,
+            y: true,
+            width: true,
+            height: true,
+            coordinateSpace: true,
+            provenance: true,
+            createdAt: true,
+            createdBy: { select: { id: true, email: true, name: true } },
+          },
+        });
 
-    await markImageBBoxWorkflowChanged({
-      db: tx,
-      projectId: bbox.projectId,
-      imageId: bbox.imageId,
-      bboxVersionId: next.id,
-      actorId: params.userId,
-    });
+        await tx.sliceInstance.update({
+          where: { id: bbox.sliceInstanceId },
+          data: { boundingBox: currentBoundingBoxSummary(next) },
+        });
 
-    await recordAuditEvent(
-      {
-        action: "SLICE_BBOX_REPLACED",
-        entity: "SliceBoundingBoxVersion",
-        entityId: next.id,
-        actorId: params.userId,
-        details: {
+        await markImageBBoxWorkflowChanged({
+          db: tx,
           projectId: bbox.projectId,
           imageId: bbox.imageId,
-          sliceInstanceId: bbox.sliceInstanceId,
-          previousBBoxVersionId: bbox.id,
-          version: next.version,
-          box,
-          coordinateSpace: next.coordinateSpace,
-        },
-      },
-      tx,
-    );
+          bboxVersionId: next.id,
+          actorId: params.userId,
+        });
 
-    return next;
-  });
+        await recordAuditEvent(
+          {
+            action: "SLICE_BBOX_REPLACED",
+            entity: "SliceBoundingBoxVersion",
+            entityId: next.id,
+            actorId: params.userId,
+            details: {
+              projectId: bbox.projectId,
+              imageId: bbox.imageId,
+              sliceInstanceId: bbox.sliceInstanceId,
+              previousBBoxVersionId: bbox.id,
+              version: next.version,
+              box,
+              coordinateSpace: next.coordinateSpace,
+            },
+          },
+          tx,
+        );
+
+        return next;
+      },
+    ),
+  );
 
   return serializeBBox(created);
 }
@@ -430,71 +450,86 @@ export async function deleteSliceBoundingBoxForUser(params: {
   if (!canEdit(membership.role)) throw new SliceBoundingBoxWorkflowError("FORBIDDEN");
   await assertLatestVersion(db, bbox);
 
-  const deleted = await db.$transaction(async (tx) => {
-    const next = await tx.sliceBoundingBoxVersion.create({
-      data: {
-        projectId: bbox.projectId,
-        imageId: bbox.imageId,
-        sliceInstanceId: bbox.sliceInstanceId,
-        version: bbox.version + 1,
-        status: "DELETED",
-        x: bbox.x,
-        y: bbox.y,
-        width: bbox.width,
-        height: bbox.height,
-        coordinateSpace: "SOURCE_IMAGE_PIXEL",
-        provenance: "HUMAN_ANNOTATION",
-        createdById: params.userId,
-        metadataJson: { deletesBBoxVersionId: bbox.id },
-      },
-      select: {
-        id: true,
-        sliceInstanceId: true,
-        version: true,
-        status: true,
-        x: true,
-        y: true,
-        width: true,
-        height: true,
-        coordinateSpace: true,
-        provenance: true,
-        createdAt: true,
-        createdBy: { select: { id: true, email: true, name: true } },
-      },
-    });
+  const deleted = await db.$transaction((tx) =>
+    withVersionAllocationLock(
+      tx,
+      sliceBoundingBoxVersionFamilyKey(bbox.sliceInstanceId),
+      async () => {
+        const latest = await tx.sliceBoundingBoxVersion.findFirst({
+          where: { sliceInstanceId: bbox.sliceInstanceId },
+          orderBy: { version: "desc" },
+          select: { id: true, version: true, status: true },
+        });
+        if (!latest || latest.id !== bbox.id || latest.status !== "ACTIVE") {
+          throw new SliceBoundingBoxWorkflowError("BBOX_VERSION_STALE");
+        }
 
-    await tx.sliceInstance.update({
-      where: { id: bbox.sliceInstanceId },
-      data: { boundingBox: Prisma.JsonNull },
-    });
+        const next = await tx.sliceBoundingBoxVersion.create({
+          data: {
+            projectId: bbox.projectId,
+            imageId: bbox.imageId,
+            sliceInstanceId: bbox.sliceInstanceId,
+            version: latest.version + 1,
+            status: "DELETED",
+            x: bbox.x,
+            y: bbox.y,
+            width: bbox.width,
+            height: bbox.height,
+            coordinateSpace: "SOURCE_IMAGE_PIXEL",
+            provenance: "HUMAN_ANNOTATION",
+            createdById: params.userId,
+            metadataJson: { deletesBBoxVersionId: bbox.id },
+          },
+          select: {
+            id: true,
+            sliceInstanceId: true,
+            version: true,
+            status: true,
+            x: true,
+            y: true,
+            width: true,
+            height: true,
+            coordinateSpace: true,
+            provenance: true,
+            createdAt: true,
+            createdBy: { select: { id: true, email: true, name: true } },
+          },
+        });
 
-    await markImageBBoxWorkflowChanged({
-      db: tx,
-      projectId: bbox.projectId,
-      imageId: bbox.imageId,
-      bboxVersionId: next.id,
-      actorId: params.userId,
-    });
+        await tx.sliceInstance.update({
+          where: { id: bbox.sliceInstanceId },
+          data: { boundingBox: Prisma.JsonNull },
+        });
 
-    await recordAuditEvent(
-      {
-        action: "SLICE_BBOX_DELETED",
-        entity: "SliceBoundingBoxVersion",
-        entityId: next.id,
-        actorId: params.userId,
-        details: {
+        await markImageBBoxWorkflowChanged({
+          db: tx,
           projectId: bbox.projectId,
           imageId: bbox.imageId,
-          sliceInstanceId: bbox.sliceInstanceId,
-          previousBBoxVersionId: bbox.id,
-          version: next.version,
-        },
-      },
-      tx,
-    );
+          bboxVersionId: next.id,
+          actorId: params.userId,
+        });
 
-    return next;
-  });
+        await recordAuditEvent(
+          {
+            action: "SLICE_BBOX_DELETED",
+            entity: "SliceBoundingBoxVersion",
+            entityId: next.id,
+            actorId: params.userId,
+            details: {
+              projectId: bbox.projectId,
+              imageId: bbox.imageId,
+              sliceInstanceId: bbox.sliceInstanceId,
+              previousBBoxVersionId: bbox.id,
+              version: next.version,
+            },
+          },
+          tx,
+        );
+
+        return next;
+      },
+    ),
+  );
 
   return serializeBBox(deleted);
 }
@@ -532,6 +567,10 @@ export async function confirmImageBBoxSetForUser(params: {
 }
 
 export function sliceBoundingBoxErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof SliceBoundingBoxWorkflowError) {
     const status =
       error.code === "FORBIDDEN"

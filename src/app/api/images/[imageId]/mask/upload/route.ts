@@ -7,6 +7,11 @@ import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getProjectLabelSchemaVersionId } from "@/server/domain/labelSchema";
+import {
+  annotationArtifactVersionFamilyKey,
+  isVersionAllocationError,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 import { deleteObjectBestEffort, putObject, verifyStoredObject } from "@/server/storage/s3";
 import {
@@ -98,63 +103,78 @@ export const POST = withApiErrorHandling(async function POST(
     objectWritten = true;
     await verifyStoredObject({ key, size: integrity.size, contentType });
 
-    const labelSchemaVersionId = await getProjectLabelSchemaVersionId(image.projectId);
     const kind = AnnotationArtifactKind.SEMANTIC_MASK;
-    const artifact = await prisma.annotationArtifact.upsert({
-      where: { imageId_kind_scopeKey: { imageId, kind, scopeKey: "default" } },
-      update: {},
-      create: { projectId: image.projectId, imageId, kind, scopeKey: "default", createdById: user.id },
-      select: { id: true },
-    });
+    const scopeKey = "default";
+    const labelSchemaVersionId = await getProjectLabelSchemaVersionId(image.projectId);
 
-    const last = await prisma.annotationArtifactVersion.findFirst({
-      where: { artifactId: artifact.id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
+    const result = await prisma.$transaction(async (tx) =>
+      withVersionAllocationLock(
+        tx,
+        annotationArtifactVersionFamilyKey({ imageId, kind, scopeKey }),
+        async () => {
+          const artifact = await tx.annotationArtifact.upsert({
+            where: { imageId_kind_scopeKey: { imageId, kind, scopeKey } },
+            update: {},
+            create: { projectId: image.projectId, imageId, kind, scopeKey, createdById: user.id },
+            select: { id: true },
+          });
 
-    const version = await prisma.annotationArtifactVersion.create({
-      data: {
-        artifactId: artifact.id,
-        version: (last?.version ?? 0) + 1,
-        storageKey: key,
-        contentType,
-        size: integrity.size,
-        checksum: integrity.checksum,
-        width: integrity.width,
-        height: integrity.height,
-        format: integrity.format,
-        labelSchemaVersionId,
-        createdById: user.id,
-      },
-      select: { id: true, createdAt: true, version: true },
-    });
+          const last = await tx.annotationArtifactVersion.findFirst({
+            where: { artifactId: artifact.id },
+            orderBy: { version: "desc" },
+            select: { version: true },
+          });
 
-    await recordAuditEvent({
-      action: "SEMANTIC_MASK_COMMITTED",
-      entity: "AnnotationArtifactVersion",
-      entityId: version.id,
-      actorId: user.id,
-      details: {
-        projectId: image.projectId,
-        imageId: image.id,
-        artifactId: artifact.id,
-        checksum: integrity.checksum,
-        size: integrity.size,
-        width: integrity.width,
-        height: integrity.height,
-      },
-    });
+          const version = await tx.annotationArtifactVersion.create({
+            data: {
+              artifactId: artifact.id,
+              version: (last?.version ?? 0) + 1,
+              storageKey: key,
+              contentType,
+              size: integrity.size,
+              checksum: integrity.checksum,
+              width: integrity.width,
+              height: integrity.height,
+              format: integrity.format,
+              labelSchemaVersionId,
+              createdById: user.id,
+            },
+            select: { id: true, createdAt: true, version: true },
+          });
+
+          await recordAuditEvent({
+            action: "SEMANTIC_MASK_COMMITTED",
+            entity: "AnnotationArtifactVersion",
+            entityId: version.id,
+            actorId: user.id,
+            details: {
+              projectId: image.projectId,
+              imageId: image.id,
+              artifactId: artifact.id,
+              checksum: integrity.checksum,
+              size: integrity.size,
+              width: integrity.width,
+              height: integrity.height,
+            },
+          }, tx);
+
+          return { artifact, version };
+        },
+      ),
+    );
 
     return NextResponse.json({
       ok: true,
-      maskId: artifact.id,
-      versionId: version.id,
-      version: version.version,
-      createdAt: version.createdAt,
+      maskId: result.artifact.id,
+      versionId: result.version.id,
+      version: result.version.version,
+      createdAt: result.version.createdAt,
     });
   } catch (error) {
     if (objectWritten) await deleteObjectBestEffort(key);
+    if (isVersionAllocationError(error)) {
+      return apiError(error.code, error.status);
+    }
     const code =
       error instanceof Error && error.message.startsWith("OBJECT_STAT")
         ? "OBJECT_STAT_FAILED"

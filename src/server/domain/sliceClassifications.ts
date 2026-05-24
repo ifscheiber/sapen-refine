@@ -12,6 +12,11 @@ import {
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  isVersionAllocationError,
+  sliceClassificationVersionFamilyKey,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 
 type SliceClassificationDb = PrismaClient;
 
@@ -215,27 +220,33 @@ export async function setSliceInstanceClassificationForUser(params: {
   if (!canEdit(membership.role)) throw new SliceClassificationWorkflowError("FORBIDDEN");
 
   const labelSchemaVersionId = await getLabelSchemaVersionId(db, sliceInstance.projectId);
-  const classification = await db.$transaction<SliceClassificationRecord>(async (tx) => {
-    const last = await tx.sliceClassificationVersion.findFirst({
-      where: { sliceInstanceId: sliceInstance.id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
+  const classification = await db.$transaction<SliceClassificationRecord>((tx) =>
+    withVersionAllocationLock(
+      tx,
+      sliceClassificationVersionFamilyKey(sliceInstance.id),
+      async () => {
+        const last = await tx.sliceClassificationVersion.findFirst({
+          where: { sliceInstanceId: sliceInstance.id },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
 
-    return tx.sliceClassificationVersion.create({
-      data: {
-        projectId: sliceInstance.projectId,
-        imageId: sliceInstance.imageId,
-        sliceInstanceId: sliceInstance.id,
-        version: (last?.version ?? 0) + 1,
-        class: sliceClass,
-        labelSchemaVersionId,
-        source: SliceClassificationSource.MANUAL,
-        createdById: params.userId,
+        return tx.sliceClassificationVersion.create({
+          data: {
+            projectId: sliceInstance.projectId,
+            imageId: sliceInstance.imageId,
+            sliceInstanceId: sliceInstance.id,
+            version: (last?.version ?? 0) + 1,
+            class: sliceClass,
+            labelSchemaVersionId,
+            source: SliceClassificationSource.MANUAL,
+            createdById: params.userId,
+          },
+          select: sliceClassificationSelect,
+        });
       },
-      select: sliceClassificationSelect,
-    });
-  });
+    ),
+  );
 
   await recordAuditEvent(
     {
@@ -439,44 +450,50 @@ export async function deriveSliceClassificationForSemanticMaskVersionForUser(par
     labelValues,
   });
 
-  const classification = await db.$transaction<SliceClassificationRecord>(async (tx) => {
-    const existing = await tx.sliceClassificationVersion.findUnique({
-      where: { derivedFromSemanticMaskVersionId: semanticVersion.id },
-      select: sliceClassificationSelect,
-    });
-    if (existing) return existing;
+  const classification = await db.$transaction<SliceClassificationRecord>((tx) =>
+    withVersionAllocationLock(
+      tx,
+      sliceClassificationVersionFamilyKey(sliceInstanceId),
+      async () => {
+        const existing = await tx.sliceClassificationVersion.findUnique({
+          where: { derivedFromSemanticMaskVersionId: semanticVersion.id },
+          select: sliceClassificationSelect,
+        });
+        if (existing) return existing;
 
-    const last = await tx.sliceClassificationVersion.findFirst({
-      where: { sliceInstanceId },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
+        const last = await tx.sliceClassificationVersion.findFirst({
+          where: { sliceInstanceId },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
 
-    return tx.sliceClassificationVersion.create({
-      data: {
-        projectId: semanticVersion.artifact.projectId,
-        imageId: semanticVersion.artifact.imageId,
-        sliceInstanceId,
-        version: (last?.version ?? 0) + 1,
-        class: derivation.class,
-        labelSchemaVersionId: semanticVersion.labelSchemaVersionId,
-        reviewState: "DRAFT",
-        source: SliceClassificationSource.AUTO_FROM_SEMANTIC_MASK,
-        derivationReason: derivation.reason,
-        derivedFromSemanticMaskVersionId: semanticVersion.id,
-        derivedFromSupportMaskVersionId: supportMaskVersionId,
-        derivedFromCropId: derivedCropId,
-        metadataJson: {
-          version: "semantic-mask-classification-v1",
-          semanticMode: cropSemanticMode,
-          classifyingPixelThreshold: derivation.classifyingPixelThreshold,
-          counts: derivation.counts,
-        },
-        createdById: params.userId,
+        return tx.sliceClassificationVersion.create({
+          data: {
+            projectId: semanticVersion.artifact.projectId,
+            imageId: semanticVersion.artifact.imageId,
+            sliceInstanceId,
+            version: (last?.version ?? 0) + 1,
+            class: derivation.class,
+            labelSchemaVersionId: semanticVersion.labelSchemaVersionId,
+            reviewState: "DRAFT",
+            source: SliceClassificationSource.AUTO_FROM_SEMANTIC_MASK,
+            derivationReason: derivation.reason,
+            derivedFromSemanticMaskVersionId: semanticVersion.id,
+            derivedFromSupportMaskVersionId: supportMaskVersionId,
+            derivedFromCropId: derivedCropId,
+            metadataJson: {
+              version: "semantic-mask-classification-v1",
+              semanticMode: cropSemanticMode,
+              classifyingPixelThreshold: derivation.classifyingPixelThreshold,
+              counts: derivation.counts,
+            },
+            createdById: params.userId,
+          },
+          select: sliceClassificationSelect,
+        });
       },
-      select: sliceClassificationSelect,
-    });
-  });
+    ),
+  );
 
   await recordAuditEvent(
     {
@@ -540,6 +557,10 @@ export async function recordSliceClassificationDerivationFailure(params: {
 }
 
 export function sliceClassificationErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof SliceClassificationWorkflowError) {
     const status =
       error.code === "FORBIDDEN"

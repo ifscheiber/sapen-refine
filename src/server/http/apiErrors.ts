@@ -21,6 +21,9 @@ export function apiErrorPayloadFromUnknown(
   if (error instanceof Error) {
     if (error.message === "UNAUTHORIZED") return { error: "UNAUTHENTICATED", status: 401 };
     if (error.message === "FORBIDDEN") return { error: "FORBIDDEN", status: 403 };
+    if (error.message === "VERSION_ALLOCATION_CONFLICT") {
+      return { error: "VERSION_ALLOCATION_CONFLICT", status: 409 };
+    }
     if (error.message === "PROJECT_ID_MISSING") {
       return { error: "PROJECT_ID_MISSING", status: 400 };
     }

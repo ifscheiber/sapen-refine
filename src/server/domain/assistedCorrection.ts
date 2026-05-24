@@ -16,6 +16,11 @@ import {
 } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  annotationArtifactVersionFamilyKey,
+  isVersionAllocationError,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 import { getObjectBytes, putObject, verifyStoredObject, deleteObjectBestEffort } from "@/server/storage/s3";
 import {
   maskByteLengthDiagnostics,
@@ -468,110 +473,117 @@ export async function saveCorrectionForTaskForUser(params: {
     objectWritten = true;
     await verifyStoredObject({ key: storageKey, size: integrity.size, contentType });
 
-    const result = await db.$transaction(async (tx) => {
-      const artifact = await tx.annotationArtifact.upsert({
-        where: {
-          imageId_kind_scopeKey: {
-            imageId: image.id,
-            kind,
-            scopeKey: "default",
-          },
-        },
-        update: {},
-        create: {
-          projectId: task.projectId,
-          imageId: image.id,
-          kind,
-          scopeKey: "default",
-          createdById: params.userId,
-        },
-        select: { id: true },
-      });
-
-      const last = await tx.annotationArtifactVersion.findFirst({
-        where: { artifactId: artifact.id },
-        orderBy: { version: "desc" },
-        select: { version: true },
-      });
-
-      const version = await tx.annotationArtifactVersion.create({
-        data: {
-          artifactId: artifact.id,
-          version: (last?.version ?? 0) + 1,
-          reviewState: "DRAFT",
-          provenance: ArtifactProvenance.HUMAN_CORRECTION,
-          storageKey,
-          contentType,
-          size: integrity.size,
-          checksum: integrity.checksum,
-          width: integrity.width,
-          height: integrity.height,
-          format: integrity.format,
-          labelSchemaVersionId,
-          parentVersionId: sourceVersion.id,
-          taskId: task.id,
-          createdById: params.userId,
-        },
-        select: {
-          id: true,
-          version: true,
-          reviewState: true,
-          provenance: true,
-          parentVersionId: true,
-          taskId: true,
-          checksum: true,
-          width: true,
-          height: true,
-          format: true,
-          createdAt: true,
-        },
-      });
-
-      if (kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK) {
-        const slice =
-          (await tx.sliceInstance.findFirst({
-            where: { projectId: task.projectId, imageId: image.id },
-            orderBy: { createdAt: "asc" },
-            select: { id: true },
-          })) ??
-          (await tx.sliceInstance.create({
-            data: {
+    const scopeKey = "default";
+    const result = await db.$transaction((tx) =>
+      withVersionAllocationLock(
+        tx,
+        annotationArtifactVersionFamilyKey({ imageId: image.id, kind, scopeKey }),
+        async () => {
+          const artifact = await tx.annotationArtifact.upsert({
+            where: {
+              imageId_kind_scopeKey: {
+                imageId: image.id,
+                kind,
+                scopeKey,
+              },
+            },
+            update: {},
+            create: {
               projectId: task.projectId,
               imageId: image.id,
+              kind,
+              scopeKey,
               createdById: params.userId,
             },
             select: { id: true },
-          }));
-        await tx.sliceInstance.update({
-          where: { id: slice.id },
-          data: { supportArtifactVersionId: version.id },
-        });
-      }
+          });
 
-      const updatedTask = await tx.annotationTask.update({
-        where: { id: task.id },
-        data: {
-          status:
-            task.status === AnnotationTaskStatus.OPEN || task.status === AnnotationTaskStatus.BLOCKED
-              ? AnnotationTaskStatus.IN_PROGRESS
-              : task.status,
-          assigneeId: task.assigneeId ?? params.userId,
-        },
-        select: {
-          id: true,
-          status: true,
-          assigneeId: true,
-          updatedAt: true,
-        },
-      });
+          const last = await tx.annotationArtifactVersion.findFirst({
+            where: { artifactId: artifact.id },
+            orderBy: { version: "desc" },
+            select: { version: true },
+          });
 
-      return {
-        artifactId: artifact.id,
-        artifactKind: kind,
-        version,
-        task: updatedTask,
-      };
-    });
+          const version = await tx.annotationArtifactVersion.create({
+            data: {
+              artifactId: artifact.id,
+              version: (last?.version ?? 0) + 1,
+              reviewState: "DRAFT",
+              provenance: ArtifactProvenance.HUMAN_CORRECTION,
+              storageKey,
+              contentType,
+              size: integrity.size,
+              checksum: integrity.checksum,
+              width: integrity.width,
+              height: integrity.height,
+              format: integrity.format,
+              labelSchemaVersionId,
+              parentVersionId: sourceVersion.id,
+              taskId: task.id,
+              createdById: params.userId,
+            },
+            select: {
+              id: true,
+              version: true,
+              reviewState: true,
+              provenance: true,
+              parentVersionId: true,
+              taskId: true,
+              checksum: true,
+              width: true,
+              height: true,
+              format: true,
+              createdAt: true,
+            },
+          });
+
+          if (kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK) {
+            const slice =
+              (await tx.sliceInstance.findFirst({
+                where: { projectId: task.projectId, imageId: image.id },
+                orderBy: { createdAt: "asc" },
+                select: { id: true },
+              })) ??
+              (await tx.sliceInstance.create({
+                data: {
+                  projectId: task.projectId,
+                  imageId: image.id,
+                  createdById: params.userId,
+                },
+                select: { id: true },
+              }));
+            await tx.sliceInstance.update({
+              where: { id: slice.id },
+              data: { supportArtifactVersionId: version.id },
+            });
+          }
+
+          const updatedTask = await tx.annotationTask.update({
+            where: { id: task.id },
+            data: {
+              status:
+                task.status === AnnotationTaskStatus.OPEN || task.status === AnnotationTaskStatus.BLOCKED
+                  ? AnnotationTaskStatus.IN_PROGRESS
+                  : task.status,
+              assigneeId: task.assigneeId ?? params.userId,
+            },
+            select: {
+              id: true,
+              status: true,
+              assigneeId: true,
+              updatedAt: true,
+            },
+          });
+
+          return {
+            artifactId: artifact.id,
+            artifactKind: kind,
+            version,
+            task: updatedTask,
+          };
+        },
+      ),
+    );
 
     await recordAuditEvent({
       action: "HUMAN_CORRECTION_COMMITTED",
@@ -598,6 +610,7 @@ export async function saveCorrectionForTaskForUser(params: {
     return result;
   } catch (error) {
     if (objectWritten) await deleteObjectBestEffort(storageKey);
+    if (isVersionAllocationError(error)) throw error;
     if (error instanceof AssistedCorrectionError || error instanceof UploadIntegrityError) throw error;
     if (error instanceof Error && error.message.startsWith("OBJECT_STAT")) {
       throw new AssistedCorrectionError("OBJECT_STAT_FAILED", 500);
@@ -607,6 +620,10 @@ export async function saveCorrectionForTaskForUser(params: {
 }
 
 export function assistedCorrectionErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof AssistedCorrectionError) {
     return { error: error.code, status: error.status };
   }

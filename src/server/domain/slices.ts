@@ -9,6 +9,12 @@ import {
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
+import {
+  annotationArtifactVersionFamilyKey,
+  isVersionAllocationError,
+  sliceClassificationVersionFamilyKey,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 import { isSupportMaskArtifactKind } from "./artifacts";
 
 type SliceDb = typeof prisma;
@@ -290,57 +296,71 @@ export async function createSupportMaskVersionForUser(params: {
   }
 
   const labelSchemaVersionId = await getProjectLabelSchemaVersionId(db, image.projectId);
-  const artifact = await db.annotationArtifact.upsert({
-    where: {
-      imageId_kind_scopeKey: {
+  const result = await db.$transaction(async (tx) =>
+    withVersionAllocationLock(
+      tx,
+      annotationArtifactVersionFamilyKey({
         imageId: image.id,
         kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
         scopeKey: DEFAULT_SLICE_SCOPE_KEY,
+      }),
+      async () => {
+        const artifact = await tx.annotationArtifact.upsert({
+          where: {
+            imageId_kind_scopeKey: {
+              imageId: image.id,
+              kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+              scopeKey: DEFAULT_SLICE_SCOPE_KEY,
+            },
+          },
+          update: {},
+          create: {
+            projectId: image.projectId,
+            imageId: image.id,
+            kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+            scopeKey: DEFAULT_SLICE_SCOPE_KEY,
+            createdById: params.userId,
+          },
+          select: { id: true },
+        });
+
+        const last = await tx.annotationArtifactVersion.findFirst({
+          where: { artifactId: artifact.id },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
+
+        const version = await tx.annotationArtifactVersion.create({
+          data: {
+            artifactId: artifact.id,
+            version: (last?.version ?? 0) + 1,
+            storageKey: params.storageKey,
+            contentType: params.contentType ?? "application/octet-stream",
+            size: params.size,
+            checksum: params.checksum ?? null,
+            width: params.width,
+            height: params.height,
+            format: params.format?.trim() || "u8raw-v1",
+            labelSchemaVersionId,
+            createdById: params.userId,
+          },
+          select: { id: true },
+        });
+
+        return { artifact, version };
       },
-    },
-    update: {},
-    create: {
-      projectId: image.projectId,
-      imageId: image.id,
-      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
-      scopeKey: DEFAULT_SLICE_SCOPE_KEY,
-      createdById: params.userId,
-    },
-    select: { id: true },
-  });
-
-  const last = await db.annotationArtifactVersion.findFirst({
-    where: { artifactId: artifact.id },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
-
-  const version = await db.annotationArtifactVersion.create({
-    data: {
-      artifactId: artifact.id,
-      version: (last?.version ?? 0) + 1,
-      storageKey: params.storageKey,
-      contentType: params.contentType ?? "application/octet-stream",
-      size: params.size,
-      checksum: params.checksum ?? null,
-      width: params.width,
-      height: params.height,
-      format: params.format?.trim() || "u8raw-v1",
-      labelSchemaVersionId,
-      createdById: params.userId,
-    },
-    select: { id: true },
-  });
+    ),
+  );
 
   await assertSupportArtifactVersionForImage(
-    { versionId: version.id, imageId: image.id, projectId: image.projectId },
+    { versionId: result.version.id, imageId: image.id, projectId: image.projectId },
     db,
   );
 
   const sliceInstance = await getOrCreateDefaultSliceInstance(db, image, params.userId);
   await db.sliceInstance.update({
     where: { id: sliceInstance.id },
-    data: { supportArtifactVersionId: version.id },
+    data: { supportArtifactVersionId: result.version.id },
   });
 
   return loadSliceStateForUser({ imageId: image.id, userId: params.userId }, db);
@@ -352,31 +372,40 @@ export async function setSliceClassificationForUser(params: {
   class: unknown;
 }, db: SliceDb = prisma) {
   if (!isSliceClass(params.class)) throw new SliceWorkflowError("SLICE_CLASS_INVALID");
+  const sliceClass = params.class;
 
   const { image, membership } = await getImageAndMembership(db, params.imageId, params.userId);
   if (!canEdit(membership.role)) throw new SliceWorkflowError("FORBIDDEN");
 
   const labelSchemaVersionId = await getProjectLabelSchemaVersionId(db, image.projectId);
   const sliceInstance = await getOrCreateDefaultSliceInstance(db, image, params.userId);
-  const last = await db.sliceClassificationVersion.findFirst({
-    where: { sliceInstanceId: sliceInstance.id },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
+  const classification = await db.$transaction((tx) =>
+    withVersionAllocationLock(
+      tx,
+      sliceClassificationVersionFamilyKey(sliceInstance.id),
+      async () => {
+        const last = await tx.sliceClassificationVersion.findFirst({
+          where: { sliceInstanceId: sliceInstance.id },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
 
-  const classification = await db.sliceClassificationVersion.create({
-    data: {
-      projectId: image.projectId,
-      imageId: image.id,
-      sliceInstanceId: sliceInstance.id,
-      version: (last?.version ?? 0) + 1,
-      class: params.class,
-      labelSchemaVersionId,
-      source: SliceClassificationSource.MANUAL,
-      createdById: params.userId,
-    },
-    select: { id: true, version: true, class: true },
-  });
+        return tx.sliceClassificationVersion.create({
+          data: {
+            projectId: image.projectId,
+            imageId: image.id,
+            sliceInstanceId: sliceInstance.id,
+            version: (last?.version ?? 0) + 1,
+            class: sliceClass,
+            labelSchemaVersionId,
+            source: SliceClassificationSource.MANUAL,
+            createdById: params.userId,
+          },
+          select: { id: true, version: true, class: true },
+        });
+      },
+    ),
+  );
 
   await recordAuditEvent({
     action: "SLICE_CLASSIFICATION_COMMITTED",
@@ -396,6 +425,10 @@ export async function setSliceClassificationForUser(params: {
 }
 
 export function sliceErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof SliceWorkflowError) {
     const status =
       error.code === "FORBIDDEN"

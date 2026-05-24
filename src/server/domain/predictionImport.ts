@@ -12,6 +12,11 @@ import { canImportPrediction } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
+  annotationArtifactVersionFamilyKey,
+  isVersionAllocationError,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
+import {
   deleteObjectBestEffort,
   putObject,
   verifyStoredObject,
@@ -166,6 +171,7 @@ function predictionScopeKey(predictionRunId: string, targetType: PredictionTarge
 }
 
 function importErrorCode(error: unknown) {
+  if (isVersionAllocationError(error)) return error.code;
   if (error instanceof PredictionImportError) return error.code;
   if (error instanceof UploadIntegrityError) return error.code;
   if (error instanceof Error && error.message.startsWith("OBJECT_STAT")) return "OBJECT_STAT_FAILED";
@@ -305,96 +311,107 @@ export async function importPredictionMaskForUser(
     await verifyStoredObject({ key: storageKey, size: integrity.size, contentType });
     objectVerified = true;
 
-    const result = await db.$transaction(async (tx) => {
-      const artifact = await tx.annotationArtifact.upsert({
-        where: {
-          imageId_kind_scopeKey: {
-            imageId: image.id,
-            kind: AnnotationArtifactKind.PREDICTION_MASK,
-            scopeKey: predictionScopeKey(predictionRun.id, targetType),
-          },
-        },
-        update: {},
-        create: {
-          projectId: predictionRun.projectId,
+    const scopeKey = predictionScopeKey(predictionRun.id, targetType);
+    const result = await db.$transaction((tx) =>
+      withVersionAllocationLock(
+        tx,
+        annotationArtifactVersionFamilyKey({
           imageId: image.id,
           kind: AnnotationArtifactKind.PREDICTION_MASK,
-          scopeKey: predictionScopeKey(predictionRun.id, targetType),
-          createdById: input.userId,
-        },
-        select: { id: true },
-      });
+          scopeKey,
+        }),
+        async () => {
+          const artifact = await tx.annotationArtifact.upsert({
+            where: {
+              imageId_kind_scopeKey: {
+                imageId: image.id,
+                kind: AnnotationArtifactKind.PREDICTION_MASK,
+                scopeKey,
+              },
+            },
+            update: {},
+            create: {
+              projectId: predictionRun.projectId,
+              imageId: image.id,
+              kind: AnnotationArtifactKind.PREDICTION_MASK,
+              scopeKey,
+              createdById: input.userId,
+            },
+            select: { id: true },
+          });
 
-      const last = await tx.annotationArtifactVersion.findFirst({
-        where: { artifactId: artifact.id },
-        orderBy: { version: "desc" },
-        select: { version: true },
-      });
+          const last = await tx.annotationArtifactVersion.findFirst({
+            where: { artifactId: artifact.id },
+            orderBy: { version: "desc" },
+            select: { version: true },
+          });
 
-      const version = await tx.annotationArtifactVersion.create({
-        data: {
-          artifactId: artifact.id,
-          version: (last?.version ?? 0) + 1,
-          provenance: ArtifactProvenance.MODEL_PREDICTION,
-          storageKey: storageKey!,
-          contentType,
-          size: integrity.size,
-          checksum: integrity.checksum,
-          width: integrity.width,
-          height: integrity.height,
-          coordinateSpace,
-          format: integrity.format,
-          labelSchemaVersionId,
-          createdById: input.userId,
-        },
-        select: {
-          id: true,
-          version: true,
-          reviewState: true,
-          provenance: true,
-          checksum: true,
-          width: true,
-          height: true,
-          format: true,
-          coordinateSpace: true,
-          createdAt: true,
-        },
-      });
+          const version = await tx.annotationArtifactVersion.create({
+            data: {
+              artifactId: artifact.id,
+              version: (last?.version ?? 0) + 1,
+              provenance: ArtifactProvenance.MODEL_PREDICTION,
+              storageKey: storageKey!,
+              contentType,
+              size: integrity.size,
+              checksum: integrity.checksum,
+              width: integrity.width,
+              height: integrity.height,
+              coordinateSpace,
+              format: integrity.format,
+              labelSchemaVersionId,
+              createdById: input.userId,
+            },
+            select: {
+              id: true,
+              version: true,
+              reviewState: true,
+              provenance: true,
+              checksum: true,
+              width: true,
+              height: true,
+              format: true,
+              coordinateSpace: true,
+              createdAt: true,
+            },
+          });
 
-      const provenance = await tx.predictionArtifactProvenance.create({
-        data: {
-          predictionRunId: predictionRun.id,
-          artifactVersionId: version.id,
-          imageId: image.id,
-          targetType,
-          confidenceScore,
-          uncertaintyScore,
-          perClassScores: input.perClassScores,
-          outputStats: input.outputStats,
-          modelOutputChecksum: integrity.checksum,
-          sourceBatchItemId,
-        },
-        select: { id: true },
-      });
+          const provenance = await tx.predictionArtifactProvenance.create({
+            data: {
+              predictionRunId: predictionRun.id,
+              artifactVersionId: version.id,
+              imageId: image.id,
+              targetType,
+              confidenceScore,
+              uncertaintyScore,
+              perClassScores: input.perClassScores,
+              outputStats: input.outputStats,
+              modelOutputChecksum: integrity.checksum,
+              sourceBatchItemId,
+            },
+            select: { id: true },
+          });
 
-      return {
-        predictionRunId: predictionRun.id,
-        imageId: image.id,
-        artifactId: artifact.id,
-        artifactVersionId: version.id,
-        predictionProvenanceId: provenance.id,
-        targetType,
-        checksum: version.checksum,
-        width: version.width,
-        height: version.height,
-        reviewState: version.reviewState,
-        provenance: version.provenance,
-        version: version.version,
-        coordinateSpace: version.coordinateSpace,
-        format: version.format,
-        createdAt: version.createdAt,
-      };
-    });
+          return {
+            predictionRunId: predictionRun.id,
+            imageId: image.id,
+            artifactId: artifact.id,
+            artifactVersionId: version.id,
+            predictionProvenanceId: provenance.id,
+            targetType,
+            checksum: version.checksum,
+            width: version.width,
+            height: version.height,
+            reviewState: version.reviewState,
+            provenance: version.provenance,
+            version: version.version,
+            coordinateSpace: version.coordinateSpace,
+            format: version.format,
+            createdAt: version.createdAt,
+          };
+        },
+      ),
+    );
 
     await recordAuditEvent({
       action: "PREDICTION_IMPORT_CREATED",
@@ -431,6 +448,9 @@ export async function importPredictionMaskForUser(
       },
     });
 
+    if (isVersionAllocationError(error)) {
+      throw error;
+    }
     if (error instanceof PredictionImportError || error instanceof UploadIntegrityError) {
       throw error;
     }
@@ -444,6 +464,9 @@ export async function importPredictionMaskForUser(
 }
 
 export function predictionImportErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
   if (error instanceof PredictionImportError) {
     return { error: error.code, status: error.status };
   }

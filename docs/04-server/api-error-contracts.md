@@ -31,6 +31,7 @@ Successful response shapes are unchanged.
 - `403 FORBIDDEN` or a domain-specific forbidden code such as `CLEANUP_FORBIDDEN`.
 - `404 *_NOT_FOUND` for missing resources that are safe to report.
 - `409` for conflict-like domain states such as invalid review transitions or export-not-ready decisions.
+- `409 VERSION_ALLOCATION_CONFLICT` when an append-only version writer exhausts the safe allocation path or hits a guarded version unique conflict.
 - `400` for current validation failures unless a route already has a more specific status.
 - `500 INTERNAL_ERROR` only as a sanitized fallback for unknown uncaught exceptions.
 
@@ -59,6 +60,7 @@ Route authors must classify each new `src/app/api/**/route.ts` file in `tests/un
 - `protected-api` is the default for routes that require a session, project access, private storage access, mutation permissions, or domain-owned private data.
 - Protected route methods must be exported as `export const METHOD = withApiErrorHandling(async function METHOD(...) { ... })`.
 - Domain-specific failures should be converted with `apiErrorFromPayload(domainErrorResponse(error))`.
+- Version allocation failures should preserve `VERSION_ALLOCATION_CONFLICT` rather than exposing Prisma `P2002` or raw database messages.
 - Binary and download routes may return streamed `Response` objects on success, but their auth and domain failure paths must still return flat JSON before streaming starts.
 
 The unit guard intentionally has no protected-route allowlist. If an exceptional route is ever needed, document the reason in the guard and adjacent API docs.

@@ -37,6 +37,7 @@
 - This repository is still in development stage; local data may be destroyed and the migration baseline may be reset when it removes prototype debt.
 - Raw images and mask versions must remain attributable and integrity-checked before database commit where practical.
 - Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, and exact version references.
+- Append-only version numbers for `AnnotationArtifactVersion`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, and `SliceClassificationVersion` are allocated by application writers under RB-107 PostgreSQL transaction advisory locks, with the existing unique constraints acting as a final guard.
 - Model predictions remain provenance/proposal records until a human creates and approves separate ground-truth artifact or classification versions.
 - `AuthLoginThrottle` stores hashed login failure buckets only; it must not store raw email or IP values.
 - `PredictionImportBatchItem` leases are for single-host trial background import processing only. `SUCCEEDED` items are terminal and must not be reprocessed into duplicate prediction artifacts.

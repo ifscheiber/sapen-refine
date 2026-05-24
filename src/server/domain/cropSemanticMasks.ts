@@ -32,6 +32,11 @@ import {
   type CropSemanticFamilyState,
 } from "./cropSemanticFamily";
 import { CROP_SUPPORT_MASK_SCOPE_PREFIX } from "./cropSupportMasks";
+import {
+  annotationArtifactVersionFamilyKey,
+  isVersionAllocationError,
+  withVersionAllocationLock,
+} from "@/server/domain/versionAllocation";
 
 type CropSemanticDb = typeof prisma;
 
@@ -858,65 +863,75 @@ export async function createCropSemanticMaskVersionForUser(params: {
 
   let semanticMaskVersionId: string | null = null;
 
-  await db.$transaction(async (tx) => {
-    if (params.semanticFamilyReset) {
-      await supersedeOppositeSemanticFamilyVersions({
-        tx,
-        crop,
-        requestedMode: semanticMode,
-        userId: params.userId,
-      });
-    }
-
-    const artifact = await tx.annotationArtifact.upsert({
-      where: {
-        imageId_kind_scopeKey: {
-          imageId: crop.sourceImageId,
-          kind: AnnotationArtifactKind.SEMANTIC_MASK,
-          scopeKey,
-        },
-      },
-      update: {},
-      create: {
-        projectId: crop.projectId,
+  await db.$transaction((tx) =>
+    withVersionAllocationLock(
+      tx,
+      annotationArtifactVersionFamilyKey({
         imageId: crop.sourceImageId,
         kind: AnnotationArtifactKind.SEMANTIC_MASK,
         scopeKey,
-        createdById: params.userId,
-      },
-      select: { id: true },
-    });
+      }),
+      async () => {
+        if (params.semanticFamilyReset) {
+          await supersedeOppositeSemanticFamilyVersions({
+            tx,
+            crop,
+            requestedMode: semanticMode,
+            userId: params.userId,
+          });
+        }
 
-    const last = await tx.annotationArtifactVersion.findFirst({
-      where: { artifactId: artifact.id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
+        const artifact = await tx.annotationArtifact.upsert({
+          where: {
+            imageId_kind_scopeKey: {
+              imageId: crop.sourceImageId,
+              kind: AnnotationArtifactKind.SEMANTIC_MASK,
+              scopeKey,
+            },
+          },
+          update: {},
+          create: {
+            projectId: crop.projectId,
+            imageId: crop.sourceImageId,
+            kind: AnnotationArtifactKind.SEMANTIC_MASK,
+            scopeKey,
+            createdById: params.userId,
+          },
+          select: { id: true },
+        });
 
-    const semanticVersion = await tx.annotationArtifactVersion.create({
-      data: {
-        artifactId: artifact.id,
-        version: (last?.version ?? 0) + 1,
-        storageKey: params.storageKey,
-        contentType: params.contentType ?? "application/octet-stream",
-        size: params.size,
-        checksum: params.checksum ?? null,
-        width: params.width,
-        height: params.height,
-        coordinateSpace: "CROP_PIXEL",
-        coordinateTransform: cropSemanticCoordinateTransform(crop, supportMaskVersion?.id ?? null, semanticMode),
-        format: params.format?.trim() || "u8raw-v1",
-        labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
-        derivedCropId: crop.id,
-        sliceInstanceId: crop.sliceInstanceId,
-        supportMaskVersionId: supportMaskVersion?.id ?? null,
-        cropSemanticMode: semanticMode,
-        createdById: params.userId,
+        const last = await tx.annotationArtifactVersion.findFirst({
+          where: { artifactId: artifact.id },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
+
+        const semanticVersion = await tx.annotationArtifactVersion.create({
+          data: {
+            artifactId: artifact.id,
+            version: (last?.version ?? 0) + 1,
+            storageKey: params.storageKey,
+            contentType: params.contentType ?? "application/octet-stream",
+            size: params.size,
+            checksum: params.checksum ?? null,
+            width: params.width,
+            height: params.height,
+            coordinateSpace: "CROP_PIXEL",
+            coordinateTransform: cropSemanticCoordinateTransform(crop, supportMaskVersion?.id ?? null, semanticMode),
+            format: params.format?.trim() || "u8raw-v1",
+            labelSchemaVersionId: semanticLabels.labelSchemaVersionId,
+            derivedCropId: crop.id,
+            sliceInstanceId: crop.sliceInstanceId,
+            supportMaskVersionId: supportMaskVersion?.id ?? null,
+            cropSemanticMode: semanticMode,
+            createdById: params.userId,
+          },
+          select: { id: true },
+        });
+        semanticMaskVersionId = semanticVersion.id;
       },
-      select: { id: true },
-    });
-    semanticMaskVersionId = semanticVersion.id;
-  });
+    ),
+  );
 
   let classificationDerivation:
     | Awaited<ReturnType<typeof deriveSliceClassificationForSemanticMaskVersionForUser>>
@@ -962,6 +977,10 @@ export async function createCropSemanticMaskVersionForUser(params: {
 }
 
 export function cropSemanticMaskErrorResponse(error: unknown): { error: string; status: number } {
+  if (isVersionAllocationError(error)) {
+    return { error: error.code, status: error.status };
+  }
+
   if (error instanceof CropSemanticMaskWorkflowError) {
     const status =
       error.code === "FORBIDDEN"
