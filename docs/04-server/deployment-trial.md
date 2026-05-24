@@ -161,26 +161,29 @@ Expensive authenticated mutation routes use DB-backed high-cost write buckets in
 
 Default trial values are: 20 image uploads per 60 seconds, 120 editor/crop/slice saves per 60 seconds, 5 export creates per 600 seconds, 10 prediction-import upload/process/retry calls per 600 seconds, and 10 cleanup/admin calls per 600 seconds. Tune them with the `HIGH_COST_*` variables in `deploy/trial.env`.
 
-This is a single-host customer-trial guard. It is not a distributed quota system, and RB-112 remains required for production-scale async/streaming exports.
+This is a single-host customer-trial guard. It is not a distributed quota system. RB-112 adds async export jobs, but streaming package generation and production-scale queue infrastructure remain future work.
 
-## Optional Prediction Import Worker
+## Optional Workers
 
-Normal annotation work does not use a queue. The optional worker is only for bounded prediction-import batch processing.
+Normal annotation work does not use a queue. The optional workers are for bounded prediction-import batch processing and async export package generation.
 
-Set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` to a named project `OWNER` or `QA` account, then start:
+Set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` to a named project `OWNER` or `QA` account, then start the needed worker:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f prediction-import-worker
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d export-worker
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f export-worker
 ```
 
 One-shot processing remains available:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run jobs:prediction-import -- --base-url http://localhost:3000 --limit 25 --max-jobs 5 --email 'qa@example.com' --password '<password>'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run exports:process -- --base-url http://localhost:3000 --max-jobs 2 --email 'owner@example.com' --password '<password>'
 ```
 
-Keep one default worker process for the trial. There is no Redis, RabbitMQ, distributed worker coordination, GPU execution, or inference execution in this deployment.
+Keep one default process per worker type for the trial. There is no Redis, RabbitMQ, distributed worker coordination, GPU execution, inference execution, or streaming export writer in this deployment.
 
 ## Backup, Cleanup, Restart
 
@@ -231,5 +234,5 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml do
 - No HA, object replication, point-in-time recovery, or production monitoring stack.
 - No enterprise identity provider.
 - No public MinIO access.
-- Export and prediction-analysis export generation are synchronous and trial-sized.
+- Export and prediction-analysis export generation are async, single-host, PostgreSQL-backed, and trial-capped.
 - Prediction-import batch processing is single-host and PostgreSQL-backed.

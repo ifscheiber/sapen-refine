@@ -190,6 +190,16 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByLabel("Crop training").check();
   await expect(page.getByRole("button", { name: "Create export" })).toBeEnabled();
   await page.getByRole("button", { name: "Create export" }).click();
+  await expect(page.getByText(/Export (PENDING|PROCESSING|COMPLETED)/)).toBeVisible();
+  await page.evaluate(async () => {
+    const response = await fetch("/api/export-jobs/process-due", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ maxJobs: 5 }),
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error(`EXPORT_JOB_PROCESS_FAILED_${response.status}`);
+  });
   await expect(page.getByText("Export COMPLETED")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("link", { name: "Download manifest" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Download package" })).toBeVisible();

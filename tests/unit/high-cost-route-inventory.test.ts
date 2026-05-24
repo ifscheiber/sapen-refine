@@ -94,6 +94,10 @@ const enforcedRoutes = [
     family: "prediction-import:process-or-retry",
   },
   {
+    path: "src/app/api/export-jobs/process-due/route.ts",
+    family: "operations:cleanup-or-admin",
+  },
+  {
     path: "src/app/api/storage-cleanup/route.ts",
     family: "operations:cleanup-or-admin",
   },

@@ -32,7 +32,7 @@ RB-069 and RB-073 prepare the repository for a real single-host customer trial h
 - Public MinIO console or S3 API exposure.
 - GPU inference, model training orchestration, or distributed queue infrastructure.
 - Advanced iPad multi-touch zoom/pan gestures beyond current pointer-event drawing behavior.
-- Large asynchronous export jobs or production-scale metrics dashboards.
+- Streaming/distributed export jobs or production-scale metrics dashboards.
 
 ## Related Docs
 

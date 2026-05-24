@@ -12,11 +12,14 @@ import { sha256Checksum } from "@/server/uploads/integrity";
 
 loadEnv({ path: ".env.local" });
 
+type ApiExportTarget = import("@/server/domain/exports").ApiExportTarget;
+
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 let exportsDomain: typeof import("@/server/domain/exports");
+let exportJobs: typeof import("@/server/domain/exportJobs");
 let storage: typeof import("@/server/storage/s3");
 let JSZip: typeof JSZipConstructor;
 
@@ -41,6 +44,7 @@ describe("training export workflow", () => {
 
   beforeAll(async () => {
     exportsDomain = await import("@/server/domain/exports");
+    exportJobs = await import("@/server/domain/exportJobs");
     storage = await import("@/server/storage/s3");
     JSZip = (await import("jszip")).default;
 
@@ -509,11 +513,7 @@ describe("training export workflow", () => {
     expect(readiness.summary.approvedSupportMasks).toBeGreaterThanOrEqual(1);
     expect(readiness.summary.approvedClassifications).toBeGreaterThanOrEqual(1);
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["combined"] },
-      prisma,
-    );
-    expect(exportBatch.status).toBe("COMPLETED");
+    const exportBatch = await createProcessedTrainingExport(["combined"]);
     expect(exportBatch.downloads?.manifest).toContain(`/api/exports/${exportBatch.id}/download`);
     expect(JSON.stringify(exportBatch)).not.toContain("tests/export/");
 
@@ -594,6 +594,43 @@ describe("training export workflow", () => {
     );
   });
 
+  it("claims a queued training export once across concurrent processor passes", async () => {
+    const imageId = await createImage("concurrent-claim");
+    await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "concurrent-claim-semantic",
+    });
+
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+      prisma,
+    );
+    expect(queued.status).toBe("PENDING");
+
+    const [first, second] = await Promise.all([
+      exportJobs.processDueExportJobsForUser({
+        userId: ownerId,
+        input: { maxJobs: 1, processorRunId: `claim-a-${queued.id}` },
+      }),
+      exportJobs.processDueExportJobsForUser({
+        userId: ownerId,
+        input: { maxJobs: 1, processorRunId: `claim-b-${queued.id}` },
+      }),
+    ]);
+
+    expect(first.completedCount + second.completedCount).toBe(1);
+    const completed = await exportsDomain.getTrainingExportForUser(
+      { exportId: queued.id, userId: ownerId },
+      prisma,
+    );
+    expect(completed.status).toBe("COMPLETED");
+    const createdAuditCount = await prisma.auditLog.count({
+      where: { entity: "ExportBatch", entityId: queued.id, action: "EXPORT_CREATED" },
+    });
+    expect(createdAuditCount).toBe(1);
+  });
+
   it("creates a crop training export with crop lineage, transform metadata, and package files", async () => {
     const { crop, bboxVersionId } = await createCropFixture("ready");
     const supportVersionId = await createCropArtifactVersion({
@@ -625,11 +662,7 @@ describe("training export workflow", () => {
       readinessReasons: [],
     });
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["crop_training"] },
-      prisma,
-    );
-    expect(exportBatch.status).toBe("COMPLETED");
+    const exportBatch = await createProcessedTrainingExport(["crop_training"]);
     expect(exportBatch.target).toBe("CROP_TRAINING");
     expect(JSON.stringify(exportBatch)).not.toContain("tests/export/");
 
@@ -789,10 +822,7 @@ describe("training export workflow", () => {
       supportGeometrySource: "SEMANTIC_FOREGROUND",
     });
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["crop_training"] },
-      prisma,
-    );
+    const exportBatch = await createProcessedTrainingExport(["crop_training"]);
     const manifestFile = await exportsDomain.readTrainingExportFileForUser(
       { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
       prisma,
@@ -884,10 +914,7 @@ describe("training export workflow", () => {
       ]),
     });
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["crop_training"] },
-      prisma,
-    );
+    const exportBatch = await createProcessedTrainingExport(["crop_training"]);
     const manifestFile = await exportsDomain.readTrainingExportFileForUser(
       { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
       prisma,
@@ -940,10 +967,7 @@ describe("training export workflow", () => {
       ]),
     });
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["crop_training"] },
-      prisma,
-    );
+    const exportBatch = await createProcessedTrainingExport(["crop_training"]);
     const manifestFile = await exportsDomain.readTrainingExportFileForUser(
       { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
       prisma,
@@ -1018,6 +1042,25 @@ describe("training export workflow", () => {
     });
   });
 
+  async function processQueuedTrainingExport(exportId: string) {
+    await exportJobs.processDueExportJobsForUser({
+      userId: ownerId,
+      input: { maxJobs: 10, processorRunId: `test-${exportId}` },
+    });
+    return exportsDomain.getTrainingExportForUser({ exportId, userId: ownerId }, prisma);
+  }
+
+  async function createProcessedTrainingExport(targets: ApiExportTarget[]) {
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets },
+      prisma,
+    );
+    expect(queued.status).toBe("PENDING");
+    const completed = await processQueuedTrainingExport(queued.id);
+    expect(completed.status).toBe("COMPLETED");
+    return completed;
+  }
+
   it("marks crop candidates with crop-coordinate mismatches as review-required", async () => {
     const { crop } = await createCropFixture("coordinate-mismatch");
     const supportVersionId = await createCropArtifactVersion({
@@ -1067,10 +1110,7 @@ describe("training export workflow", () => {
       name: "semantic-only-copper",
     });
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["support_segmentation"] },
-      prisma,
-    );
+    const exportBatch = await createProcessedTrainingExport(["support_segmentation"]);
     const supportItems = await prisma.exportItem.findMany({
       where: { exportBatchId: exportBatch.id, role: "support-mask" },
       select: { artifactVersionId: true },
@@ -1107,10 +1147,7 @@ describe("training export workflow", () => {
       ),
     ).rejects.toBeInstanceOf(exportsDomain.TrainingExportError);
 
-    const exportBatch = await exportsDomain.createTrainingExportForUser(
-      { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
-      prisma,
-    );
+    const exportBatch = await createProcessedTrainingExport(["semantic_segmentation"]);
     const exportItems = await prisma.exportItem.findMany({
       where: { exportBatchId: exportBatch.id },
       select: { artifactVersionId: true },
@@ -1142,35 +1179,24 @@ describe("training export workflow", () => {
       "application/octet-stream",
     );
 
-    await expect(
-      exportsDomain.createTrainingExportForUser(
-        { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
-        prisma,
-      ),
-    ).rejects.toMatchObject({
-      code: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
-      details: expect.objectContaining({
-        resourceType: "AnnotationArtifactVersion",
-        resourceId: semanticVersionId,
-        expectedChecksum: artifactVersion.checksum,
-        expectedSize: artifactVersion.size,
-        actualSize: 3,
-      }),
-    });
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+      prisma,
+    );
+    const failed = await processQueuedTrainingExport(queued.id);
+    expect(failed.status).toBe("FAILED");
+    expect(failed.errorCode).toBe("EXPORT_OBJECT_INTEGRITY_MISMATCH");
 
     const failedBatch = await prisma.exportBatch.findFirst({
       where: { projectId, status: "FAILED" },
       orderBy: { createdAt: "desc" },
-      select: { warnings: true },
+      select: { warnings: true, errorCode: true },
     });
+    expect(failedBatch?.errorCode).toBe("EXPORT_OBJECT_INTEGRITY_MISMATCH");
     expect(failedBatch?.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
-          details: expect.objectContaining({
-            resourceType: "AnnotationArtifactVersion",
-            resourceId: semanticVersionId,
-          }),
         }),
       ]),
     );
@@ -1202,21 +1228,13 @@ describe("training export workflow", () => {
     });
     await storage.putObject(cropRecord.storageKey, new Uint8Array([0x01, 0x02]), "image/png");
 
-    await expect(
-      exportsDomain.createTrainingExportForUser(
-        { projectId, userId: ownerId, targets: ["crop_training"] },
-        prisma,
-      ),
-    ).rejects.toMatchObject({
-      code: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
-      details: expect.objectContaining({
-        resourceType: "DerivedSliceCrop",
-        resourceId: crop.id,
-        expectedChecksum: cropRecord.checksum,
-        expectedSize: cropRecord.byteSize,
-        actualSize: 2,
-      }),
-    });
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["crop_training"] },
+      prisma,
+    );
+    const failed = await processQueuedTrainingExport(queued.id);
+    expect(failed.status).toBe("FAILED");
+    expect(failed.errorCode).toBe("EXPORT_OBJECT_INTEGRITY_MISMATCH");
   });
 
   it("fails export when selected approved artifacts are missing integrity metadata", async () => {

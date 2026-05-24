@@ -27,7 +27,7 @@ export const POST = withApiErrorHandling(async function POST(
       userId: user.id,
       input: body,
     });
-    return NextResponse.json({ ok: true, export: exportBatch });
+    return NextResponse.json({ ok: true, export: exportBatch }, { status: 202 });
   } catch (error) {
     const payload = predictionAnalysisExportErrorResponse(error);
     return apiErrorFromPayload(payload);

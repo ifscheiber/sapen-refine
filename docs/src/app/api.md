@@ -55,13 +55,14 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/slice-classification-versions/[versionId]/review` - submits, approves, or rejects slice classification versions after membership and transition checks.
 - `GET /api/projects/[projectId]/crop-readiness` - returns sanitized central crop readiness for project members, with optional `imageId` and `sliceInstanceId` filters, stable reason counts, next-action hints, and review action availability.
 - `GET /api/projects/[projectId]/export/readiness` - returns project export readiness, approved artifact/classification counts, crop candidate readiness counts, candidate warnings, and owner export capability for project members.
-- `POST /api/projects/[projectId]/exports` - creates a synchronous training export for project owners, including full-image RB-053 targets or the exclusive RB-091 `crop_training` target.
+- `POST /api/projects/[projectId]/exports` - enqueues a training export job for project owners, including full-image RB-053 targets or the exclusive RB-091 `crop_training` target; it returns `202` with a pending export summary.
 - `GET /api/exports/[exportId]` - returns sanitized export summary and download routes for project owners.
 - `GET /api/exports/[exportId]/download?file=manifest|package` - streams the stored manifest JSON or ZIP package through the app for project owners.
 - `GET /api/projects/[projectId]/prediction-analysis-export/readiness` - returns prediction-analysis export candidate counts, metric availability counts, prediction-run options, selected target filters, and owner/QA export capability for project members.
-- `POST /api/projects/[projectId]/prediction-analysis-exports` - creates a synchronous RB-060/RB-067 prediction-analysis export with QA metrics or not-computed reasons for project `OWNER`/`QA`.
+- `POST /api/projects/[projectId]/prediction-analysis-exports` - enqueues an RB-060/RB-067 prediction-analysis export job with exact candidate references for project `OWNER`/`QA`; it returns `202` with a pending export summary.
 - `GET /api/prediction-analysis-exports/[exportId]` - returns sanitized prediction-analysis export summary and download routes for project `OWNER`/`QA`.
 - `GET /api/prediction-analysis-exports/[exportId]/download?file=manifest|package` - streams the prediction-analysis manifest JSON or ZIP package through the app for project `OWNER`/`QA`.
+- `POST /api/export-jobs/process-due` - worker-oriented endpoint that processes a bounded number of due training, crop-training, and prediction-analysis export jobs for projects where the authenticated account can export that target.
 - `POST /api/model-runs` - creates a model/checkpoint/training provenance record for global admins.
 - `GET /api/model-runs/[modelRunId]` - returns full model-run provenance for global admins.
 - `GET /api/projects/[projectId]/prediction-runs` - lists project-scoped prediction/inference runs for project members.
@@ -87,7 +88,7 @@ This page lists the current API route handlers under `src/app/api`.
 ## Invariants And Constraints
 
 - Project and image API routes must enforce authenticated access and project membership.
-- RB-111 high-cost mutation families are rate limited through the shared DB-backed limiter after auth and before expensive body/storage/package work. Enforced families are image upload, mask/editor/crop artifact saves, slice metadata/BBox/classification/crop-generation saves, training and prediction-analysis export creation, prediction import upload/process/retry, and storage cleanup/admin operations.
+- RB-111 high-cost mutation families are rate limited through the shared DB-backed limiter after auth and before expensive body/storage/package work. Enforced families are image upload, mask/editor/crop artifact saves, slice metadata/BBox/classification/crop-generation saves, training and prediction-analysis export creation, export job processing, prediction import upload/process/retry, and storage cleanup/admin operations.
 - Excluded mutation routes are intentionally low-cost or already strongly bounded by domain semantics: project create/update, review transitions, correction-task status management, model/prediction-run metadata creation, disabled legacy presign/commit compatibility routes, and auth login/logout. Login keeps its separate auth throttle.
 - Mask commits must remain append-only; do not overwrite historical annotation artifact versions.
 - Customer-trial browser upload and read paths should use app-mediated routes so MinIO can stay private on the Docker network.

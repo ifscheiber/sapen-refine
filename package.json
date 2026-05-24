@@ -13,6 +13,7 @@
     "handoff:archive": "node scripts/create-handoff-archive.mjs",
     "handoff:validate": "node scripts/validate-handoff-archive.mjs",
     "jobs:prediction-import": "node scripts/process-prediction-import-batch.mjs",
+    "exports:process": "node scripts/process-export-jobs.mjs",
     "storage:cleanup": "node scripts/storage-cleanup.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

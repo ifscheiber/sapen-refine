@@ -10,10 +10,13 @@ This contract is intentionally separate from [training-export-contract.md](train
 
 Important files:
 
-- `src/server/domain/predictionAnalysisExports.ts` - readiness, manifest generation, ZIP packaging, export persistence, app-mediated download authorization.
+- `src/server/domain/predictionAnalysisExports.ts` - readiness, exact snapshot creation, async manifest/package generation, export persistence, and app-mediated download authorization.
+- `src/server/domain/exportJobs.ts` - due-job processing, atomic claim, bounded retry, and stale lease recovery for export jobs.
+- `src/server/domain/exportPackageWriter.ts` - current verified JSZip package-writer boundary.
 - `src/app/api/projects/[projectId]/prediction-analysis-export/readiness/route.ts` - project prediction-analysis readiness.
 - `src/app/api/projects/[projectId]/prediction-analysis-exports/route.ts` - export creation.
 - `src/app/api/prediction-analysis-exports/[exportId]/route.ts` - sanitized export summary.
+- `src/app/api/export-jobs/process-due/route.ts` - worker-oriented due export job processing.
 - `src/app/api/prediction-analysis-exports/[exportId]/download/route.ts` - manifest/package download through the app.
 - `src/features/projects/ProjectExportPanel.tsx` - project exports route UI with a separate prediction-analysis section.
 - `src/server/domain/predictionAnalysisMetrics.ts` - RB-067 QA metric helpers for semantic/support prediction comparisons.
@@ -142,12 +145,14 @@ Roles used by RB-060 include:
 - `human-correction-reference`,
 - `approved-ground-truth-reference`.
 
-`ExportBatch.selectionCriteria` records the prediction-analysis mode and filters. `metadataSummary` records package checksum, package size, item count, warning count, and the QA metrics summary.
+`ExportBatch.selectionCriteria` records the prediction-analysis mode and filters. RB-112 queues prediction-analysis exports as async jobs; `metadataSummary` records item count/warning count while pending and package checksum, package size, and QA metrics summary after completion.
+
+Create requests return `202 Accepted` with `status = PENDING`; downloads are enabled only after the worker marks the batch `COMPLETED`. Failed jobs expose stable `errorCode`/`errorMessage` values without private storage keys.
 
 ## Non-Goals
 
 - RB-067 does not implement dashboards or model-to-model benchmark reports.
-- RB-061 adds batch prediction import jobs. RB-060 prediction-analysis exports remain synchronous and separate from those import jobs.
+- RB-061 adds batch prediction import jobs. RB-112 prediction-analysis exports use a separate async export job path and remain separate from prediction-import jobs.
 - RB-060 does not allow predictions through RB-053 training export targets.
 - RB-060 does not approve predictions or convert them to ground truth.
 

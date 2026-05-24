@@ -18,6 +18,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 let exportsDomain: typeof import("@/server/domain/exports");
+let exportJobs: typeof import("@/server/domain/exportJobs");
 let predictionAnalysis: typeof import("@/server/domain/predictionAnalysisExports");
 let predictionImport: typeof import("@/server/domain/predictionImport");
 let predictions: typeof import("@/server/domain/predictionProvenance");
@@ -49,6 +50,7 @@ describe("prediction analysis export workflow", () => {
 
   beforeAll(async () => {
     exportsDomain = await import("@/server/domain/exports");
+    exportJobs = await import("@/server/domain/exportJobs");
     predictionAnalysis = await import("@/server/domain/predictionAnalysisExports");
     predictionImport = await import("@/server/domain/predictionImport");
     predictions = await import("@/server/domain/predictionProvenance");
@@ -340,13 +342,9 @@ describe("prediction analysis export workflow", () => {
     expect(readiness.summary.totalCandidates).toBe(1);
     expect(readiness.candidates[0]?.state).toBe("prediction_with_approved_human_reference");
 
-    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
-      {
-        projectId,
-        userId: qaId,
-        input: { predictionRunId: predictionRun.id, targetTypes: ["SEMANTIC_MASK"], includeHumanReferences: true },
-      },
-      prisma,
+    const exportBatch = await createProcessedPredictionAnalysisExport(
+      { predictionRunId: predictionRun.id, targetTypes: ["SEMANTIC_MASK"], includeHumanReferences: true },
+      qaId,
     );
     expect(exportBatch.target).toBe("PREDICTION_ANALYSIS");
     expect(exportBatch.downloads?.manifest).toBe(`/api/prediction-analysis-exports/${exportBatch.id}/download?file=manifest`);
@@ -488,13 +486,8 @@ describe("prediction analysis export workflow", () => {
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
-      {
-        projectId,
-        userId: ownerId,
-        input: { predictionRunId: predictionRun.id, targetTypes: ["SEMANTIC_MASK"], includeHumanReferences: false },
-      },
-      prisma,
+    const exportBatch = await createProcessedPredictionAnalysisExport(
+      { predictionRunId: predictionRun.id, targetTypes: ["SEMANTIC_MASK"], includeHumanReferences: false },
     );
     await expect(
       predictionAnalysis.readPredictionAnalysisExportFileForUser(
@@ -516,8 +509,16 @@ describe("prediction analysis export workflow", () => {
     ).rejects.toMatchObject({ code: "EXPORT_NOT_FOUND" });
     expect(() => exportsDomain.parseExportTargets(["prediction_analysis"])).toThrow();
 
-    const trainingExport = await exportsDomain.createTrainingExportForUser(
+    const queuedTrainingExport = await exportsDomain.createTrainingExportForUser(
       { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+      prisma,
+    );
+    await exportJobs.processDueExportJobsForUser({
+      userId: ownerId,
+      input: { maxJobs: 10, processorRunId: `test-${queuedTrainingExport.id}` },
+    });
+    const trainingExport = await exportsDomain.getTrainingExportForUser(
+      { exportId: queuedTrainingExport.id, userId: ownerId },
       prisma,
     );
     const trainingItems = await prisma.exportItem.findMany({
@@ -553,13 +554,9 @@ describe("prediction analysis export workflow", () => {
       correctionBytes: new Uint8Array([0, 10, 10, 10]),
     });
 
-    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
-      {
-        projectId,
-        userId: qaId,
-        input: { predictionRunId: predictionRun.id, targetTypes: ["SLICE_SUPPORT_MASK"], includeHumanReferences: true },
-      },
-      prisma,
+    const exportBatch = await createProcessedPredictionAnalysisExport(
+      { predictionRunId: predictionRun.id, targetTypes: ["SLICE_SUPPORT_MASK"], includeHumanReferences: true },
+      qaId,
     );
     const manifestFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
       { exportId: exportBatch.id, userId: qaId, file: "manifest" },
@@ -606,13 +603,8 @@ describe("prediction analysis export workflow", () => {
       approvedBytes: new Uint8Array([0, 3, 3, 0]),
     });
 
-    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
-      {
-        projectId,
-        userId: ownerId,
-        input: { predictionRunId: predictionRun.id, targetTypes: ["SLICE_SUPPORT_MASK"], includeHumanReferences: true },
-      },
-      prisma,
+    const exportBatch = await createProcessedPredictionAnalysisExport(
+      { predictionRunId: predictionRun.id, targetTypes: ["SLICE_SUPPORT_MASK"], includeHumanReferences: true },
     );
     const manifestFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
       { exportId: exportBatch.id, userId: ownerId, file: "manifest" },
@@ -628,6 +620,25 @@ describe("prediction analysis export workflow", () => {
       targetType: "SLICE_SUPPORT_MASK",
     });
   });
+
+  async function processQueuedPredictionAnalysisExport(exportId: string) {
+    await exportJobs.processDueExportJobsForUser({
+      userId: ownerId,
+      input: { maxJobs: 10, processorRunId: `test-${exportId}` },
+    });
+    return predictionAnalysis.getPredictionAnalysisExportForUser({ exportId, userId: ownerId }, prisma);
+  }
+
+  async function createProcessedPredictionAnalysisExport(input?: unknown, userId = ownerId) {
+    const queued = await predictionAnalysis.createPredictionAnalysisExportForUser(
+      { projectId, userId, input },
+      prisma,
+    );
+    expect(queued.status).toBe("PENDING");
+    const completed = await processQueuedPredictionAnalysisExport(queued.id);
+    expect(completed.status).toBe("COMPLETED");
+    return predictionAnalysis.getPredictionAnalysisExportForUser({ exportId: queued.id, userId }, prisma);
+  }
 
   it("exports slice-classification prediction proposals as manifest-only prediction items", async () => {
     const predictionRun = await createPredictionRun("classification");
@@ -654,13 +665,8 @@ describe("prediction analysis export workflow", () => {
       prisma,
     );
 
-    const exportBatch = await predictionAnalysis.createPredictionAnalysisExportForUser(
-      {
-        projectId,
-        userId: ownerId,
-        input: { predictionRunId: predictionRun.id, targetTypes: ["SLICE_CLASSIFICATION"] },
-      },
-      prisma,
+    const exportBatch = await createProcessedPredictionAnalysisExport(
+      { predictionRunId: predictionRun.id, targetTypes: ["SLICE_CLASSIFICATION"] },
     );
     const manifestFile = await predictionAnalysis.readPredictionAnalysisExportFileForUser(
       { exportId: exportBatch.id, userId: ownerId, file: "manifest" },

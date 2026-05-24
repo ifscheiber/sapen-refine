@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, source-image BBox slice proposals, image-level BBox set confirmation, whole-image crop slice navigation, derived slice crop generation, crop support/semantic mask commits, auto-derived crop slice classification suggestions, default image semantic/support mask commits, slice classification, minimal review/approval, owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, source-image BBox slice proposals, image-level BBox set confirmation, whole-image crop slice navigation, derived slice crop generation, crop support/semantic mask commits, auto-derived crop slice classification suggestions, default image semantic/support mask commits, slice classification, minimal review/approval, async owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, async prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction is a secondary provenance-bearing mode. SaPen Core handoff workflows are future integrations and must remain explicit.
 
@@ -46,7 +46,7 @@ Persisted entities today:
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, `PredictionImportBatchJob`, and `PredictionImportBatchItem` for model-assisted correction provenance and trial-sized batch prediction import bookkeeping.
 
-Known workflow gaps include advanced export filters/history/async large-job handling, reviewer dashboards/bulk review, source-image-space crop-mask reprojection, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial worker. Crop training export, crop readiness, crop review controls, and crop export integration exist for the current trial-sized workflow. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include advanced export filters/history, streaming export packages, reviewer dashboards/bulk review, source-image-space crop-mask reprojection, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial workers. Crop training export, crop readiness, crop review controls, crop export integration, and async export processing exist for the current trial-sized workflow. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -61,9 +61,9 @@ Known workflow gaps include advanced export filters/history/async large-job hand
 - Crop semantic masks and classification suggestions: `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` edits crop-sized semantic masks through `/api/slice-crops/[cropId]/semantic-mask`; saved versions use `CROP_PIXEL`, apply mode-aware support policy, derive Sap/Heartwood support geometry from semantic foreground, require explicit support for Copper readiness/export, enforce one active semantic family per crop through explicit reset/supersede guardrails, and append draft `AUTO_FROM_SEMANTIC_MASK` slice-classification suggestions from the saved semantic bytes.
 - Mask/classification save/reload: the editor posts semantic bytes to `/api/images/[imageId]/mask/upload`, support bytes to `/api/images/[imageId]/support-mask/upload`, default-slice classifications to `/api/images/[imageId]/slice/classification`, and slice-instance crop workflow manual overrides to `/api/slices/[sliceInstanceId]/classification`; latest artifacts are streamed through app-mediated version asset routes.
 - Review/approval: `/api/images/[imageId]/review-state`, `/api/artifact-versions/[versionId]/review`, and `/api/slice-classification-versions/[versionId]/review` implement minimal draft/submitted/approved/rejected transitions and export-readiness state.
-- Training export: `/app/projects/[projectId]/exports` uses `/api/projects/[projectId]/export/readiness` and `/api/projects/[projectId]/exports` to create owner-only approved-version exports; `/api/exports/[exportId]/download` streams manifest and ZIP package downloads through the app.
+- Training export: `/app/projects/[projectId]/exports` uses `/api/projects/[projectId]/export/readiness` and `/api/projects/[projectId]/exports` to enqueue owner-only approved-version exports; `/api/export-jobs/process-due` processes due jobs; `/api/exports/[exportId]/download` streams completed manifest and ZIP package downloads through the app.
 - Prediction provenance/import: `/api/model-runs/*`, `/api/projects/[projectId]/prediction-runs`, `/api/prediction-runs/[predictionRunId]`, `/api/prediction-runs/[predictionRunId]/predictions`, `/api/prediction-runs/[predictionRunId]/batch-imports`, and `/api/prediction-import-batches/*` persist/read model provenance and import one or many semantic/support prediction mask proposals through app-mediated routes.
-- Prediction correction/analysis: `/app/projects/[projectId]/tasks`, `/app/projects/[projectId]/tasks/[taskId]/correct`, and `/api/projects/[projectId]/prediction-analysis-*` cover the first assisted correction and QA export workflows without changing ground-truth export eligibility.
+- Prediction correction/analysis: `/app/projects/[projectId]/tasks`, `/app/projects/[projectId]/tasks/[taskId]/correct`, and `/api/projects/[projectId]/prediction-analysis-*` cover the first assisted correction and async QA export workflows without changing ground-truth export eligibility.
 
 ## Security And Audit Assumptions
 
@@ -91,7 +91,7 @@ Known gaps:
 - Client API wrapper cleanup and compatibility presign route policy.
 - Prisma CLI audit/version policy review.
 - Customer-trial deployment dry run, real iPad Safari gate execution, and post-trial triage.
-- Advanced export filtering/history/async large-job handling on top of the RB-049 through RB-069 baseline.
+- Advanced export filtering/history and streaming package generation on top of the RB-112 single-host async job baseline.
 - Prediction dashboards, model reports, and large analysis job handling beyond the current prediction-analysis export metrics.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.

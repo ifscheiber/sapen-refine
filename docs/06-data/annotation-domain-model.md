@@ -288,7 +288,7 @@ See [model-prediction-contract.md](model-prediction-contract.md) and [active-lea
 
 ### ExportBatch And ExportManifest
 
-Owner-created training-data export. RB-053 uses `ExportBatch` and `ExportItem` persistence for a synchronous project-level export workflow with app-mediated manifest and ZIP downloads.
+Owner-created training-data export. RB-053/RB-091/RB-112 use `ExportBatch` and `ExportItem` persistence for async project-level export jobs with app-mediated manifest and ZIP downloads after completion.
 
 `ExportBatch` records:
 
@@ -298,12 +298,14 @@ Owner-created training-data export. RB-053 uses `ExportBatch` and `ExportItem` p
 - selection criteria,
 - exportedBy and exportedAt,
 - manifest storage key and checksum,
+- package storage key, checksum, and byte size,
+- job attempt, retry, processor, lease, processing, completion, and failure metadata,
 - warnings,
-- metadata summary with package storage key, package checksum, package size, item count, skipped image count, and warning count.
+- metadata summary with item count, skipped image count, warning count, QA metric summaries where relevant, and current package-writer snapshot details.
 
 `ExportItem` records role-specific exact references for included images, semantic mask artifact versions, support mask artifact versions, and slice classification versions.
 
-The RB-053 export generator uses latest approved versions only. It does not export draft, submitted, rejected, superseded, or model-prediction versions as training targets. Semantic segmentation, support segmentation, slice classification, and combined exports remain separate target concepts in the manifest; Copper semantic masks are never used as slice support geometry. RB-060 adds a separate prediction-analysis export for QA. That export references `PredictionArtifactProvenance` and marks predictions as proposals with `groundTruth: false`; it does not change training export eligibility.
+The RB-053 export enqueue path snapshots latest approved versions at request time. The RB-112 worker packages those exact references later; it does not re-resolve latest approved versions while processing. It does not export draft, submitted, rejected, superseded, or model-prediction versions as training targets. Semantic segmentation, support segmentation, slice classification, and combined exports remain separate target concepts in the manifest; Copper semantic masks are never used as slice support geometry. RB-060 adds a separate prediction-analysis export for QA. That export references `PredictionArtifactProvenance` and marks predictions as proposals with `groundTruth: false`; it does not change training export eligibility.
 
 RB-055 makes checksum and dimension metadata required for selected export inputs. Readiness exposes missing integrity warnings, and export creation fails with `EXPORT_INTEGRITY_METADATA_MISSING` if selected approved image or mask inputs lack validated checksum/dimensions.
 

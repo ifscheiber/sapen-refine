@@ -4,15 +4,18 @@
 
 This page defines the implemented RB-053 export contract for reproducible SaPen Annotate training datasets.
 
-Exports are generated from stored image assets, latest approved artifact/classification versions, label schema versions, metadata, attribution, review decisions, and the manifest. The current implementation is a synchronous, trial-sized project export that stores a manifest and ZIP package in MinIO and serves downloads through app routes.
+Exports are generated from stored image assets, approved artifact/classification versions, label schema versions, metadata, attribution, review decisions, and the manifest. RB-112 makes creation asynchronous: the create request snapshots exact selected references and returns a pending `ExportBatch`; a single-host worker later verifies source object bytes, writes the manifest and ZIP package to MinIO, and enables app-mediated downloads after completion.
 
 ## Current Implementation
 
 Important files:
 
-- `src/server/domain/exports.ts` - readiness, manifest generation, ZIP packaging, export persistence, and download authorization.
+- `src/server/domain/exports.ts` - readiness, exact snapshot creation, manifest generation, async package processing, export persistence, and download authorization.
+- `src/server/domain/exportJobs.ts` - due-job processing, atomic claim, bounded retry, and stale lease recovery for export jobs.
+- `src/server/domain/exportPackageWriter.ts` - current verified JSZip package-writer boundary.
 - `src/app/api/projects/[projectId]/export/readiness/route.ts` - project export readiness.
 - `src/app/api/projects/[projectId]/exports/route.ts` - export creation.
+- `src/app/api/export-jobs/process-due/route.ts` - worker-oriented due export job processing.
 - `src/app/api/exports/[exportId]/route.ts` - export summary.
 - `src/app/api/exports/[exportId]/download/route.ts` - manifest/package download through the app.
 - `src/features/projects/ProjectExportPanel.tsx` - project exports route UI mounted by `src/features/projects/ProjectExportsPage.tsx`.
@@ -26,6 +29,16 @@ API target strings:
 - `crop_training`
 
 The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values, maps multi-target or combined full-image selections to `COMBINED_MANIFEST`, and maps crop packages to `CROP_TRAINING`. `crop_training` is intentionally exclusive and cannot be mixed with full-image target strings in one request. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the training export API.
+
+Create endpoints return `202 Accepted` with `status = PENDING` and no download links. Status reads expose `PENDING`, `PROCESSING`, `COMPLETED`, or `FAILED`; downloads are available only when the batch is `COMPLETED`. Failed jobs store stable `errorCode`/`errorMessage` values without exposing private storage keys.
+
+The RB-112 processor is single-host safe. It atomically claims pending or stale `PROCESSING` `ExportBatch` rows, increments `jobAttemptCount`, sets `processorId`/`processorRunId`/`leaseExpiresAt`, and writes package metadata only after source bytes pass checksum/size verification. Retryable failures return to `PENDING` until `jobMaxAttempts`; integrity and cap failures become terminal `FAILED` jobs. Run it through:
+
+```bash
+npm run exports:process -- --loop
+```
+
+The package writer still uses JSZip, but only after RB-111 item/byte caps pass. The `src/server/domain/exportPackageWriter.ts` boundary is intentionally small so a streaming writer can replace JSZip later.
 
 ## Export Targets
 
@@ -247,14 +260,14 @@ All export creation records the authenticated actor. Future project policy may a
 
 ## MVP Limits
 
-- Export generation is synchronous and intended for trial-sized datasets.
-- There is no background job queue, retry dashboard, or large dataset sharding.
+- Export generation is async and intended for trial-sized datasets behind RB-111 caps.
+- There is no retry dashboard, streaming package writer, production queue, or large dataset sharding.
 - There is no advanced filtering by T-number, label, date, annotator, reviewer, or metadata completeness.
 - The UI exposes only the most recent created export result in the project exports panel; there is no export history page.
 - Only one default support geometry and one default slice classification per image are implemented.
 - Export generation is blocked rather than partially generated when selected approved artifacts are missing checksum or dimension metadata.
 - RB-091 crop exports do not emit source-image-space reprojected masks; the crop-to-source transform metadata is the contract for downstream reprojection.
-- Prediction-analysis QA metrics exist in the separate prediction-analysis export manifest after RB-067; dashboard UI, model comparison reports, and large async analysis jobs remain deferred.
+- Prediction-analysis QA metrics exist in the separate prediction-analysis export manifest after RB-067 and are generated by the RB-112 worker; dashboard UI, model comparison reports, and large production-scale analysis jobs remain deferred.
 
 ## Related Docs
 

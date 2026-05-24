@@ -38,6 +38,8 @@ type CreatedExport = {
   target: string;
   itemCount: number;
   warningCount: number;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   qaMetricsSummary?: {
     computedItemCount: number;
     notComputedItemCount: number;
@@ -105,6 +107,10 @@ const PREDICTION_TARGET_OPTIONS: Array<{ value: PredictionTarget; label: string 
 
 function errorMessage(error: unknown, fallback = "EXPORT_FAILED") {
   return error instanceof Error ? error.message : fallback;
+}
+
+function isActiveExportStatus(status: string) {
+  return status === "PENDING" || status === "PROCESSING" || status === "CREATED";
 }
 
 export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
@@ -193,6 +199,45 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
   useEffect(() => {
     void loadPredictionReadiness();
   }, [loadPredictionReadiness]);
+
+  useEffect(() => {
+    if (!createdExport || !isActiveExportStatus(createdExport.status)) return undefined;
+    let cancelled = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const res = await fetch(`/api/exports/${createdExport.id}`, { method: "GET", cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data?.ok) setCreatedExport(data.export as CreatedExport);
+      } catch {
+        // Polling errors are surfaced by the next manual refresh or final failed status.
+      }
+    }, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [createdExport]);
+
+  useEffect(() => {
+    if (!createdPredictionExport || !isActiveExportStatus(createdPredictionExport.status)) return undefined;
+    let cancelled = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const res = await fetch(`/api/prediction-analysis-exports/${createdPredictionExport.id}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data?.ok) setCreatedPredictionExport(data.export as CreatedExport);
+      } catch {
+        // Polling errors are surfaced by the next manual refresh or final failed status.
+      }
+    }, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [createdPredictionExport]);
 
   function toggleTarget(target: ExportTarget) {
     setSelectedTargets((current) => {
@@ -351,6 +396,9 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
           <div className="mt-1 text-muted-foreground">
             {createdExport.id} · {createdExport.itemCount} item rows · {createdExport.warningCount} warnings
           </div>
+          {createdExport.errorCode && (
+            <div className="mt-2 text-destructive">{createdExport.errorMessage ?? createdExport.errorCode}</div>
+          )}
           {createdExport.downloads && (
             <div className="mt-3 flex flex-wrap gap-2">
               <Button asChild variant="outline">
@@ -494,6 +542,11 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
               <div className="mt-1 text-muted-foreground">
                 QA metrics: {createdPredictionExport.qaMetricsSummary.computedItemCount} computed ·{" "}
                 {createdPredictionExport.qaMetricsSummary.notComputedItemCount} not computed
+              </div>
+            )}
+            {createdPredictionExport.errorCode && (
+              <div className="mt-2 text-destructive">
+                {createdPredictionExport.errorMessage ?? createdPredictionExport.errorCode}
               </div>
             )}
             {createdPredictionExport.downloads && (

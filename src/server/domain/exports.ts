@@ -1,9 +1,9 @@
-import crypto from "crypto";
+import { randomUUID } from "crypto";
 import path from "path";
-import JSZip from "jszip";
 import {
   AnnotationArtifactKind,
   ExportTarget,
+  ExportStatus,
   type AnnotationProjectRole,
   type ArtifactReviewState,
   type Prisma,
@@ -20,14 +20,19 @@ import {
 } from "@/server/domain/cropReadiness";
 import {
   ExportObjectIntegrityError,
-  getVerifiedExportObjectBytes,
 } from "@/server/domain/exportObjectIntegrity";
+import {
+  deleteExportPackageObjectsBestEffort,
+  type ExportPackageSource,
+  writeExportPackageObjects,
+} from "@/server/domain/exportPackageWriter";
 import {
   assertExportWithinTrialCaps,
   ExportTrialCapError,
   trainingExportTrialLimits,
 } from "@/server/domain/exportTrialCaps";
-import { getObjectBytes, putObject } from "@/server/storage/s3";
+import { getRuntimeConfig } from "@/server/runtime/config";
+import { getObjectBytes } from "@/server/storage/s3";
 import { normalizeChecksum } from "@/server/uploads/integrity";
 
 type ExportDb = PrismaClient | Prisma.TransactionClient;
@@ -159,6 +164,32 @@ const TARGETS = new Set<ApiExportTarget>([
 const TRAINING_EXPORT_MANIFEST_VERSION = "sapen-annotate-training-export-v1";
 const CROP_TRAINING_EXPORT_MANIFEST_VERSION = "sapen-annotate-crop-training-export-v1";
 
+const EXPORT_BATCH_SANITIZE_SELECT = {
+  id: true,
+  projectId: true,
+  target: true,
+  status: true,
+  manifestChecksum: true,
+  packageChecksum: true,
+  selectionCriteria: true,
+  warnings: true,
+  metadataSummary: true,
+  exportedAt: true,
+  createdAt: true,
+  jobAttemptCount: true,
+  jobMaxAttempts: true,
+  nextRetryAt: true,
+  processorId: true,
+  processorRunId: true,
+  leaseExpiresAt: true,
+  processingStartedAt: true,
+  completedAt: true,
+  failedAt: true,
+  errorCode: true,
+  errorMessage: true,
+  _count: { select: { items: true } },
+} satisfies Prisma.ExportBatchSelect;
+
 const ARTIFACT_SELECT = {
   id: true,
   version: true,
@@ -222,9 +253,7 @@ function canExport(role: AnnotationProjectRole) {
   return canExportTraining(role);
 }
 
-function sha256(bytes: Uint8Array | string) {
-  return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
-}
+const EXPORT_JOB_PACKAGE_WRITER = "jszip-verified-v1";
 
 function safeExtension(filename: string | null, contentType: string | null, fallback: string) {
   const ext = filename ? path.extname(filename).toLowerCase().replace(/[^a-z0-9.]/g, "") : "";
@@ -977,50 +1006,47 @@ async function buildCropTrainingManifest(params: {
   };
 }
 
-async function buildZipPackage(params: {
+function buildTrainingPackageSources(params: {
   manifest: Awaited<ReturnType<typeof buildManifest>>;
   candidates: ExportCandidate[];
-  targets: ApiExportTarget[];
 }) {
-  const zip = new JSZip();
-  zip.file("manifest.json", JSON.stringify(params.manifest, null, 2));
+  const sources: ExportPackageSource[] = [];
 
   for (const item of params.manifest.items) {
     const candidate = params.candidates.find((entry) => entry.image.id === item.image.id);
     if (!candidate) continue;
 
-    zip.file(item.image.path, await getVerifiedExportObjectBytes({
+    sources.push({
+      path: item.image.path,
       storageKey: candidate.image.storageKey,
-      expectedChecksum: candidate.image.checksum,
-      expectedSize: candidate.image.size,
+      expectedChecksum: candidate.image.checksum ?? null,
+      expectedSize: candidate.image.size ?? null,
       resourceType: "ImageAsset",
       resourceId: candidate.image.id,
-    }));
+    });
     if (item.semanticMask && candidate.semanticMask) {
-      zip.file(item.semanticMask.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.semanticMask.path,
         storageKey: candidate.semanticMask.storageKey,
-        expectedChecksum: candidate.semanticMask.checksum,
-        expectedSize: candidate.semanticMask.size,
+        expectedChecksum: candidate.semanticMask.checksum ?? null,
+        expectedSize: candidate.semanticMask.size ?? null,
         resourceType: "AnnotationArtifactVersion",
         resourceId: candidate.semanticMask.id,
-      }));
+      });
     }
     if (item.supportMask && candidate.supportMask) {
-      zip.file(item.supportMask.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.supportMask.path,
         storageKey: candidate.supportMask.storageKey,
-        expectedChecksum: candidate.supportMask.checksum,
-        expectedSize: candidate.supportMask.size,
+        expectedChecksum: candidate.supportMask.checksum ?? null,
+        expectedSize: candidate.supportMask.size ?? null,
         resourceType: "AnnotationArtifactVersion",
         resourceId: candidate.supportMask.id,
-      }));
+      });
     }
   }
 
-  return zip.generateAsync({
-    type: "uint8array",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
+  return sources;
 }
 
 function estimateTrainingExportBytes(params: {
@@ -1059,54 +1085,53 @@ function assertTrainingExportCaps(params: {
   });
 }
 
-async function buildCropTrainingZipPackage(params: {
+function buildCropTrainingPackageSources(params: {
   manifest: Awaited<ReturnType<typeof buildCropTrainingManifest>>;
   candidates: CropExportCandidate[];
 }) {
-  const zip = new JSZip();
-  zip.file("manifest.json", JSON.stringify(params.manifest, null, 2));
+  const sources: ExportPackageSource[] = [];
 
   for (const item of params.manifest.cropItems) {
     const candidate = params.candidates.find((entry) => entry.crop.id === item.derivedCrop.id);
     if (!candidate?.semanticMask) continue;
 
-    zip.file(item.originalImage.path, await getVerifiedExportObjectBytes({
+    sources.push({
+      path: item.originalImage.path,
       storageKey: candidate.crop.sourceImage.storageKey,
-      expectedChecksum: candidate.crop.sourceImage.checksum,
-      expectedSize: candidate.crop.sourceImage.size,
+      expectedChecksum: candidate.crop.sourceImage.checksum ?? null,
+      expectedSize: candidate.crop.sourceImage.size ?? null,
       resourceType: "ImageAsset",
       resourceId: candidate.crop.sourceImage.id,
-    }));
-    zip.file(item.derivedCrop.path, await getVerifiedExportObjectBytes({
+    });
+    sources.push({
+      path: item.derivedCrop.path,
       storageKey: candidate.crop.storageKey,
-      expectedChecksum: candidate.crop.checksum,
-      expectedSize: candidate.crop.byteSize,
+      expectedChecksum: candidate.crop.checksum ?? null,
+      expectedSize: candidate.crop.byteSize ?? null,
       resourceType: "DerivedSliceCrop",
       resourceId: candidate.crop.id,
-    }));
+    });
     if (item.supportMask && candidate.supportMask) {
-      zip.file(item.supportMask.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.supportMask.path,
         storageKey: candidate.supportMask.storageKey,
-        expectedChecksum: candidate.supportMask.checksum,
-        expectedSize: candidate.supportMask.size,
+        expectedChecksum: candidate.supportMask.checksum ?? null,
+        expectedSize: candidate.supportMask.size ?? null,
         resourceType: "AnnotationArtifactVersion",
         resourceId: candidate.supportMask.id,
-      }));
+      });
     }
-    zip.file(item.semanticMask.path, await getVerifiedExportObjectBytes({
+    sources.push({
+      path: item.semanticMask.path,
       storageKey: candidate.semanticMask.storageKey,
-      expectedChecksum: candidate.semanticMask.checksum,
-      expectedSize: candidate.semanticMask.size,
+      expectedChecksum: candidate.semanticMask.checksum ?? null,
+      expectedSize: candidate.semanticMask.size ?? null,
       resourceType: "AnnotationArtifactVersion",
       resourceId: candidate.semanticMask.id,
-    }));
+    });
   }
 
-  return zip.generateAsync({
-    type: "uint8array",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
+  return sources;
 }
 
 function estimateCropTrainingExportBytes(params: {
@@ -1144,23 +1169,85 @@ function assertCropTrainingExportCaps(params: {
   });
 }
 
+function estimateSourceBytes(params: {
+  manifestBytes: Uint8Array;
+  sources: ExportPackageSource[];
+}) {
+  return params.sources.reduce(
+    (total, source) => total + safeByteSize(source.expectedSize),
+    params.manifestBytes.byteLength,
+  );
+}
+
+function metadataRecord(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function readManifestSnapshot(metadata: Record<string, unknown>) {
+  const manifest = metadata.manifestSnapshot;
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    throw new TrainingExportError("EXPORT_JOB_SNAPSHOT_MISSING");
+  }
+  return manifest;
+}
+
+function readPackageSources(metadata: Record<string, unknown>): ExportPackageSource[] {
+  if (!Array.isArray(metadata.packageSources)) {
+    throw new TrainingExportError("EXPORT_JOB_SNAPSHOT_MISSING");
+  }
+  return metadata.packageSources.map((source) => {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      throw new TrainingExportError("EXPORT_JOB_SNAPSHOT_INVALID");
+    }
+    const record = source as Record<string, unknown>;
+    for (const field of ["path", "storageKey", "resourceType", "resourceId"]) {
+      if (typeof record[field] !== "string" || !record[field]) {
+        throw new TrainingExportError("EXPORT_JOB_SNAPSHOT_INVALID");
+      }
+    }
+    return {
+      path: record.path as string,
+      storageKey: record.storageKey as string,
+      expectedChecksum: typeof record.expectedChecksum === "string" ? record.expectedChecksum : null,
+      expectedSize: typeof record.expectedSize === "number" ? record.expectedSize : null,
+      resourceType: record.resourceType as string,
+      resourceId: record.resourceId as string,
+    };
+  });
+}
+
+function exportJobConfig() {
+  return getRuntimeConfig().exportJobs;
+}
+
 function sanitizeExportBatch(batch: {
   id: string;
   projectId: string;
   target: ExportTarget;
   status: string;
   manifestChecksum: string | null;
+  packageChecksum?: string | null;
   selectionCriteria: Prisma.JsonValue | null;
   warnings: Prisma.JsonValue | null;
   metadataSummary: Prisma.JsonValue | null;
   exportedAt: Date;
   createdAt: Date;
+  jobAttemptCount?: number;
+  jobMaxAttempts?: number;
+  nextRetryAt?: Date | null;
+  processorId?: string | null;
+  processorRunId?: string | null;
+  leaseExpiresAt?: Date | null;
+  processingStartedAt?: Date | null;
+  completedAt?: Date | null;
+  failedAt?: Date | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   _count?: { items: number };
 }) {
-  const metadata =
-    batch.metadataSummary && typeof batch.metadataSummary === "object" && !Array.isArray(batch.metadataSummary)
-      ? batch.metadataSummary as Record<string, unknown>
-      : {};
+  const metadata = metadataRecord(batch.metadataSummary);
   const warningList = Array.isArray(batch.warnings) ? batch.warnings : [];
 
   return {
@@ -1169,12 +1256,25 @@ function sanitizeExportBatch(batch: {
     target: batch.target,
     status: batch.status,
     manifestChecksum: batch.manifestChecksum,
-    packageChecksum: typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null,
+    packageChecksum: batch.packageChecksum ?? (typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null),
     itemCount: batch._count?.items ?? (typeof metadata.itemCount === "number" ? metadata.itemCount : 0),
     warningCount: warningList.length,
     selection: batch.selectionCriteria,
     exportedAt: batch.exportedAt,
     createdAt: batch.createdAt,
+    completedAt: batch.completedAt ?? null,
+    failedAt: batch.failedAt ?? null,
+    errorCode: batch.errorCode ?? null,
+    errorMessage: batch.errorMessage ?? null,
+    job: {
+      attemptCount: batch.jobAttemptCount ?? 0,
+      maxAttempts: batch.jobMaxAttempts ?? 0,
+      nextRetryAt: batch.nextRetryAt ?? null,
+      processorId: batch.processorId ?? null,
+      processorRunId: batch.processorRunId ?? null,
+      leaseExpiresAt: batch.leaseExpiresAt ?? null,
+      processingStartedAt: batch.processingStartedAt ?? null,
+    },
     downloads:
       batch.status === "COMPLETED"
         ? {
@@ -1185,27 +1285,76 @@ function sanitizeExportBatch(batch: {
   };
 }
 
-function exportObjectIntegrityWarning(error: ExportObjectIntegrityError) {
-  return {
-    code: error.code,
-    message: error.message,
-    details: error.details,
-  };
+function trainingExportItemsFromManifest(
+  manifest: Awaited<ReturnType<typeof buildManifest>>,
+) {
+  return manifest.items.flatMap((item) => {
+    const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
+      { role: "image", imageId: item.image.id },
+    ];
+    if (item.semanticMask) {
+      rows.push({
+        role: "semantic-mask",
+        imageId: item.image.id,
+        artifactVersionId: item.semanticMask.artifactVersionId,
+      });
+    }
+    if (item.supportMask) {
+      rows.push({
+        role: "support-mask",
+        imageId: item.image.id,
+        artifactVersionId: item.supportMask.artifactVersionId,
+      });
+    }
+    if (item.classification) {
+      rows.push({
+        role: "slice-classification",
+        imageId: item.image.id,
+        sliceClassificationVersionId: item.classification.classificationVersionId,
+      });
+    }
+    return rows;
+  });
 }
 
-function exportFailureWarning(error: unknown) {
-  if (error instanceof ExportObjectIntegrityError) return exportObjectIntegrityWarning(error);
-  if (error instanceof ExportTrialCapError) {
-    return {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    };
-  }
-  return {
-    code: error instanceof TrainingExportError ? error.code : "EXPORT_GENERATION_FAILED",
-    message: error instanceof Error ? error.message : "Unknown export failure",
-  };
+function cropTrainingExportItemsFromManifest(
+  manifest: Awaited<ReturnType<typeof buildCropTrainingManifest>>,
+) {
+  return manifest.cropItems.flatMap((item) => {
+    const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
+      {
+        role: "original-image",
+        imageId: item.originalImage.id,
+        derivedCropId: item.derivedCrop.id,
+      },
+      {
+        role: "derived-crop",
+        imageId: item.originalImage.id,
+        derivedCropId: item.derivedCrop.id,
+      },
+      {
+        role: "crop-semantic-mask",
+        imageId: item.originalImage.id,
+        artifactVersionId: item.semanticMask.artifactVersionId,
+        derivedCropId: item.derivedCrop.id,
+      },
+      {
+        role: "crop-slice-classification",
+        imageId: item.originalImage.id,
+        sliceClassificationVersionId: item.classification.classificationVersionId,
+        derivedCropId: item.derivedCrop.id,
+      },
+    ];
+    if (item.supportMask) {
+      rows.splice(2, 0, {
+        role: "crop-support-mask",
+        imageId: item.originalImage.id,
+        artifactVersionId: item.supportMask.artifactVersionId,
+        derivedCropId: item.derivedCrop.id,
+      });
+    }
+    return rows;
+  });
 }
 
 export function sanitizeReadiness(
@@ -1238,6 +1387,8 @@ async function createCropTrainingExportBatch(params: {
   readiness: Awaited<ReturnType<typeof resolveProjectExportReadiness>>;
   user: { id: string; email: string; name: string | null };
 }, db: PrismaClient) {
+  const exportId = randomUUID();
+  const exportedAt = new Date();
   const selectionCriteria = {
     targets: ["crop_training"],
     approvedOnly: true,
@@ -1245,150 +1396,73 @@ async function createCropTrainingExportBatch(params: {
     originalCoordinateMasks: false,
   };
 
-  const batch = await db.exportBatch.create({
-    data: {
-      projectId: params.readiness.project.id,
-      target: ExportTarget.CROP_TRAINING,
-      status: "CREATED",
-      manifestFormatVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
-      selectionCriteria,
-      exportedById: params.user.id,
-    },
-    select: {
-      id: true,
-      exportedAt: true,
-      createdAt: true,
-    },
+  const manifest = await buildCropTrainingManifest({
+    db,
+    exportId,
+    exportedAt,
+    exportedBy: params.user,
+    project: { id: params.readiness.project.id, name: params.readiness.project.name },
+    candidates: params.readiness.cropCandidates,
   });
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+  assertCropTrainingExportCaps({
+    manifest,
+    candidates: params.readiness.cropCandidates,
+    manifestBytes,
+  });
+  const packageSources = buildCropTrainingPackageSources({
+    manifest,
+    candidates: params.readiness.cropCandidates,
+  });
+  const exportItems = cropTrainingExportItemsFromManifest(manifest);
 
-  try {
-    const manifest = await buildCropTrainingManifest({
-      db,
-      exportId: batch.id,
-      exportedAt: batch.exportedAt,
-      exportedBy: params.user,
-      project: { id: params.readiness.project.id, name: params.readiness.project.name },
-      candidates: params.readiness.cropCandidates,
-    });
-    const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
-    assertCropTrainingExportCaps({
-      manifest,
-      candidates: params.readiness.cropCandidates,
-      manifestBytes,
-    });
-    const packageBytes = await buildCropTrainingZipPackage({
-      manifest,
-      candidates: params.readiness.cropCandidates,
-    });
-
-    const exportPrefix = `projects/${params.readiness.project.id}/exports/${batch.id}`;
-    const manifestStorageKey = `${exportPrefix}/manifest.json`;
-    const packageStorageKey = `${exportPrefix}/package.zip`;
-    await putObject(manifestStorageKey, manifestBytes, "application/json");
-    await putObject(packageStorageKey, packageBytes, "application/zip");
-
-    const exportItems = manifest.cropItems.flatMap((item) => {
-      const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
-        {
-          role: "original-image",
-          imageId: item.originalImage.id,
-          derivedCropId: item.derivedCrop.id,
-        },
-        {
-          role: "derived-crop",
-          imageId: item.originalImage.id,
-          derivedCropId: item.derivedCrop.id,
-        },
-        {
-          role: "crop-semantic-mask",
-          imageId: item.originalImage.id,
-          artifactVersionId: item.semanticMask.artifactVersionId,
-          derivedCropId: item.derivedCrop.id,
-        },
-        {
-          role: "crop-slice-classification",
-          imageId: item.originalImage.id,
-          sliceClassificationVersionId: item.classification.classificationVersionId,
-          derivedCropId: item.derivedCrop.id,
-        },
-      ];
-      if (item.supportMask) {
-        rows.splice(2, 0, {
-          role: "crop-support-mask",
-          imageId: item.originalImage.id,
-          artifactVersionId: item.supportMask.artifactVersionId,
-          derivedCropId: item.derivedCrop.id,
-        });
-      }
-      return rows;
-    });
-
-    const completed = await db.exportBatch.update({
-      where: { id: batch.id },
+  const queued = await db.$transaction(async (tx) => {
+    const created = await tx.exportBatch.create({
       data: {
-        status: "COMPLETED",
-        manifestStorageKey,
-        manifestChecksum: sha256(manifestBytes),
+        id: exportId,
+        projectId: params.readiness.project.id,
+        target: ExportTarget.CROP_TRAINING,
+        status: ExportStatus.PENDING,
+        manifestFormatVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
+        selectionCriteria,
         warnings: manifest.warnings,
         metadataSummary: {
+          packageWriter: EXPORT_JOB_PACKAGE_WRITER,
+          manifestSnapshot: manifest,
+          packageSources,
           itemCount: manifest.summary.cropItemCount,
           cropItemCount: manifest.summary.cropItemCount,
           skippedCropItemCount: manifest.summary.skippedCropItemCount,
           warningCount: manifest.summary.warningCount,
-          packageStorageKey,
-          packageChecksum: sha256(packageBytes),
-          packageSize: packageBytes.byteLength,
+          estimatedBytes: estimateSourceBytes({ manifestBytes, sources: packageSources }),
         },
+        exportedById: params.user.id,
+        exportedAt,
+        jobMaxAttempts: exportJobConfig().maxAttempts,
         ...(exportItems.length
-          ? {
-              items: {
-                createMany: {
-                  data: exportItems,
-                },
-              },
-            }
+          ? { items: { createMany: { data: exportItems } } }
           : {}),
       },
-      select: {
-        id: true,
-        projectId: true,
-        target: true,
-        status: true,
-        manifestChecksum: true,
-        selectionCriteria: true,
-        warnings: true,
-        metadataSummary: true,
-        exportedAt: true,
-        createdAt: true,
-        _count: { select: { items: true } },
-      },
+      select: EXPORT_BATCH_SANITIZE_SELECT,
     });
 
     await recordAuditEvent({
-      action: "EXPORT_CREATED",
+      action: "EXPORT_QUEUED",
       entity: "ExportBatch",
-      entityId: completed.id,
+      entityId: created.id,
       actorId: params.user.id,
       details: {
-        projectId: completed.projectId,
-        target: completed.target,
-        manifestChecksum: completed.manifestChecksum,
-        packageChecksum: sanitizeExportBatch(completed).packageChecksum,
+        projectId: created.projectId,
+        target: created.target,
         manifestFormatVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
+        itemCount: manifest.summary.cropItemCount,
       },
-    }, db);
+    }, tx);
 
-    return sanitizeExportBatch(completed);
-  } catch (error) {
-    await db.exportBatch.update({
-      where: { id: batch.id },
-      data: {
-        status: "FAILED",
-        warnings: [exportFailureWarning(error)],
-      },
-    }).catch(() => undefined);
-    throw error;
-  }
+    return created;
+  });
+
+  return sanitizeExportBatch(queued);
 }
 
 export async function createTrainingExportForUser(params: {
@@ -1417,145 +1491,184 @@ export async function createTrainingExportForUser(params: {
     approvedOnly: true,
   };
 
-  const batch = await db.exportBatch.create({
-    data: {
-      projectId: readiness.project.id,
-      target: targetForSelection(params.targets),
-      status: "CREATED",
-      manifestFormatVersion: TRAINING_EXPORT_MANIFEST_VERSION,
-      selectionCriteria,
-      exportedById: user.id,
-    },
-    select: {
-      id: true,
-      exportedAt: true,
-      createdAt: true,
-    },
+  const exportId = randomUUID();
+  const exportedAt = new Date();
+  const manifest = await buildManifest({
+    db,
+    exportId,
+    exportedAt,
+    exportedBy: user,
+    project: { id: readiness.project.id, name: readiness.project.name },
+    targets: params.targets,
+    candidates: readiness.candidates,
   });
+  if (hasBlockingIntegrityWarnings(manifest)) {
+    throw new TrainingExportError("EXPORT_INTEGRITY_METADATA_MISSING");
+  }
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+  assertTrainingExportCaps({
+    manifest,
+    candidates: readiness.candidates,
+    manifestBytes,
+  });
+  const packageSources = buildTrainingPackageSources({
+    manifest,
+    candidates: readiness.candidates,
+  });
+  const exportItems = trainingExportItemsFromManifest(manifest);
 
-  try {
-    const manifest = await buildManifest({
-      db,
-      exportId: batch.id,
-      exportedAt: batch.exportedAt,
-      exportedBy: user,
-      project: { id: readiness.project.id, name: readiness.project.name },
-      targets: params.targets,
-      candidates: readiness.candidates,
-    });
-    if (hasBlockingIntegrityWarnings(manifest)) {
-      throw new TrainingExportError("EXPORT_INTEGRITY_METADATA_MISSING");
-    }
-    const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
-    assertTrainingExportCaps({
-      manifest,
-      candidates: readiness.candidates,
-      manifestBytes,
-    });
-    const packageBytes = await buildZipPackage({
-      manifest,
-      candidates: readiness.candidates,
-      targets: params.targets,
-    });
-
-    const exportPrefix = `projects/${readiness.project.id}/exports/${batch.id}`;
-    const manifestStorageKey = `${exportPrefix}/manifest.json`;
-    const packageStorageKey = `${exportPrefix}/package.zip`;
-    await putObject(manifestStorageKey, manifestBytes, "application/json");
-    await putObject(packageStorageKey, packageBytes, "application/zip");
-
-    const exportItems = manifest.items.flatMap((item) => {
-      const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
-        { role: "image", imageId: item.image.id },
-      ];
-      if (item.semanticMask) {
-        rows.push({
-          role: "semantic-mask",
-          imageId: item.image.id,
-          artifactVersionId: item.semanticMask.artifactVersionId,
-        });
-      }
-      if (item.supportMask) {
-        rows.push({
-          role: "support-mask",
-          imageId: item.image.id,
-          artifactVersionId: item.supportMask.artifactVersionId,
-        });
-      }
-      if (item.classification) {
-        rows.push({
-          role: "slice-classification",
-          imageId: item.image.id,
-          sliceClassificationVersionId: item.classification.classificationVersionId,
-        });
-      }
-      return rows;
-    });
-
-    const completed = await db.exportBatch.update({
-      where: { id: batch.id },
+  const queued = await db.$transaction(async (tx) => {
+    const created = await tx.exportBatch.create({
       data: {
-        status: "COMPLETED",
-        manifestStorageKey,
-        manifestChecksum: sha256(manifestBytes),
+        id: exportId,
+        projectId: readiness.project.id,
+        target: targetForSelection(params.targets),
+        status: ExportStatus.PENDING,
+        manifestFormatVersion: TRAINING_EXPORT_MANIFEST_VERSION,
+        selectionCriteria,
         warnings: manifest.warnings,
         metadataSummary: {
+          packageWriter: EXPORT_JOB_PACKAGE_WRITER,
+          manifestSnapshot: manifest,
+          packageSources,
           itemCount: manifest.summary.itemCount,
           skippedImageCount: manifest.summary.skippedImageCount,
           warningCount: manifest.summary.warningCount,
-          packageStorageKey,
-          packageChecksum: sha256(packageBytes),
-          packageSize: packageBytes.byteLength,
+          estimatedBytes: estimateSourceBytes({ manifestBytes, sources: packageSources }),
         },
+        exportedById: user.id,
+        exportedAt,
+        jobMaxAttempts: exportJobConfig().maxAttempts,
         ...(exportItems.length
-          ? {
-              items: {
-                createMany: {
-                  data: exportItems,
-                },
-              },
-            }
+          ? { items: { createMany: { data: exportItems } } }
           : {}),
       },
-      select: {
-        id: true,
-        projectId: true,
-        target: true,
-        status: true,
-        manifestChecksum: true,
-        selectionCriteria: true,
-        warnings: true,
-        metadataSummary: true,
-        exportedAt: true,
-        createdAt: true,
-        _count: { select: { items: true } },
-      },
+      select: EXPORT_BATCH_SANITIZE_SELECT,
     });
 
     await recordAuditEvent({
-      action: "EXPORT_CREATED",
+      action: "EXPORT_QUEUED",
       entity: "ExportBatch",
-      entityId: completed.id,
+      entityId: created.id,
       actorId: user.id,
       details: {
-        projectId: completed.projectId,
-        target: completed.target,
-        manifestChecksum: completed.manifestChecksum,
-        packageChecksum: sanitizeExportBatch(completed).packageChecksum,
+        projectId: created.projectId,
+        target: created.target,
+        itemCount: manifest.summary.itemCount,
       },
-    }, db);
+    }, tx);
 
-    return sanitizeExportBatch(completed);
+    return created;
+  });
+
+  return sanitizeExportBatch(queued);
+}
+
+export async function processClaimedTrainingExportJob(params: {
+  exportId: string;
+  userId: string;
+}, db: PrismaClient = prisma) {
+  const batch = await db.exportBatch.findUnique({
+    where: { id: params.exportId },
+    select: {
+      id: true,
+      projectId: true,
+      target: true,
+      status: true,
+      metadataSummary: true,
+      manifestFormatVersion: true,
+      exportedById: true,
+    },
+  });
+  if (!batch) throw new TrainingExportError("EXPORT_NOT_FOUND");
+  if (batch.target === ExportTarget.PREDICTION_ANALYSIS) throw new TrainingExportError("EXPORT_NOT_FOUND");
+  if (batch.status !== ExportStatus.PROCESSING) throw new TrainingExportError("EXPORT_JOB_NOT_PROCESSING");
+
+  const metadata = metadataRecord(batch.metadataSummary);
+  const manifest = readManifestSnapshot(metadata);
+  const sources = readPackageSources(metadata);
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+  const summary = metadataRecord((manifest as Record<string, unknown>).summary as Prisma.JsonValue);
+  const itemCount =
+    typeof summary.itemCount === "number"
+      ? summary.itemCount
+      : typeof summary.cropItemCount === "number"
+        ? summary.cropItemCount
+        : 0;
+
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount,
+      estimatedBytes: estimateSourceBytes({ manifestBytes, sources }),
+    },
+    limits: trainingExportTrialLimits(),
+    itemCode: "EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "EXPORT_BYTE_LIMIT_EXCEEDED",
+  });
+
+  const exportPrefix = `projects/${batch.projectId}/exports/${batch.id}`;
+  const writeResult = await writeExportPackageObjects({
+    manifest,
+    sources,
+    manifestStorageKey: `${exportPrefix}/manifest.json`,
+    packageStorageKey: `${exportPrefix}/package.zip`,
+  });
+
+  let completed: Prisma.ExportBatchGetPayload<{ select: typeof EXPORT_BATCH_SANITIZE_SELECT }>;
+  try {
+    completed = await db.$transaction(async (tx) => {
+      const updated = await tx.exportBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: ExportStatus.COMPLETED,
+          manifestStorageKey: writeResult.manifestStorageKey,
+          manifestChecksum: writeResult.manifestChecksum,
+          packageStorageKey: writeResult.packageStorageKey,
+          packageChecksum: writeResult.packageChecksum,
+          packageSize: writeResult.packageSize,
+          warnings: Array.isArray((manifest as Record<string, unknown>).warnings)
+            ? (manifest as Record<string, unknown>).warnings as Prisma.InputJsonValue
+            : [],
+          metadataSummary: {
+            ...metadata,
+            packageStorageKey: writeResult.packageStorageKey,
+            packageChecksum: writeResult.packageChecksum,
+            packageSize: writeResult.packageSize,
+          },
+          completedAt: new Date(),
+          failedAt: null,
+          errorCode: null,
+          errorMessage: null,
+          nextRetryAt: null,
+          processorId: null,
+          processorRunId: null,
+          leaseExpiresAt: null,
+        },
+        select: EXPORT_BATCH_SANITIZE_SELECT,
+      });
+
+      await recordAuditEvent({
+        action: "EXPORT_CREATED",
+        entity: "ExportBatch",
+        entityId: updated.id,
+        actorId: params.userId,
+        details: {
+          projectId: updated.projectId,
+          target: updated.target,
+          manifestChecksum: updated.manifestChecksum,
+          packageChecksum: updated.packageChecksum,
+          manifestFormatVersion: batch.manifestFormatVersion,
+        },
+      }, tx);
+
+      return updated;
+    });
   } catch (error) {
-    await db.exportBatch.update({
-      where: { id: batch.id },
-      data: {
-        status: "FAILED",
-        warnings: [exportFailureWarning(error)],
-      },
-    }).catch(() => undefined);
+    await deleteExportPackageObjectsBestEffort(writeResult);
     throw error;
   }
+
+  return sanitizeExportBatch(completed);
 }
 
 async function loadExportForUser(params: {
@@ -1565,18 +1678,9 @@ async function loadExportForUser(params: {
   const batch = await db.exportBatch.findUnique({
     where: { id: params.exportId },
     select: {
-      id: true,
-      projectId: true,
-      target: true,
-      status: true,
+      ...EXPORT_BATCH_SANITIZE_SELECT,
       manifestStorageKey: true,
-      manifestChecksum: true,
-      selectionCriteria: true,
-      warnings: true,
-      metadataSummary: true,
-      exportedAt: true,
-      createdAt: true,
-      _count: { select: { items: true } },
+      packageStorageKey: true,
     },
   });
   if (!batch) throw new TrainingExportError("EXPORT_NOT_FOUND");
@@ -1612,18 +1716,14 @@ export async function readTrainingExportFileForUser(params: {
   file: "manifest" | "package";
 }, db: ExportDb = prisma) {
   const batch = await loadExportForUser(params, db);
+  if (batch.status === "FAILED") throw new TrainingExportError("EXPORT_FAILED");
   if (batch.status !== "COMPLETED") throw new TrainingExportError("EXPORT_NOT_READY");
 
-  const metadata =
-    batch.metadataSummary && typeof batch.metadataSummary === "object" && !Array.isArray(batch.metadataSummary)
-      ? batch.metadataSummary as Record<string, unknown>
-      : {};
+  const metadata = metadataRecord(batch.metadataSummary);
   const key =
     params.file === "manifest"
       ? batch.manifestStorageKey
-      : typeof metadata.packageStorageKey === "string"
-        ? metadata.packageStorageKey
-        : null;
+      : batch.packageStorageKey ?? (typeof metadata.packageStorageKey === "string" ? metadata.packageStorageKey : null);
   if (!key) throw new TrainingExportError("EXPORT_FILE_NOT_FOUND");
 
   const bytes = await getObjectBytes(key);
@@ -1660,6 +1760,8 @@ export function exportErrorResponse(error: unknown): { error: string; status: nu
           ? 404
           : error.code === "EXPORT_NOT_READY"
             ? 409
+            : error.code === "EXPORT_FAILED"
+              ? 409
             : 400;
     return { error: error.code, status };
   }

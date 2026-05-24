@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page documents the prediction-assisted workflow contract. The filename is historical. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, RB-058 implements the first correction task queue, RB-059 implements the first assisted correction editor for semantic/support mask predictions, RB-060 implements a separate prediction-analysis export for QA, RB-061 implements trial-sized ZIP batch prediction imports, RB-065 adds the single-host batch runner lease/recovery path, RB-066 adds temporary storage cleanup for staging/orphan objects, and RB-067 adds prediction-vs-approved-reference QA metrics.
+This page documents the prediction-assisted workflow contract. The filename is historical. RB-056 implements provenance registry storage, RB-057 implements one-at-a-time prediction mask import, RB-058 implements the first correction task queue, RB-059 implements the first assisted correction editor for semantic/support mask predictions, RB-060/RB-112 implement a separate async prediction-analysis export for QA, RB-061 implements trial-sized ZIP batch prediction imports, RB-065 adds the single-host batch runner lease/recovery path, RB-066 adds temporary storage cleanup for staging/orphan objects, and RB-067 adds prediction-vs-approved-reference QA metrics.
 
 ## Flow
 
@@ -30,7 +30,7 @@ Current provenance and queue implementation files:
 - `src/server/domain/predictionImport.ts` - prediction mask import service.
 - `src/server/domain/correctionTasks.ts` - correction task creation, ordering, role checks, and updates.
 - `src/server/domain/assistedCorrection.ts` - assisted correction context, prediction-mask read authorization, and human correction save service.
-- `src/server/domain/predictionAnalysisExports.ts` - prediction-analysis export readiness, manifest/package generation, and owner/QA download authorization.
+- `src/server/domain/predictionAnalysisExports.ts` - prediction-analysis export readiness, async manifest/package generation, and owner/QA download authorization.
 - `src/server/domain/predictionAnalysisMetrics.ts` - semantic/support prediction QA metric helpers.
 - `src/server/domain/predictionImportBatches.ts` - ZIP batch prediction import validation, private staging, processing, process-due, retry, stale recovery, and sanitized status serialization.
 - `src/server/domain/storageCleanup.ts` - temporary batch staging and abandoned presigned-upload cleanup.

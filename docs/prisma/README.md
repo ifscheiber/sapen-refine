@@ -24,6 +24,8 @@
 - `prisma/migrations/20260523153000_image_crop_workflow_state/migration.sql` - RB-094 image-level BBox set confirmation workflow state.
 - `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql` - RB-109 review/export DB check constraints and migration preflight checks.
 - `prisma/migrations/20260524113000_high_cost_rate_limit_buckets/migration.sql` - RB-111 hashed high-cost write limiter bucket persistence.
+- `prisma/migrations/20260524123000_async_export_jobs/migration.sql` - RB-112 async export job statuses, package metadata, processor lease/retry fields, and package metadata backfill.
+- `prisma/migrations/20260524124500_export_legacy_created_completed/migration.sql` - RB-112 legacy generated-export compatibility update from `CREATED` to `COMPLETED`.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -38,7 +40,7 @@
 - Schema changes require docs and tests.
 - This repository is still in development stage; local data may be destroyed and the migration baseline may be reset when it removes prototype debt.
 - Raw images and mask versions must remain attributable and integrity-checked before database commit where practical.
-- Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, and exact version references.
+- Approved mask versions and exports must be append-only and reproducible from stored checksums, dimensions, metadata, review state, exact version references, and completed export package checksum/size metadata.
 - Append-only version numbers for `AnnotationArtifactVersion`, `SliceBoundingBoxVersion`, `DerivedSliceCrop`, and `SliceClassificationVersion` are allocated by application writers under RB-107 PostgreSQL transaction advisory locks, with the existing unique constraints acting as a final guard.
 - `ReviewDecision` rows have a DB-enforced exact-one-target check: exactly one of `artifactVersionId` or `sliceClassificationVersionId` must be present.
 - Current stable `ExportItem.role` values have DB-enforced reference-shape checks for image, full-image artifact/classification, crop, prediction proposal, correction reference, and approved-reference rows. The role/reference matrix is documented in `docs/prisma/schema.md`; unknown future roles remain unconstrained until their semantics are explicitly modeled.
@@ -55,10 +57,11 @@
 - Auto-derived crop classifications are draft `SliceClassificationVersion` rows with `source = AUTO_FROM_SEMANTIC_MASK`, a stable derivation reason, and links to the source semantic mask, support mask, and crop. Manual crop overrides append separate `source = MANUAL` rows.
 - `ExportTarget.CROP_TRAINING` records RB-091 crop ground-truth packages. `ExportItem.derivedCropId` links crop package rows back to the exact `DerivedSliceCrop` used for original image, crop PNG, crop support-mask, crop semantic-mask, and crop classification roles.
 - `ExportItem.predictionProvenanceId` is required for constrained prediction-analysis item roles except the shared `image` role, where it remains optional because full-image training exports and prediction-analysis exports both use that role.
+- `ExportBatch.status`, `jobAttemptCount`, `jobMaxAttempts`, `nextRetryAt`, `processorId`, `processorRunId`, `leaseExpiresAt`, and processing/completion/failure timestamps model RB-112 single-host export jobs. New exports are queued as `PENDING`; downloads are available only after `COMPLETED`. Legacy generated `CREATED` exports with package objects are migrated to `COMPLETED`.
 
 ## Known Gaps
 
-- Project/image metadata, default slice support/classification, source-image BBox slice proposals, derived slice crop generation, review, training export, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, prediction-analysis export with QA metrics, ZIP batch prediction import, single-host batch worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
+- Project/image metadata, default slice support/classification, source-image BBox slice proposals, derived slice crop generation, review, async training export jobs, upload/artifact validation, prediction provenance registry, one-at-a-time prediction mask import, active-learning queue, assisted correction, async prediction-analysis export jobs with QA metrics, ZIP batch prediction import, single-host batch/export worker leases, auth/RBAC/audit hardening, and temporary storage cleanup workflows exist for the MVP path.
 - Crop support-mask editing exists after RB-088, mode-aware crop semantic editing exists after RB-089/RB-100, draft auto classification suggestions from crop semantics exist after RB-090, crop-aware training export exists after RB-091, and central crop review/readiness exists after RB-092. Slice-specific metadata, source-image-space crop-mask reprojection, advanced export policy/history, metric dashboards/reports, cleanup UI, production-scale queue infrastructure, and slice-classification batch prediction import remain deferred.
 - `MaskKind.REFINED` has been removed from the active schema.
 

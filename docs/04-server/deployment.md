@@ -137,7 +137,7 @@ Default trial limits:
 - Prediction import upload/process/retry endpoints: 10 requests per 600 seconds.
 - Cleanup/admin operations: 10 requests per 600 seconds.
 
-Tune these through `HIGH_COST_*` variables in `deploy/trial.env`. This is a single-host operational guard for the customer trial, not a distributed quota/billing system. RB-112 remains the follow-up for production-scale async or streaming export jobs.
+Tune these through `HIGH_COST_*` variables in `deploy/trial.env`. This is a single-host operational guard for the customer trial, not a distributed quota/billing system. RB-112 adds async export jobs, but streaming package generation and production-scale queue infrastructure remain future work.
 
 ## Batch Prediction Import Processing
 
@@ -165,6 +165,23 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml lo
 ```
 
 Before enabling the worker, set `SAPEN_JOB_EMAIL` and `SAPEN_JOB_PASSWORD` in `deploy/trial.env` to a named project `OWNER` or `QA` account. Keep `PREDICTION_BATCH_PROCESS_LIMIT`, `PREDICTION_BATCH_MAX_JOBS_PER_TICK`, `PREDICTION_BATCH_LEASE_SECONDS`, and `PREDICTION_BATCH_WORKER_INTERVAL_SECONDS` bounded. The default trial path is one worker process; do not scale multiple worker replicas unless the lease assumptions are reviewed.
+
+## Export Job Processing
+
+Training, crop-training, and prediction-analysis export create routes enqueue RB-112 jobs. Process due export jobs manually with:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run exports:process -- --base-url http://localhost:3000 --max-jobs 2 --email 'owner@example.com' --password '<owner-password>'
+```
+
+Optional always-on export worker:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d export-worker
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f export-worker
+```
+
+Use a named project `OWNER` account for training/crop exports; `OWNER` or `QA` can process prediction-analysis exports. Keep `EXPORT_JOB_MAX_JOBS_PER_TICK`, `EXPORT_JOB_LEASE_SECONDS`, `EXPORT_JOB_MAX_ATTEMPTS`, and `EXPORT_JOB_WORKER_INTERVAL_SECONDS` bounded. The worker uses PostgreSQL claim/lease metadata and JSZip behind RB-111 caps; do not scale multiple export worker replicas without reviewing the lease and storage assumptions.
 
 ## Storage Retention Cleanup
 

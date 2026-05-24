@@ -1,11 +1,11 @@
-import crypto from "crypto";
+import { randomUUID } from "crypto";
 import path from "path";
-import JSZip from "jszip";
 import {
   AnnotationArtifactKind,
   AnnotationTaskType,
   ArtifactProvenance,
   ExportTarget,
+  ExportStatus,
   PredictionTargetType,
   Prisma,
   PrismaClient,
@@ -17,8 +17,12 @@ import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
   ExportObjectIntegrityError,
-  getVerifiedExportObjectBytes,
 } from "@/server/domain/exportObjectIntegrity";
+import {
+  deleteExportPackageObjectsBestEffort,
+  type ExportPackageSource,
+  writeExportPackageObjects,
+} from "@/server/domain/exportPackageWriter";
 import {
   assertExportWithinTrialCaps,
   ExportTrialCapError,
@@ -34,12 +38,14 @@ import {
   type MetricLabelDefinition,
   type PredictionQaNotComputedReason,
 } from "@/server/domain/predictionAnalysisMetrics";
-import { getObjectBytes, putObject } from "@/server/storage/s3";
-import { normalizeChecksum } from "@/server/uploads/integrity";
+import { getRuntimeConfig } from "@/server/runtime/config";
+import { getObjectBytes } from "@/server/storage/s3";
+import { normalizeChecksum, sha256Checksum } from "@/server/uploads/integrity";
 
 type PredictionAnalysisDb = PrismaClient | Prisma.TransactionClient;
 
 const MANIFEST_VERSION = "sapen-annotate-prediction-analysis-export-v1";
+const EXPORT_JOB_PACKAGE_WRITER = "jszip-verified-v1";
 const DEFAULT_TARGET_TYPES: PredictionTargetType[] = [
   PredictionTargetType.SEMANTIC_MASK,
   PredictionTargetType.SLICE_SUPPORT_MASK,
@@ -51,6 +57,32 @@ const USER_SELECT = {
   email: true,
   name: true,
 } satisfies Prisma.UserSelect;
+
+const EXPORT_BATCH_SANITIZE_SELECT = {
+  id: true,
+  projectId: true,
+  target: true,
+  status: true,
+  manifestChecksum: true,
+  packageChecksum: true,
+  selectionCriteria: true,
+  warnings: true,
+  metadataSummary: true,
+  exportedAt: true,
+  createdAt: true,
+  jobAttemptCount: true,
+  jobMaxAttempts: true,
+  nextRetryAt: true,
+  processorId: true,
+  processorRunId: true,
+  leaseExpiresAt: true,
+  processingStartedAt: true,
+  completedAt: true,
+  failedAt: true,
+  errorCode: true,
+  errorMessage: true,
+  _count: { select: { items: true } },
+} satisfies Prisma.ExportBatchSelect;
 
 const ARTIFACT_VERSION_SELECT = {
   id: true,
@@ -298,10 +330,6 @@ function canExport(role: AnnotationProjectRole) {
   return canExportPredictionAnalysis(role);
 }
 
-function sha256(bytes: Uint8Array | string) {
-  return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
-}
-
 function safeExtension(filename: string | null, contentType: string | null, fallback: string) {
   const ext = filename ? path.extname(filename).toLowerCase().replace(/[^a-z0-9.]/g, "") : "";
   if (ext) return ext;
@@ -492,7 +520,7 @@ function expectedMaskByteLength(version: SelectedArtifactVersion) {
 
 function checksumMatches(version: SelectedArtifactVersion, bytes: Uint8Array) {
   const expected = normalizeChecksum(version.checksum);
-  return !expected || expected === sha256(bytes);
+  return !expected || expected === sha256Checksum(bytes);
 }
 
 function safeByteSize(value: number | null | undefined) {
@@ -983,65 +1011,64 @@ async function buildManifest(params: {
   };
 }
 
-async function buildZipPackage(params: {
+function buildPackageSources(params: {
   manifest: Awaited<ReturnType<typeof buildManifest>>;
   candidates: PredictionAnalysisCandidate[];
 }) {
-  const zip = new JSZip();
-  zip.file("manifest.json", JSON.stringify(params.manifest, null, 2));
+  const sources: ExportPackageSource[] = [];
   const addedImages = new Set<string>();
 
   for (const item of params.manifest.items) {
     const candidate = params.candidates.find((entry) => entry.prediction.id === item.prediction.predictionProvenanceId);
     if (!candidate) continue;
     if (!addedImages.has(item.image.path)) {
-      zip.file(item.image.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.image.path,
         storageKey: candidate.prediction.image.storageKey,
-        expectedChecksum: candidate.prediction.image.checksum,
-        expectedSize: candidate.prediction.image.size,
+        expectedChecksum: candidate.prediction.image.checksum ?? null,
+        expectedSize: candidate.prediction.image.size ?? null,
         resourceType: "ImageAsset",
         resourceId: candidate.prediction.image.id,
-      }));
+      });
       addedImages.add(item.image.path);
     }
     if (item.prediction.path && candidate.prediction.artifactVersion) {
-      zip.file(item.prediction.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.prediction.path,
         storageKey: candidate.prediction.artifactVersion.storageKey,
-        expectedChecksum: candidate.prediction.artifactVersion.checksum,
-        expectedSize: candidate.prediction.artifactVersion.size,
+        expectedChecksum: candidate.prediction.artifactVersion.checksum ?? null,
+        expectedSize: candidate.prediction.artifactVersion.size ?? null,
         resourceType: "AnnotationArtifactVersion",
         resourceId: candidate.prediction.artifactVersion.id,
-      }));
+      });
     }
     if (item.humanCorrection && candidate.humanCorrection) {
-      zip.file(item.humanCorrection.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.humanCorrection.path,
         storageKey: candidate.humanCorrection.storageKey,
-        expectedChecksum: candidate.humanCorrection.checksum,
-        expectedSize: candidate.humanCorrection.size,
+        expectedChecksum: candidate.humanCorrection.checksum ?? null,
+        expectedSize: candidate.humanCorrection.size ?? null,
         resourceType: "AnnotationArtifactVersion",
         resourceId: candidate.humanCorrection.id,
-      }));
+      });
     }
     if (
       item.approvedGroundTruthReference &&
       "artifactVersionId" in item.approvedGroundTruthReference &&
       candidate.approvedGroundTruthArtifact
     ) {
-      zip.file(item.approvedGroundTruthReference.path, await getVerifiedExportObjectBytes({
+      sources.push({
+        path: item.approvedGroundTruthReference.path,
         storageKey: candidate.approvedGroundTruthArtifact.storageKey,
-        expectedChecksum: candidate.approvedGroundTruthArtifact.checksum,
-        expectedSize: candidate.approvedGroundTruthArtifact.size,
+        expectedChecksum: candidate.approvedGroundTruthArtifact.checksum ?? null,
+        expectedSize: candidate.approvedGroundTruthArtifact.size ?? null,
         resourceType: "AnnotationArtifactVersion",
         resourceId: candidate.approvedGroundTruthArtifact.id,
-      }));
+      });
     }
   }
 
-  return zip.generateAsync({
-    type: "uint8array",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
+  return sources;
 }
 
 function estimatePredictionAnalysisExportBytes(params: {
@@ -1082,23 +1109,79 @@ function assertPredictionAnalysisExportCaps(params: {
   });
 }
 
+function estimateSourceBytes(params: {
+  manifestBytes: Uint8Array;
+  sources: ExportPackageSource[];
+}) {
+  return params.sources.reduce(
+    (total, source) => total + safeByteSize(source.expectedSize),
+    params.manifestBytes.byteLength,
+  );
+}
+
+function estimatePredictionAnalysisCandidateBytes(candidates: PredictionAnalysisCandidate[]) {
+  let total = 0;
+  const addedImages = new Set<string>();
+  for (const candidate of candidates) {
+    if (!addedImages.has(candidate.prediction.image.id)) {
+      total += safeByteSize(candidate.prediction.image.size);
+      addedImages.add(candidate.prediction.image.id);
+    }
+    total += safeByteSize(candidate.prediction.artifactVersion?.size);
+    total += safeByteSize(candidate.humanCorrection?.size);
+    total += safeByteSize(candidate.approvedGroundTruthArtifact?.size);
+  }
+  return total;
+}
+
+function assertPredictionAnalysisPreflightCaps(candidates: PredictionAnalysisCandidate[]) {
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount: candidates.length,
+      estimatedBytes: estimatePredictionAnalysisCandidateBytes(candidates),
+    },
+    limits: predictionAnalysisExportTrialLimits(),
+    itemCode: "PREDICTION_ANALYSIS_EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "PREDICTION_ANALYSIS_EXPORT_BYTE_LIMIT_EXCEEDED",
+  });
+}
+
+function metadataRecord(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function exportJobConfig() {
+  return getRuntimeConfig().exportJobs;
+}
+
 function sanitizeExportBatch(batch: {
   id: string;
   projectId: string;
   target: ExportTarget;
   status: string;
   manifestChecksum: string | null;
+  packageChecksum?: string | null;
   selectionCriteria: Prisma.JsonValue | null;
   warnings: Prisma.JsonValue | null;
   metadataSummary: Prisma.JsonValue | null;
   exportedAt: Date;
   createdAt: Date;
+  jobAttemptCount?: number;
+  jobMaxAttempts?: number;
+  nextRetryAt?: Date | null;
+  processorId?: string | null;
+  processorRunId?: string | null;
+  leaseExpiresAt?: Date | null;
+  processingStartedAt?: Date | null;
+  completedAt?: Date | null;
+  failedAt?: Date | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   _count?: { items: number };
 }) {
-  const metadata =
-    batch.metadataSummary && typeof batch.metadataSummary === "object" && !Array.isArray(batch.metadataSummary)
-      ? batch.metadataSummary as Record<string, unknown>
-      : {};
+  const metadata = metadataRecord(batch.metadataSummary);
   const warningList = Array.isArray(batch.warnings) ? batch.warnings : [];
   return {
     id: batch.id,
@@ -1106,7 +1189,7 @@ function sanitizeExportBatch(batch: {
     target: batch.target,
     status: batch.status,
     manifestChecksum: batch.manifestChecksum,
-    packageChecksum: typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null,
+    packageChecksum: batch.packageChecksum ?? (typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null),
     itemCount: batch._count?.items ?? (typeof metadata.itemCount === "number" ? metadata.itemCount : 0),
     warningCount: warningList.length,
     qaMetricsSummary:
@@ -1116,6 +1199,19 @@ function sanitizeExportBatch(batch: {
     selection: batch.selectionCriteria,
     exportedAt: batch.exportedAt,
     createdAt: batch.createdAt,
+    completedAt: batch.completedAt ?? null,
+    failedAt: batch.failedAt ?? null,
+    errorCode: batch.errorCode ?? null,
+    errorMessage: batch.errorMessage ?? null,
+    job: {
+      attemptCount: batch.jobAttemptCount ?? 0,
+      maxAttempts: batch.jobMaxAttempts ?? 0,
+      nextRetryAt: batch.nextRetryAt ?? null,
+      processorId: batch.processorId ?? null,
+      processorRunId: batch.processorRunId ?? null,
+      leaseExpiresAt: batch.leaseExpiresAt ?? null,
+      processingStartedAt: batch.processingStartedAt ?? null,
+    },
     downloads:
       batch.status === "COMPLETED"
         ? {
@@ -1126,27 +1222,48 @@ function sanitizeExportBatch(batch: {
   };
 }
 
-function exportObjectIntegrityWarning(error: ExportObjectIntegrityError) {
-  return {
-    code: error.code,
-    message: error.message,
-    details: error.details,
-  };
-}
-
-function exportFailureWarning(error: unknown) {
-  if (error instanceof ExportObjectIntegrityError) return exportObjectIntegrityWarning(error);
-  if (error instanceof ExportTrialCapError) {
-    return {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    };
-  }
-  return {
-    code: error instanceof PredictionAnalysisExportError ? error.code : "PREDICTION_ANALYSIS_EXPORT_FAILED",
-    message: error instanceof Error ? error.message : "Unknown export failure",
-  };
+function predictionAnalysisExportItemsFromCandidates(candidates: PredictionAnalysisCandidate[]) {
+  return candidates.flatMap((candidate) => {
+    const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
+      {
+        role: "image",
+        imageId: candidate.prediction.image.id,
+        predictionProvenanceId: candidate.prediction.id,
+      },
+    ];
+    if (candidate.prediction.artifactVersion) {
+      rows.push({
+        role: "prediction-proposal",
+        imageId: candidate.prediction.image.id,
+        artifactVersionId: candidate.prediction.artifactVersion.id,
+        predictionProvenanceId: candidate.prediction.id,
+      });
+    }
+    if (candidate.humanCorrection) {
+      rows.push({
+        role: "human-correction-reference",
+        imageId: candidate.prediction.image.id,
+        artifactVersionId: candidate.humanCorrection.id,
+        predictionProvenanceId: candidate.prediction.id,
+      });
+    }
+    if (candidate.approvedGroundTruthArtifact) {
+      rows.push({
+        role: "approved-ground-truth-reference",
+        imageId: candidate.prediction.image.id,
+        artifactVersionId: candidate.approvedGroundTruthArtifact.id,
+        predictionProvenanceId: candidate.prediction.id,
+      });
+    } else if (candidate.approvedGroundTruthClassification) {
+      rows.push({
+        role: "approved-ground-truth-reference",
+        imageId: candidate.prediction.image.id,
+        sliceClassificationVersionId: candidate.approvedGroundTruthClassification.id,
+        predictionProvenanceId: candidate.prediction.id,
+      });
+    }
+    return rows;
+  });
 }
 
 export function sanitizePredictionAnalysisReadiness(
@@ -1216,141 +1333,275 @@ export async function createPredictionAnalysisExportForUser(params: {
     includeHumanReferences: readiness.selection.includeHumanReferences,
   };
 
-  const batch = await db.exportBatch.create({
-    data: {
-      projectId: readiness.project.id,
-      target: ExportTarget.PREDICTION_ANALYSIS,
-      status: "CREATED",
-      manifestFormatVersion: MANIFEST_VERSION,
-      selectionCriteria,
-      exportedById: user.id,
-    },
-    select: { id: true, exportedAt: true },
-  });
+  assertPredictionAnalysisPreflightCaps(readiness.candidates);
+  const exportId = randomUUID();
+  const exportedAt = new Date();
+  const exportItems = predictionAnalysisExportItemsFromCandidates(readiness.candidates);
 
-  try {
-    const manifest = await buildManifest({
-      db,
-      exportId: batch.id,
-      exportedAt: batch.exportedAt,
-      exportedBy: user,
-      project: { id: readiness.project.id, name: readiness.project.name },
-      selection: readiness.selection,
-      candidates: readiness.candidates,
-    });
-    const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
-    assertPredictionAnalysisExportCaps({ manifest, manifestBytes });
-    const packageBytes = await buildZipPackage({
-      manifest,
-      candidates: readiness.candidates,
-    });
-    const exportPrefix = `projects/${readiness.project.id}/prediction-analysis-exports/${batch.id}`;
-    const manifestStorageKey = `${exportPrefix}/manifest.json`;
-    const packageStorageKey = `${exportPrefix}/package.zip`;
-    await putObject(manifestStorageKey, manifestBytes, "application/json");
-    await putObject(packageStorageKey, packageBytes, "application/zip");
-
-    const exportItems = manifest.items.flatMap((item) => {
-      const rows: Prisma.ExportItemCreateManyExportBatchInput[] = [
-        {
-          role: "image",
-          imageId: item.image.id,
-          predictionProvenanceId: item.prediction.predictionProvenanceId,
-        },
-        {
-          role: "prediction-proposal",
-          imageId: item.image.id,
-          artifactVersionId: item.prediction.artifactVersionId,
-          predictionProvenanceId: item.prediction.predictionProvenanceId,
-        },
-      ];
-      if (item.humanCorrection) {
-        rows.push({
-          role: "human-correction-reference",
-          imageId: item.image.id,
-          artifactVersionId: item.humanCorrection.artifactVersionId,
-          predictionProvenanceId: item.prediction.predictionProvenanceId,
-        });
-      }
-      if (item.approvedGroundTruthReference) {
-        if ("artifactVersionId" in item.approvedGroundTruthReference) {
-          rows.push({
-            role: "approved-ground-truth-reference",
-            imageId: item.image.id,
-            artifactVersionId: item.approvedGroundTruthReference.artifactVersionId,
-            predictionProvenanceId: item.prediction.predictionProvenanceId,
-          });
-        } else {
-          rows.push({
-            role: "approved-ground-truth-reference",
-            imageId: item.image.id,
-            sliceClassificationVersionId: item.approvedGroundTruthReference.classificationVersionId,
-            predictionProvenanceId: item.prediction.predictionProvenanceId,
-          });
-        }
-      }
-      return rows;
-    });
-
-    const completed = await db.exportBatch.update({
-      where: { id: batch.id },
+  const queued = await db.$transaction(async (tx) => {
+    const created = await tx.exportBatch.create({
       data: {
-        status: "COMPLETED",
-        manifestStorageKey,
-        manifestChecksum: sha256(manifestBytes),
-        warnings: manifest.warnings,
+        id: exportId,
+        projectId: readiness.project.id,
+        target: ExportTarget.PREDICTION_ANALYSIS,
+        status: ExportStatus.PENDING,
+        manifestFormatVersion: MANIFEST_VERSION,
+        selectionCriteria,
+        warnings: [
+          "This export contains model predictions for QA/analysis. It is not a ground-truth training-label export.",
+        ],
         metadataSummary: {
+          packageWriter: EXPORT_JOB_PACKAGE_WRITER,
           mode: "prediction_analysis",
-          itemCount: manifest.summary.itemCount,
-          warningCount: manifest.summary.warningCount,
-          qaMetricsSummary: manifest.summary.qaMetrics,
-          packageStorageKey,
-          packageChecksum: sha256(packageBytes),
-          packageSize: packageBytes.byteLength,
+          itemCount: readiness.candidates.length,
+          warningCount: readiness.candidates.reduce((count, candidate) => count + candidate.warnings.length, 1),
+          estimatedBytes: estimatePredictionAnalysisCandidateBytes(readiness.candidates),
         },
+        exportedById: user.id,
+        exportedAt,
+        jobMaxAttempts: exportJobConfig().maxAttempts,
         items: {
           createMany: { data: exportItems },
         },
       },
-      select: {
-        id: true,
-        projectId: true,
-        target: true,
-        status: true,
-        manifestChecksum: true,
-        selectionCriteria: true,
-        warnings: true,
-        metadataSummary: true,
-        exportedAt: true,
-        createdAt: true,
-        _count: { select: { items: true } },
-      },
+      select: EXPORT_BATCH_SANITIZE_SELECT,
     });
 
     await recordAuditEvent({
-      action: "PREDICTION_ANALYSIS_EXPORT_CREATED",
+      action: "PREDICTION_ANALYSIS_EXPORT_QUEUED",
       entity: "ExportBatch",
-      entityId: completed.id,
+      entityId: created.id,
       actorId: user.id,
       details: {
-        projectId: completed.projectId,
-        target: completed.target,
-        manifestChecksum: completed.manifestChecksum,
-        packageChecksum: sanitizeExportBatch(completed).packageChecksum,
+        projectId: created.projectId,
+        target: created.target,
+        itemCount: readiness.candidates.length,
       },
-    }, db);
+    }, tx);
 
-    return sanitizeExportBatch(completed);
+    return created;
+  });
+
+  return sanitizeExportBatch(queued);
+}
+
+function selectionFromCriteria(value: Prisma.JsonValue | null): PredictionAnalysisSelection {
+  const criteria = metadataRecord(value);
+  return {
+    predictionRunId: typeof criteria.predictionRunId === "string" ? criteria.predictionRunId : null,
+    modelRunId: typeof criteria.modelRunId === "string" ? criteria.modelRunId : null,
+    targetTypes: Array.isArray(criteria.targetTypes)
+      ? criteria.targetTypes.filter((target): target is PredictionTargetType =>
+          typeof target === "string" && Object.values(PredictionTargetType).includes(target as PredictionTargetType),
+        )
+      : DEFAULT_TARGET_TYPES,
+    includeHumanReferences:
+      typeof criteria.includeHumanReferences === "boolean"
+        ? criteria.includeHumanReferences
+        : true,
+  };
+}
+
+async function loadCandidatesForExportJob(params: {
+  exportId: string;
+  selection: PredictionAnalysisSelection;
+}, db: PredictionAnalysisDb) {
+  const items = await db.exportItem.findMany({
+    where: { exportBatchId: params.exportId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      role: true,
+      predictionProvenanceId: true,
+      artifactVersionId: true,
+      sliceClassificationVersionId: true,
+    },
+  });
+  const predictionIds = Array.from(new Set(
+    items.map((item) => item.predictionProvenanceId).filter((id): id is string => Boolean(id)),
+  ));
+  if (predictionIds.length === 0) throw new PredictionAnalysisExportError("EXPORT_JOB_SNAPSHOT_MISSING", 409);
+
+  const artifactVersionIds = Array.from(new Set(
+    items.map((item) => item.artifactVersionId).filter((id): id is string => Boolean(id)),
+  ));
+  const classificationVersionIds = Array.from(new Set(
+    items.map((item) => item.sliceClassificationVersionId).filter((id): id is string => Boolean(id)),
+  ));
+
+  const [predictions, artifacts, classifications] = await Promise.all([
+    db.predictionArtifactProvenance.findMany({
+      where: { id: { in: predictionIds } },
+      select: PREDICTION_SELECT,
+    }),
+    db.annotationArtifactVersion.findMany({
+      where: { id: { in: artifactVersionIds } },
+      select: ARTIFACT_VERSION_SELECT,
+    }),
+    db.sliceClassificationVersion.findMany({
+      where: { id: { in: classificationVersionIds } },
+      select: CLASSIFICATION_SELECT,
+    }),
+  ]);
+  if (
+    predictions.length !== predictionIds.length ||
+    artifacts.length !== artifactVersionIds.length ||
+    classifications.length !== classificationVersionIds.length
+  ) {
+    throw new PredictionAnalysisExportError("EXPORT_JOB_SNAPSHOT_INVALID", 409);
+  }
+
+  const predictionById = new Map(predictions.map((prediction) => [prediction.id, prediction]));
+  const artifactById = new Map(artifacts.map((artifact) => [artifact.id, artifact]));
+  const classificationById = new Map(classifications.map((classification) => [classification.id, classification]));
+  const orderedPredictionIds = predictionIds.filter((id) => predictionById.has(id));
+
+  return orderedPredictionIds.map((predictionId) => {
+    const prediction = predictionById.get(predictionId)!;
+    const rows = items.filter((item) => item.predictionProvenanceId === predictionId);
+    const humanCorrectionId = rows.find((item) => item.role === "human-correction-reference")?.artifactVersionId;
+    const approvedReference = rows.find((item) => item.role === "approved-ground-truth-reference");
+    const approvedGroundTruthArtifact =
+      approvedReference?.artifactVersionId ? artifactById.get(approvedReference.artifactVersionId) ?? null : null;
+    const approvedGroundTruthClassification =
+      approvedReference?.sliceClassificationVersionId
+        ? classificationById.get(approvedReference.sliceClassificationVersionId) ?? null
+        : null;
+    const humanCorrection = humanCorrectionId ? artifactById.get(humanCorrectionId) ?? null : null;
+    const base = {
+      prediction,
+      humanCorrection,
+      approvedGroundTruthArtifact,
+      approvedGroundTruthClassification,
+    };
+    return {
+      ...base,
+      state: candidateState({
+        humanCorrection,
+        approvedGroundTruthArtifact,
+        approvedGroundTruthClassification,
+        includeHumanReferences: params.selection.includeHumanReferences,
+      }),
+      warnings: candidateWarnings(base),
+    } satisfies PredictionAnalysisCandidate;
+  });
+}
+
+export async function processClaimedPredictionAnalysisExportJob(params: {
+  exportId: string;
+  userId: string;
+}, db: PrismaClient = prisma) {
+  const batch = await db.exportBatch.findUnique({
+    where: { id: params.exportId },
+    select: {
+      id: true,
+      projectId: true,
+      target: true,
+      status: true,
+      metadataSummary: true,
+      selectionCriteria: true,
+      manifestFormatVersion: true,
+      exportedAt: true,
+      exportedBy: { select: USER_SELECT },
+      project: { select: { id: true, name: true } },
+    },
+  });
+  if (!batch || batch.target !== ExportTarget.PREDICTION_ANALYSIS) {
+    throw new PredictionAnalysisExportError("PREDICTION_ANALYSIS_EXPORT_NOT_FOUND", 404);
+  }
+  if (batch.status !== ExportStatus.PROCESSING) {
+    throw new PredictionAnalysisExportError("EXPORT_JOB_NOT_PROCESSING", 409);
+  }
+
+  const selection = selectionFromCriteria(batch.selectionCriteria);
+  const candidates = await loadCandidatesForExportJob({ exportId: batch.id, selection }, db);
+  const manifest = await buildManifest({
+    db,
+    exportId: batch.id,
+    exportedAt: batch.exportedAt,
+    exportedBy: batch.exportedBy,
+    project: batch.project,
+    selection,
+    candidates,
+  });
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+  assertPredictionAnalysisExportCaps({ manifest, manifestBytes });
+  const packageSources = buildPackageSources({ manifest, candidates });
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount: manifest.summary.itemCount,
+      estimatedBytes: estimateSourceBytes({ manifestBytes, sources: packageSources }),
+    },
+    limits: predictionAnalysisExportTrialLimits(),
+    itemCode: "PREDICTION_ANALYSIS_EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "PREDICTION_ANALYSIS_EXPORT_BYTE_LIMIT_EXCEEDED",
+  });
+
+  const exportPrefix = `projects/${batch.projectId}/prediction-analysis-exports/${batch.id}`;
+  const writeResult = await writeExportPackageObjects({
+    manifest,
+    sources: packageSources,
+    manifestStorageKey: `${exportPrefix}/manifest.json`,
+    packageStorageKey: `${exportPrefix}/package.zip`,
+  });
+  const metadata = metadataRecord(batch.metadataSummary);
+
+  let completed: Prisma.ExportBatchGetPayload<{ select: typeof EXPORT_BATCH_SANITIZE_SELECT }>;
+  try {
+    completed = await db.$transaction(async (tx) => {
+      const updated = await tx.exportBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: ExportStatus.COMPLETED,
+          manifestStorageKey: writeResult.manifestStorageKey,
+          manifestChecksum: writeResult.manifestChecksum,
+          packageStorageKey: writeResult.packageStorageKey,
+          packageChecksum: writeResult.packageChecksum,
+          packageSize: writeResult.packageSize,
+          warnings: manifest.warnings,
+          metadataSummary: {
+            ...metadata,
+            mode: "prediction_analysis",
+            itemCount: manifest.summary.itemCount,
+            warningCount: manifest.summary.warningCount,
+            qaMetricsSummary: manifest.summary.qaMetrics,
+            packageStorageKey: writeResult.packageStorageKey,
+            packageChecksum: writeResult.packageChecksum,
+            packageSize: writeResult.packageSize,
+          },
+          completedAt: new Date(),
+          failedAt: null,
+          errorCode: null,
+          errorMessage: null,
+          nextRetryAt: null,
+          processorId: null,
+          processorRunId: null,
+          leaseExpiresAt: null,
+        },
+        select: EXPORT_BATCH_SANITIZE_SELECT,
+      });
+
+      await recordAuditEvent({
+        action: "PREDICTION_ANALYSIS_EXPORT_CREATED",
+        entity: "ExportBatch",
+        entityId: updated.id,
+        actorId: params.userId,
+        details: {
+          projectId: updated.projectId,
+          target: updated.target,
+          manifestChecksum: updated.manifestChecksum,
+          packageChecksum: updated.packageChecksum,
+          manifestFormatVersion: batch.manifestFormatVersion,
+        },
+      }, tx);
+
+      return updated;
+    });
   } catch (error) {
-    await db.exportBatch.update({
-      where: { id: batch.id },
-      data: {
-        status: "FAILED",
-        warnings: [exportFailureWarning(error)],
-      },
-    }).catch(() => undefined);
+    await deleteExportPackageObjectsBestEffort(writeResult);
     throw error;
   }
+
+  return sanitizeExportBatch(completed);
 }
 
 async function loadPredictionAnalysisExportForUser(params: {
@@ -1360,18 +1611,9 @@ async function loadPredictionAnalysisExportForUser(params: {
   const batch = await db.exportBatch.findUnique({
     where: { id: params.exportId },
     select: {
-      id: true,
-      projectId: true,
-      target: true,
-      status: true,
+      ...EXPORT_BATCH_SANITIZE_SELECT,
       manifestStorageKey: true,
-      manifestChecksum: true,
-      selectionCriteria: true,
-      warnings: true,
-      metadataSummary: true,
-      exportedAt: true,
-      createdAt: true,
-      _count: { select: { items: true } },
+      packageStorageKey: true,
     },
   });
   if (!batch || batch.target !== ExportTarget.PREDICTION_ANALYSIS) {
@@ -1401,17 +1643,13 @@ export async function readPredictionAnalysisExportFileForUser(params: {
   file: "manifest" | "package";
 }, db: PredictionAnalysisDb = prisma) {
   const batch = await loadPredictionAnalysisExportForUser(params, db);
+  if (batch.status === "FAILED") throw new PredictionAnalysisExportError("PREDICTION_ANALYSIS_EXPORT_FAILED", 409);
   if (batch.status !== "COMPLETED") throw new PredictionAnalysisExportError("EXPORT_NOT_READY", 409);
-  const metadata =
-    batch.metadataSummary && typeof batch.metadataSummary === "object" && !Array.isArray(batch.metadataSummary)
-      ? batch.metadataSummary as Record<string, unknown>
-      : {};
+  const metadata = metadataRecord(batch.metadataSummary);
   const key =
     params.file === "manifest"
       ? batch.manifestStorageKey
-      : typeof metadata.packageStorageKey === "string"
-        ? metadata.packageStorageKey
-        : null;
+      : batch.packageStorageKey ?? (typeof metadata.packageStorageKey === "string" ? metadata.packageStorageKey : null);
   if (!key) throw new PredictionAnalysisExportError("EXPORT_FILE_NOT_FOUND", 404);
 
   const bytes = await getObjectBytes(key);

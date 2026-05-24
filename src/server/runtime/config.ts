@@ -11,6 +11,12 @@ const DEFAULT_PREDICTION_BATCH_LEASE_SECONDS = 15 * 60;
 const DEFAULT_PREDICTION_BATCH_MAX_JOBS_PER_TICK = 5;
 const DEFAULT_PREDICTION_BATCH_WORKER_INTERVAL_SECONDS = 30;
 const DEFAULT_PREDICTION_IMPORT_PROCESSOR_ID = "sapen-annotate-worker";
+const DEFAULT_EXPORT_JOB_LEASE_SECONDS = 15 * 60;
+const DEFAULT_EXPORT_JOB_MAX_ATTEMPTS = 3;
+const DEFAULT_EXPORT_JOB_RETRY_DELAY_SECONDS = 60;
+const DEFAULT_EXPORT_JOB_MAX_JOBS_PER_TICK = 2;
+const DEFAULT_EXPORT_JOB_WORKER_INTERVAL_SECONDS = 30;
+const DEFAULT_EXPORT_JOB_PROCESSOR_ID = "sapen-annotate-export-worker";
 const DEFAULT_BATCH_STAGING_COMPLETED_RETENTION_DAYS = 7;
 const DEFAULT_BATCH_STAGING_FAILED_RETENTION_DAYS = 14;
 const DEFAULT_PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS = 24;
@@ -64,6 +70,14 @@ export type RuntimeConfig = {
   };
   batchRunner: {
     leaseSeconds: number;
+    maxJobsPerTick: number;
+    workerIntervalSeconds: number;
+    processorId: string;
+  };
+  exportJobs: {
+    leaseSeconds: number;
+    maxAttempts: number;
+    retryDelaySeconds: number;
     maxJobsPerTick: number;
     workerIntervalSeconds: number;
     processorId: string;
@@ -228,6 +242,43 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
         env,
         "PREDICTION_IMPORT_PROCESSOR_ID",
         DEFAULT_PREDICTION_IMPORT_PROCESSOR_ID
+      ),
+    },
+    exportJobs: {
+      leaseSeconds: parsePositiveInteger(
+        env,
+        "EXPORT_JOB_LEASE_SECONDS",
+        DEFAULT_EXPORT_JOB_LEASE_SECONDS,
+        "positive integer number of seconds"
+      ),
+      maxAttempts: parsePositiveInteger(
+        env,
+        "EXPORT_JOB_MAX_ATTEMPTS",
+        DEFAULT_EXPORT_JOB_MAX_ATTEMPTS,
+        "positive integer count"
+      ),
+      retryDelaySeconds: parsePositiveInteger(
+        env,
+        "EXPORT_JOB_RETRY_DELAY_SECONDS",
+        DEFAULT_EXPORT_JOB_RETRY_DELAY_SECONDS,
+        "positive integer number of seconds"
+      ),
+      maxJobsPerTick: parsePositiveInteger(
+        env,
+        "EXPORT_JOB_MAX_JOBS_PER_TICK",
+        DEFAULT_EXPORT_JOB_MAX_JOBS_PER_TICK,
+        "positive integer count"
+      ),
+      workerIntervalSeconds: parsePositiveInteger(
+        env,
+        "EXPORT_JOB_WORKER_INTERVAL_SECONDS",
+        DEFAULT_EXPORT_JOB_WORKER_INTERVAL_SECONDS,
+        "positive integer number of seconds"
+      ),
+      processorId: optionalEnv(
+        env,
+        "EXPORT_JOB_PROCESSOR_ID",
+        DEFAULT_EXPORT_JOB_PROCESSOR_ID
       ),
     },
     storageCleanup: {

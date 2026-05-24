@@ -4,7 +4,7 @@
 
 The customer trial is a single-host deployment without HA. Backups are the compensation for local PostgreSQL and MinIO volumes.
 
-PostgreSQL contains users, sessions, RB-064 login throttle buckets, projects, image metadata, review decisions, `ExportBatch` rows, `ExportItem` exact-version references, RB-061/RB-066 prediction import batch/job/item rows including processor lease state and staging-purge markers, and `AuditLog` rows for upload, artifact, auth, review, import, export, and cleanup actions. MinIO contains raw images, mask artifacts, RB-061 staged prediction batch item objects until cleanup, and export manifest/ZIP objects.
+PostgreSQL contains users, sessions, RB-064 login throttle buckets, projects, image metadata, review decisions, `ExportBatch` rows including RB-112 export job status/lease/retry/error state, `ExportItem` exact-version references, RB-061/RB-066 prediction import batch/job/item rows including processor lease state and staging-purge markers, and `AuditLog` rows for upload, artifact, auth, review, import, export, and cleanup actions. MinIO contains raw images, mask artifacts, RB-061 staged prediction batch item objects until cleanup, and export manifest/ZIP objects.
 
 Run backups from the repository root on the server after following [deployment-trial.md](deployment-trial.md).
 
@@ -19,7 +19,7 @@ mkdir -p backups
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/sapen-annotate-postgres-$(date +%F).sql
 ```
 
-This dump includes login throttle state, upload/artifact/auth/review/import/export/cleanup audit rows, prediction import batch statuses and staging-purge markers, and the exact image/artifact/classification references for generated training exports.
+This dump includes login throttle state, upload/artifact/auth/review/import/export/cleanup audit rows, prediction import batch statuses and staging-purge markers, RB-112 export job retry/terminal states, and the exact image/artifact/classification references for generated or queued exports.
 
 ## PostgreSQL Restore Outline
 
@@ -101,4 +101,4 @@ Cleanup reduces temporary MinIO data size, but it is not a backup substitute. On
 
 ## Failure Window
 
-If the host disk fails before a backup finishes, all database rows, login throttle/audit/cleanup state, raw images, masks, staged prediction batch sources that were not yet purged, imported prediction artifacts, export manifests/packages, sessions, Caddy state, and trial-account changes since the latest successful backup are lost. This runbook is not HA and does not provide point-in-time recovery.
+If the host disk fails before a backup finishes, all database rows, login throttle/audit/cleanup state, raw images, masks, staged prediction batch sources that were not yet purged, imported prediction artifacts, queued export jobs, export manifests/packages, sessions, Caddy state, and trial-account changes since the latest successful backup are lost. This runbook is not HA and does not provide point-in-time recovery.

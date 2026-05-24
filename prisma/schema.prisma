@@ -133,6 +133,8 @@ enum ExportTarget {
 
 enum ExportStatus {
   CREATED
+  PENDING
+  PROCESSING
   COMPLETED
   FAILED
 }
@@ -736,12 +738,27 @@ model ExportBatch {
   manifestFormatVersion String       @default("sapen-annotate-manifest-v1")
   manifestStorageKey    String?
   manifestChecksum      String?
+  packageStorageKey     String?
+  packageChecksum       String?
+  packageSize           Int?
   selectionCriteria     Json?
   warnings              Json?
   metadataSummary       Json?
   exportedById          String
   exportedAt            DateTime     @default(now())
+  jobAttemptCount       Int          @default(0)
+  jobMaxAttempts        Int          @default(3)
+  nextRetryAt           DateTime?
+  processorId           String?
+  processorRunId        String?
+  leaseExpiresAt        DateTime?
+  processingStartedAt   DateTime?
+  completedAt           DateTime?
+  failedAt              DateTime?
+  errorCode             String?
+  errorMessage          String?
   createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   project              AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   exportedBy           User              @relation("ExportBatchExportedBy", fields: [exportedById], references: [id], onDelete: Restrict)
@@ -752,6 +769,10 @@ model ExportBatch {
   @@index([projectId, exportedAt])
   @@index([exportedById])
   @@index([target, status])
+  @@index([status, nextRetryAt])
+  @@index([status, leaseExpiresAt])
+  @@index([status, createdAt])
+  @@index([processorRunId])
 }
 
 model ExportItem {

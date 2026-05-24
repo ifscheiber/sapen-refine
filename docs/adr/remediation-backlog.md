@@ -100,6 +100,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-111.
 
+## RB-112 - Async Export Job Hardening (Resolved)
+
+Context: RB-111 bounded export frequency and size, but training, crop-training, and prediction-analysis package generation still ran synchronously inside create requests.
+
+Impact: Trial-sized caps prevented unbounded work, but slow exports still depended on route/proxy request lifetimes and had no observable processing lease, retry, or terminal job state.
+
+Resolution: Implemented by RB-112 optimized ticket. Export create routes now enqueue `PENDING` `ExportBatch` jobs with exact snapshot references and return `202`. `/api/export-jobs/process-due` claims due jobs atomically, records processor/lease/retry metadata, verifies source object checksum/size before packaging, stores manifest/package checksum/size metadata, and exposes downloads only after `COMPLETED`. The project exports UI polls status and the `npm run exports:process` script supports single-host trial operation.
+
+Remaining follow-up: The package writer still uses JSZip behind RB-111 caps. Streaming ZIP generation, export history dashboards, production queue infrastructure, and dedicated system-actor credentials remain future work.
+
+Affected modules: `prisma/schema.prisma`, `src/server/domain/exports.ts`, `src/server/domain/predictionAnalysisExports.ts`, `src/server/domain/exportJobs.ts`, `src/server/domain/exportPackageWriter.ts`, `src/app/api/export-jobs/process-due/route.ts`, `src/features/projects/ProjectExportPanel.tsx`, `scripts/process-export-jobs.mjs`, export tests, and docs.
+
+Owner: Codex.
+
+Priority: Resolved by RB-112.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.
@@ -350,9 +366,9 @@ Context: RB-049 adds export batch/item persistence. RB-048 defines semantic segm
 
 Impact: The app cannot produce reproducible training-data bundles.
 
-Resolution: Implemented by RB-053 optimized ticket and moved to the dedicated project exports route by RB-063. Project owners can create synchronous training exports; the export workflow records an `ExportBatch`, exact `ExportItem` references, a manifest checksum, package checksum/size metadata, warnings, and actor attribution. Downloads are served through app routes without exposing private MinIO URLs.
+Resolution: Implemented by RB-053 optimized ticket and moved to the dedicated project exports route by RB-063. RB-112 later changed package creation to async jobs. Project owners can enqueue training exports; the export workflow records an `ExportBatch`, exact `ExportItem` references, a manifest checksum, package checksum/size metadata, warnings, and actor attribution. Downloads are served through app routes without exposing private MinIO URLs.
 
-Remaining follow-up: Advanced export filters, export history/dashboard UI, QA export policy, and job queue/large dataset handling remain deferred.
+Remaining follow-up: Advanced export filters, export history/dashboard UI, QA export policy, streaming package generation, and production-scale queue infrastructure remain deferred.
 
 Affected modules: `src/server/domain/exports.ts`, `src/app/api/projects/[projectId]/export/readiness`, `src/app/api/projects/[projectId]/exports`, `src/app/api/exports/[exportId]`, `src/features/projects/ProjectExportPanel.tsx`, `tests/integration/export-workflow.test.ts`, `tests/e2e/desktop-browser-smoke.spec.ts`, and docs under `docs/03-features`, `docs/04-server`, `docs/06-data`, and `docs/testing`.
 

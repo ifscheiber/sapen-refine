@@ -13,6 +13,7 @@ const ROUTE_CLASSIFICATION: Record<string, RouteClassification> = {
   "src/app/api/correction-tasks/[taskId]/corrections/route.ts": "protected-api",
   "src/app/api/correction-tasks/[taskId]/prediction-mask/route.ts": "protected-api",
   "src/app/api/correction-tasks/[taskId]/route.ts": "protected-api",
+  "src/app/api/export-jobs/process-due/route.ts": "protected-api",
   "src/app/api/exports/[exportId]/download/route.ts": "protected-api",
   "src/app/api/exports/[exportId]/route.ts": "protected-api",
   "src/app/api/health/route.ts": "public-api",
