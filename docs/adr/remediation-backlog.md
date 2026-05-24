@@ -180,6 +180,22 @@ Owner: Codex.
 
 Priority: Resolved by RB-117; removal of compatibility is future P3 cleanup.
 
+## RB-118 - Upload Content Safety Hardening Design (Resolved)
+
+Context: Current upload routes enforce authenticated access, size limits, content-type checks, checksum/dimension validation, object stat verification, high-cost write limits, and private app-mediated storage. Those controls protect integrity and trial resource bounds but are not malware scanning or full content-safety controls.
+
+Impact: Without a documented trust boundary, future deployment docs could overstate upload safety or expose broader/public uploads before quarantine, scanning, normalization, and rejection handling exist.
+
+Resolution: Implemented by RB-118. ADR-008 accepts the current named-user customer-trial posture with explicit limitations and selects private quarantine/staging plus scan/promote as the required future direction before public or broad untrusted upload exposure.
+
+Remaining follow-up: RB-118-A through RB-118-E cover quarantine/staging policy, decode/re-encode and metadata stripping, scanner integration, rejection audit/cleanup, and reverse-proxy upload-limit alignment.
+
+Affected modules: `docs/08-adr/ADR-008-upload-content-safety.md`, upload/deployment/runtime docs, known-gaps docs, testing docs, and review-derived follow-up tickets.
+
+Owner: Codex.
+
+Priority: Resolved by RB-118 for design; implementation follow-ups are P2 before public upload exposure.
+
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 
 Context: RB-085 originally documented a support-first crop-based slice annotation workflow after RB-081 made full-resolution large-mask saves viable inside trial bounds. RB-086 adds persistent source-image BBox proposal versions. RB-087 adds private derived crop PNG generation with `CROP_PIXEL` metadata. RB-088 adds crop support-mask editing and crop/slice/source-image artifact lineage. RB-089/RB-100 adds mode-aware crop semantic editing. RB-090 adds draft auto classification suggestions from crop semantic masks. RB-091 adds crop training export, and RB-092 adds shared crop readiness plus review integration.

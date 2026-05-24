@@ -157,6 +157,8 @@ Raise app, Next proxy, and Caddy limits together:
 
 Supported raw image uploads are PNG and JPEG. Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` when the request reaches the app. If the Next proxy or Caddy rejects/truncates first, the app may not produce the intended JSON error, so keep both proxy limits above the app limits. Trial full-resolution annotation supports normal images up to `6000x4000`, large-warning images up to `8000x6000`, and rejects larger images with `IMAGE_DIMENSIONS_UNSUPPORTED`.
 
+Current upload validation is an authenticated customer-trial integrity boundary, not malware/content-safety scanning. Do not expose anonymous or broad untrusted upload access until [ADR-008](../08-adr/ADR-008-upload-content-safety.md) follow-ups add quarantine, scanning, decode/re-encode, metadata stripping, rejection audit, cleanup, and reverse-proxy alignment.
+
 ## High-Cost Write Rate Limits
 
 Expensive authenticated mutation routes use DB-backed high-cost write buckets in the app database. Over-limit requests return `429 RATE_LIMITED` with `Retry-After` and `retryAfterSeconds`.

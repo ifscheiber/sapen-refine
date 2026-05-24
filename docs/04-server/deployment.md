@@ -118,6 +118,8 @@ Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` where the req
 
 Supported customer-trial image uploads are `image/png` and `image/jpeg`. Other formats, including SVG, return `UNSUPPORTED_CONTENT_TYPE`. Images larger than the trial full-resolution policy return `IMAGE_DIMENSIONS_UNSUPPORTED`; accepted large images near `8000x6000` should still be tested on the real iPad before pilot use. RB-057 prediction mask imports use the mask upload limit and accept only `application/octet-stream` `u8raw-v1` bytes through the app; they do not expose MinIO/S3 upload URLs. RB-061 batch imports accept ZIP files through the app, privately stage the contained mask files, and process a limited number of items per pass.
 
+These controls are integrity, resource, and authenticated-trial controls. They are not malware/content-safety scanning. Public or broad untrusted upload exposure is blocked by [ADR-008](../08-adr/ADR-008-upload-content-safety.md) until quarantine, scanning, decode/re-encode, metadata stripping, rejection audit, cleanup, and reverse-proxy alignment are implemented.
+
 Raise limits in all relevant places:
 
 - `IMAGE_UPLOAD_MAX_BYTES`, `MASK_UPLOAD_MAX_BYTES`, or `PREDICTION_BATCH_UPLOAD_MAX_BYTES` in `deploy/trial.env`.

@@ -78,6 +78,8 @@ Image content type is not environment-configurable in RB-055. The accepted types
 
 Unsupported formats return `UNSUPPORTED_CONTENT_TYPE`. Malformed PNG/JPEG files return `IMAGE_DIMENSIONS_UNREADABLE`. Trial full-resolution editing accepts images up to `8000x6000`, `48,000,000` pixels, with long edge at most `8000` and short edge at most `6000`; larger uploads return `IMAGE_DIMENSIONS_UNSUPPORTED`.
 
+These settings bound app-mediated authenticated uploads and integrity validation. They do not enable malware scanning, image normalization, metadata stripping, or quarantine promotion; public upload exposure requires the ADR-008 follow-up work.
+
 RB-061 batch prediction imports add ZIP-level and item-count limits. Each item still uses the mask limit because the batch processor calls the same RB-057 prediction mask import service. Raise `PREDICTION_BATCH_UPLOAD_MAX_BYTES`, `NEXT_PROXY_CLIENT_MAX_BODY_SIZE`, and `CADDY_MAX_BODY_SIZE` together for larger ZIPs; raise `MASK_UPLOAD_MAX_BYTES` only when individual `u8raw-v1` prediction masks are expected to exceed 50 MiB.
 
 RB-066 storage cleanup limits control temporary-object cleanup only. They do not permit deletion of committed raw images, artifact versions, prediction artifacts, or export packages.

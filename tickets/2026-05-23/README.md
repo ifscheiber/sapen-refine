@@ -29,9 +29,14 @@ Use the combined report plus verification report as the planning baseline. The o
 12. [RB-116 - Audit Coverage Matrix And Guard](done/RB-116-audit-coverage-matrix-and-guard-optimized-post-RB115.md) - completed
 13. [RB-117 - CLI Secret Handling Password Flag Deprecation](done/RB-117-cli-secret-handling-password-flag-deprecation-optimized-post-RB116.md) - completed
 14. [RB-116-A - Trial Bootstrap Operator Attribution](done/RB-116-A-trial-bootstrap-operator-attribution-optimized-post-RB117.md) - completed
-15. [RB-118 - Upload Content Safety Hardening Design](RB-118-upload-content-safety-hardening-design-optimized-post-RB117.md)
-16. [RB-119 - Documentation Governance Polish After Deep Review](RB-119-doc-governance-polish-after-deep-review.md)
-17. [RB-120 - Opportunistic Large Module Decomposition](RB-120-opportunistic-large-module-decomposition.md)
+15. [RB-118 - Upload Content Safety Hardening Design](done/RB-118-upload-content-safety-hardening-design-optimized-post-RB117.md) - completed
+16. [RB-118-A - Upload Quarantine Staging Policy](RB-118-A-upload-quarantine-staging-policy.md)
+17. [RB-118-B - Image Decode/Re-Encode And Metadata Stripping](RB-118-B-image-decode-reencode-and-metadata-stripping.md)
+18. [RB-118-C - Malware Scanner Integration](RB-118-C-malware-scanner-integration.md)
+19. [RB-118-D - Upload Rejection Audit And Cleanup](RB-118-D-upload-rejection-audit-and-cleanup.md)
+20. [RB-118-E - Reverse Proxy Upload Limit Alignment](RB-118-E-reverse-proxy-upload-limit-alignment.md)
+21. [RB-119 - Documentation Governance Polish After Deep Review](RB-119-doc-governance-polish-after-deep-review.md)
+22. [RB-120 - Opportunistic Large Module Decomposition](RB-120-opportunistic-large-module-decomposition.md)
 
 ## Priority Notes
 
@@ -50,6 +55,14 @@ Use the combined report plus verification report as the planning baseline. The o
 ## RB-116 Follow-Ups
 
 - [RB-116-A - Trial Bootstrap Operator Attribution](done/RB-116-A-trial-bootstrap-operator-attribution-optimized-post-RB117.md) - completed
+
+## RB-118 Follow-Ups
+
+- [RB-118-A - Upload Quarantine Staging Policy](RB-118-A-upload-quarantine-staging-policy.md)
+- [RB-118-B - Image Decode/Re-Encode And Metadata Stripping](RB-118-B-image-decode-reencode-and-metadata-stripping.md)
+- [RB-118-C - Malware Scanner Integration](RB-118-C-malware-scanner-integration.md)
+- [RB-118-D - Upload Rejection Audit And Cleanup](RB-118-D-upload-rejection-audit-and-cleanup.md)
+- [RB-118-E - Reverse Proxy Upload Limit Alignment](RB-118-E-reverse-proxy-upload-limit-alignment.md)
 
 ## Completion Protocol
 

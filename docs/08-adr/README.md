@@ -13,3 +13,4 @@ This folder exists for the numbered RB-043 documentation structure and links bac
 - `docs/08-adr/ADR-005-crop-based-slice-annotation.md`
 - `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md`
 - `docs/08-adr/ADR-007-system-actor-attribution-model.md`
+- `docs/08-adr/ADR-008-upload-content-safety.md`
