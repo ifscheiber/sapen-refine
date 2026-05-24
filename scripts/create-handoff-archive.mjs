@@ -7,91 +7,19 @@ import { fileURLToPath } from "node:url";
 
 import JSZip from "jszip";
 
-export const EXCLUDED_PATH_SUMMARY = [
-  ".git/",
-  ".env and .env.* except example templates",
-  "deploy/*.env and deploy/trial.env",
-  "node_modules/",
-  ".next/, out/, build/, dist/",
-  "coverage/, test-results/, playwright-report/",
-  "*.tsbuildinfo",
-  "local database/storage volumes and temporary cache folders",
-  "logs, screenshots, traces, and videos",
-  "backup output",
-];
+import {
+  EXCLUDED_PATH_SUMMARY,
+  filterArchivePaths,
+} from "./handoff-archive-policy.mjs";
 
-const EXCLUDED_DIRS = new Set([
-  ".git",
-  ".next",
-  ".pnp",
-  ".turbo",
-  ".cache",
-  ".codex",
-  "node_modules",
-  "coverage",
-  "test-results",
-  "playwright-report",
-  "out",
-  "build",
-  "dist",
-  "tmp",
-  "temp",
-  "pgdata",
-  "miniodata",
-  "redis-data",
-  "storage",
-  "uploads",
-  "backups",
-]);
-
-const EXCLUDED_EXTENSIONS = new Set([
-  ".log",
-  ".pem",
-  ".tsbuildinfo",
-  ".trace",
-  ".webm",
-  ".mp4",
-  ".mov",
-]);
-
-export function normalizeRepoPath(value) {
-  return value.replaceAll(path.sep, "/").replace(/^\.\/+/, "").replace(/^\/+/, "");
-}
-
-function isAllowedEnvExample(repoPath) {
-  const base = path.posix.basename(repoPath);
-  return base === ".env.example" || /^\.env.*\.example$/.test(base);
-}
-
-function isExcludedEnvPath(repoPath) {
-  const base = path.posix.basename(repoPath);
-  if (isAllowedEnvExample(repoPath)) return false;
-  if (base === ".env" || base.startsWith(".env.")) return true;
-  return repoPath.startsWith("deploy/") && base.endsWith(".env");
-}
-
-export function shouldExcludeArchivePath(value) {
-  const repoPath = normalizeRepoPath(value);
-  if (!repoPath || repoPath === ".") return true;
-  if (isExcludedEnvPath(repoPath)) return true;
-
-  const parts = repoPath.split("/");
-  if (parts.some((part) => EXCLUDED_DIRS.has(part))) return true;
-
-  const base = parts.at(-1) ?? "";
-  const lowerBase = base.toLowerCase();
-  const ext = path.posix.extname(lowerBase);
-  if (EXCLUDED_EXTENSIONS.has(ext)) return true;
-  if (lowerBase.endsWith(".png") && repoPath.includes("screenshots/")) return true;
-  if (lowerBase.includes("screenshot") || lowerBase.includes("trace")) return true;
-  if (repoPath.startsWith("deploy/") && lowerBase === "trial.env") return true;
-
-  return false;
-}
-
-export function filterArchivePaths(paths) {
-  return paths.map(normalizeRepoPath).filter((repoPath) => !shouldExcludeArchivePath(repoPath));
-}
+export {
+  EXCLUDED_PATH_SUMMARY,
+  filterArchivePaths,
+  inspectArchiveEntryPath,
+  normalizeRepoPath,
+  shouldExcludeArchivePath,
+  validateArchiveEntryNames,
+} from "./handoff-archive-policy.mjs";
 
 export function createHandoffManifest(params) {
   const includedRootFiles = [...new Set(params.files.map((file) => file.split("/")[0]).filter(Boolean))].sort();

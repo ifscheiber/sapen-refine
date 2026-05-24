@@ -72,19 +72,19 @@ Owner: Codex.
 
 Priority: Resolved by RB-109.
 
-## RB-110 - External Handoff Archive Validation
+## RB-110 - External Handoff Archive Validation (Resolved)
 
 Context: The ChatGPT deep review inspected an uploaded archive that contained `.env`, `.env.local`, and `.git`. The current git repo does not track those env files, and `scripts/create-handoff-archive.mjs` plus `docs/operations/handoff-zip-checklist.md` already exclude `.git`, `.env*` except examples, `node_modules`, `.next`, build output, reports, traces, and local volumes. The remaining gap is validating arbitrary externally supplied ZIP files that bypass the repo archive command.
 
 Impact: A manually created review or customer archive can leak local credentials, git history/config, build artifacts, or large local state even when the repository itself is clean. This is a process/security issue rather than a tracked source-code defect, but it can become severe if such an archive is shared externally.
 
-Proposed next step: Add a `scripts/validate-handoff-archive.mjs` command that scans a ZIP file for forbidden paths and fails on `.env`, `.env.*` except examples, `.git`, `.next`, `node_modules`, test reports, traces, local storage volumes, logs, and tsbuildinfo. Document it in the handoff checklist and use it for any archive not produced directly by `npm run handoff:archive`.
+Resolution: Implemented by RB-110 optimized ticket. `npm run handoff:validate -- <archive.zip>` now scans arbitrary ZIP entry names without extracting or printing file contents, rejects forbidden handoff paths and suspicious traversal/absolute paths, and reuses the same exclusion policy as archive creation. The handoff checklist now requires validation for manual or externally supplied archives.
 
-Affected modules: `scripts/create-handoff-archive.mjs`, new archive validator script, `docs/operations/handoff-zip-checklist.md`, `package.json` scripts, and archive hygiene tests.
+Affected modules: `scripts/create-handoff-archive.mjs`, `scripts/handoff-archive-policy.mjs`, `scripts/validate-handoff-archive.mjs`, `docs/operations/handoff-zip-checklist.md`, `package.json` scripts, and archive hygiene tests.
 
-Owner: Unassigned.
+Owner: Codex.
 
-Priority: P1.
+Priority: Resolved by RB-110.
 
 ## RB-085-A - Crop-Based Slice Annotation Runtime Implementation (Resolved)
 

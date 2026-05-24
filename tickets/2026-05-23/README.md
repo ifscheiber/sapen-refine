@@ -23,7 +23,7 @@ Use the combined report plus verification report as the planning baseline. The o
 6. [RB-111 - High-Cost Write Rate Limits And Trial Caps](RB-111-high-cost-write-rate-limits-and-trial-caps.md)
 7. [RB-112 - Async And Streaming Export Job Hardening](RB-112-async-streaming-export-job-hardening.md)
 8. [RB-113 - Real iPad Safari Trial Gate Execution](RB-113-real-ipad-safari-trial-gate-execution.md)
-9. [RB-110 - External Handoff Archive Validation](RB-110-external-handoff-archive-validation.md)
+9. [RB-110 - External Handoff Archive Validation](done/RB-110-external-handoff-archive-validation-optimized-post-RB109.md) - completed
 10. [RB-114 - Storage/DB Consistency Operations Hardening](RB-114-storage-db-consistency-operations-hardening.md)
 11. [RB-115 - System Actor Attribution Model ADR](RB-115-system-actor-attribution-model-adr.md)
 12. [RB-116 - Audit Coverage Matrix And Guard](RB-116-audit-coverage-matrix-and-guard.md)

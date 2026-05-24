@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Completed
 
 ## Priority
 
@@ -210,3 +210,25 @@ If a strict handoff dry-run is attempted and fails only because of the known pre
 - Be careful with path normalization; most bypasses in archive validators come from nested prefixes, Windows separators, absolute paths, URL-like paths, or `..` entries.
 - Avoid broad refactoring of `create-handoff-archive.mjs` unless it is clearly safer than duplicating the exclusion policy.
 - Keep tests fixture-based so they do not depend on the current dirty/clean worktree state.
+
+## Implementation Notes
+
+- Added `scripts/handoff-archive-policy.mjs` as the shared handoff path policy for archive creation and validation.
+- Added `scripts/validate-handoff-archive.mjs` and exposed it as `npm run handoff:validate -- <archive.zip>`.
+- The validator scans ZIP entry names only, rejects forbidden handoff paths, rejects traversal/absolute/Windows drive/UNC-style paths, and reports path names plus counts without archive contents.
+- Extended `tests/unit/handoff-archive.test.ts` with generated ZIP fixtures for valid archives, forbidden entries, traversal entries, and output safety.
+- Updated the handoff checklist, testing docs, remediation backlog, and sprint index.
+
+## Validation Notes
+
+- Baseline before editing: `git status --short` was clean; existing `tests/unit/handoff-archive.test.ts` passed with 4/4 tests.
+- Focused post-implementation validation: `npm run test -- tests/unit/handoff-archive.test.ts` passed with 9/9 tests.
+- `git diff --check` passed.
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+- `npm run handoff:validate -- /tmp/rb110-valid.zip` passed on a generated valid fixture archive.
+- `npm run handoff:validate -- /tmp/rb110-invalid.zip` failed as expected on a generated invalid fixture archive and printed only forbidden path names.
+- `npm run test` passed with 46 files and 241 tests.
+- `npm run handoff:archive -- --dry-run` failed before commit because the RB-110 working tree was dirty.
+- `npm run handoff:archive -- --dry-run --allow-dirty` passed before commit and reported 529 files.
+- Final post-commit `npm run handoff:archive -- --dry-run` passed with 531 files and `Dirty: no`.

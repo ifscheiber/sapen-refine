@@ -11,6 +11,7 @@
     "trial:bootstrap": "node scripts/trial-bootstrap.mjs",
     "trial:user:create": "node scripts/create-trial-user.mjs",
     "handoff:archive": "node scripts/create-handoff-archive.mjs",
+    "handoff:validate": "node scripts/validate-handoff-archive.mjs",
     "jobs:prediction-import": "node scripts/process-prediction-import-batch.mjs",
     "storage:cleanup": "node scripts/storage-cleanup.mjs",
     "prisma:generate": "prisma generate",
