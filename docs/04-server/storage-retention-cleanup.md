@@ -2,11 +2,11 @@
 
 ## Purpose
 
-RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. It is scoped to staged prediction-batch objects and identifiable presigned-upload orphans. It must not delete committed raw images, committed artifact versions, derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
+RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. RB-114 extends the same operational path with a storage/DB consistency report. Cleanup is scoped to staged prediction-batch objects and identifiable presigned-upload orphans. It must not delete committed raw images, committed artifact versions, derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
 
 Implemented evidence:
 
-- `src/server/domain/storageCleanup.ts` - retention policy parsing, candidate classification, protected-object checks, dry-run/execute behavior, and audit events.
+- `src/server/domain/storageCleanup.ts` - retention policy parsing, candidate classification, protected-object checks, RB-114 consistency reporting, dry-run/execute behavior, and audit events.
 - `src/app/api/storage-cleanup/route.ts` - admin-only operational API.
 - `scripts/storage-cleanup.mjs` - API-based operational CLI.
 - `src/server/storage/s3.ts` - object listing and strict delete helper.
@@ -36,16 +36,16 @@ STORAGE_CLEANUP_MAX_DELETE_PER_RUN=500
 
 ## Protected Object Rules
 
-Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows.
+Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows. RB-114 consistency checks also report missing protected DB-referenced objects as hard drift; they do not try to repair or delete those references.
 
 Never delete:
 
 - `ImageAsset.storageKey` raw image objects.
 - `AnnotationArtifactVersion.storageKey` semantic, support, prediction, correction, or derived artifact objects.
 - `DerivedSliceCrop.storageKey` private derived crop PNG objects.
-- `ExportBatch` manifest/package objects. Export prefixes are not classified as cleanup candidates.
+- `ExportBatch` manifest/package objects. Export prefixes are not cleanup candidates. Orphaned or unreferenced export-prefix objects are reported only.
 - Successful imported prediction artifact objects.
-- Active, pending, processing, or retryable batch item staging objects.
+- Active, pending, processing, or retryable batch item staging objects. Terminal staging objects remain cleanup candidates; if a terminal staging object is already gone, that is not hard drift.
 - PostgreSQL, MinIO, Caddy, or backup volume data.
 
 If a failed batch item source is purged, the item is marked with `stagingPurgedAt` and `stagingPurgeReason`. The retry endpoint ignores purged items because the source object no longer exists. Re-upload the batch if the failed item still needs processing.
@@ -130,7 +130,24 @@ SAPEN_CLEANUP_BASE_URL=https://annotate.example.com SAPEN_CLEANUP_EMAIL=admin@ex
 
 Valid categories are `all`, `batch-staging`, and `upload-orphans`. The route requires an authenticated global `ADMIN` user through the same audit-view permission used for admin audit access. Browser same-origin mutation protection still applies.
 
-The response includes options, summary counts, and item-level results with key, category, status, reason, age, project id, batch id, and item id. It does not expose presigned URLs or credentials.
+The response includes options, summary counts, item-level cleanup results with key, category, status, reason, size, age, project id, batch id, and item id, plus an additive `consistency` report. Existing `cleanup.summary` and `cleanup.results` fields remain present for older consumers. The response does not expose presigned URLs or credentials.
+
+## Consistency Report
+
+Dry-run and execute responses include a report with:
+
+- scanned storage object counts and known bytes,
+- scanned protected DB reference count,
+- missing referenced object count,
+- checksum/size mismatch count,
+- report-only orphan export object count,
+- stale `PENDING` export job count,
+- expired `PROCESSING` export lease count,
+- per-finding code, severity, entity, key, project id, expected/actual size, and expected/actual checksum where relevant.
+
+`HARD_DRIFT` findings are reserved for protected DB references that are missing from storage and completed export manifest/package checksum or size mismatches. Ordinary cleanup candidates, skipped/ambiguous objects, report-only orphan export package objects, stale `PENDING` export jobs, and expired `PROCESSING` leases are warnings/findings only.
+
+The CLI exits non-zero only when `cleanup.consistency.hardDriftCount > 0`, invalid configuration is supplied, or storage/API connectivity fails. A dry-run with only cleanup candidates or warnings exits `0`.
 
 ## Audit
 
@@ -151,4 +168,5 @@ Audit details include category, reason, project id, batch id, item id, mode, lim
 - No cleanup UI/dashboard exists.
 - No provider lifecycle rules, replication, HA, or point-in-time recovery are added.
 - Committed-artifact retention remains a separate governance problem and is intentionally not part of RB-066.
+- Export package retention remains report-only; RB-114 does not delete orphaned export-prefix objects.
 - Production-scale queue infrastructure remains deferred; this cleanup is for the current single-host PostgreSQL/MinIO trial model.

@@ -92,7 +92,18 @@ describe("training export workflow", () => {
   });
 
   afterAll(async () => {
+    if (storage && suffix) {
+      const prefixes = [
+        `tests/export/${suffix}/`,
+        ...(projectId ? [`projects/${projectId}/exports/`] : []),
+      ];
+      for (const prefix of prefixes) {
+        const objects = await storage.listObjectsByPrefix(prefix, 1000).catch(() => []);
+        await Promise.all(objects.map((object) => storage.deleteObjectBestEffort(object.key)));
+      }
+    }
     if (projectId) {
+      await prisma.exportBatch.deleteMany({ where: { projectId } }).catch(() => undefined);
       await prisma.annotationProject.delete({ where: { id: projectId } }).catch(() => undefined);
     }
     await Promise.all(

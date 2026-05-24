@@ -37,12 +37,12 @@ Server storage helpers provide app-mediated S3/MinIO reads/writes for customer-t
 - Current mask writes support `u8raw-v1` in image-pixel coordinates and reject dimension or byte-length mismatches.
 - Export packaging reads object bytes through the app server and verifies raw images, artifact versions, and derived crops against persisted checksum and size before adding them to ZIP packages.
 - Support masks allow only `0` and the active `slice_support` label byte.
-- Cleanup may delete only temporary/staged objects under allowed prefixes after retention. It must protect DB-referenced `ImageAsset` and `AnnotationArtifactVersion` objects and must not classify export prefixes as cleanup candidates.
+- Cleanup may delete only temporary/staged objects under allowed prefixes after retention. It must protect DB-referenced `ImageAsset`, `AnnotationArtifactVersion`, `DerivedSliceCrop`, active/retryable prediction staging, and `ExportBatch` package objects. Terminal prediction staging remains cleanup-eligible. RB-114 consistency reporting may report export-prefix orphans, but they are not deleted by cleanup.
 
 ## Known Gaps
 
 - Production bucket policy, provider lifecycle rules, and replication are not documented yet.
-- There is no cleanup dashboard UI. RB-066 provides API/CLI cleanup for identifiable batch staging and presigned-upload orphans only.
+- There is no cleanup dashboard UI. RB-066/RB-114 provides API/CLI cleanup for identifiable batch staging and presigned-upload orphans plus storage/DB drift reporting.
 
 ## Related Tickets / Docs
 

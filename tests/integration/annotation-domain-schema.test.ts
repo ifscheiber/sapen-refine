@@ -71,6 +71,7 @@ describe("annotation domain schema baseline", () => {
 
   afterAll(async () => {
     if (projectId) {
+      await prisma.exportBatch.deleteMany({ where: { projectId } }).catch(() => undefined);
       await prisma.annotationProject.delete({ where: { id: projectId } }).catch(() => undefined);
     }
     if (userId) {

@@ -138,7 +138,25 @@ describe("prediction analysis export workflow", () => {
   });
 
   afterAll(async () => {
-    if (projectId) await prisma.annotationProject.delete({ where: { id: projectId } }).catch(() => undefined);
+    if (storage && suffix) {
+      const prefixes = [
+        `tests/prediction-analysis/${suffix}/`,
+        ...(projectId
+          ? [
+              `projects/${projectId}/exports/`,
+              `projects/${projectId}/prediction-analysis-exports/`,
+            ]
+          : []),
+      ];
+      for (const prefix of prefixes) {
+        const objects = await storage.listObjectsByPrefix(prefix, 1000).catch(() => []);
+        await Promise.all(objects.map((object) => storage.deleteObjectBestEffort(object.key)));
+      }
+    }
+    if (projectId) {
+      await prisma.exportBatch.deleteMany({ where: { projectId } }).catch(() => undefined);
+      await prisma.annotationProject.delete({ where: { id: projectId } }).catch(() => undefined);
+    }
     if (modelRunId) await prisma.modelRun.delete({ where: { id: modelRunId } }).catch(() => undefined);
     await Promise.all(
       [adminId, ownerId, qaId, labelerId, viewerId]

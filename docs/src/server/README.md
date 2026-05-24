@@ -88,7 +88,7 @@
 - Append-only version writers must allocate versions inside a transaction-scoped advisory lock keyed by the logical version family before reading latest version and inserting `latest + 1`. Do not add ad hoc per-route retry loops or in-process locks for version allocation.
 - Prediction provenance/import services are proposal services only; they must not mark predictions as approved ground truth or bypass review/export invariants.
 - Prediction batch import services must not expose staging keys, must process items through the RB-057 import service, and must not create correction tasks or approved ground truth automatically.
-- Storage cleanup must use DB references as the deletion safety boundary and must not delete committed raw images, committed artifact versions, imported prediction artifacts, or export packages.
+- Storage cleanup must use DB references as the deletion safety boundary and must not delete committed raw images, committed artifact versions, imported prediction artifacts, or export packages. RB-114 reports missing protected references and export package checksum/size drift as hard drift, while ordinary cleanup candidates and stale export jobs remain warnings/findings.
 - Correction task services rank and route prediction correction work only; they do not create approved human artifacts or mark predictions export-ready.
 - Assisted correction services create draft human correction artifact versions only; review/approval is still required before export.
 - Prediction-analysis export services are QA/debug services only; they mark predictions as proposals, keep prediction/human paths separate, compute metrics in the RB-112 worker, store metrics as evaluation metadata only, and do not change training export eligibility.
@@ -106,7 +106,7 @@
 - Audit logging is still not exposed through an admin UI.
 - Login and high-cost write endpoints have DB-backed throttling. This remains a single-host trial guard, not a distributed quota/billing system.
 - Training and prediction-analysis exports use RB-112 async single-host DB jobs, but package generation still uses JSZip behind RB-111 caps. Streaming ZIP generation and metric dashboards remain deferred.
-- RB-065 adds an optional single-host worker path for RB-061 batch prediction imports. RB-112 adds a separate optional single-host worker path for exports. RB-066 adds temporary staged-object cleanup without a cleanup UI. Production-scale queue infrastructure and slice-classification prediction correction remain deferred.
+- RB-065 adds an optional single-host worker path for RB-061 batch prediction imports. RB-112 adds a separate optional single-host worker path for exports. RB-066/RB-114 adds temporary staged-object cleanup and storage/DB consistency reporting without a cleanup UI. Production-scale queue infrastructure and slice-classification prediction correction remain deferred.
 
 ## Related Tickets / Docs
 

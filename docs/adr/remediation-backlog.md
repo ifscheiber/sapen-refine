@@ -558,11 +558,11 @@ Context: Batch ZIP imports, staged prediction source files, presigned compatibil
 
 Impact: Local MinIO storage can grow without bounds and operators lack a documented/manual cleanup path for stale staged or orphaned objects.
 
-Resolution: Implemented by RB-066 optimized ticket. The app now has admin-only dry-run/execute storage cleanup via `POST /api/storage-cleanup` and `npm run storage:cleanup`, retention configuration, batch item staging purge markers, S3 prefix listing/deletion helpers, protected-object checks for raw images/artifact versions/exports, presigned orphan handling for image/mask compatibility prefixes, and cleanup audit events.
+Resolution: Implemented by RB-066 optimized ticket and hardened by RB-114. The app now has admin-only dry-run/execute storage cleanup via `POST /api/storage-cleanup` and `npm run storage:cleanup`, retention configuration, batch item staging purge markers, S3 prefix listing/deletion helpers, protected-object checks for raw images/artifact versions/derived crops/exports, presigned orphan handling for image/mask compatibility prefixes, additive storage/DB consistency reporting, hard-drift reporting for missing protected references and completed export checksum/size mismatch, and cleanup audit events.
 
-Remaining follow-up: Cleanup UI/dashboard, committed-artifact retention governance, object replication/HA, and provider lifecycle rules remain deferred.
+Remaining follow-up: Cleanup UI/dashboard, committed-artifact retention governance, export package retention policy, object replication/HA, provider lifecycle rules, and outbox/staging redesign remain deferred.
 
-Affected modules: `src/server/domain/storageCleanup.ts`, `src/app/api/storage-cleanup`, `scripts/storage-cleanup.mjs`, `src/server/storage/s3.ts`, `src/server/domain/predictionImportBatches.ts`, image/mask presign route docs, operations docs, and tests.
+Affected modules: `src/server/domain/storageCleanup.ts`, `src/app/api/storage-cleanup`, `scripts/storage-cleanup.mjs`, `src/server/storage/s3.ts`, `src/server/domain/predictionImportBatches.ts`, image/mask presign route docs, export job docs, operations docs, and tests.
 
 Owner: Codex.
 

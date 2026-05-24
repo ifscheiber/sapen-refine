@@ -3,7 +3,7 @@ import { config as loadEnv } from "dotenv";
 import JSZip from "jszip";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { AnnotationArtifactKind, PrismaClient } from "@prisma/client";
+import { AnnotationArtifactKind, ExportStatus, ExportTarget, PrismaClient } from "@prisma/client";
 
 import { sha256Checksum } from "@/server/uploads/integrity";
 
@@ -122,14 +122,17 @@ describe("storage cleanup workflow", () => {
   });
 
   async function createImage(name: string) {
+    const storageKey = `tests/storage-cleanup/${suffix}/${name}.png`;
+    await storage.putObject(storageKey, new Uint8Array([0, 1, 2, 3]), "image/png");
+    objectKeys.add(storageKey);
     const image = await prisma.imageAsset.create({
       data: {
         projectId,
-        storageKey: `tests/storage-cleanup/${suffix}/${name}.png`,
+        storageKey,
         filename: `${name}.png`,
         contentType: "image/png",
-        size: 256,
-        checksum: `sha256:${suffix}-${name}`,
+        size: 4,
+        checksum: sha256Checksum(new Uint8Array([0, 1, 2, 3])),
         width: 2,
         height: 2,
         validationStatus: "VALIDATED",
@@ -306,6 +309,57 @@ describe("storage cleanup workflow", () => {
     await storage.statObject(sourceZipKey);
   });
 
+  it("does not treat missing terminal staging cleanup candidates as hard drift", async () => {
+    const imageId = await createImage("missing-terminal-staging");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const zipBytes = await createZip({
+      imageId,
+      clientItemId: "missing-terminal-staging",
+      fileName: "predictions/missing-terminal-staging.u8raw",
+      bytes,
+      checksum: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    });
+    const batch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes, sourceFilename: "missing-terminal-staging.zip" },
+      prisma,
+    );
+    await batches.processPredictionImportBatchForUser(
+      { batchId: batch.id, userId: ownerId, input: { limit: 10 } },
+      prisma,
+    );
+    const item = await prisma.predictionImportBatchItem.findFirstOrThrow({
+      where: { batchJobId: batch.id },
+      select: { id: true, stagingKey: true, status: true },
+    });
+    expect(item.status).toBe("FAILED");
+    objectKeys.add(item.stagingKey);
+    await storage.deleteObjectBestEffort(item.stagingKey);
+
+    const result = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: {
+          category: "batch-staging",
+          batchId: batch.id,
+          projectId,
+          now: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      prisma,
+    );
+
+    expect(result.results).toContainEqual(expect.objectContaining({
+      key: item.stagingKey,
+      status: "WOULD_DELETE",
+      reason: "BATCH_FAILED_RETENTION_EXPIRED",
+    }));
+    expect(result.consistency.hardDriftCount).toBe(0);
+    expect(result.consistency.findings).not.toContainEqual(expect.objectContaining({
+      severity: "HARD_DRIFT",
+      key: item.stagingKey,
+    }));
+  });
+
   it("does not reset failed batch items after their staging source is purged", async () => {
     const imageId = await createImage("failed-purged");
     const bytes = new Uint8Array([0, 1, 2, 3]);
@@ -442,5 +496,150 @@ describe("storage cleanup workflow", () => {
     await storage.statObject(rawKey);
     await storage.statObject(artifactKey);
     await storage.statObject(exportKey);
+    expect(result.consistency.hardDriftCount).toBe(0);
+  });
+
+  it("reports export package orphans and stale jobs as warnings only", async () => {
+    const orphanKey = `projects/${projectId}/exports/orphan-export-${suffix}/package.zip`;
+    await storage.putObject(orphanKey, new Uint8Array([9, 9, 9]), "application/zip");
+    objectKeys.add(orphanKey);
+    const oldDate = new Date(Date.now() - 60 * 60 * 1000);
+    const pending = await prisma.exportBatch.create({
+      data: {
+        projectId,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.PENDING,
+        exportedById: ownerId,
+        exportedAt: oldDate,
+        createdAt: oldDate,
+      },
+      select: { id: true },
+    });
+    const processing = await prisma.exportBatch.create({
+      data: {
+        projectId,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.PROCESSING,
+        exportedById: ownerId,
+        exportedAt: oldDate,
+        createdAt: oldDate,
+        processingStartedAt: oldDate,
+        leaseExpiresAt: oldDate,
+      },
+      select: { id: true },
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: { category: "all", projectId, now: new Date().toISOString() },
+        },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBe(0);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "ORPHAN_EXPORT_PACKAGE_OBJECT",
+        severity: "WARNING",
+        key: orphanKey,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "STALE_PENDING_EXPORT_JOB",
+        severity: "WARNING",
+        entityId: pending.id,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "EXPIRED_PROCESSING_EXPORT_JOB",
+        severity: "WARNING",
+        entityId: processing.id,
+      }));
+      await storage.statObject(orphanKey);
+    } finally {
+      await prisma.exportBatch.deleteMany({ where: { id: { in: [pending.id, processing.id] } } });
+    }
+  });
+
+  it("reports completed export checksum and size mismatches as hard drift", async () => {
+    const exportId = `cleanup-export-mismatch-${suffix}`;
+    const manifestKey = `projects/${projectId}/exports/${exportId}/manifest.json`;
+    const packageKey = `projects/${projectId}/exports/${exportId}/package.zip`;
+    const manifestBytes = new TextEncoder().encode(JSON.stringify({ ok: true }));
+    const packageBytes = new Uint8Array([1, 2, 3, 4]);
+    await storage.putObject(manifestKey, manifestBytes, "application/json");
+    await storage.putObject(packageKey, packageBytes, "application/zip");
+    objectKeys.add(manifestKey);
+    objectKeys.add(packageKey);
+    const batch = await prisma.exportBatch.create({
+      data: {
+        id: exportId,
+        projectId,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.COMPLETED,
+        manifestStorageKey: manifestKey,
+        manifestChecksum: sha256Checksum(manifestBytes),
+        packageStorageKey: packageKey,
+        packageChecksum: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        packageSize: packageBytes.byteLength + 1,
+        exportedById: ownerId,
+        completedAt: new Date(),
+      },
+      select: { id: true },
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", projectId } },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBeGreaterThanOrEqual(2);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "EXPORT_PACKAGE_SIZE_MISMATCH",
+        severity: "HARD_DRIFT",
+        entityId: batch.id,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "EXPORT_PACKAGE_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entityId: batch.id,
+      }));
+    } finally {
+      await prisma.exportBatch.delete({ where: { id: batch.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports missing protected DB-referenced objects as hard drift", async () => {
+    const missingKey = `tests/storage-cleanup/${suffix}/missing-protected.png`;
+    const image = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: missingKey,
+        filename: "missing-protected.png",
+        contentType: "image/png",
+        size: 4,
+        checksum: sha256Checksum(new Uint8Array([1, 2, 3, 4])),
+        width: 2,
+        height: 2,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", projectId } },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBeGreaterThan(0);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "MISSING_REFERENCED_OBJECT",
+        severity: "HARD_DRIFT",
+        entity: "ImageAsset",
+        entityId: image.id,
+        key: missingKey,
+      }));
+    } finally {
+      await prisma.imageAsset.delete({ where: { id: image.id } }).catch(() => undefined);
+    }
   });
 });

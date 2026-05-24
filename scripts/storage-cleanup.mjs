@@ -90,6 +90,11 @@ async function jsonOrThrow(response) {
   return body;
 }
 
+function hardDriftCount(result) {
+  const value = result?.cleanup?.consistency?.hardDriftCount;
+  return Number.isInteger(value) && value > 0 ? value : 0;
+}
+
 function requestBody(args) {
   return {
     execute: args.execute,
@@ -125,6 +130,9 @@ async function main() {
   });
   const result = await jsonOrThrow(response);
   console.log(JSON.stringify(result, null, 2));
+  if (hardDriftCount(result) > 0) {
+    process.exitCode = 2;
+  }
 }
 
 main().catch((error) => {

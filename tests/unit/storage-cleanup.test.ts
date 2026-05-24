@@ -32,6 +32,31 @@ describe("storage cleanup helpers", () => {
     expect(cleanup.classifyStorageCleanupKey("projects/project-1/predictions/run-1/image-1/prediction.msk")).toBeNull();
   });
 
+  it("classifies export package keys for consistency reporting without making them cleanup candidates", () => {
+    expect(cleanup.classifyExportPackageKey("projects/project-1/exports/export-1/package.zip")).toMatchObject({
+      projectId: "project-1",
+      exportId: "export-1",
+      family: "training",
+      file: "package",
+    });
+    expect(cleanup.classifyExportPackageKey("projects/project-1/exports/export-1/manifest.json")).toMatchObject({
+      projectId: "project-1",
+      exportId: "export-1",
+      family: "training",
+      file: "manifest",
+    });
+    expect(cleanup.classifyExportPackageKey(
+      "projects/project-1/prediction-analysis-exports/export-1/package.zip",
+    )).toMatchObject({
+      projectId: "project-1",
+      exportId: "export-1",
+      family: "prediction-analysis",
+      file: "package",
+    });
+    expect(cleanup.classifyStorageCleanupKey("projects/project-1/exports/export-1/package.zip")).toBeNull();
+    expect(cleanup.classifyExportPackageKey("projects/project-1/predictions/run-1/prediction.msk")).toBeNull();
+  });
+
   it("calculates retention cutoffs and ages deterministically", () => {
     const now = new Date("2026-05-21T10:00:00.000Z");
 

@@ -1,4 +1,5 @@
 import {
+  ExportStatus,
   PredictionImportBatchItemStatus,
   PredictionImportBatchStatus,
   PrismaClient,
@@ -8,7 +9,8 @@ import { canViewAudit } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { recordAuditEvent } from "@/server/domain/audit";
 import { getRuntimeConfig } from "@/server/runtime/config";
-import { deleteObject, listObjectsByPrefix } from "@/server/storage/s3";
+import { deleteObject, getObjectBytes, listObjectsByPrefix, statObject } from "@/server/storage/s3";
+import { normalizeChecksum, sha256Checksum } from "@/server/uploads/integrity";
 
 type CleanupDb = PrismaClient;
 
@@ -70,10 +72,44 @@ export type StorageCleanupResult = {
   category: CleanupObjectCategory;
   status: CleanupResultStatus;
   reason: string;
+  size: number | null;
   ageSeconds: number | null;
   batchId: string | null;
   itemId: string | null;
   projectId: string | null;
+};
+
+export type StorageConsistencySeverity = "INFO" | "WARNING" | "HARD_DRIFT";
+export type StorageConsistencyFinding = {
+  code: string;
+  severity: StorageConsistencySeverity;
+  entity: string;
+  entityId: string | null;
+  key: string | null;
+  projectId: string | null;
+  expectedSize?: number | null;
+  actualSize?: number | null;
+  expectedChecksum?: string | null;
+  actualChecksum?: string | null;
+  status?: string | null;
+  ageSeconds?: number | null;
+};
+
+export type StorageConsistencyReport = {
+  hardDriftCount: number;
+  warningCount: number;
+  infoCount: number;
+  findingCount: number;
+  scannedStorageObjectCount: number;
+  scannedStorageBytes: number;
+  scannedProtectedReferenceCount: number;
+  missingReferencedObjectCount: number;
+  sizeMismatchCount: number;
+  checksumMismatchCount: number;
+  orphanExportObjectCount: number;
+  stalePendingExportJobCount: number;
+  expiredProcessingExportJobCount: number;
+  findings: StorageConsistencyFinding[];
 };
 
 type CleanupCandidate = Omit<StorageCleanupResult, "status"> & {
@@ -81,6 +117,14 @@ type CleanupCandidate = Omit<StorageCleanupResult, "status"> & {
 };
 
 type ListedObject = Awaited<ReturnType<typeof listObjectsByPrefix>>[number];
+
+type ProtectedStorageReference = {
+  entity: string;
+  entityId: string;
+  key: string;
+  projectId: string | null;
+  expectedSize: number | null;
+};
 
 function cleanText(value: unknown) {
   if (typeof value !== "string") return null;
@@ -144,6 +188,37 @@ export function classifyStorageCleanupKey(key: string): {
       category: key.toLowerCase().endsWith(".zip") ? "BATCH_SOURCE_ZIP" : "UNKNOWN_STAGING_OBJECT",
       projectId: batchMatch[1],
       batchId: batchMatch[2],
+    };
+  }
+
+  return null;
+}
+
+export function classifyExportPackageKey(key: string): {
+  projectId: string;
+  exportId: string;
+  family: "training" | "prediction-analysis";
+  file: "manifest" | "package";
+} | null {
+  const trainingMatch = key.match(/^projects\/([^/]+)\/exports\/([^/]+)\/(manifest\.json|package\.zip)$/);
+  if (trainingMatch?.[1] && trainingMatch[2] && trainingMatch[3]) {
+    return {
+      projectId: trainingMatch[1],
+      exportId: trainingMatch[2],
+      family: "training",
+      file: trainingMatch[3] === "manifest.json" ? "manifest" : "package",
+    };
+  }
+
+  const predictionAnalysisMatch = key.match(
+    /^projects\/([^/]+)\/prediction-analysis-exports\/([^/]+)\/(manifest\.json|package\.zip)$/,
+  );
+  if (predictionAnalysisMatch?.[1] && predictionAnalysisMatch[2] && predictionAnalysisMatch[3]) {
+    return {
+      projectId: predictionAnalysisMatch[1],
+      exportId: predictionAnalysisMatch[2],
+      family: "prediction-analysis",
+      file: predictionAnalysisMatch[3] === "manifest.json" ? "manifest" : "package",
     };
   }
 
@@ -252,6 +327,7 @@ async function collectBatchStagingCandidates(
         category: "BATCH_STAGED_ITEM",
         status: "SKIPPED",
         reason: "BATCH_SUCCEEDED_LINK_MISSING",
+        size: null,
         ageSeconds: ageSeconds(options.now, item.completedAt ?? item.updatedAt),
         batchId: item.batchJobId,
         itemId: item.id,
@@ -273,6 +349,7 @@ async function collectBatchStagingCandidates(
       reason: item.batchJob.status === PredictionImportBatchStatus.COMPLETED
         ? "BATCH_COMPLETED_RETENTION_EXPIRED"
         : "BATCH_FAILED_RETENTION_EXPIRED",
+      size: null,
       ageSeconds: ageSeconds(options.now, referenceDate),
       batchId: item.batchJobId,
       itemId: item.id,
@@ -303,6 +380,7 @@ async function collectBatchStagingCandidates(
         category: "BATCH_STAGED_ITEM",
         status: "SKIPPED",
         reason: "BATCH_ITEM_ACTIVE_OR_RETRYABLE",
+        size: null,
         ageSeconds: ageSeconds(options.now, item.updatedAt),
         batchId: item.batchJobId,
         itemId: item.id,
@@ -419,6 +497,7 @@ async function collectObjectStorageCandidates(
         category: classification.category,
         status: "SKIPPED",
         reason: protectedReason,
+        size: object.size,
         ageSeconds: ageSeconds(options.now, object.lastModified),
         batchId: classification.batchId ?? null,
         itemId: null,
@@ -435,6 +514,7 @@ async function collectObjectStorageCandidates(
           category: classification.category,
           status: "SKIPPED",
           reason: "BATCH_NOT_TERMINAL",
+          size: object.size,
           ageSeconds: ageSeconds(options.now, object.lastModified),
           batchId: classification.batchId ?? null,
           itemId: null,
@@ -458,6 +538,7 @@ async function collectObjectStorageCandidates(
           ? "BATCH_SOURCE_ZIP_RETENTION_EXPIRED"
           : "UNKNOWN_STAGING_RETENTION_EXPIRED"
         : "PRESIGNED_UPLOAD_ORPHAN_RETENTION_EXPIRED",
+      size: object.size,
       ageSeconds: ageSeconds(options.now, object.lastModified),
       batchId: classification.batchId ?? null,
       itemId: null,
@@ -468,6 +549,384 @@ async function collectObjectStorageCandidates(
   return candidates;
 }
 
+function dateBefore(now: Date, seconds: number) {
+  return new Date(now.getTime() - seconds * 1000);
+}
+
+function summarizeBytes(results: StorageCleanupResult[], status: CleanupResultStatus) {
+  return results
+    .filter((result) => result.status === status)
+    .reduce((total, result) => total + (result.size ?? 0), 0);
+}
+
+function finding(params: StorageConsistencyFinding): StorageConsistencyFinding {
+  return params;
+}
+
+async function checkReference(reference: ProtectedStorageReference): Promise<StorageConsistencyFinding[]> {
+  try {
+    const stat = await statObject(reference.key);
+    if (
+      reference.expectedSize !== null &&
+      stat.contentLength !== null &&
+      stat.contentLength !== reference.expectedSize
+    ) {
+      return [finding({
+        code: "REFERENCED_OBJECT_SIZE_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: reference.entity,
+        entityId: reference.entityId,
+        key: reference.key,
+        projectId: reference.projectId,
+        expectedSize: reference.expectedSize,
+        actualSize: stat.contentLength,
+      })];
+    }
+    return [];
+  } catch {
+    return [finding({
+      code: "MISSING_REFERENCED_OBJECT",
+      severity: "HARD_DRIFT",
+      entity: reference.entity,
+      entityId: reference.entityId,
+      key: reference.key,
+      projectId: reference.projectId,
+      expectedSize: reference.expectedSize,
+    })];
+  }
+}
+
+async function collectProtectedReferences(
+  db: CleanupDb,
+  options: StorageCleanupOptions,
+): Promise<ProtectedStorageReference[]> {
+  const [images, artifacts, crops, importItems] = await Promise.all([
+    db.imageAsset.findMany({
+      where: options.projectId ? { projectId: options.projectId } : {},
+      select: { id: true, projectId: true, storageKey: true, size: true },
+    }),
+    db.annotationArtifactVersion.findMany({
+      where: options.projectId ? { artifact: { projectId: options.projectId } } : {},
+      select: {
+        id: true,
+        storageKey: true,
+        size: true,
+        artifact: { select: { projectId: true } },
+      },
+    }),
+    db.derivedSliceCrop.findMany({
+      where: options.projectId ? { projectId: options.projectId } : {},
+      select: { id: true, projectId: true, storageKey: true, byteSize: true },
+    }),
+    db.predictionImportBatchItem.findMany({
+      where: {
+        stagingPurgedAt: null,
+        status: { in: [...ACTIVE_ITEM_STATUSES] },
+        ...(options.batchId ? { batchJobId: options.batchId } : {}),
+        ...(options.projectId ? { batchJob: { projectId: options.projectId } } : {}),
+      },
+      select: {
+        id: true,
+        stagingKey: true,
+        batchJob: { select: { projectId: true } },
+      },
+    }),
+  ]);
+
+  return [
+    ...images.map((image) => ({
+      entity: "ImageAsset",
+      entityId: image.id,
+      key: image.storageKey,
+      projectId: image.projectId,
+      expectedSize: image.size,
+    })),
+    ...artifacts.map((artifact) => ({
+      entity: "AnnotationArtifactVersion",
+      entityId: artifact.id,
+      key: artifact.storageKey,
+      projectId: artifact.artifact.projectId,
+      expectedSize: artifact.size,
+    })),
+    ...crops.map((crop) => ({
+      entity: "DerivedSliceCrop",
+      entityId: crop.id,
+      key: crop.storageKey,
+      projectId: crop.projectId,
+      expectedSize: crop.byteSize,
+    })),
+    ...importItems.map((item) => ({
+      entity: "PredictionImportBatchItem",
+      entityId: item.id,
+      key: item.stagingKey,
+      projectId: item.batchJob.projectId,
+      expectedSize: null,
+    })),
+  ];
+}
+
+async function checkExportObject(params: {
+  batch: {
+    id: string;
+    projectId: string;
+    status: ExportStatus;
+    manifestStorageKey: string | null;
+    manifestChecksum: string | null;
+    packageStorageKey: string | null;
+    packageChecksum: string | null;
+    packageSize: number | null;
+  };
+  file: "manifest" | "package";
+}) {
+  const key = params.file === "manifest"
+    ? params.batch.manifestStorageKey
+    : params.batch.packageStorageKey;
+  const expectedChecksum = params.file === "manifest"
+    ? params.batch.manifestChecksum
+    : params.batch.packageChecksum;
+  const expectedSize = params.file === "package" ? params.batch.packageSize : null;
+  const entity = "ExportBatch";
+  const codePrefix = params.file === "manifest" ? "EXPORT_MANIFEST" : "EXPORT_PACKAGE";
+
+  if (!key) {
+    return [finding({
+      code: `${codePrefix}_KEY_MISSING`,
+      severity: "HARD_DRIFT",
+      entity,
+      entityId: params.batch.id,
+      key: null,
+      projectId: params.batch.projectId,
+      status: params.batch.status,
+      expectedSize,
+      expectedChecksum: normalizeChecksum(expectedChecksum),
+    })];
+  }
+
+  const findings: StorageConsistencyFinding[] = [];
+  try {
+    const stat = await statObject(key);
+    if (expectedSize !== null && stat.contentLength !== null && stat.contentLength !== expectedSize) {
+      findings.push(finding({
+        code: `${codePrefix}_SIZE_MISMATCH`,
+        severity: "HARD_DRIFT",
+        entity,
+        entityId: params.batch.id,
+        key,
+        projectId: params.batch.projectId,
+        expectedSize,
+        actualSize: stat.contentLength,
+        status: params.batch.status,
+      }));
+    }
+  } catch {
+    return [finding({
+      code: `${codePrefix}_MISSING`,
+      severity: "HARD_DRIFT",
+      entity,
+      entityId: params.batch.id,
+      key,
+      projectId: params.batch.projectId,
+      expectedSize,
+      expectedChecksum: normalizeChecksum(expectedChecksum),
+      status: params.batch.status,
+    })];
+  }
+
+  const normalizedExpectedChecksum = normalizeChecksum(expectedChecksum);
+  if (normalizedExpectedChecksum) {
+    try {
+      const actualChecksum = sha256Checksum(await getObjectBytes(key));
+      if (actualChecksum !== normalizedExpectedChecksum) {
+        findings.push(finding({
+          code: `${codePrefix}_CHECKSUM_MISMATCH`,
+          severity: "HARD_DRIFT",
+          entity,
+          entityId: params.batch.id,
+          key,
+          projectId: params.batch.projectId,
+          expectedChecksum: normalizedExpectedChecksum,
+          actualChecksum,
+          status: params.batch.status,
+        }));
+      }
+    } catch {
+      findings.push(finding({
+        code: `${codePrefix}_READ_FAILED`,
+        severity: "HARD_DRIFT",
+        entity,
+        entityId: params.batch.id,
+        key,
+        projectId: params.batch.projectId,
+        expectedChecksum: normalizedExpectedChecksum,
+        status: params.batch.status,
+      }));
+    }
+  }
+
+  return findings;
+}
+
+async function collectExportConsistencyFindings(params: {
+  db: CleanupDb;
+  options: StorageCleanupOptions;
+  storageObjects: ListedObject[];
+}) {
+  const exportConfig = getRuntimeConfig().exportJobs;
+  const exportJobStaleSeconds = Math.max(
+    exportConfig.leaseSeconds,
+    exportConfig.workerIntervalSeconds * 2,
+  );
+  const now = params.options.now;
+  const [completedExports, pendingExports, processingExports] = await Promise.all([
+    params.db.exportBatch.findMany({
+      where: {
+        status: ExportStatus.COMPLETED,
+        ...(params.options.projectId ? { projectId: params.options.projectId } : {}),
+      },
+      select: {
+        id: true,
+        projectId: true,
+        status: true,
+        manifestStorageKey: true,
+        manifestChecksum: true,
+        packageStorageKey: true,
+        packageChecksum: true,
+        packageSize: true,
+      },
+    }),
+    params.db.exportBatch.findMany({
+      where: {
+        status: ExportStatus.PENDING,
+        createdAt: { lte: dateBefore(now, exportJobStaleSeconds) },
+        ...(params.options.projectId ? { projectId: params.options.projectId } : {}),
+      },
+      select: { id: true, projectId: true, status: true, createdAt: true },
+    }),
+    params.db.exportBatch.findMany({
+      where: {
+        status: ExportStatus.PROCESSING,
+        OR: [{ leaseExpiresAt: { lte: now } }, { leaseExpiresAt: null }],
+        ...(params.options.projectId ? { projectId: params.options.projectId } : {}),
+      },
+      select: { id: true, projectId: true, status: true, leaseExpiresAt: true, processingStartedAt: true },
+    }),
+  ]);
+
+  const findings: StorageConsistencyFinding[] = [];
+  for (const batch of completedExports) {
+    findings.push(...await checkExportObject({ batch, file: "manifest" }));
+    findings.push(...await checkExportObject({ batch, file: "package" }));
+  }
+
+  for (const batch of pendingExports) {
+    findings.push(finding({
+      code: "STALE_PENDING_EXPORT_JOB",
+      severity: "WARNING",
+      entity: "ExportBatch",
+      entityId: batch.id,
+      key: null,
+      projectId: batch.projectId,
+      status: batch.status,
+      ageSeconds: ageSeconds(now, batch.createdAt),
+    }));
+  }
+
+  for (const batch of processingExports) {
+    findings.push(finding({
+      code: "EXPIRED_PROCESSING_EXPORT_JOB",
+      severity: "WARNING",
+      entity: "ExportBatch",
+      entityId: batch.id,
+      key: null,
+      projectId: batch.projectId,
+      status: batch.status,
+      ageSeconds: ageSeconds(now, batch.leaseExpiresAt ?? batch.processingStartedAt),
+    }));
+  }
+
+  const exportObjects = params.storageObjects
+    .map((object) => ({ object, classification: classifyExportPackageKey(object.key) }))
+    .filter((entry): entry is { object: ListedObject; classification: NonNullable<ReturnType<typeof classifyExportPackageKey>> } =>
+      Boolean(entry.classification),
+    )
+    .filter((entry) => !params.options.projectId || entry.classification.projectId === params.options.projectId);
+  const exportIds = [...new Set(exportObjects.map((entry) => entry.classification.exportId))];
+  const knownExports = exportIds.length
+    ? await params.db.exportBatch.findMany({
+        where: { id: { in: exportIds } },
+        select: {
+          id: true,
+          manifestStorageKey: true,
+          packageStorageKey: true,
+        },
+      })
+    : [];
+  const knownById = new Map(knownExports.map((batch) => [batch.id, batch]));
+  for (const entry of exportObjects) {
+    const batch = knownById.get(entry.classification.exportId);
+    const referenced =
+      batch?.manifestStorageKey === entry.object.key ||
+      batch?.packageStorageKey === entry.object.key;
+    if (referenced) continue;
+    findings.push(finding({
+      code: batch ? "UNREFERENCED_EXPORT_PACKAGE_OBJECT" : "ORPHAN_EXPORT_PACKAGE_OBJECT",
+      severity: "WARNING",
+      entity: "StorageObject",
+      entityId: entry.classification.exportId,
+      key: entry.object.key,
+      projectId: entry.classification.projectId,
+      actualSize: entry.object.size,
+      ageSeconds: ageSeconds(now, entry.object.lastModified),
+    }));
+  }
+
+  return findings;
+}
+
+async function collectConsistencyReport(
+  db: CleanupDb,
+  options: StorageCleanupOptions,
+): Promise<StorageConsistencyReport> {
+  const storageObjects = await listObjectsByPrefix("projects/", Math.max(1000, options.limit * 20));
+  const filteredStorageObjects = options.projectId
+    ? storageObjects.filter((object) => object.key.startsWith(`projects/${options.projectId}/`))
+    : storageObjects;
+  const references = await collectProtectedReferences(db, options);
+  const referenceFindings = (await Promise.all(references.map(checkReference))).flat();
+  const exportFindings = await collectExportConsistencyFindings({
+    db,
+    options,
+    storageObjects: filteredStorageObjects,
+  });
+  const findings = [...referenceFindings, ...exportFindings];
+
+  return {
+    hardDriftCount: findings.filter((entry) => entry.severity === "HARD_DRIFT").length,
+    warningCount: findings.filter((entry) => entry.severity === "WARNING").length,
+    infoCount: findings.filter((entry) => entry.severity === "INFO").length,
+    findingCount: findings.length,
+    scannedStorageObjectCount: filteredStorageObjects.length,
+    scannedStorageBytes: filteredStorageObjects.reduce((total, object) => total + (object.size ?? 0), 0),
+    scannedProtectedReferenceCount: references.length,
+    missingReferencedObjectCount: findings.filter((entry) =>
+      entry.code === "MISSING_REFERENCED_OBJECT" ||
+      entry.code === "EXPORT_MANIFEST_MISSING" ||
+      entry.code === "EXPORT_PACKAGE_MISSING" ||
+      entry.code === "EXPORT_MANIFEST_KEY_MISSING" ||
+      entry.code === "EXPORT_PACKAGE_KEY_MISSING",
+    ).length,
+    sizeMismatchCount: findings.filter((entry) => entry.code.endsWith("_SIZE_MISMATCH")).length,
+    checksumMismatchCount: findings.filter((entry) => entry.code.endsWith("_CHECKSUM_MISMATCH")).length,
+    orphanExportObjectCount: findings.filter((entry) =>
+      entry.code === "ORPHAN_EXPORT_PACKAGE_OBJECT" ||
+      entry.code === "UNREFERENCED_EXPORT_PACKAGE_OBJECT",
+    ).length,
+    stalePendingExportJobCount: findings.filter((entry) => entry.code === "STALE_PENDING_EXPORT_JOB").length,
+    expiredProcessingExportJobCount: findings.filter((entry) => entry.code === "EXPIRED_PROCESSING_EXPORT_JOB").length,
+    findings,
+  };
+}
+
 function summarize(results: StorageCleanupResult[], execute: boolean) {
   return {
     mode: execute ? "execute" : "dry-run",
@@ -476,6 +935,11 @@ function summarize(results: StorageCleanupResult[], execute: boolean) {
     deletedCount: results.filter((result) => result.status === "DELETED").length,
     skippedCount: results.filter((result) => result.status === "SKIPPED").length,
     failedCount: results.filter((result) => result.status === "FAILED").length,
+    knownBytes: results.reduce((total, result) => total + (result.size ?? 0), 0),
+    wouldDeleteBytes: summarizeBytes(results, "WOULD_DELETE"),
+    deletedBytes: summarizeBytes(results, "DELETED"),
+    skippedBytes: summarizeBytes(results, "SKIPPED"),
+    failedBytes: summarizeBytes(results, "FAILED"),
   };
 }
 
@@ -595,6 +1059,7 @@ export async function runStorageCleanup(params: {
   }
 
   const results = await applyCleanup(db, [...deduped.values()], options);
+  const consistency = await collectConsistencyReport(db, options);
   await recordCleanupAudit({ actorId: params.actorId, options, results }, db);
   return {
     options: {
@@ -608,6 +1073,7 @@ export async function runStorageCleanup(params: {
       presignedRetentionHours: options.presignedRetentionHours,
     },
     summary: summarize(results, options.execute),
+    consistency,
     results,
   };
 }
