@@ -999,6 +999,20 @@ model AuthLoginThrottle {
   @@index([lockedUntil])
 }
 
+model HighCostRateLimitBucket {
+  id              String   @id @default(cuid())
+  family          String
+  bucketKeyHash   String
+  requestCount    Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lastRequestAt   DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([family, bucketKeyHash])
+  @@index([windowStartedAt])
+}
+
 model Session {
   id        String @id @default(cuid())
   userId    String

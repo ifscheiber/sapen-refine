@@ -36,6 +36,25 @@ describe("runtime config", () => {
     expect(config.auth.loginRateLimitWindowSeconds).toBe(15 * 60);
     expect(config.auth.loginRateLimitLockSeconds).toBe(15 * 60);
     expect(config.auth.sessionLastSeenUpdateIntervalSeconds).toBe(15 * 60);
+    expect(config.highCostLimits.enabled).toBe(true);
+    expect(config.highCostLimits.upload).toEqual({ maxRequests: 20, windowSeconds: 60 });
+    expect(config.highCostLimits.editorSave).toEqual({ maxRequests: 120, windowSeconds: 60 });
+    expect(config.highCostLimits.exportCreate).toEqual({
+      maxRequests: 5,
+      windowSeconds: 10 * 60,
+    });
+    expect(config.highCostLimits.predictionImport).toEqual({
+      maxRequests: 10,
+      windowSeconds: 10 * 60,
+    });
+    expect(config.highCostLimits.operations).toEqual({
+      maxRequests: 10,
+      windowSeconds: 10 * 60,
+    });
+    expect(config.exportCaps.trainingMaxItems).toBe(500);
+    expect(config.exportCaps.trainingMaxBytes).toBe(512 * 1024 * 1024);
+    expect(config.exportCaps.predictionAnalysisMaxItems).toBe(500);
+    expect(config.exportCaps.predictionAnalysisMaxBytes).toBe(512 * 1024 * 1024);
     expect(config.cropWorkflow.defaultPaddingPx).toBe(32);
   });
 
@@ -70,6 +89,21 @@ describe("runtime config", () => {
       LOGIN_RATE_LIMIT_WINDOW_SECONDS: "600",
       LOGIN_RATE_LIMIT_LOCK_SECONDS: "1200",
       SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS: "300",
+      HIGH_COST_LIMITS_ENABLED: "false",
+      HIGH_COST_UPLOAD_MAX_REQUESTS: "30",
+      HIGH_COST_UPLOAD_WINDOW_SECONDS: "120",
+      HIGH_COST_EDITOR_SAVE_MAX_REQUESTS: "240",
+      HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS: "90",
+      HIGH_COST_EXPORT_CREATE_MAX_REQUESTS: "8",
+      HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS: "1800",
+      HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS: "12",
+      HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS: "1200",
+      HIGH_COST_OPERATIONS_MAX_REQUESTS: "6",
+      HIGH_COST_OPERATIONS_WINDOW_SECONDS: "900",
+      TRAINING_EXPORT_MAX_ITEMS: "1000",
+      TRAINING_EXPORT_MAX_BYTES: "1073741824",
+      PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS: "750",
+      PREDICTION_ANALYSIS_EXPORT_MAX_BYTES: "805306368",
       SLICE_CROP_DEFAULT_PADDING_PX: "16",
     });
 
@@ -94,6 +128,19 @@ describe("runtime config", () => {
     expect(config.auth.loginRateLimitWindowSeconds).toBe(600);
     expect(config.auth.loginRateLimitLockSeconds).toBe(1200);
     expect(config.auth.sessionLastSeenUpdateIntervalSeconds).toBe(300);
+    expect(config.highCostLimits.enabled).toBe(false);
+    expect(config.highCostLimits.upload).toEqual({ maxRequests: 30, windowSeconds: 120 });
+    expect(config.highCostLimits.editorSave).toEqual({ maxRequests: 240, windowSeconds: 90 });
+    expect(config.highCostLimits.exportCreate).toEqual({ maxRequests: 8, windowSeconds: 1800 });
+    expect(config.highCostLimits.predictionImport).toEqual({
+      maxRequests: 12,
+      windowSeconds: 1200,
+    });
+    expect(config.highCostLimits.operations).toEqual({ maxRequests: 6, windowSeconds: 900 });
+    expect(config.exportCaps.trainingMaxItems).toBe(1000);
+    expect(config.exportCaps.trainingMaxBytes).toBe(1073741824);
+    expect(config.exportCaps.predictionAnalysisMaxItems).toBe(750);
+    expect(config.exportCaps.predictionAnalysisMaxBytes).toBe(805306368);
     expect(config.cropWorkflow.defaultPaddingPx).toBe(16);
   });
 
@@ -107,6 +154,15 @@ describe("runtime config", () => {
     expect(() =>
       readRuntimeConfig({ ...baseEnv, LOGIN_RATE_LIMIT_MAX_FAILURES: "0" })
     ).toThrow("LOGIN_RATE_LIMIT_MAX_FAILURES must be a positive integer count");
+  });
+
+  it("rejects invalid high-cost and export cap limits", () => {
+    expect(() =>
+      readRuntimeConfig({ ...baseEnv, HIGH_COST_EXPORT_CREATE_MAX_REQUESTS: "0" })
+    ).toThrow("HIGH_COST_EXPORT_CREATE_MAX_REQUESTS must be a positive integer count");
+    expect(() =>
+      readRuntimeConfig({ ...baseEnv, TRAINING_EXPORT_MAX_BYTES: "0" })
+    ).toThrow("TRAINING_EXPORT_MAX_BYTES must be a positive integer number of bytes");
   });
 
   it("rejects unsupported slice crop padding defaults", () => {

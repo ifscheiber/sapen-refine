@@ -20,7 +20,27 @@ const DEFAULT_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 const DEFAULT_LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60;
 const DEFAULT_SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS = 15 * 60;
 const DEFAULT_SLICE_CROP_DEFAULT_PADDING_PX = 32;
+const DEFAULT_HIGH_COST_LIMITS_ENABLED = true;
+const DEFAULT_HIGH_COST_UPLOAD_MAX_REQUESTS = 20;
+const DEFAULT_HIGH_COST_UPLOAD_WINDOW_SECONDS = 60;
+const DEFAULT_HIGH_COST_EDITOR_SAVE_MAX_REQUESTS = 120;
+const DEFAULT_HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS = 60;
+const DEFAULT_HIGH_COST_EXPORT_CREATE_MAX_REQUESTS = 5;
+const DEFAULT_HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS = 10 * 60;
+const DEFAULT_HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS = 10;
+const DEFAULT_HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS = 10 * 60;
+const DEFAULT_HIGH_COST_OPERATIONS_MAX_REQUESTS = 10;
+const DEFAULT_HIGH_COST_OPERATIONS_WINDOW_SECONDS = 10 * 60;
+const DEFAULT_TRAINING_EXPORT_MAX_ITEMS = 500;
+const DEFAULT_TRAINING_EXPORT_MAX_BYTES = 512 * 1024 * 1024;
+const DEFAULT_PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS = 500;
+const DEFAULT_PREDICTION_ANALYSIS_EXPORT_MAX_BYTES = 512 * 1024 * 1024;
 const SLICE_CROP_ALLOWED_PADDING_PX = [0, 16, 32, 64] as const;
+
+export type RuntimeRateLimitPolicy = {
+  maxRequests: number;
+  windowSeconds: number;
+};
 
 export type RuntimeConfig = {
   nodeEnv: string;
@@ -60,6 +80,20 @@ export type RuntimeConfig = {
     loginRateLimitWindowSeconds: number;
     loginRateLimitLockSeconds: number;
     sessionLastSeenUpdateIntervalSeconds: number;
+  };
+  highCostLimits: {
+    enabled: boolean;
+    upload: RuntimeRateLimitPolicy;
+    editorSave: RuntimeRateLimitPolicy;
+    exportCreate: RuntimeRateLimitPolicy;
+    predictionImport: RuntimeRateLimitPolicy;
+    operations: RuntimeRateLimitPolicy;
+  };
+  exportCaps: {
+    trainingMaxItems: number;
+    trainingMaxBytes: number;
+    predictionAnalysisMaxItems: number;
+    predictionAnalysisMaxBytes: number;
   };
   cropWorkflow: {
     defaultPaddingPx: number;
@@ -248,6 +282,103 @@ export function readRuntimeConfig(env: Env = process.env): RuntimeConfig {
         "SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS",
         DEFAULT_SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS,
         "positive integer number of seconds"
+      ),
+    },
+    highCostLimits: {
+      enabled: parseBoolean(env.HIGH_COST_LIMITS_ENABLED, DEFAULT_HIGH_COST_LIMITS_ENABLED),
+      upload: {
+        maxRequests: parsePositiveInteger(
+          env,
+          "HIGH_COST_UPLOAD_MAX_REQUESTS",
+          DEFAULT_HIGH_COST_UPLOAD_MAX_REQUESTS,
+          "positive integer count"
+        ),
+        windowSeconds: parsePositiveInteger(
+          env,
+          "HIGH_COST_UPLOAD_WINDOW_SECONDS",
+          DEFAULT_HIGH_COST_UPLOAD_WINDOW_SECONDS,
+          "positive integer number of seconds"
+        ),
+      },
+      editorSave: {
+        maxRequests: parsePositiveInteger(
+          env,
+          "HIGH_COST_EDITOR_SAVE_MAX_REQUESTS",
+          DEFAULT_HIGH_COST_EDITOR_SAVE_MAX_REQUESTS,
+          "positive integer count"
+        ),
+        windowSeconds: parsePositiveInteger(
+          env,
+          "HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS",
+          DEFAULT_HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS,
+          "positive integer number of seconds"
+        ),
+      },
+      exportCreate: {
+        maxRequests: parsePositiveInteger(
+          env,
+          "HIGH_COST_EXPORT_CREATE_MAX_REQUESTS",
+          DEFAULT_HIGH_COST_EXPORT_CREATE_MAX_REQUESTS,
+          "positive integer count"
+        ),
+        windowSeconds: parsePositiveInteger(
+          env,
+          "HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS",
+          DEFAULT_HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS,
+          "positive integer number of seconds"
+        ),
+      },
+      predictionImport: {
+        maxRequests: parsePositiveInteger(
+          env,
+          "HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS",
+          DEFAULT_HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS,
+          "positive integer count"
+        ),
+        windowSeconds: parsePositiveInteger(
+          env,
+          "HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS",
+          DEFAULT_HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS,
+          "positive integer number of seconds"
+        ),
+      },
+      operations: {
+        maxRequests: parsePositiveInteger(
+          env,
+          "HIGH_COST_OPERATIONS_MAX_REQUESTS",
+          DEFAULT_HIGH_COST_OPERATIONS_MAX_REQUESTS,
+          "positive integer count"
+        ),
+        windowSeconds: parsePositiveInteger(
+          env,
+          "HIGH_COST_OPERATIONS_WINDOW_SECONDS",
+          DEFAULT_HIGH_COST_OPERATIONS_WINDOW_SECONDS,
+          "positive integer number of seconds"
+        ),
+      },
+    },
+    exportCaps: {
+      trainingMaxItems: parsePositiveInteger(
+        env,
+        "TRAINING_EXPORT_MAX_ITEMS",
+        DEFAULT_TRAINING_EXPORT_MAX_ITEMS,
+        "positive integer count"
+      ),
+      trainingMaxBytes: parsePositiveInteger(
+        env,
+        "TRAINING_EXPORT_MAX_BYTES",
+        DEFAULT_TRAINING_EXPORT_MAX_BYTES
+      ),
+      predictionAnalysisMaxItems: parsePositiveInteger(
+        env,
+        "PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS",
+        DEFAULT_PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS,
+        "positive integer count"
+      ),
+      predictionAnalysisMaxBytes: parsePositiveInteger(
+        env,
+        "PREDICTION_ANALYSIS_EXPORT_MAX_BYTES",
+        DEFAULT_PREDICTION_ANALYSIS_EXPORT_MAX_BYTES
       ),
     },
     cropWorkflow: {

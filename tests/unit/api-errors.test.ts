@@ -6,6 +6,12 @@ import {
   withApiErrorHandling,
 } from "@/server/http/apiErrors";
 
+class TestRateLimitError extends Error {
+  constructor(public readonly retryAfterSeconds: number) {
+    super("RATE_LIMITED");
+  }
+}
+
 describe("api error helpers", () => {
   it("maps auth and rbac exceptions to stable api codes", () => {
     expect(apiErrorPayloadFromUnknown(new Error("UNAUTHORIZED"))).toEqual({
@@ -40,5 +46,20 @@ describe("api error helpers", () => {
     await expect(response.json()).resolves.toEqual({ ok: false, error: "FORBIDDEN" });
     expect(response.status).toBe(403);
   });
-});
 
+  it("maps high-cost rate limits to 429 json with retry metadata", async () => {
+    const handler = withApiErrorHandling(async () => {
+      throw new TestRateLimitError(17);
+    });
+
+    const response = await handler();
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "RATE_LIMITED",
+      message: "Too many high-cost requests. Try again later.",
+      retryAfterSeconds: 17,
+    });
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("17");
+  });
+});
