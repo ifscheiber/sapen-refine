@@ -17,6 +17,7 @@ import {
   type NavigatorViewport,
 } from "./cropNavigatorPreview";
 import { API_ENSURE_SLICE_CROPS } from "./editorApi";
+import { requestCropSemanticEditorFlush } from "./cropSemanticEditorEvents";
 
 type CropEditorMode = "editor" | "support" | "semantic";
 
@@ -314,6 +315,12 @@ export function CropEditorSliceNavigatorRailClient({
   }, [navigator.slices, overlayCache, viewport]);
 
   async function openSlice(slice: CropSliceNavigatorSlice) {
+    const canNavigate = await requestCropSemanticEditorFlush();
+    if (!canNavigate) {
+      setStatus("Save failed. Retry before switching slices.");
+      return;
+    }
+
     const existingHref = currentEditorHref(navigator, slice, editorMode);
     if (existingHref) {
       router.push(existingHref);

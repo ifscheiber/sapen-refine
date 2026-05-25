@@ -64,8 +64,7 @@ async function fillRelativePolygon(page: Page, points: Array<[number, number]>) 
   for (const [x, y] of points) {
     await page.mouse.click(box.x + box.width * x, box.y + box.height * y);
   }
-  await page.getByRole("button", { name: "Close polygon", exact: true }).click();
-  await page.getByRole("button", { name: "Apply polygon", exact: true }).click();
+  await page.keyboard.press("Enter");
 }
 
 function parseCropEditorIds(url: string): CropEditorIds {
@@ -175,17 +174,15 @@ async function submitAndApproveSemanticAndClassification(page: Page, semanticLab
 test("Copper crop drafts save before support but require approved support for readiness", async ({ page }) => {
   const ids = await createSingleCropEditor(page, `E2E RB-098 Copper ${Date.now()}`);
 
-  await page.getByRole("button", { name: "Cu", exact: true }).click();
+  await page.getByRole("button", { name: "Copper family" }).click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByText("Copper drafts can save now; support is required before export.")).toBeVisible();
 
   await page.getByRole("button", { name: "Brush", exact: true }).click();
   await drawRelativeStroke(page, 0.45, 0.45, 0.55, 0.55);
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Commit Copper semantic mask" }).click();
-  await expect(page.getByText(/Saved; suggested Copper slice|Saved/)).toBeVisible();
+  await expect(page.getByText("Saved; suggested Copper slice")).toBeVisible();
   await expect(page.getByText(/Classification: Copper slice/)).toBeVisible();
-  await expect(page.getByText("Export readiness: partial")).toBeVisible();
+  await expect(page.getByText("Export readiness: partial").last()).toBeVisible();
 
   await expect
     .poll(async () => readCropReadiness(page, ids))
@@ -219,8 +216,6 @@ test("Copper crop drafts save before support but require approved support for re
     [0.95, 0.95],
     [0.05, 0.95],
   ]);
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Commit support mask" }).click();
   await expect(page.getByText(/draft support v\d+/i)).toBeVisible();
   await submitAndApproveSupport(page);
 
@@ -232,11 +227,9 @@ test("Copper crop drafts save before support but require approved support for re
   await expect(page.getByText("Outside-support pixels are locked.")).toBeVisible();
   await page.getByRole("button", { name: "Brush", exact: true }).click();
   await drawRelativeStroke(page, 0.47, 0.47, 0.53, 0.53);
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Commit Copper semantic mask" }).click();
   await expect(page.getByText(/Classification: Copper slice/)).toBeVisible();
   await submitAndApproveSemanticAndClassification(page, "Copper");
-  await expect(page.getByText("Export readiness: ready")).toBeVisible();
+  await expect(page.getByText("Export readiness: ready").last()).toBeVisible();
 
   await expect.poll(async () => readCropReadiness(page, ids)).toMatchObject({
     summary: {
@@ -263,13 +256,11 @@ test("annotation family switch is blocked while opposite family has pixels", asy
 
   await page.getByRole("button", { name: "Brush", exact: true }).click();
   await drawRelativeStroke(page, 0.45, 0.45, 0.55, 0.55);
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Commit Sap/Heartwood semantic mask" }).click();
-  await expect(page.getByText(/Saved; suggested Sap\/Heartwood slice|Saved/)).toBeVisible();
+  await expect(page.getByText("Saved; suggested Sap/Heartwood slice")).toBeVisible();
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
 
-  await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Sapwood Heartwood family" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Copper family" })).toBeDisabled();
   await expect(page.getByText(/Cu is unavailable because this crop already contains/i)).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
 });

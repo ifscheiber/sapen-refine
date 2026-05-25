@@ -103,8 +103,8 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   const sliceNavigator = page.getByRole("complementary", { name: "Slice navigator" });
   await expect(sliceNavigator).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sapwood Heartwood family" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copper family" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
   await expect(sliceNavigator.getByText(/^1$/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Lasso", exact: true })).toBeVisible();
@@ -143,7 +143,7 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.reload();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(sliceNavigator).toBeVisible();
-  await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copper family" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit BBoxes" })).toHaveCount(0);
   await expect(sliceNavigator.getByRole("link", { name: "Editor" })).toHaveCount(0);

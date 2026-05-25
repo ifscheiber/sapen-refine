@@ -2,16 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
-  AlertTriangleIcon,
   BrushIcon,
   LassoIcon,
-  Maximize2Icon,
   PentagonIcon,
   Redo2Icon,
-  RotateCcwIcon,
-  SaveIcon,
   Undo2Icon,
-  XIcon,
 } from "lucide-react";
 
 import { Labels, supportMaskLabels, type LabelDef, type LabelId } from "@/mask/labels";
@@ -23,11 +18,25 @@ import { editorCanvasPreviewStyle } from "@/design/editorCanvas";
 import {
   clampNumber,
   clientPointToImagePoint,
-  getFitZoom,
-  getZoomedCanvasDisplaySize,
 } from "./canvasGeometry";
+import {
+  AnnotationIconButton,
+  AnnotationSegmentButton,
+  AnnotationToolbarDivider,
+  AnnotationToolbarGroup,
+  AnnotationToolbarShell,
+  AnnotationZoomControl,
+} from "./components/AnnotationToolbar";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
 import { applyCropBrush, applyCropPolygonFill, findForegroundOutsideSupport } from "./cropMaskOperations";
+import {
+  CROP_SEMANTIC_EDITOR_COMMAND_EVENT,
+  CROP_SEMANTIC_EDITOR_FLUSH_REQUEST_EVENT,
+  CROP_SEMANTIC_EDITOR_FLUSH_RESPONSE_EVENT,
+  dispatchCropSemanticEditorStatus,
+  type CropSemanticEditorCommandDetail,
+  type CropSemanticEditorFlushRequestDetail,
+} from "./cropSemanticEditorEvents";
 import {
   API_ARTIFACT_REVIEW,
   API_CLASSIFICATION_REVIEW,
@@ -45,9 +54,10 @@ import {
 import { createEditorLoadGuard } from "./editorLoadGuard";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
-import { activeButtonClass, idleButtonClass } from "./editorStyles";
+import { idleButtonClass } from "./editorStyles";
 import { defaultLabelForSemanticMode } from "./cropAnnotationGuidance";
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
+import { useCanvasZoomControls } from "./useCanvasZoomControls";
 import {
   type CropAnnotationFamily,
   type CropReviewActions,
@@ -90,6 +100,14 @@ const TARGET_LABELS = {
   support: "Support",
   copper: "Cu",
 } as const;
+
+const TOOL_LABELS: Record<Tool, string> = {
+  brush: "Brush",
+  eraser: "Eraser",
+  lasso_free: "Lasso",
+  lasso_poly: "Polygon",
+  bbox: "BBox",
+};
 
 const LABEL_COLORS: Record<string, Pick<LabelDef, "rgb" | "alpha">> = {
   background: { rgb: [0, 0, 0], alpha: 0 },
@@ -166,13 +184,6 @@ function semanticModeForFamily(family: CropAnnotationFamily): CropSemanticMode {
   return family === "SAP_HEARTWOOD" ? "SAP_HEARTWOOD" : "COPPER";
 }
 
-function annotationFamilyLabel(state: CropSemanticMaskState | null) {
-  const family = state?.annotationFamily;
-  if (!family || family.state === "EMPTY") return "Annotation family: empty";
-  if (family.state === "CONFLICT") return "Annotation family: conflict";
-  return `Annotation family: ${FAMILY_LABELS[family.state]}`;
-}
-
 function displaySupportMask(source: MaskBuffer) {
   const display = new MaskBuffer(source.width, source.height, Labels.BG);
   for (let index = 0; index < source.data.length; index += 1) {
@@ -218,6 +229,12 @@ export function CropSemanticEditorClient({
   const loadSequenceRef = useRef(0);
   const editingSupportRef = useRef(initialTarget === "support");
   const supportReplacementConfirmedRef = useRef(false);
+  const dirtyMaskRef = useRef(false);
+  const dirtyRevisionRef = useRef(0);
+  const saveTimerRef = useRef<number | null>(null);
+  const savingRef = useRef(false);
+  const saveQueuedRef = useRef(false);
+  const savePromiseRef = useRef<Promise<boolean> | null>(null);
 
   const [state, setState] = useState<CropSemanticMaskState | null>(null);
   const [status, setStatus] = useState("");
@@ -236,6 +253,7 @@ export function CropSemanticEditorClient({
   const [zoom, setZoom] = useState(1);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved" | "failed">("idle");
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
   const [lassoPointCount, setLassoPointCount] = useState(0);
@@ -262,6 +280,10 @@ export function CropSemanticEditorClient({
         : semanticPaintLabels(state, semanticMode),
     [editingSupport, semanticMode, state, supportBackgroundValue, supportLabelValue],
   );
+  const visiblePaintLabels = useMemo(
+    () => paintLabels.filter((label) => label.stableId !== "unknown"),
+    [paintLabels],
+  );
   const palette = useMemo(() => buildPalette(overlayLabels, opacity), [overlayLabels, opacity]);
   const supportPalette = useMemo(
     () => buildPalette(supportMaskLabels(Labels.SLICE_SUPPORT), supportOpacity),
@@ -272,40 +294,17 @@ export function CropSemanticEditorClient({
   const familyBlocked =
     annotationFamily?.state !== "CONFLICT" && blockedFamilies.includes(activeFamily);
   const editorCanEdit = canEdit && Boolean(state?.canEdit) && editorReady && !familyBlocked;
-
-  const applyZoom = useCallback((z: number) => {
-    const canvases = [
-      baseCanvasRef.current,
-      supportCanvasRef.current,
-      overlayCanvasRef.current,
-      bboxCanvasRef.current,
-      previewCanvasRef.current,
-    ];
-    const base = baseCanvasRef.current;
-    if (!base || canvases.some((canvas) => !canvas)) return;
-
-    const { width, height } = getZoomedCanvasDisplaySize(base.width, base.height, z);
-    for (const canvas of canvases) {
-      if (!canvas) continue;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-    }
-  }, []);
-
-  const fitToContainer = useCallback(() => {
-    const wrap = containerRef.current;
-    const base = baseCanvasRef.current;
-    if (!wrap || !base || !base.width || !base.height) return;
-
-    const nextZoom = getFitZoom({
-      containerWidth: wrap.clientWidth,
-      containerHeight: wrap.clientHeight,
-      imageWidth: base.width,
-      imageHeight: base.height,
-    });
-    setZoom(nextZoom);
-    applyZoom(nextZoom);
-  }, [applyZoom]);
+  const zoomCanvasRefs = useMemo(
+    () => [baseCanvasRef, supportCanvasRef, overlayCanvasRef, bboxCanvasRef, previewCanvasRef] as const,
+    [],
+  );
+  const { applyZoom, fitToContainer, setViewportZoom } = useCanvasZoomControls({
+    containerRef,
+    canvasRefs: zoomCanvasRefs,
+    setZoom,
+    minZoom: 0.05,
+    maxZoom: 3,
+  });
 
   const ensureOverlayBuffer = useCallback((width: number, height: number) => {
     const ctx = overlayCtxRef.current;
@@ -467,9 +466,21 @@ export function CropSemanticEditorClient({
     clearPreview();
   }, [clearPreview]);
 
+  const clearPendingAutosave = useCallback(() => {
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  }, []);
+
   const resetEditor = useCallback(() => {
     setEditorReady(false);
     setHasUnsavedChanges(false);
+    dirtyMaskRef.current = false;
+    dirtyRevisionRef.current = 0;
+    saveQueuedRef.current = false;
+    clearPendingAutosave();
+    setSaveState("idle");
     maskRef.current = null;
     supportMaskRef.current = null;
     copperSemanticMaskRef.current = null;
@@ -488,7 +499,7 @@ export function CropSemanticEditorClient({
     setLassoPointCount(0);
     setLassoClosed(false);
     clearPreview();
-  }, [clearPreview]);
+  }, [clearPendingAutosave, clearPreview]);
 
   const loadEditor = useCallback(async (signal?: AbortSignal) => {
     const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
@@ -681,6 +692,10 @@ export function CropSemanticEditorClient({
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
+    return () => clearPendingAutosave();
+  }, [clearPendingAutosave]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!editorCanEdit) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
@@ -702,10 +717,8 @@ export function CropSemanticEditorClient({
       }
       if (tool === "lasso_poly" && event.key === "Enter") {
         event.preventDefault();
-        if (lassoClosedRef.current) {
+        if (lassoPointsRef.current.length >= 3) {
           commitLasso(lassoPointsRef.current.slice());
-        } else {
-          closePolygonPreview();
         }
       }
     };
@@ -715,11 +728,13 @@ export function CropSemanticEditorClient({
   });
 
   useEffect(() => {
-    if (paintLabels.length === 0) return;
-    if (!paintLabels.some((label) => label.id === activeLabel)) {
-      setActiveLabel(paintLabels.find((label) => label.id !== activeBackgroundLabel)?.id ?? paintLabels[0].id);
+    if (visiblePaintLabels.length === 0) return;
+    if (!visiblePaintLabels.some((label) => label.id === activeLabel)) {
+      setActiveLabel(
+        visiblePaintLabels.find((label) => label.id !== activeBackgroundLabel)?.id ?? visiblePaintLabels[0].id,
+      );
     }
-  }, [activeBackgroundLabel, activeLabel, paintLabels]);
+  }, [activeBackgroundLabel, activeLabel, visiblePaintLabels]);
 
   useEffect(() => {
     const family = state?.annotationFamily;
@@ -746,7 +761,19 @@ export function CropSemanticEditorClient({
   }
 
   function markDirty() {
+    dirtyMaskRef.current = true;
+    dirtyRevisionRef.current += 1;
     setHasUnsavedChanges(true);
+    setSaveState("dirty");
+  }
+
+  function scheduleAutosave() {
+    if (!editorCanEdit) return;
+    clearPendingAutosave();
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void saveMask();
+    }, 600);
   }
 
   function confirmSupportReplacement() {
@@ -824,6 +851,7 @@ export function CropSemanticEditorClient({
     redoRef.current = [];
     paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
     markDirty();
+    scheduleAutosave();
     resetLasso();
   }
 
@@ -954,6 +982,7 @@ export function CropSemanticEditorClient({
     if (currentStrokeRef.current.length > 0) {
       undoRef.current.push(currentStrokeRef.current);
       currentStrokeRef.current = [];
+      scheduleAutosave();
     }
   }
 
@@ -1026,6 +1055,7 @@ export function CropSemanticEditorClient({
     }
     redoRef.current.push(stroke);
     markDirty();
+    scheduleAutosave();
   }
 
   function redo() {
@@ -1039,6 +1069,7 @@ export function CropSemanticEditorClient({
     }
     undoRef.current.push(stroke);
     markDirty();
+    scheduleAutosave();
   }
 
   function familyBlockedReason(family: CropAnnotationFamily) {
@@ -1049,19 +1080,27 @@ export function CropSemanticEditorClient({
     return `${FAMILY_LABELS[family]} is unavailable because this crop already contains ${active} annotation. Remove that annotation to switch families.`;
   }
 
-  function selectFamily(nextFamily: CropAnnotationFamily, nextTarget?: "support" | "copper") {
+  async function flushPendingSave() {
+    clearPendingAutosave();
+    if (!dirtyMaskRef.current) return true;
+    const ok = await saveMask();
+    if (!ok) {
+      setStatus("Save failed. Retry before leaving this annotation.");
+      return false;
+    }
+    return true;
+  }
+
+  async function selectFamily(nextFamily: CropAnnotationFamily, nextTarget?: "support" | "copper") {
     const blockedReason = familyBlockedReason(nextFamily);
     if (blockedReason) {
       setStatus(blockedReason);
       return;
     }
     const targetChanged = nextFamily !== activeFamily || (nextTarget !== undefined && nextTarget !== cuSupportTarget);
-    if (
-      targetChanged &&
-      hasUnsavedChanges &&
-      !window.confirm("Discard unsaved crop annotation changes?")
-    ) {
-      return;
+    if (targetChanged) {
+      const saved = await flushPendingSave();
+      if (!saved) return;
     }
     resetLasso();
     if (targetChanged) resetEditor();
@@ -1077,12 +1116,46 @@ export function CropSemanticEditorClient({
     setTool(nextTool);
   }
 
-  async function saveMask() {
+  async function saveMask(): Promise<boolean> {
+    clearPendingAutosave();
+    if (savePromiseRef.current) {
+      saveQueuedRef.current = true;
+      return savePromiseRef.current;
+    }
+
+    const promise = saveMaskInternal();
+    savePromiseRef.current = promise;
+    try {
+      const ok = await promise;
+      if (ok && saveQueuedRef.current) {
+        if (dirtyMaskRef.current) {
+          saveQueuedRef.current = false;
+          const followUp = saveMaskInternal();
+          savePromiseRef.current = followUp;
+          return await followUp;
+        }
+        saveQueuedRef.current = false;
+      }
+      return ok;
+    } finally {
+      savePromiseRef.current = null;
+    }
+  }
+
+  async function saveMaskInternal(): Promise<boolean> {
     const mask = maskRef.current;
     const supportMask = state?.currentSupportMask;
-    if (!mask || !editorCanEdit || !hasUnsavedChanges) return;
+    if (!mask || !editorCanEdit || !dirtyMaskRef.current) return true;
+    if (savingRef.current) {
+      saveQueuedRef.current = true;
+      return true;
+    }
+
+    savingRef.current = true;
     setIsSaving(true);
+    setSaveState("saving");
     setStatus(editingSupport ? "Saving crop support mask" : "Saving crop semantic mask");
+    const saveRevision = dirtyRevisionRef.current;
     try {
       if (editingSupport) {
         const copperMask = copperSemanticMaskRef.current;
@@ -1096,7 +1169,8 @@ export function CropSemanticEditorClient({
           : null;
         if (unsupportedCopper) {
           setStatus("Support mask must include all Cu annotations.");
-          return;
+          setSaveState("failed");
+          return false;
         }
         const response = await uploadEditorMask(API_CROP_SUPPORT_MASK_UPLOAD(cropId), {
           data: mask.data,
@@ -1106,10 +1180,16 @@ export function CropSemanticEditorClient({
         const data = await response.json().catch(() => null);
         if (!data?.ok) throw new Error(data?.error ?? "CROP_SUPPORT_MASK_SAVE_FAILED");
         await loadEditor();
-        setHasUnsavedChanges(false);
+        if (dirtyRevisionRef.current === saveRevision) {
+          dirtyMaskRef.current = false;
+          setHasUnsavedChanges(false);
+        } else {
+          saveQueuedRef.current = true;
+        }
+        setSaveState("saved");
         setStatus("Saved");
         setTimeout(() => setStatus(""), 800);
-        return;
+        return true;
       }
 
       const headers: Record<string, string> = {
@@ -1128,7 +1208,13 @@ export function CropSemanticEditorClient({
       if (!data?.ok) throw new Error(data?.error ?? "CROP_SEMANTIC_MASK_SAVE_FAILED");
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
-      setHasUnsavedChanges(false);
+      if (dirtyRevisionRef.current === saveRevision) {
+        dirtyMaskRef.current = false;
+        setHasUnsavedChanges(false);
+      } else {
+        saveQueuedRef.current = true;
+      }
+      setSaveState("saved");
       if (nextState.classificationDerivation?.ok === false) {
         setStatus(`Saved; classification derivation failed: ${nextState.classificationDerivation.error}`);
       } else if (nextState.classificationDerivation?.classification) {
@@ -1140,9 +1226,13 @@ export function CropSemanticEditorClient({
         setStatus("Saved");
         setTimeout(() => setStatus(""), 800);
       }
+      return true;
     } catch (error) {
       setStatus(errorMessage(error, editingSupport ? "Crop support mask save failed" : "Crop semantic mask save failed"));
+      setSaveState("failed");
+      return false;
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   }
@@ -1192,11 +1282,6 @@ export function CropSemanticEditorClient({
     }
   }
 
-  const editorStatus = isSaving ? "Saving..." : status || (hasUnsavedChanges ? "Unsaved changes" : "");
-  const canClosePolygon = editorCanEdit && tool === "lasso_poly" && !lassoClosed && lassoPointCount >= 3;
-  const canApplyPolygon = editorCanEdit && tool === "lasso_poly" && lassoClosed && lassoPointCount >= 3;
-  const canCancelPolygon = tool === "lasso_poly" && lassoPointCount > 0;
-  const activeLabelIsBackground = activeLabel === activeBackgroundLabel;
   const activeSemanticMask = state?.latestSemanticMasks[semanticMode] ?? null;
   const classificationReviewActions =
     state?.latestClassification &&
@@ -1253,293 +1338,255 @@ export function CropSemanticEditorClient({
   const familyWarning = familyConflict
     ? "This crop has both annotation families. Erase and save one family before adding more annotation."
     : (sapHeartwoodBlockedReason ?? cuSupportBlockedReason);
+  const editorStatus = isSaving ? "Saving..." : status || (hasUnsavedChanges ? "Unsaved changes" : "");
+  const activeLabelOption = visiblePaintLabels.find((label) => label.id === activeLabel) ?? null;
+  const activeLabelName =
+    activeFamily === "CU_SUPPORT" && cuSupportTarget === "copper"
+      ? TARGET_LABELS.copper
+      : activeFamily === "CU_SUPPORT" && cuSupportTarget === "support"
+        ? TARGET_LABELS.support
+      : (activeLabelOption?.name ?? "Background");
+  const readinessLabel = state?.cropReadiness
+    ? `Export readiness: ${state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}`
+    : "Export readiness: missing";
+  const modeStateLabel =
+    activeFamily === "SAP_HEARTWOOD"
+      ? "Support geometry derives from semantic foreground."
+      : cuSupportTarget === "copper" && state?.currentSupportMask
+        ? "Outside-support pixels are locked."
+        : cuSupportTarget === "copper"
+          ? "Copper drafts can save now; support is required before export."
+          : "Editing explicit slice support.";
+  const toolState =
+    tool === "lasso_poly" && lassoPointCount > 0
+      ? `Polygon ${lassoClosed ? "closed" : "draft"}: ${lassoPointCount} point${lassoPointCount === 1 ? "" : "s"}`
+      : activeLabel === activeBackgroundLabel
+        ? "Background clears pixels with the active tool."
+        : modeStateLabel;
+
+  useEffect(() => {
+    dispatchCropSemanticEditorStatus({
+      cropId,
+      family: FAMILY_LABELS[activeFamily],
+      label: activeLabelName,
+      tool: TOOL_LABELS[tool],
+      editTarget: activeEditLabel,
+      saveState,
+      status: editorStatus,
+      support: supportReadinessLabel(state),
+      semantic: editingSupport ? "Editing support mask" : semanticVersionLabel(state, semanticMode),
+      classification: classificationLabel(state),
+      readiness: readinessLabel,
+      warning: familyWarning,
+      toolState,
+      brushRadius,
+      semanticOpacity: opacity,
+      supportOpacity,
+      canRetrySave: saveState === "failed" && hasUnsavedChanges,
+      canReloadLatest: !isSaving,
+    });
+  });
+
+  useEffect(() => {
+    const onCommand = (event: CustomEvent<CropSemanticEditorCommandDetail>) => {
+      if (event.detail.cropId !== cropId) return;
+      if (event.detail.command === "retrySave") {
+        void saveMask();
+        return;
+      }
+      if (event.detail.command === "reloadLatest") {
+        void reloadLatest();
+        return;
+      }
+      if (event.detail.command === "setBrushRadius") {
+        setBrushRadius(clampNumber(Math.round(event.detail.value), 1, 80));
+        return;
+      }
+      if (event.detail.command === "setSemanticOpacity") {
+        setOpacity(clampNumber(event.detail.value, 0, 1));
+        return;
+      }
+      setSupportOpacity(clampNumber(event.detail.value, 0, 1));
+    };
+
+    const onFlushRequest = (event: CustomEvent<CropSemanticEditorFlushRequestDetail>) => {
+      event.preventDefault();
+      void flushPendingSave().then((ok) => {
+        window.dispatchEvent(
+          new CustomEvent(CROP_SEMANTIC_EDITOR_FLUSH_RESPONSE_EVENT, {
+            detail: { requestId: event.detail.requestId, ok },
+          }),
+        );
+      });
+    };
+
+    window.addEventListener(CROP_SEMANTIC_EDITOR_COMMAND_EVENT, onCommand as EventListener);
+    window.addEventListener(CROP_SEMANTIC_EDITOR_FLUSH_REQUEST_EVENT, onFlushRequest as EventListener);
+    return () => {
+      window.removeEventListener(CROP_SEMANTIC_EDITOR_COMMAND_EVENT, onCommand as EventListener);
+      window.removeEventListener(CROP_SEMANTIC_EDITOR_FLUSH_REQUEST_EVENT, onFlushRequest as EventListener);
+    };
+  });
+
+  useEffect(() => {
+    const onDocumentClick = (event: MouseEvent) => {
+      if (!dirtyMaskRef.current || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey) {
+        return;
+      }
+      const target = event.target instanceof Element ? event.target : null;
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target || anchor.origin !== window.location.origin) return;
+      if (!anchor.pathname.startsWith("/app/") || !anchor.pathname.includes("/crop/")) return;
+
+      event.preventDefault();
+      const href = anchor.href;
+      void flushPendingSave().then((ok) => {
+        if (ok) window.location.assign(href);
+      });
+    };
+
+    document.addEventListener("click", onDocumentClick, true);
+    return () => document.removeEventListener("click", onDocumentClick, true);
+  });
 
   return (
     <div className="overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-background)] text-[var(--text-primary)]">
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-4 py-3">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-          <span>{annotationFamilyLabel(state)}</span>
-          <span>{supportReadinessLabel(state)}</span>
-          <span>{editingSupport ? "Editing support mask" : semanticVersionLabel(state, semanticMode)}</span>
-          <span>{classificationLabel(state)}</span>
-          {state?.cropReadiness && (
-            <span id="export-readiness">
-              Export readiness: {state.cropReadiness.readinessStatus.toLowerCase().replaceAll("_", " ")}
-            </span>
-          )}
-          {state?.cropReadiness?.readinessReasons.includes("CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH") && (
-            <span>Classification conflicts with active semantic family.</span>
-          )}
-          {activeFamily === "SAP_HEARTWOOD" && <span>Support geometry derives from semantic foreground.</span>}
-          {activeFamily === "CU_SUPPORT" && cuSupportTarget === "copper" && state?.currentSupportMask && (
-            <span>Outside-support pixels are locked.</span>
-          )}
-          {activeFamily === "CU_SUPPORT" && cuSupportTarget === "copper" && !state?.currentSupportMask && (
-            <span>Copper drafts can save now; support is required before export.</span>
-          )}
-          {activeFamily === "CU_SUPPORT" && cuSupportTarget === "support" && (
-            <span>Draw the complete support region for the physical slice.</span>
-          )}
-        </div>
+      <span id="export-readiness" className="sr-only">
+        {readinessLabel}
+      </span>
 
-        {familyWarning && (
-          <div className="mt-3 flex items-center gap-2 border border-[var(--border-warning)] bg-[var(--warning-surface)] px-3 py-2 text-xs font-medium text-[var(--warning-text)]">
-            <AlertTriangleIcon className="size-4 shrink-0" aria-hidden="true" />
-            <span className="min-w-0">{familyWarning}</span>
-          </div>
-        )}
+      <AnnotationToolbarShell ariaLabel="Slice annotation tools" className="px-4">
+        <AnnotationToolbarGroup>
+          <AnnotationSegmentButton
+            label="Sapwood Heartwood family"
+            active={activeFamily === "SAP_HEARTWOOD"}
+            onClick={() => void selectFamily("SAP_HEARTWOOD")}
+            disabled={isSaving || Boolean(sapHeartwoodBlockedReason)}
+          >
+            S/H
+          </AnnotationSegmentButton>
+          <AnnotationSegmentButton
+            label="Copper family"
+            active={activeFamily === "CU_SUPPORT"}
+            onClick={() => void selectFamily("CU_SUPPORT", cuSupportTarget)}
+            disabled={isSaving || Boolean(cuSupportBlockedReason)}
+          >
+            Cu
+          </AnnotationSegmentButton>
+        </AnnotationToolbarGroup>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Family
-            </span>
-            <button
-              className={activeFamily === "SAP_HEARTWOOD" ? activeButtonClass : idleButtonClass}
-              aria-pressed={activeFamily === "SAP_HEARTWOOD"}
-              onClick={() => selectFamily("SAP_HEARTWOOD")}
-              disabled={isSaving || Boolean(sapHeartwoodBlockedReason)}
-            >
-              Sapwood / Heartwood
-            </button>
-            <button
-              className={activeFamily === "CU_SUPPORT" ? activeButtonClass : idleButtonClass}
-              aria-pressed={activeFamily === "CU_SUPPORT"}
-              onClick={() => selectFamily("CU_SUPPORT", cuSupportTarget)}
-              disabled={isSaving || Boolean(cuSupportBlockedReason)}
-            >
-              Cu
-            </button>
-          </div>
+        <AnnotationToolbarDivider />
 
-          <div className="hidden h-5 w-px bg-[var(--border-subtle)] lg:block" />
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Tools
-            </span>
-            <button
-              className={tool === "lasso_poly" ? activeButtonClass : idleButtonClass}
-              aria-pressed={tool === "lasso_poly"}
-              onClick={() => selectTool("lasso_poly")}
-              disabled={!editorCanEdit}
-              title="Polygon"
-            >
-              <PentagonIcon className="size-3.5" aria-hidden="true" />
-              Polygon
-            </button>
-            <button
-              className={tool === "lasso_free" ? activeButtonClass : idleButtonClass}
-              aria-pressed={tool === "lasso_free"}
-              onClick={() => selectTool("lasso_free")}
-              disabled={!editorCanEdit}
-              title="Lasso"
-            >
-              <LassoIcon className="size-3.5" aria-hidden="true" />
-              Lasso
-            </button>
-            {!editingSupport && (
-              <button
-                className={tool === "brush" ? activeButtonClass : idleButtonClass}
-                aria-pressed={tool === "brush"}
-                onClick={() => selectTool("brush")}
-                disabled={!editorCanEdit}
-                title="Brush"
-              >
-                <BrushIcon className="size-3.5" aria-hidden="true" />
-                Brush
-              </button>
-            )}
-            {tool === "lasso_poly" && (
-              <>
-                <button
-                  className={idleButtonClass}
-                  onClick={closePolygonPreview}
-                  disabled={!canClosePolygon}
-                  title="Close polygon"
+        <AnnotationToolbarGroup>
+          {visiblePaintLabels
+            .filter((label) => label.id === activeBackgroundLabel)
+            .map((label) => {
+              const color = LABEL_COLORS[label.stableId] ?? LABEL_COLORS.unknown;
+              return (
+                <AnnotationSegmentButton
+                  key={`${editingSupport ? "support" : semanticMode}-${label.id}`}
+                  label={label.name}
+                  active={activeLabel === label.id}
+                  onClick={() => setActiveLabel(label.id)}
+                  disabled={!editorCanEdit}
+                  swatch={color.rgb}
                 >
-                  Close polygon
-                </button>
-                <button
-                  className={activeButtonClass}
-                  onClick={() => commitLasso(lassoPointsRef.current.slice())}
-                  disabled={!canApplyPolygon}
-                  title="Apply polygon"
-                >
-                  <SaveIcon className="size-3.5" aria-hidden="true" />
-                  Apply polygon
-                </button>
-                <button className={idleButtonClass} onClick={resetLasso} disabled={!canCancelPolygon} title="Cancel">
-                  <XIcon className="size-3.5" aria-hidden="true" />
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-            Labels
-          </span>
+                  Bg
+                </AnnotationSegmentButton>
+              );
+            })}
+          {activeFamily === "SAP_HEARTWOOD" &&
+            visiblePaintLabels
+              .filter((label) => label.id !== activeBackgroundLabel)
+              .map((label) => {
+                const color = LABEL_COLORS[label.stableId] ?? LABEL_COLORS.unknown;
+                const shortLabel = label.stableId === "sapwood" ? "Sap" : label.stableId === "heartwood" ? "Heart" : label.name;
+                return (
+                  <AnnotationSegmentButton
+                    key={`${semanticMode}-${label.id}`}
+                    label={label.name}
+                    active={activeLabel === label.id}
+                    onClick={() => setActiveLabel(label.id)}
+                    disabled={!editorCanEdit}
+                    swatch={color.rgb}
+                  >
+                    {shortLabel}
+                  </AnnotationSegmentButton>
+                );
+              })}
           {activeFamily === "CU_SUPPORT" && (
             <>
-              <button
-                className={
-                  cuSupportTarget === "support" && activeLabel === supportLabelValue
-                    ? activeButtonClass
-                    : idleButtonClass
-                }
-                aria-pressed={cuSupportTarget === "support" && activeLabel === supportLabelValue}
-                onClick={() => selectFamily("CU_SUPPORT", "support")}
+              <AnnotationSegmentButton
+                label="Support"
+                active={cuSupportTarget === "support" && activeLabel === supportLabelValue}
+                onClick={() => void selectFamily("CU_SUPPORT", "support")}
                 disabled={!editorReady || isSaving}
+                swatch={supportTargetColor}
               >
-                <span
-                  className="size-2 rounded-full border border-[var(--border-subtle)]"
-                  style={{
-                    backgroundColor: `rgb(${supportTargetColor[0]}, ${supportTargetColor[1]}, ${supportTargetColor[2]})`,
-                  }}
-                  aria-hidden="true"
-                />
                 {TARGET_LABELS.support}
-              </button>
-              <button
-                className={
-                  cuSupportTarget === "copper" && activeLabel === defaultLabelForSemanticMode("COPPER")
-                    ? activeButtonClass
-                    : idleButtonClass
-                }
-                aria-pressed={cuSupportTarget === "copper" && activeLabel === defaultLabelForSemanticMode("COPPER")}
-                onClick={() => selectFamily("CU_SUPPORT", "copper")}
+              </AnnotationSegmentButton>
+              <AnnotationSegmentButton
+                label="Copper"
+                active={cuSupportTarget === "copper" && activeLabel === defaultLabelForSemanticMode("COPPER")}
+                onClick={() => void selectFamily("CU_SUPPORT", "copper")}
                 disabled={!editorReady || isSaving}
+                swatch={copperTargetColor}
               >
-                <span
-                  className="size-2 rounded-full border border-[var(--border-subtle)]"
-                  style={{
-                    backgroundColor: `rgb(${copperTargetColor[0]}, ${copperTargetColor[1]}, ${copperTargetColor[2]})`,
-                  }}
-                  aria-hidden="true"
-                />
                 {TARGET_LABELS.copper}
-              </button>
+              </AnnotationSegmentButton>
             </>
           )}
-          {paintLabels.filter((label) => activeFamily !== "CU_SUPPORT" || label.id === activeBackgroundLabel).map((label) => {
-            const color = LABEL_COLORS[label.stableId] ?? LABEL_COLORS.unknown;
-            return (
-              <button
-                key={`${editingSupport ? "support" : semanticMode}-${label.id}`}
-                className={activeLabel === label.id ? activeButtonClass : idleButtonClass}
-                aria-pressed={activeLabel === label.id}
-                onClick={() => setActiveLabel(label.id)}
-                disabled={!editorCanEdit}
-              >
-                <span
-                  className="size-2 rounded-full border border-[var(--border-subtle)]"
-                  style={{
-                    backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
-                    opacity: label.id === activeBackgroundLabel ? 0.5 : 1,
-                  }}
-                  aria-hidden="true"
-                />
-                {label.name}
-              </button>
-            );
-          })}
-          {activeLabelIsBackground && (
-            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-              Background clears pixels with the active tool.
-            </span>
-          )}
+        </AnnotationToolbarGroup>
+
+        <AnnotationToolbarDivider />
+
+        <AnnotationToolbarGroup>
+          <AnnotationIconButton
+            icon={PentagonIcon}
+            label="Polygon"
+            active={tool === "lasso_poly"}
+            onClick={() => selectTool("lasso_poly")}
+            disabled={!editorCanEdit}
+          />
+          <AnnotationIconButton
+            icon={LassoIcon}
+            label="Lasso"
+            active={tool === "lasso_free"}
+            onClick={() => selectTool("lasso_free")}
+            disabled={!editorCanEdit}
+          />
           {!editingSupport && (
-            <label className="ml-auto flex h-8 items-center gap-2 text-[11px] font-medium text-[var(--text-secondary)]">
-              <span>Brush size {brushRadius}px</span>
-              <input
-                type="range"
-                min={1}
-                max={80}
-                value={brushRadius}
-                onChange={(event) => setBrushRadius(Number(event.target.value))}
-                disabled={!editorCanEdit || tool === "lasso_poly"}
-                className="w-28"
-              />
-            </label>
+            <AnnotationIconButton
+              icon={BrushIcon}
+              label="Brush"
+              active={tool === "brush"}
+              onClick={() => selectTool("brush")}
+              disabled={!editorCanEdit}
+            />
           )}
-        </div>
+        </AnnotationToolbarGroup>
 
-        {tool === "lasso_poly" && (
-          <div className="mt-2 text-[11px] font-medium text-[var(--text-secondary)]">
-            Click to add points · close polygon · drag points to refine · apply
-          </div>
-        )}
+        <AnnotationToolbarDivider />
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3 text-sm">
-          <button className={idleButtonClass} onClick={undo} disabled={!editorCanEdit} title="Undo">
-            <Undo2Icon className="size-3.5" aria-hidden="true" />
-            Undo
-          </button>
-          <button className={idleButtonClass} onClick={redo} disabled={!editorCanEdit} title="Redo">
-            <Redo2Icon className="size-3.5" aria-hidden="true" />
-            Redo
-          </button>
-          <button className={idleButtonClass} onClick={fitToContainer} title="Fit">
-            <Maximize2Icon className="size-3.5" aria-hidden="true" />
-            Fit
-          </button>
-          <button className={idleButtonClass} onClick={reloadLatest} disabled={isSaving} title="Reload latest">
-            <RotateCcwIcon className="size-3.5" aria-hidden="true" />
-            Reload latest
-          </button>
-          <button
-            className={idleButtonClass}
-            onClick={() => void saveMask()}
-            disabled={!editorCanEdit || isSaving || !hasUnsavedChanges}
-            title="Commit mask"
-          >
-            <SaveIcon className="size-3.5" aria-hidden="true" />
-            Commit {activeEditLabel}
-          </button>
+        <AnnotationToolbarGroup>
+          <AnnotationIconButton icon={Undo2Icon} label="Undo" onClick={undo} disabled={!editorCanEdit} />
+          <AnnotationIconButton icon={Redo2Icon} label="Redo" onClick={redo} disabled={!editorCanEdit} />
+        </AnnotationToolbarGroup>
 
-          <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
-            <label className="flex items-center gap-2">
-              <span>Semantic opacity</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(opacity * 100)}
-                onChange={(event) => setOpacity(Number(event.target.value) / 100)}
-                className="w-24"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <span>Support opacity</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(supportOpacity * 100)}
-                onChange={(event) => setSupportOpacity(Number(event.target.value) / 100)}
-                className="w-24"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <span>Zoom</span>
-              <input
-                type="range"
-                min={5}
-                max={300}
-                value={Math.round(zoom * 100)}
-                onChange={(event) => setZoom(clampNumber(Number(event.target.value) / 100, 0.05, 3))}
-                className="w-24"
-              />
-              <span className="w-10 tabular-nums">{Math.round(zoom * 100)}%</span>
-            </label>
-          </div>
-        </div>
+        <AnnotationToolbarDivider />
 
-        {(reviewTargets.length > 0 || reviewComment || editorStatus) && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
+        <AnnotationZoomControl
+          zoom={zoom}
+          minZoom={0.05}
+          maxZoom={3}
+          onZoomChange={setViewportZoom}
+          onFit={fitToContainer}
+        />
+      </AnnotationToolbarShell>
+
+      {(reviewTargets.length > 0 || reviewComment) && (
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-4 py-2">
+          <div className="flex flex-wrap items-center gap-2">
             {reviewTargets.map((target) => {
               const blocked = hasUnsavedChanges || reviewBusyKey !== null;
               return (
@@ -1584,14 +1631,9 @@ export function CropSemanticEditorClient({
                 className="h-8 w-48 rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-input-background)] px-2 text-[11px] font-medium text-[var(--text-primary)]"
               />
             )}
-            {editorStatus && (
-              <div className="ml-auto text-[11px] font-medium text-[var(--text-secondary)]" role="status">
-                {editorStatus}
-              </div>
-            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <EditorCanvasStack
         containerRef={containerRef}
@@ -1607,8 +1649,7 @@ export function CropSemanticEditorClient({
         onPointerCancel={onPointerCancel}
         onPointerLeave={onPointerLeave}
         onCommitPolygon={() => {
-          if (lassoClosedRef.current) commitLasso(lassoPointsRef.current.slice());
-          else closePolygonPreview();
+          if (lassoPointsRef.current.length >= 3) commitLasso(lassoPointsRef.current.slice());
         }}
       />
     </div>

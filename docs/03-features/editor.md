@@ -35,7 +35,8 @@ Before decomposition, `src/features/editor/EditorClient.tsx` owns all client-sid
 - pointer-event handling for brush, freehand lasso, polygon lasso, polygon-handle dragging, pointer capture, cancel behavior, and coordinate conversion;
 - undo/redo patch history and keyboard shortcuts;
 - semantic/support mode switching and label palette selection;
-- toolbar controls for tools, brush size, opacity, fit/zoom, save, and status display;
+- compact toolbar controls for family, labels, tools, undo/redo, fit, and zoom;
+- right-rail controls for status, readiness, brush size, opacity, reload, retry, and save state;
 - auto-derived slice classification status/review workflow;
 - review state cards, submit/approve/reject actions, comments, and export-readiness display;
 - assisted correction panel, prediction overlay toggle, prediction-mask loading, and explicit prediction-to-editable-mask copy behavior.
@@ -60,6 +61,7 @@ Extracted ownership:
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
 - `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
 - `src/features/editor/components/AnnotationToolbar.tsx` and `src/features/editor/useCanvasZoomControls.ts` provide the shared compact annotation toolbar primitives and stable stacked-canvas zoom behavior used by BBox and crop editor surfaces.
+- `src/features/editor/CropSemanticEditorStatusRailClient.tsx` and `src/features/editor/cropSemanticEditorEvents.ts` move crop-editor status/retry controls into the right rail and guard dirty crop-navigation attempts.
 - `src/features/editor/components/EditorBBoxPanel.tsx` owns RB-086/RB-087 slice BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview metadata.
 - `src/features/editor/AnnotationEditorWorkspace.tsx` owns the shared Core-aligned editor header, context row, local tabs, and optional navigator rail used by the BBox and crop-mask editor routes.
 
@@ -101,12 +103,12 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 
 - Brush, Lasso, Polygon, and Background clearing operations write to a `MaskBuffer` in memory.
 - Clearing is presented as selecting the `Background` label and applying it with Polygon, Lasso, or Brush. The legacy eraser mapping remains internal compatibility logic: in semantic mode it writes `Labels.BG`; in slice-support mode it writes the current support background value.
-- The unified crop annotation editor exposes compact Core-aligned controls against crop-pixel masks: Polygon, freehand Lasso, Brush, Background label clearing, undo/redo, opacity, fit, zoom, reload, commit mask, derived classification status, and review actions. DESIGN-014 removed the separate Classification tab and manual crop-editor classification save controls. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
+- The unified crop annotation editor exposes compact Core-aligned controls against crop-pixel masks: family selection, Background/Sapwood/Heartwood/Support/Cu labels, Polygon, freehand Lasso, Brush, undo/redo, fit, and zoom. Brush size, opacity, reload, retry, dirty/saving state, readiness, and artifact status are right-rail controls. DESIGN-014 removed the separate Classification tab and manual crop-editor classification save controls. RB-127 removes the crop editor's manual commit and polygon apply/close/cancel buttons; polygon commits through Enter, double-click, or closed-polygon completion. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
 - Crop editor brush and polygon mutations go through `src/features/editor/cropMaskOperations.ts`. Sap/Heartwood crop semantic edits and crop support edits are unconstrained crop-space operations. Copper semantic edits are clipped to explicit support when a support mask exists; supportless Copper drafts remain editable but are not export-ready.
 - Painting the explicit `Background` label is the primary clearing workflow. This keeps erasing consistent with the label model because all tools apply labels, including Background.
 - Undo/redo stores patch arrays in refs and applies patches back into the mask buffer.
-- Autosave debounces dirty mask writes after edits.
-- RB-045 exposes dirty/saving state in the editor toolbar and guards browser unload while unsaved edits exist.
+- Autosave debounces dirty crop mask writes after committed polygon, lasso, brush-stroke, undo, and redo operations.
+- RB-045 exposes dirty/saving state and guards browser unload while unsaved edits exist; RB-127 also flushes dirty crop edits before local crop/slice navigation and keeps failed saves dirty with retry available.
 - If edits happen while a save is in flight, the editor tracks dirty revisions and queues another save instead of clearing the newer dirty state.
 - In `Semantic mask` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/mask/upload`.
 - In `Slice support` mode, manual save uploads raw `u8raw-v1` bytes through `/api/images/[imageId]/support-mask/upload`.
@@ -270,8 +272,8 @@ Current RB-089 behavior:
 - The semantic target no longer soft-blocks when support is missing. Sap/Heartwood support is derived from semantic foreground; Copper drafts can save before support exists but remain not export-ready until support is approved.
 - RB-123 keeps the crop editor family-aware: if Sapwood/Heartwood has foreground pixels, `Cu` is unavailable until Sapwood/Heartwood is cleared; if Copper or support-mask foreground exists, `Sapwood / Heartwood` is unavailable until Cu is cleared. Legacy mixed-family state is shown as conflict and cannot save additional non-empty opposite-family data.
 - The editor displays the crop PNG with a read-only support overlay and editable semantic overlay.
-- Sap/Heartwood mode allows manual Sapwood, Heartwood, and Unknown painting inside support. Complement fill is deferred.
-- Copper mode allows Copper and Unknown painting inside support; background inside support is the implicit non-copper negative.
+- Sap/Heartwood mode allows manual Sapwood and Heartwood painting; legacy Unknown bytes remain readable but are not selectable in the crop editor UI. Complement fill is deferred.
+- Copper mode allows Copper painting; legacy Unknown bytes remain readable but are not selectable in the crop editor UI. Background inside support is the implicit non-copper negative.
 - Saving creates a new draft `SEMANTIC_MASK` artifact version with `coordinateSpace = CROP_PIXEL`, the selected semantic mode, and optional support-mask version id.
 - Copper edits are constrained to support when support is present; Sap/Heartwood foreground is allowed to define support geometry directly.
 

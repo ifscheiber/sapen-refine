@@ -7,6 +7,7 @@ import { prisma } from "@/server/db";
 import { loadCropSliceNavigatorForUser } from "@/server/domain/cropSliceNavigator";
 import { AnnotationEditorWorkspace } from "./AnnotationEditorWorkspace";
 import { CropSemanticEditorClient } from "./CropSemanticEditorClient";
+import { CropSemanticEditorStatusRailClient } from "./CropSemanticEditorStatusRailClient";
 import type { CropSemanticMode } from "./editorTypes";
 
 function initialEditorModeLabel(mode: CropSemanticMode | undefined, target: "semantic" | "support" | undefined) {
@@ -84,6 +85,7 @@ export async function CropSemanticEditorPage({
           initialTarget={initialTarget}
         />
       }
+      railSuffix={<CropSemanticEditorStatusRailClient cropId={cropId} />}
     />
   );
 }

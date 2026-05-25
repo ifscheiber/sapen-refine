@@ -157,8 +157,6 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await page.mouse.move(semanticBox.x + semanticBox.width * 0.6, semanticBox.y + semanticBox.height * 0.5, { steps: 6 });
   await page.mouse.up();
 
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Commit Sap/Heartwood semantic mask" }).click();
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
   await expect
     .poll(async () =>

@@ -107,8 +107,12 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);
   await expect(page.getByLabel("Slice classification")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sapwood Heartwood family" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copper family" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Unknown" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Close polygon", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Apply polygon", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Commit .*mask/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
 
@@ -134,9 +138,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.move(semanticBox.x + semanticBox.width * 0.5, semanticBox.y + semanticBox.height * 0.5, { steps: 4 });
   await page.mouse.up();
 
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Commit Sap/Heartwood semantic mask" }).click();
-  await expect(page.getByText(/Saved; suggested Sap\/Heartwood slice|Saved/)).toBeVisible();
+  await expect(page.getByText("Saved; suggested Sap/Heartwood slice")).toBeVisible();
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
 
   const semanticRows = page.locator("[data-review-target='semantic-SAP_HEARTWOOD']");
@@ -156,7 +158,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(submittedClassificationReview).toBeVisible();
   await submittedClassificationReview.getByRole("button", { name: "Approve" }).click();
   await expect(classificationRows.filter({ hasText: /Classification: Approved v\d+/ }).first()).toBeVisible();
-  await expect(page.getByText("Export readiness: ready")).toBeVisible();
+  await expect(page.getByText("Export readiness: ready").last()).toBeVisible();
 
   await expect.poll(async () => {
     return page.evaluate(async (id) => {
