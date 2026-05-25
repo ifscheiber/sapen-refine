@@ -38,7 +38,7 @@
 - `src/server/domain/sliceCrops.ts` - RB-087 derived slice crop geometry, padding validation, source-image crop generation, private PNG storage, sanitized reads, and audit events.
 - `src/server/domain/cropSupportMasks.ts` - RB-088 crop support-mask state, crop-dimension validation, coordinate helper, artifact-version creation, and sanitized latest-version reads.
 - `src/server/domain/cropSemanticMasks.ts` - RB-089/RB-100/RB-123 crop semantic-mask state, mode-aware support policy, optional support-lineage validation, annotation-family state serialization, mode label validation, Copper outside-support rejection when support is referenced, artifact-version creation, and sanitized active-version reads.
-- `src/server/domain/cropAnnotationFamilies.ts` - RB-123 byte-derived Sapwood/Heartwood vs Cu/Support family occupancy and save-time conflict checks across semantic and support artifacts.
+- `src/server/domain/cropAnnotationFamilies.ts` - RB-123 byte-derived Sapwood/Heartwood vs Cu-family occupancy and save-time conflict checks across semantic and support artifacts.
 - `src/server/domain/cropSemanticFamily.ts` - RB-097 semantic-family/classification mismatch helpers retained for readiness compatibility.
 - `src/server/domain/sliceClassifications.ts` - RB-090 slice-instance manual override APIs, semantic-mask classification derivation, provenance serialization, and audit events.
 - `src/server/domain/cropReadiness.ts` - RB-092 shared crop readiness resolver, crop review-action availability, sanitized readiness serialization, and crop export skip policy.

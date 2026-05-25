@@ -11,7 +11,7 @@ import type { CropSliceNavigatorModel } from "@/server/domain/cropSliceNavigator
 import { CropEditorSliceNavigatorRailClient } from "./CropEditorSliceNavigatorRailClient";
 import type { CropSemanticMode } from "./editorTypes";
 
-export type AnnotationEditorTab = "bboxes" | "semantic" | "support" | "export-readiness";
+export type AnnotationEditorTab = "bboxes" | "semantic" | "export-readiness";
 
 function exportSummaryLabel(readyCount: number, totalSlices: number) {
   if (totalSlices === 0) return "No slices";
@@ -45,11 +45,6 @@ function tabBaseHref(navigator: CropSliceNavigatorModel, explicitBaseHref?: stri
 function semanticTabHref(baseHref: string | null, fallbackHref: string, semanticMode: CropSemanticMode) {
   if (!baseHref) return fallbackHref;
   return `${baseHref}?mode=${semanticMode}&target=semantic`;
-}
-
-function supportTabHref(baseHref: string | null, fallbackHref: string) {
-  if (!baseHref) return fallbackHref;
-  return `${baseHref}?mode=COPPER&target=support`;
 }
 
 function anchorTabHref(baseHref: string | null, fallbackHref: string, anchor: string) {
@@ -155,12 +150,6 @@ export function AnnotationEditorWorkspace({
               label: "Semantic Masks",
               href: semanticTabHref(baseHref, fallbackEditorHref, semanticMode),
               active: activeTab === "semantic",
-            },
-            {
-              keyId: "support",
-              label: "Support Mask",
-              href: supportTabHref(baseHref, fallbackEditorHref),
-              active: activeTab === "support",
             },
             {
               keyId: "export-readiness",

@@ -31,13 +31,13 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Open crop workflow. | The image-level BBox stage opens; no `Open editor` or `Full editor` action is visible. |  |  |
 | Select `BBox proposal` and draw a rough rectangle around a slice. | A slice proposal appears in the BBox list and is clearly labeled as a proposal, not ground truth. |  |  |
 | Click `Generate crop` for the selected BBox proposal. | A crop preview appears with crop dimensions, padding metadata, and crop readiness showing missing support/semantic/classification rather than export-ready. |  |  |
-| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu/Support family choices, support/semantic/classification/readiness status, and the whole-image slice navigator. |  |  |
+| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu family choices, support/semantic/classification/readiness status, and the whole-image slice navigator. |  |  |
 | Use Sapwood/Heartwood before support exists. | The editor states that support geometry derives from semantic foreground. |  |  |
-| Save a Sapwood/Heartwood semantic draft, then inspect Cu/Support for the same crop. | Cu/Support is unavailable until Sapwood/Heartwood pixels are cleared; no reset flow silently supersedes the opposite family. |  |  |
-| On a fresh crop or after clearing Sapwood/Heartwood, choose Cu/Support and Cu. | Copper draft editing is allowed while export readiness still requires approved explicit support. |  |  |
+| Save a Sapwood/Heartwood semantic draft, then inspect Cu for the same crop. | Cu is unavailable until Sapwood/Heartwood pixels are cleared; no reset flow silently supersedes the opposite family. |  |  |
+| On a fresh crop or after clearing Sapwood/Heartwood, choose Cu and the Cu label. | Copper draft editing is allowed while export readiness still requires approved explicit support. |  |  |
 | Save a Copper semantic draft before support exists. | The draft saves, auto classification is Copper slice, and crop readiness remains partial/not-ready with `MISSING_SUPPORT_MASK`; no Copper pixels are treated as support geometry. |  |  |
-| Choose `Cu / Support mask` and `Support`. | The same editor displays the crop image in crop coordinates with support/background labels. |  |  |
-| Draw and erase support, then click `Save support mask`. | A draft crop support mask saves, reloads, remains linked to the crop, and exposes submit/review actions according to role; Sapwood/Heartwood labels are not shown while the support target is active. |  |  |
+| Choose `Cu` and `Support`. | The same editor displays the crop image in crop coordinates with support/background labels, with only Polygon/Lasso available for support drawing. |  |  |
+| Draw and erase support, then click `Commit support mask`. | A draft crop support mask saves, reloads, remains linked to the crop, and exposes submit/review actions according to role; Sapwood/Heartwood labels are not shown while the Support label is active. |  |  |
 | Submit and approve the Copper crop support mask, semantic mask, and classification. | Crop readiness can become ready only after approved explicit support, approved Copper semantic, and approved classification exist. |  |  |
 | Choose the Cu target after support exists. | The editor shows the support overlay and constrains Copper edits to support pixels. |  |  |
 | From the crop editor, click `Edit BBoxes`. | Browser lands on `/crop/bboxes`; confirmed BBoxes are visible, mutation controls are locked, and no `Editor` or `Full editor` crop-workflow link is visible. |  |  |

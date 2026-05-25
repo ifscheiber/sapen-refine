@@ -24,6 +24,13 @@ export type CropPolygonFillOperation = CropMaskConstraint & {
   label: LabelId;
 };
 
+export type ForegroundOutsideSupportCheck = {
+  semanticMask: MaskBuffer;
+  supportMask: MaskBuffer;
+  semanticBackgroundLabel: LabelId;
+  supportBackgroundLabel: LabelId;
+};
+
 function captureBox(mask: MaskBuffer, x: number, y: number, width: number, height: number) {
   const out = new Uint8Array(width * height);
   let offset = 0;
@@ -40,6 +47,29 @@ function assertMatchingDimensions(mask: MaskBuffer, supportMask: MaskBuffer) {
   if (mask.width !== supportMask.width || mask.height !== supportMask.height) {
     throw new Error("SUPPORT_MASK_DIMENSIONS_MISMATCH");
   }
+}
+
+export function findForegroundOutsideSupport({
+  semanticMask,
+  supportMask,
+  semanticBackgroundLabel,
+  supportBackgroundLabel,
+}: ForegroundOutsideSupportCheck): { x: number; y: number } | null {
+  assertMatchingDimensions(semanticMask, supportMask);
+
+  for (let index = 0; index < semanticMask.data.byteLength; index += 1) {
+    if (
+      semanticMask.data[index] !== semanticBackgroundLabel &&
+      supportMask.data[index] === supportBackgroundLabel
+    ) {
+      return {
+        x: index % semanticMask.width,
+        y: Math.floor(index / semanticMask.width),
+      };
+    }
+  }
+
+  return null;
 }
 
 export function applyCropBrush({

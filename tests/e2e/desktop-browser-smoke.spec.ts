@@ -109,7 +109,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByLabel("Slice classification")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
 

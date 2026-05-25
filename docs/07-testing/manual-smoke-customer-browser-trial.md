@@ -50,12 +50,12 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open crop workflow. | The image-level BBox stage opens through the crop workflow route. |  |  |
 | Draw a rough slice box and confirm the BBox set. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth; confirmation records workflow intent only. |  |  |
-| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu/Support family choices, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
-| Choose `Cu / Support mask` and `Support`. | The same crop editor displays the crop image in crop coordinates with support/background labels. |  |  |
+| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu family choices, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
+| Choose `Cu` and `Support`. | The same crop editor displays the crop image in crop coordinates with support/background labels and only Polygon/Lasso support drawing tools. |  |  |
 | Draw and erase support, then save. | A draft crop support mask saves, reloads, and uses only support/background labels. |  |  |
 | Choose a semantic target in the generated crop editor. | The editor shows the support overlay for Copper and offers only labels for the selected annotation family. |  |  |
 | Test the supportless Sap/Heartwood path on a crop without relying on explicit support. | The semantic draft saves, derives support geometry from semantic foreground, and creates a Sap/Heartwood auto-classification suggestion. |  |  |
-| Attempt to switch the same crop from Sapwood/Heartwood to Cu/Support after saving Sapwood/Heartwood pixels. | Cu/Support remains unavailable until Sapwood/Heartwood pixels are cleared and the crop cannot silently become mixed-family ready. |  |  |
+| Attempt to switch the same crop from Sapwood/Heartwood to Cu after saving Sapwood/Heartwood pixels. | Cu remains unavailable until Sapwood/Heartwood pixels are cleared and the crop cannot silently become mixed-family ready. |  |  |
 | On a fresh crop or after clearing Sapwood/Heartwood, paint and save a Copper crop semantic draft before support exists. | The draft saves, auto classification is Copper slice, and readiness remains blocked by missing approved explicit support. |  |  |
 | Approve explicit support, Copper semantic, and classification. | Copper crop readiness can become ready only after all three reviewed components are approved. |  |  |
 | Override the crop slice classification. | A new manual classification version is saved without replacing the auto suggestion. |  |  |

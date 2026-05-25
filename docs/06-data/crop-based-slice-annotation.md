@@ -158,8 +158,8 @@ Rules:
 - Sap/Heartwood semantic save does not require an explicit support mask. Its non-background semantic foreground is the support geometry source for readiness/export.
 - Copper semantic draft save does not require an explicit support mask, but Copper readiness/export requires an approved crop support mask for the same crop.
 - When a Copper semantic save references support, the server loads that support mask version and rejects non-background semantic pixels outside support with `SEMANTIC_OUTSIDE_SUPPORT`.
-- RB-123 allows only one active annotation family per crop: `Sapwood / Heartwood`, `Cu / Support mask`, empty, or unresolved conflict.
-- The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu/Support is occupied by copper pixels or support-mask foreground pixels.
+- RB-123 allows only one active annotation family per crop: `Sapwood / Heartwood`, `Cu`, empty, or unresolved conflict. Support is selected as a Cu-family label while remaining a separate crop support artifact.
+- The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu is occupied by copper pixels or support-mask foreground pixels.
 - Saving non-empty data in the opposite family is rejected with `CROP_ANNOTATION_FAMILY_CONFLICT`; all-background saves are allowed so users can clear the current family without deleting historical versions.
 - Browser responses include app-mediated mask asset URLs and do not expose private storage keys.
 - Export consumers must inspect `supportGeometrySource`: Sap/Heartwood may use `SEMANTIC_FOREGROUND`, while Copper uses `EXPLICIT_SUPPORT_MASK`.

@@ -149,7 +149,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
 - Derived slice crops are persisted as `DerivedSliceCrop` rows in `CROP_PIXEL` coordinate space. They reference the immutable source image, source checksum, slice instance, and exact BBox version. Crop PNG bytes are private derived artifacts and are read through `/api/slice-crops/[cropId]/asset`.
 - Crop support masks are persisted as crop-scoped `SLICE_SUPPORT_MASK` artifact versions in `CROP_PIXEL`. They link to the source image through `AnnotationArtifact.imageId`, to the slice through `AnnotationArtifactVersion.sliceInstanceId`, and to the crop through `AnnotationArtifactVersion.derivedCropId`.
-- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, optional support mask version, and semantic mode. The editor exposes `Sapwood / Heartwood` and `Cu / Support mask` annotation families. The active family is derived from latest mask bytes; non-empty opposite-family saves are rejected with `CROP_ANNOTATION_FAMILY_CONFLICT`, while all-background saves are allowed so users can clear a family without deleting historical versions.
+- Crop semantic masks are persisted as crop-scoped `SEMANTIC_MASK` artifact versions in `CROP_PIXEL`. They link to the source image, slice instance, derived crop, optional support mask version, and semantic mode. The editor exposes `Sapwood / Heartwood` and `Cu` annotation families; Support is selected as a Cu-family label and remains persisted as a separate crop support artifact. The active family is derived from latest mask bytes; non-empty opposite-family saves are rejected with `CROP_ANNOTATION_FAMILY_CONFLICT`, while all-background saves are allowed so users can clear a family without deleting historical versions.
 - `MaskKind.REFINED` is removed from the schema; current browser saves are draft human semantic annotation artifacts.
 - The editor shows draft/submitted/approved/rejected state for semantic masks, support masks, and slice classifications.
 - `OWNER`/`QA` users can approve/reject submitted versions from the editor; `OWNER`/`QA`/`LABELER` users can submit draft versions.
@@ -255,9 +255,10 @@ Current RB-087 behavior:
 
 Current RB-088 behavior:
 
-- The selected derived crop opens the unified crop editor and can select the `Cu / Support mask` family.
-- The support target displays the private crop PNG in crop coordinates and edits a crop-sized support mask.
-- Brush, Lasso, and Polygon write only background or the active `slice_support` byte when the support target is active.
+- The selected derived crop opens the unified crop editor and can select the `Cu` family.
+- The Support label displays the private crop PNG in crop coordinates and edits a crop-sized support mask.
+- Polygon and Lasso write only background or the active `slice_support` byte when the Support label is active; Brush is hidden for support drawing.
+- If a persisted support mask exists, the editor warns before the first replacement edit. A candidate support mask must include all existing Copper pixels before it can be saved.
 - Saving creates a new draft `SLICE_SUPPORT_MASK` artifact version with `coordinateSpace = CROP_PIXEL`.
 - The saved version is linked to the source image, slice instance, and derived crop, and can be reloaded from the crop editor.
 - Crop support-mask saves validate exact crop dimensions and reject Copper semantic bytes as support geometry.
@@ -266,7 +267,7 @@ Current RB-089 behavior:
 
 - The selected derived crop opens the unified crop editor and can select semantic targets inside either annotation family.
 - The semantic target no longer soft-blocks when support is missing. Sap/Heartwood support is derived from semantic foreground; Copper drafts can save before support exists but remain not export-ready until support is approved.
-- RB-123 keeps the crop editor family-aware: if Sapwood/Heartwood has foreground pixels, `Cu / Support mask` is unavailable until Sapwood/Heartwood is cleared; if Copper or support-mask foreground exists, `Sapwood / Heartwood` is unavailable until Cu/Support is cleared. Legacy mixed-family state is shown as conflict and cannot save additional non-empty opposite-family data.
+- RB-123 keeps the crop editor family-aware: if Sapwood/Heartwood has foreground pixels, `Cu` is unavailable until Sapwood/Heartwood is cleared; if Copper or support-mask foreground exists, `Sapwood / Heartwood` is unavailable until Cu is cleared. Legacy mixed-family state is shown as conflict and cannot save additional non-empty opposite-family data.
 - The editor displays the crop PNG with a read-only support overlay and editable semantic overlay.
 - Sap/Heartwood mode allows manual Sapwood, Heartwood, and Unknown painting inside support. Complement fill is deferred.
 - Copper mode allows Copper and Unknown painting inside support; background inside support is the implicit non-copper negative.

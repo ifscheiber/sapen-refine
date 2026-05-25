@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { applyCropBrush, applyCropPolygonFill } from "@/features/editor/cropMaskOperations";
+import {
+  applyCropBrush,
+  applyCropPolygonFill,
+  findForegroundOutsideSupport,
+} from "@/features/editor/cropMaskOperations";
 import { Labels } from "@/mask/labels";
 import { MaskBuffer } from "@/mask/maskBuffer";
 
@@ -70,5 +74,42 @@ describe("crop mask operations", () => {
     expect(patch).not.toBeNull();
     expect(mask.data[2 * mask.width + 2]).toBe(Labels.COPPER);
     expect(mask.data[2 * mask.width + 1]).toBe(Labels.BG);
+  });
+
+  it("detects semantic foreground outside explicit support", () => {
+    const semanticMask = new MaskBuffer(4, 4, Labels.BG);
+    const supportMask = new MaskBuffer(4, 4, Labels.BG);
+    semanticMask.data[2 * semanticMask.width + 1] = Labels.COPPER;
+
+    expect(
+      findForegroundOutsideSupport({
+        semanticMask,
+        supportMask,
+        semanticBackgroundLabel: Labels.BG,
+        supportBackgroundLabel: Labels.BG,
+      }),
+    ).toEqual({ x: 1, y: 2 });
+
+    supportMask.data[2 * supportMask.width + 1] = Labels.SLICE_SUPPORT;
+
+    expect(
+      findForegroundOutsideSupport({
+        semanticMask,
+        supportMask,
+        semanticBackgroundLabel: Labels.BG,
+        supportBackgroundLabel: Labels.BG,
+      }),
+    ).toBeNull();
+  });
+
+  it("requires matching dimensions when checking semantic support coverage", () => {
+    expect(() =>
+      findForegroundOutsideSupport({
+        semanticMask: new MaskBuffer(4, 4, Labels.BG),
+        supportMask: new MaskBuffer(3, 4, Labels.BG),
+        semanticBackgroundLabel: Labels.BG,
+        supportBackgroundLabel: Labels.BG,
+      }),
+    ).toThrow("SUPPORT_MASK_DIMENSIONS_MISMATCH");
   });
 });

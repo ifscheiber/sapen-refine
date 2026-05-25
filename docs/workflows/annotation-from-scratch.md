@@ -14,7 +14,7 @@ This is the current primary workflow for SaPen Annotate.
 6. User draws and edits rough BBox slice proposals in the BBox stage. These proposals are planning artifacts only, not support-mask ground truth; overlapping BBoxes must be resolved before confirmation.
 7. User confirms the BBox set and the app generates current derived crops. Each crop is a private derived PNG with source-image lineage, not a raw uploaded image and not support geometry.
 8. User opens the unified crop annotation editor for a selected slice.
-9. User chooses one annotation family for the crop: `Sapwood / Heartwood` or `Cu / Support mask`.
+9. User chooses one annotation family for the crop: `Sapwood / Heartwood` or `Cu`. Support is selected as a Cu-family label when Copper support geometry is required.
 10. User draws the selected crop family with mode-aware support policy. Sap/Heartwood can save without explicit support and derives support from semantic foreground; Copper drafts can save before support but require approved explicit support for readiness/export. The app blocks non-empty saves in the opposite family until the active family is cleared.
 11. User reviews the auto-derived slice classification or appends a manual override.
 12. Crop editors upload serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, coordinate space, lineage, and appends `AnnotationArtifactVersion` rows.

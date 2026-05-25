@@ -27,7 +27,7 @@ import {
   getZoomedCanvasDisplaySize,
 } from "./canvasGeometry";
 import { EditorCanvasStack } from "./components/EditorCanvasStack";
-import { applyCropBrush, applyCropPolygonFill } from "./cropMaskOperations";
+import { applyCropBrush, applyCropPolygonFill, findForegroundOutsideSupport } from "./cropMaskOperations";
 import {
   API_ARTIFACT_REVIEW,
   API_CLASSIFICATION_REVIEW,
@@ -83,7 +83,7 @@ const MODE_LABELS: Record<CropSemanticMode, string> = {
 
 const FAMILY_LABELS: Record<CropAnnotationFamily, string> = {
   SAP_HEARTWOOD: "Sapwood / Heartwood",
-  CU_SUPPORT: "Cu / Support mask",
+  CU_SUPPORT: "Cu",
 };
 
 const TARGET_LABELS = {
@@ -198,6 +198,7 @@ export function CropSemanticEditorClient({
   const supportOverlayImageRef = useRef<ImageData | null>(null);
   const overlayImageRef = useRef<ImageData | null>(null);
   const supportMaskRef = useRef<MaskBuffer | null>(null);
+  const copperSemanticMaskRef = useRef<MaskBuffer | null>(null);
   const maskRef = useRef<MaskBuffer | null>(null);
   const paletteRef = useRef<Uint8ClampedArray>(buildPalette([], 0.5));
   const supportPaletteRef = useRef<Uint8ClampedArray>(
@@ -216,6 +217,7 @@ export function CropSemanticEditorClient({
   const supportOpacityRef = useRef(0.3);
   const loadSequenceRef = useRef(0);
   const editingSupportRef = useRef(initialTarget === "support");
+  const supportReplacementConfirmedRef = useRef(false);
 
   const [state, setState] = useState<CropSemanticMaskState | null>(null);
   const [status, setStatus] = useState("");
@@ -470,6 +472,8 @@ export function CropSemanticEditorClient({
     setHasUnsavedChanges(false);
     maskRef.current = null;
     supportMaskRef.current = null;
+    copperSemanticMaskRef.current = null;
+    supportReplacementConfirmedRef.current = false;
     overlayImageRef.current = null;
     supportOverlayImageRef.current = null;
     undoRef.current = [];
@@ -521,6 +525,15 @@ export function CropSemanticEditorClient({
         if (!loadGuard.isCurrent()) return;
       }
 
+      let latestCopperBytes: Uint8Array | null = null;
+      const latestCopperSemantic = nextState.latestSemanticMasks.COPPER;
+      if (editingSupport && latestCopperSemantic?.url) {
+        const copperResponse = await fetch(latestCopperSemantic.url, { cache: "no-store", signal });
+        if (!copperResponse.ok) throw new Error(`CROP_SEMANTIC_MASK_ASSET_FAILED_${copperResponse.status}`);
+        latestCopperBytes = new Uint8Array(await copperResponse.arrayBuffer());
+        if (!loadGuard.isCurrent()) return;
+      }
+
       let latestBytes: Uint8Array | null = null;
       const latestSemantic = editingSupport ? null : nextState.latestSemanticMasks[semanticMode];
       if (editingSupport) {
@@ -541,6 +554,9 @@ export function CropSemanticEditorClient({
       }
       if (supportBytes && supportBytes.byteLength !== width * height) {
         throw new Error("SUPPORT_MASK_DIMENSIONS_MISMATCH");
+      }
+      if (latestCopperBytes && latestCopperBytes.byteLength !== width * height) {
+        throw new Error("SAVED_MASK_DIMENSIONS_MISMATCH");
       }
 
       const canvases = [
@@ -577,6 +593,14 @@ export function CropSemanticEditorClient({
         supportMask.data.set(supportBytes);
       }
       supportMaskRef.current = supportMask;
+
+      const copperSemanticMask = latestCopperBytes
+        ? new MaskBuffer(width, height, nextState.semanticLabels.COPPER.backgroundValue as LabelId)
+        : null;
+      if (copperSemanticMask && latestCopperBytes) {
+        copperSemanticMask.data.set(latestCopperBytes);
+      }
+      copperSemanticMaskRef.current = copperSemanticMask;
 
       const editorMask = new MaskBuffer(
         width,
@@ -617,6 +641,12 @@ export function CropSemanticEditorClient({
   useEffect(() => {
     editingSupportRef.current = editingSupport;
   }, [editingSupport]);
+
+  useEffect(() => {
+    if (!editingSupport || !isBrushLikeTool(tool)) return;
+    resetLasso();
+    setTool("lasso_poly");
+  }, [editingSupport, resetLasso, tool]);
 
   useEffect(() => {
     opacityRef.current = opacity;
@@ -719,6 +749,19 @@ export function CropSemanticEditorClient({
     setHasUnsavedChanges(true);
   }
 
+  function confirmSupportReplacement() {
+    if (!editingSupport || !state?.currentSupportMask || supportReplacementConfirmedRef.current) {
+      return true;
+    }
+    const confirmed = window.confirm("A support mask already exists. Drawing a new support mask will replace it.");
+    if (!confirmed) {
+      setStatus("Support replacement cancelled");
+      return false;
+    }
+    supportReplacementConfirmedRef.current = true;
+    return true;
+  }
+
   function stamp(x: number, y: number) {
     const mask = maskRef.current;
     const supportMask = supportMaskRef.current;
@@ -786,7 +829,9 @@ export function CropSemanticEditorClient({
 
   function onPointerDown(event: PointerEvent<HTMLCanvasElement>) {
     if (!editorCanEdit || shouldIgnorePointerDown(event)) return;
+    if (editingSupport && isBrushLikeTool(tool)) return;
     event.preventDefault();
+    if (!confirmSupportReplacement()) return;
     const target = event.currentTarget;
     const point = canvasToCropCoords(event);
 
@@ -1010,14 +1055,16 @@ export function CropSemanticEditorClient({
       setStatus(blockedReason);
       return;
     }
+    const targetChanged = nextFamily !== activeFamily || (nextTarget !== undefined && nextTarget !== cuSupportTarget);
     if (
-      (nextFamily !== activeFamily || (nextTarget && nextTarget !== cuSupportTarget)) &&
+      targetChanged &&
       hasUnsavedChanges &&
       !window.confirm("Discard unsaved crop annotation changes?")
     ) {
       return;
     }
     resetLasso();
+    if (targetChanged) resetEditor();
     setActiveFamily(nextFamily);
     if (nextFamily === "CU_SUPPORT" && nextTarget) setCuSupportTarget(nextTarget);
     const nextMode = semanticModeForFamily(nextFamily);
@@ -1025,6 +1072,7 @@ export function CropSemanticEditorClient({
   }
 
   function selectTool(nextTool: Tool) {
+    if (editingSupport && isBrushLikeTool(nextTool)) return;
     if (nextTool !== tool) resetLasso();
     setTool(nextTool);
   }
@@ -1037,6 +1085,19 @@ export function CropSemanticEditorClient({
     setStatus(editingSupport ? "Saving crop support mask" : "Saving crop semantic mask");
     try {
       if (editingSupport) {
+        const copperMask = copperSemanticMaskRef.current;
+        const unsupportedCopper = copperMask
+          ? findForegroundOutsideSupport({
+              semanticMask: copperMask,
+              supportMask: mask,
+              semanticBackgroundLabel: state?.semanticLabels.COPPER.backgroundValue ?? Labels.BG,
+              supportBackgroundLabel: supportBackgroundValue,
+            })
+          : null;
+        if (unsupportedCopper) {
+          setStatus("Support mask must include all Cu annotations.");
+          return;
+        }
         const response = await uploadEditorMask(API_CROP_SUPPORT_MASK_UPLOAD(cropId), {
           data: mask.data,
           width: mask.width,
@@ -1187,6 +1248,8 @@ export function CropSemanticEditorClient({
   const cuSupportBlockedReason = familyBlockedReason("CU_SUPPORT");
   const familyConflict = state?.annotationFamily.state === "CONFLICT";
   const activeEditLabel = editingSupport ? "support mask" : `${MODE_LABELS[semanticMode]} semantic mask`;
+  const supportTargetColor = LABEL_COLORS.slice_support.rgb;
+  const copperTargetColor = LABEL_COLORS.copper.rgb;
   const familyWarning = familyConflict
     ? "This crop has both annotation families. Erase and save one family before adding more annotation."
     : (sapHeartwoodBlockedReason ?? cuSupportBlockedReason);
@@ -1245,28 +1308,8 @@ export function CropSemanticEditorClient({
               onClick={() => selectFamily("CU_SUPPORT", cuSupportTarget)}
               disabled={isSaving || Boolean(cuSupportBlockedReason)}
             >
-              Cu / Support mask
+              Cu
             </button>
-            {activeFamily === "CU_SUPPORT" && (
-              <>
-                <button
-                  className={cuSupportTarget === "support" ? activeButtonClass : idleButtonClass}
-                  aria-pressed={cuSupportTarget === "support"}
-                  onClick={() => selectFamily("CU_SUPPORT", "support")}
-                  disabled={!editorReady || isSaving}
-                >
-                  {TARGET_LABELS.support}
-                </button>
-                <button
-                  className={cuSupportTarget === "copper" ? activeButtonClass : idleButtonClass}
-                  aria-pressed={cuSupportTarget === "copper"}
-                  onClick={() => selectFamily("CU_SUPPORT", "copper")}
-                  disabled={!editorReady || isSaving}
-                >
-                  {TARGET_LABELS.copper}
-                </button>
-              </>
-            )}
           </div>
 
           <div className="hidden h-5 w-px bg-[var(--border-subtle)] lg:block" />
@@ -1295,16 +1338,18 @@ export function CropSemanticEditorClient({
               <LassoIcon className="size-3.5" aria-hidden="true" />
               Lasso
             </button>
-            <button
-              className={tool === "brush" ? activeButtonClass : idleButtonClass}
-              aria-pressed={tool === "brush"}
-              onClick={() => selectTool("brush")}
-              disabled={!editorCanEdit}
-              title="Brush"
-            >
-              <BrushIcon className="size-3.5" aria-hidden="true" />
-              Brush
-            </button>
+            {!editingSupport && (
+              <button
+                className={tool === "brush" ? activeButtonClass : idleButtonClass}
+                aria-pressed={tool === "brush"}
+                onClick={() => selectTool("brush")}
+                disabled={!editorCanEdit}
+                title="Brush"
+              >
+                <BrushIcon className="size-3.5" aria-hidden="true" />
+                Brush
+              </button>
+            )}
             {tool === "lasso_poly" && (
               <>
                 <button
@@ -1337,7 +1382,49 @@ export function CropSemanticEditorClient({
           <span className="mr-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
             Labels
           </span>
-          {paintLabels.map((label) => {
+          {activeFamily === "CU_SUPPORT" && (
+            <>
+              <button
+                className={
+                  cuSupportTarget === "support" && activeLabel === supportLabelValue
+                    ? activeButtonClass
+                    : idleButtonClass
+                }
+                aria-pressed={cuSupportTarget === "support" && activeLabel === supportLabelValue}
+                onClick={() => selectFamily("CU_SUPPORT", "support")}
+                disabled={!editorReady || isSaving}
+              >
+                <span
+                  className="size-2 rounded-full border border-[var(--border-subtle)]"
+                  style={{
+                    backgroundColor: `rgb(${supportTargetColor[0]}, ${supportTargetColor[1]}, ${supportTargetColor[2]})`,
+                  }}
+                  aria-hidden="true"
+                />
+                {TARGET_LABELS.support}
+              </button>
+              <button
+                className={
+                  cuSupportTarget === "copper" && activeLabel === defaultLabelForSemanticMode("COPPER")
+                    ? activeButtonClass
+                    : idleButtonClass
+                }
+                aria-pressed={cuSupportTarget === "copper" && activeLabel === defaultLabelForSemanticMode("COPPER")}
+                onClick={() => selectFamily("CU_SUPPORT", "copper")}
+                disabled={!editorReady || isSaving}
+              >
+                <span
+                  className="size-2 rounded-full border border-[var(--border-subtle)]"
+                  style={{
+                    backgroundColor: `rgb(${copperTargetColor[0]}, ${copperTargetColor[1]}, ${copperTargetColor[2]})`,
+                  }}
+                  aria-hidden="true"
+                />
+                {TARGET_LABELS.copper}
+              </button>
+            </>
+          )}
+          {paintLabels.filter((label) => activeFamily !== "CU_SUPPORT" || label.id === activeBackgroundLabel).map((label) => {
             const color = LABEL_COLORS[label.stableId] ?? LABEL_COLORS.unknown;
             return (
               <button
@@ -1364,18 +1451,20 @@ export function CropSemanticEditorClient({
               Background clears pixels with the active tool.
             </span>
           )}
-          <label className="ml-auto flex h-8 items-center gap-2 text-[11px] font-medium text-[var(--text-secondary)]">
-            <span>Brush size {brushRadius}px</span>
-            <input
-              type="range"
-              min={1}
-              max={80}
-              value={brushRadius}
-              onChange={(event) => setBrushRadius(Number(event.target.value))}
-              disabled={!editorCanEdit || tool === "lasso_poly"}
-              className="w-28"
-            />
-          </label>
+          {!editingSupport && (
+            <label className="ml-auto flex h-8 items-center gap-2 text-[11px] font-medium text-[var(--text-secondary)]">
+              <span>Brush size {brushRadius}px</span>
+              <input
+                type="range"
+                min={1}
+                max={80}
+                value={brushRadius}
+                onChange={(event) => setBrushRadius(Number(event.target.value))}
+                disabled={!editorCanEdit || tool === "lasso_poly"}
+                className="w-28"
+              />
+            </label>
+          )}
         </div>
 
         {tool === "lasso_poly" && (

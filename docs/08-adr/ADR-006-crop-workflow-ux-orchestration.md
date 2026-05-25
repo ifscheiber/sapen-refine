@@ -31,7 +31,7 @@ The guided crop workflow should use these planned browser routes:
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - whole-image slice navigator and status view.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - compatibility selected-slice route.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - selected-crop unified editor route.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - compatibility alias for the support target.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - compatibility alias that opens the unified editor with the Support label selected.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - compatibility alias for the semantic target.
 
 The existing crop editor routes remain valid deep links and compatibility routes until the guided workflow replaces or redirects them:

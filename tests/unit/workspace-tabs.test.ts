@@ -6,12 +6,12 @@ describe("workspace tab keys", () => {
   it("uses explicit tab identities when multiple tabs share a route fallback", () => {
     const fallbackHref = "/app/projects/demo/images/image/crop/slices";
     const tabs: WorkspaceTab[] = [
+      { keyId: "bboxes", label: "BBoxes", href: fallbackHref },
       { keyId: "semantic", label: "Semantic Masks", href: fallbackHref },
-      { keyId: "support", label: "Support Mask", href: fallbackHref },
       { keyId: "export-readiness", label: "Export Readiness", href: `${fallbackHref}#export-readiness` },
     ];
 
-    expect(tabs.map(workspaceTabKey)).toEqual(["semantic", "support", "export-readiness"]);
+    expect(tabs.map(workspaceTabKey)).toEqual(["bboxes", "semantic", "export-readiness"]);
     expect(new Set(tabs.map(workspaceTabKey)).size).toBe(tabs.length);
   });
 

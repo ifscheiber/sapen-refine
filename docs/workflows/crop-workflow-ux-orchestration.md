@@ -14,7 +14,7 @@ Open crop workflow for an image
 -> confirm the BBox set
 -> navigate slices with whole-image context
 -> open the unified crop annotation editor for the selected crop
--> choose Sapwood / Heartwood or Cu / Support mask
+-> choose Sapwood / Heartwood or Cu
 -> draw the selected family with mode-aware support policy
 -> derive or review classification
 -> review readiness and export eligibility
@@ -88,18 +88,18 @@ Clicking a slice in the editor rail opens the unified editor for that slice. If 
 
 The unified crop annotation editor is the main annotation surface for a selected slice crop. RB-123 implements it at `/crop/slices/[sliceInstanceId]/crops/[cropId]` by reusing the crop semantic canvas and integrating support-mask editing into the same route. It shows the crop canvas, annotation family selector, support/semantic/classification status, readiness reasons, review controls, and embedded whole-image slice navigator.
 
-The old support and semantic editor routes remain deep-linkable compatibility aliases but redirect to the unified editor with `target=support` or `target=semantic`. The editor exposes Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
+The old support and semantic editor routes remain deep-linkable compatibility aliases but redirect to the unified editor with `target=support` or `target=semantic`. The editor exposes Brush for semantic labels, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. Support is selected as a Cu-family label and uses Polygon/Lasso only. BBox proposal drawing remains in the image-level planning stage and is not a crop editor tool.
 
-Semantic annotation follows the mode-aware support policy. Sap/Heartwood can be edited without an explicit support mask and derives support geometry from semantic foreground. Copper can be drafted before support exists, but approved explicit support is required before Copper readiness/export; when support exists, Copper brush and lasso edits are clipped to support.
+Semantic annotation follows the mode-aware support policy. Sap/Heartwood can be edited without an explicit support mask and derives support geometry from semantic foreground. Copper can be drafted before support exists, but approved explicit support is required before Copper readiness/export. Support must contain all Copper pixels; when support exists, Copper brush and lasso edits are clipped to support.
 
 ### Annotation Family And Classification
 
 One crop should use exactly one active annotation family:
 
 - Sapwood / Heartwood for sapwood and heartwood semantic labels.
-- Cu / Support mask for copper semantic labels and explicit physical support masks.
+- Cu for copper semantic labels and explicit physical support masks; Support appears as a Cu-family label, not as a separate local tab.
 
-RB-123 replaces explicit semantic-family reset with byte-derived annotation-family locking. The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu/Support is occupied by copper pixels or support-mask foreground pixels. Saving non-empty data in the opposite family fails with `CROP_ANNOTATION_FAMILY_CONFLICT`. Saving an all-background version for the occupied family is allowed and unlocks the other family without deleting historical versions. Conflicting legacy active data surfaces as `CONFLICT` and readiness `REVIEW_REQUIRED` until one family is cleared.
+RB-123 replaces explicit semantic-family reset with byte-derived annotation-family locking. The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu is occupied by copper pixels or support-mask foreground pixels. Saving non-empty data in the opposite family fails with `CROP_ANNOTATION_FAMILY_CONFLICT`. Saving an all-background version for the occupied family is allowed and unlocks the other family without deleting historical versions. Conflicting legacy active data surfaces as `CONFLICT` and readiness `REVIEW_REQUIRED` until one family is cleared.
 
 Classification follows semantic content. Auto-derived classifications are attributable draft suggestions unless reviewed through the existing classification review model. DESIGN-014 removes the separate Classification tab and manual crop-editor override controls; lower-level manual classification APIs remain part of the compatibility model, and any manual override that contradicts the active semantic family produces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` and is not export-ready.
 

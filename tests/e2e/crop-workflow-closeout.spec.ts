@@ -176,7 +176,7 @@ async function submitAndApproveSemanticAndClassification(page: Page, semanticLab
 test("Copper crop drafts save before support but require approved support for readiness", async ({ page }) => {
   const ids = await createSingleCropEditor(page, `E2E RB-098 Copper ${Date.now()}`);
 
-  await page.getByRole("button", { name: "Cu / Support mask" }).click();
+  await page.getByRole("button", { name: "Cu", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByText("Copper drafts can save now; support is required before export.")).toBeVisible();
 
@@ -212,11 +212,13 @@ test("Copper crop drafts save before support but require approved support for re
     "aria-pressed",
     "true",
   );
+  await expect(page.getByRole("button", { name: "Support", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Brush", exact: true })).toHaveCount(0);
   await fillRelativePolygon(page, [
-    [0.2, 0.2],
-    [0.8, 0.2],
-    [0.8, 0.8],
-    [0.2, 0.8],
+    [0.05, 0.05],
+    [0.95, 0.05],
+    [0.95, 0.95],
+    [0.05, 0.95],
   ]);
   await expect(page.getByText("Unsaved changes")).toBeVisible();
   await page.getByRole("button", { name: "Commit support mask" }).click();
@@ -268,7 +270,7 @@ test("annotation family switch is blocked while opposite family has pixels", asy
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
 
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeDisabled();
-  await expect(page.getByText(/Cu \/ Support mask is unavailable because this crop already contains/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeDisabled();
+  await expect(page.getByText(/Cu is unavailable because this crop already contains/i)).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
 });

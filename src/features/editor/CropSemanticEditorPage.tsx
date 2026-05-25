@@ -10,7 +10,7 @@ import { CropSemanticEditorClient } from "./CropSemanticEditorClient";
 import type { CropSemanticMode } from "./editorTypes";
 
 function initialEditorModeLabel(mode: CropSemanticMode | undefined, target: "semantic" | "support" | undefined) {
-  if (target === "support") return "Support mask";
+  if (target === "support") return "Cu support";
   if (mode === "COPPER") return "Copper semantic";
   return "Sap/Heartwood semantic";
 }
@@ -71,7 +71,7 @@ export async function CropSemanticEditorPage({
   return (
     <AnnotationEditorWorkspace
       navigator={navigator}
-      activeTab={initialTarget === "support" ? "support" : "semantic"}
+      activeTab="semantic"
       modeLabel={modeLabel}
       cropContextLabel={`v${crop.version}`}
       semanticMode={initialSemanticMode ?? "SAP_HEARTWOOD"}
