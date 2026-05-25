@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clampBBoxPreviewZoom,
+  computeBBoxPreviewMetadata,
   clientPointToImagePoint,
   getFitZoom,
   getZoomedCanvasDisplaySize,
@@ -8,6 +10,8 @@ import {
   imageRectFromPoints,
   imageRectsOverlap,
   moveImageRect,
+  originalRectToPreviewRect,
+  previewRectToOriginalRect,
   resizeImageRect,
 } from "@/features/editor/canvasGeometry";
 
@@ -75,6 +79,55 @@ describe("editor canvas geometry", () => {
       width: 10,
       height: 5,
     });
+  });
+
+  it("selects a downscaled BBox preview for large images", () => {
+    expect(computeBBoxPreviewMetadata(180, 180)).toMatchObject({
+      variant: "original",
+      previewWidth: 180,
+      previewHeight: 180,
+      scaleX: 1,
+      scaleY: 1,
+    });
+
+    expect(computeBBoxPreviewMetadata(6000, 4000)).toMatchObject({
+      variant: "bbox-preview",
+      originalWidth: 6000,
+      originalHeight: 4000,
+      previewWidth: 2000,
+      previewHeight: 1333,
+    });
+  });
+
+  it("maps BBox rectangles between original and preview coordinates without drift", () => {
+    const preview = computeBBoxPreviewMetadata(6000, 4000);
+    expect(preview?.variant).toBe("bbox-preview");
+    if (!preview) return;
+
+    const original = { x: 2880, y: 1920, width: 303, height: 243 };
+    const previewRect = originalRectToPreviewRect(original, preview);
+
+    expect(previewRect).toEqual({ x: 960, y: 640, width: 101, height: 81 });
+    expect(previewRectToOriginalRect(previewRect, preview)).toEqual(original);
+  });
+
+  it("clamps preview-created BBoxes to original image bounds", () => {
+    const preview = computeBBoxPreviewMetadata(6000, 4000);
+    expect(preview).not.toBeNull();
+    if (!preview) return;
+
+    expect(previewRectToOriginalRect({ x: 1998, y: 1331, width: 20, height: 20 }, preview)).toEqual({
+      x: 5994,
+      y: 3994,
+      width: 6,
+      height: 6,
+    });
+  });
+
+  it("constrains BBox preview zoom to preview-native scale", () => {
+    expect(clampBBoxPreviewZoom(0)).toBe(0.01);
+    expect(clampBBoxPreviewZoom(0.5)).toBe(0.5);
+    expect(clampBBoxPreviewZoom(3)).toBe(1);
   });
 
   it("normalizes image rectangles from drag endpoints", () => {

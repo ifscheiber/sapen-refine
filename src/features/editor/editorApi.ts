@@ -1,4 +1,9 @@
-export const API_IMAGE_VIEW = (imageId: string) => `/api/images/${imageId}/view`;
+export const API_IMAGE_VIEW = (imageId: string, params?: { variant?: "bbox-preview" }) => {
+  const search = new URLSearchParams();
+  if (params?.variant) search.set("variant", params.variant);
+  const query = search.toString();
+  return `/api/images/${imageId}/view${query ? `?${query}` : ""}`;
+};
 export const API_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/mask/latest`;
 export const API_MASK_UPLOAD = (imageId: string) => `/api/images/${imageId}/mask/upload`;
 export const API_SUPPORT_MASK_LATEST = (imageId: string) => `/api/images/${imageId}/support-mask/latest`;

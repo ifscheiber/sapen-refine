@@ -22,8 +22,9 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]` - redirects to the app-mediated image asset route after membership check.
 - `GET /api/images/[imageId]/metadata` - returns immutable technical image metadata, acquisition/sample metadata, membership role, edit capability, and readiness summary.
 - `PATCH /api/images/[imageId]/metadata` - updates acquisition/sample metadata for editable project roles with typed validation.
-- `GET /api/images/[imageId]/view` - returns an app-mediated image asset URL.
+- `GET /api/images/[imageId]/view` - returns an app-mediated image asset URL. With `variant=bbox-preview`, it may return a BBox-stage downscaled preview URL plus original/preview dimensions and scale metadata; fields are additive and the fallback remains `/api/images/[imageId]/asset`.
 - `GET /api/images/[imageId]/asset` - streams image bytes through the app after membership check.
+- `GET /api/images/[imageId]/bbox-preview` - streams a private on-demand downscaled BBox-stage preview for large images after membership check. It preserves aspect ratio, never upscales, uses HTTP caching headers, and does not replace the original image used for persisted BBoxes or crop generation.
 - `GET /api/images/[imageId]/mask/latest` - returns latest mask version metadata and view URL.
 - `GET /api/images/[imageId]/mask/versions/[versionId]/asset` - streams mask bytes through the app after membership check.
 - `POST /api/images/[imageId]/mask/presign` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
@@ -95,7 +96,7 @@ This page lists the current API route handlers under `src/app/api`.
 - New browser helper code must use the app-mediated upload/read routes. RB-105 keeps the legacy presign/commit route files only as disabled compatibility surface; they return `PRESIGNED_UPLOADS_DISABLED` and must not be used by new UI work.
 - Metadata APIs must not accept client-owned changes to immutable upload facts such as storage key, checksum, dimensions, uploader, or validation status.
 - Support-mask APIs must not accept semantic mask versions as physical support geometry.
-- Slice BBox proposal APIs must validate integer source-image pixel geometry against persisted image dimensions and must not treat BBoxes as support geometry.
+- Slice BBox proposal APIs must validate integer source-image pixel geometry against persisted image dimensions and must not treat BBoxes as support geometry. The browser BBox stage may render a downscaled preview, but API inputs and persisted BBoxes remain original source-image coordinates.
 - BBox confirmation APIs record workflow intent only. Confirmation must not be treated as artifact review, support geometry, or export readiness.
 - Slice crop APIs must generate crops server-side from stored source images, clamp padding to source-image bounds, return sanitized metadata only, and never expose private crop storage keys.
 - Crop support-mask APIs must require `CROP_PIXEL`, validate exact crop dimensions, link saved versions to `DerivedSliceCrop` and `SliceInstance`, reject Copper semantic bytes as support geometry, and never expose private mask storage keys.

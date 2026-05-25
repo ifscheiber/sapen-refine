@@ -17,8 +17,23 @@ export type ImageRect = {
   height: number;
 };
 
+export type BBoxPreviewMetadata = {
+  variant: "original" | "bbox-preview";
+  originalWidth: number;
+  originalHeight: number;
+  previewWidth: number;
+  previewHeight: number;
+  scaleX: number;
+  scaleY: number;
+};
+
 export type BBoxResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 export type BBoxHitTarget = BBoxResizeHandle | "body" | null;
+
+export const BBOX_PREVIEW_ORIGINAL_MAX_PIXELS = 4_000_000;
+export const BBOX_PREVIEW_ORIGINAL_MAX_LONG_EDGE = 2400;
+export const BBOX_PREVIEW_TARGET_MAX_PIXELS = 3_000_000;
+export const BBOX_PREVIEW_TARGET_MAX_LONG_EDGE = 2000;
 
 export function clampNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -30,6 +45,86 @@ export function getZoomedCanvasDisplaySize(imageWidth: number, imageHeight: numb
   return {
     width: Math.max(1, Math.floor(imageWidth * safeZoom)),
     height: Math.max(1, Math.floor(imageHeight * safeZoom)),
+  };
+}
+
+export function clampBBoxPreviewZoom(value: number) {
+  return clampNumber(value, 0.01, 1);
+}
+
+function isPositiveInteger(value: number | null | undefined): value is number {
+  return Number.isInteger(value) && value! > 0;
+}
+
+export function computeBBoxPreviewMetadata(
+  originalWidth: number | null | undefined,
+  originalHeight: number | null | undefined,
+): BBoxPreviewMetadata | null {
+  if (!isPositiveInteger(originalWidth) || !isPositiveInteger(originalHeight)) return null;
+
+  const pixels = originalWidth * originalHeight;
+  const longEdge = Math.max(originalWidth, originalHeight);
+  if (pixels <= BBOX_PREVIEW_ORIGINAL_MAX_PIXELS && longEdge <= BBOX_PREVIEW_ORIGINAL_MAX_LONG_EDGE) {
+    return {
+      variant: "original",
+      originalWidth,
+      originalHeight,
+      previewWidth: originalWidth,
+      previewHeight: originalHeight,
+      scaleX: 1,
+      scaleY: 1,
+    };
+  }
+
+  const longEdgeScale = BBOX_PREVIEW_TARGET_MAX_LONG_EDGE / longEdge;
+  const pixelScale = Math.sqrt(BBOX_PREVIEW_TARGET_MAX_PIXELS / pixels);
+  const scale = Math.min(1, longEdgeScale, pixelScale);
+  const previewWidth = Math.max(1, Math.round(originalWidth * scale));
+  const previewHeight = Math.max(1, Math.round(originalHeight * scale));
+
+  return {
+    variant: "bbox-preview",
+    originalWidth,
+    originalHeight,
+    previewWidth,
+    previewHeight,
+    scaleX: originalWidth / previewWidth,
+    scaleY: originalHeight / previewHeight,
+  };
+}
+
+export function makeIdentityBBoxPreviewMetadata(width: number, height: number): BBoxPreviewMetadata {
+  return {
+    variant: "original",
+    originalWidth: width,
+    originalHeight: height,
+    previewWidth: width,
+    previewHeight: height,
+    scaleX: 1,
+    scaleY: 1,
+  };
+}
+
+export function originalRectToPreviewRect(rect: ImageRect, preview: BBoxPreviewMetadata): ImageRect {
+  return {
+    x: Math.round(rect.x / preview.scaleX),
+    y: Math.round(rect.y / preview.scaleY),
+    width: Math.max(1, Math.round(rect.width / preview.scaleX)),
+    height: Math.max(1, Math.round(rect.height / preview.scaleY)),
+  };
+}
+
+export function previewRectToOriginalRect(rect: ImageRect, preview: BBoxPreviewMetadata): ImageRect {
+  const left = clampNumber(Math.round(rect.x * preview.scaleX), 0, preview.originalWidth - 1);
+  const top = clampNumber(Math.round(rect.y * preview.scaleY), 0, preview.originalHeight - 1);
+  const width = clampNumber(Math.round(rect.width * preview.scaleX), 1, preview.originalWidth - left);
+  const height = clampNumber(Math.round(rect.height * preview.scaleY), 1, preview.originalHeight - top);
+
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
   };
 }
 

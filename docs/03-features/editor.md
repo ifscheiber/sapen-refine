@@ -87,7 +87,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - The standard editor stacks base image, editable mask overlay, BBox proposal overlay, and lasso/BBox preview canvases.
 - The correction editor adds a read-only prediction proposal canvas between the base image and editable human mask.
 - The mask coordinate space currently matches the image pixel dimensions.
-- RB-086 BBox proposals use source-image pixel coordinates and are drawn with Pointer Events on the original-image editor canvas.
+- RB-086 BBox proposals use source-image pixel coordinates. PERF-016/PERF-017 let the BBox stage render large images through a downscaled working preview with preview-native `1%` to `100%` zoom; the browser maps preview edits back to original source-image coordinates before validation and persistence.
 - Pointer Events are the only drawing input layer; there is no parallel mouse/touch event system.
 - The overlay canvas uses `touch-none`, so drawing on the canvas is intended not to scroll the page on touch devices.
 - Pointer capture is already used for brush strokes, freehand lasso, and polygon-handle dragging.

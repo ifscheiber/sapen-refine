@@ -101,7 +101,7 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
         height: (canvas as HTMLCanvasElement).height,
       })),
     )
-    .toEqual({ width, height });
+    .toEqual({ width: 2000, height: 1333 });
 
   await drawingSurface.scrollIntoViewIfNeeded();
   const box = await drawingSurface.boundingBox();
@@ -114,6 +114,29 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await page.mouse.up();
 
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
+  await expect
+    .poll(async () =>
+      page.evaluate(async (id) => {
+        const response = await fetch(`/api/images/${id}/slice-bboxes`, { cache: "no-store" });
+        if (!response.ok) return null;
+        const data = await response.json();
+        const box = data.boxes?.[0];
+        return box
+          ? {
+              originalX: box.x > 2000,
+              originalY: box.y > 1333,
+              originalWidth: box.width > 200,
+              originalHeight: box.height > 200,
+            }
+          : null;
+      }, imageId),
+    )
+    .toEqual({
+      originalX: true,
+      originalY: true,
+      originalWidth: true,
+      originalHeight: true,
+    });
   await page.getByRole("button", { name: "Prepare slices" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Open slice annotation" }).click();

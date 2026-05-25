@@ -8,7 +8,9 @@ import { applyPatch } from "@/mask/patch";
 import { buildPalette, updateOverlayRegionWithPalette } from "@/mask/renderOverlay";
 import { editorCanvasPreviewStyle } from "@/design/editorCanvas";
 import {
+  clampBBoxPreviewZoom,
   clampNumber,
+  makeIdentityBBoxPreviewMetadata,
   clientPointToImagePoint,
   hitTestImageRect,
   imageRectsOverlap,
@@ -16,7 +18,10 @@ import {
   getZoomedCanvasDisplaySize,
   imageRectFromPoints,
   moveImageRect,
+  originalRectToPreviewRect,
+  previewRectToOriginalRect,
   resizeImageRect,
+  type BBoxPreviewMetadata,
   type BBoxHitTarget,
   type BBoxResizeHandle,
   type ImageRect,
@@ -91,6 +96,20 @@ type BBoxDragState =
       handle: BBoxResizeHandle;
       initialRect: ImageRect;
     };
+
+type EditorImageView = {
+  url: string;
+  fallbackUrl?: string;
+  filename?: string | null;
+  contentType?: string | null;
+  variant?: "original" | "bbox-preview";
+  originalWidth?: number | null;
+  originalHeight?: number | null;
+  displayWidth?: number | null;
+  displayHeight?: number | null;
+  scaleX?: number | null;
+  scaleY?: number | null;
+};
 
 function drawBBoxRect(ctx: CanvasRenderingContext2D, rect: ImageRect, options: BBoxDrawOptions = {}) {
   const selected = Boolean(options.selected);
@@ -207,6 +226,7 @@ export default function EditorClient({
   const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
   const [bboxConfirmedEditUnlocked, setBBoxConfirmedEditUnlocked] = useState(false);
   const [bboxCanvasReadyRevision, setBBoxCanvasReadyRevision] = useState(0);
+  const [bboxPreviewMetadata, setBBoxPreviewMetadata] = useState<BBoxPreviewMetadata | null>(null);
 
   const [zoom, setZoom] = useState<number>(1);
   const isCorrectionMode = Boolean(correctionTaskId);
@@ -238,6 +258,8 @@ export default function EditorClient({
 
   const maskRef = useRef<MaskBuffer | null>(null);
   const predictionBytesRef = useRef<Uint8Array | null>(null);
+  const bboxPreviewMetadataRef = useRef<BBoxPreviewMetadata | null>(null);
+  const imageViewRef = useRef<EditorImageView | null>(null);
 
   // Pointer state
   const draggingRef = useRef(false);
@@ -473,6 +495,9 @@ export default function EditorClient({
     const preview = previewCanvasRef.current;
     const previewCtx = previewCtxRef.current;
     if (preview && previewCtx) previewCtx.clearRect(0, 0, preview.width, preview.height);
+    bboxPreviewMetadataRef.current = null;
+    imageViewRef.current = null;
+    setBBoxPreviewMetadata(null);
     setEditorReady(false);
     setHasUnsavedChanges(false);
   }, []);
@@ -752,9 +777,12 @@ export default function EditorClient({
 
     ctx.clearRect(0, 0, c.width, c.height);
     const handleRadius = Math.max(4, Math.round(5 / Math.max(zoom, 0.05)));
+    const bounds = bboxImageBounds();
+    const metadata =
+      bboxPreviewMetadataRef.current ?? (bounds ? makeIdentityBBoxPreviewMetadata(bounds.width, bounds.height) : null);
     for (const box of bboxProposals) {
       const selected = box.bboxVersionId === selectedBBoxId;
-      const rect = { x: box.x, y: box.y, width: box.width, height: box.height };
+      const rect = metadata ? originalRectToPreviewRect(bboxRect(box), metadata) : bboxRect(box);
       drawBBoxRect(
         ctx,
         rect,
@@ -931,14 +959,19 @@ export default function EditorClient({
     (async () => {
       resetEditorLoadState();
       setImgUrl(null);
+      imageViewRef.current = null;
       setStatus("Loading image…");
-      const res = await fetch(API_IMAGE_VIEW(imageId), { method: "GET" });
+      const res = await fetch(
+        API_IMAGE_VIEW(imageId, isBBoxStageMode ? { variant: "bbox-preview" } : undefined),
+        { method: "GET" },
+      );
       if (!res.ok) {
         setStatus("Failed to load image URL");
         return;
       }
-      const json = await res.json();
+      const json = (await res.json()) as EditorImageView;
       if (!alive) return;
+      imageViewRef.current = json;
       setImgUrl(json.url);
       setStatus("");
     })().catch((error) => {
@@ -951,6 +984,13 @@ export default function EditorClient({
     if (maskFetchAbortRef.current) {
       maskFetchAbortRef.current.abort();
     }
+    if (isBBoxStageMode) {
+      pendingMaskRef.current = null;
+      maskFetchAbortRef.current = null;
+      return () => {
+        alive = false;
+      };
+    }
     const controller = new AbortController();
     maskFetchAbortRef.current = controller;
     pendingMaskRef.current = { imageId, mode: maskMode, promise: fetchLatestMaskBytes(controller.signal) };
@@ -961,7 +1001,7 @@ export default function EditorClient({
         maskFetchAbortRef.current = null;
       }
     };
-  }, [fetchLatestMaskBytes, imageId, maskMode, resetEditorLoadState]);
+  }, [fetchLatestMaskBytes, imageId, isBBoxStageMode, maskMode, resetEditorLoadState]);
 
   useEffect(() => {
     if (!imgUrl) return;
@@ -977,6 +1017,28 @@ export default function EditorClient({
       setStatus("Preparing editor…");
       const w = img.naturalWidth;
       const h = img.naturalHeight;
+      const view = imageViewRef.current;
+      const originalWidth =
+        isBBoxStageMode && Number.isInteger(view?.originalWidth) && view!.originalWidth! > 0
+          ? view!.originalWidth!
+          : w;
+      const originalHeight =
+        isBBoxStageMode && Number.isInteger(view?.originalHeight) && view!.originalHeight! > 0
+          ? view!.originalHeight!
+          : h;
+      const bboxMetadata: BBoxPreviewMetadata = isBBoxStageMode
+        ? {
+            variant: view?.variant === "bbox-preview" ? "bbox-preview" : "original",
+            originalWidth,
+            originalHeight,
+            previewWidth: w,
+            previewHeight: h,
+            scaleX: originalWidth / w,
+            scaleY: originalHeight / h,
+          }
+        : makeIdentityBBoxPreviewMetadata(w, h);
+      bboxPreviewMetadataRef.current = bboxMetadata;
+      setBBoxPreviewMetadata(bboxMetadata);
 
       const base = baseCanvasRef.current!;
       const prediction = predictionCanvasRef.current!;
@@ -1028,27 +1090,29 @@ export default function EditorClient({
       // fit & zoom
       fitToContainer();
 
-      // load saved mask (optional)
-      try {
-        const pending = pendingMaskRef.current;
-        const bytes =
-          pending && pending.imageId === imageId && pending.mode === maskMode
-            ? await pending.promise
-            : await fetchLatestMaskBytes(maskFetchAbortRef.current?.signal);
-        if (cancelled) return;
-        if (bytes && bytes.length === w * h) {
-          maskRef.current.data.set(bytes);
-        } else if (bytes) {
-          console.warn("Saved mask byteLength mismatch. Ignoring.", {
-            got: bytes.length,
-            expected: w * h,
-          });
+      if (!isBBoxStageMode) {
+        // load saved mask (optional)
+        try {
+          const pending = pendingMaskRef.current;
+          const bytes =
+            pending && pending.imageId === imageId && pending.mode === maskMode
+              ? await pending.promise
+              : await fetchLatestMaskBytes(maskFetchAbortRef.current?.signal);
+          if (cancelled) return;
+          if (bytes && bytes.length === w * h) {
+            maskRef.current.data.set(bytes);
+          } else if (bytes) {
+            console.warn("Saved mask byteLength mismatch. Ignoring.", {
+              got: bytes.length,
+              expected: w * h,
+            });
+          }
+          rerenderOverlayFull();
+        } catch (e) {
+          if (cancelled || isAbortError(e)) return;
+          console.warn("Failed to load latest mask:", e);
+          rerenderOverlayFull();
         }
-        rerenderOverlayFull();
-      } catch (e) {
-        if (cancelled || isAbortError(e)) return;
-        console.warn("Failed to load latest mask:", e);
-        rerenderOverlayFull();
       }
 
       loadedOnceRef.current = true;
@@ -1063,6 +1127,21 @@ export default function EditorClient({
 
     img.onerror = () => {
       if (cancelled) return;
+      const view = imageViewRef.current;
+      if (isBBoxStageMode && view?.fallbackUrl && view.fallbackUrl !== imgUrl) {
+        imageViewRef.current = {
+          ...view,
+          url: view.fallbackUrl,
+          variant: "original",
+          displayWidth: view.originalWidth,
+          displayHeight: view.originalHeight,
+          scaleX: 1,
+          scaleY: 1,
+        };
+        setImgUrl(view.fallbackUrl);
+        setStatus("BBox preview unavailable. Loading original image…");
+        return;
+      }
       setEditorReady(false);
       setStatus("Failed to load image asset");
     };
@@ -1070,7 +1149,17 @@ export default function EditorClient({
     return () => {
       cancelled = true;
     };
-  }, [clearPreview, fetchLatestMaskBytes, fitToContainer, imageId, imgUrl, maskMode, renderPredictionOverlayFull, rerenderOverlayFull]);
+  }, [
+    clearPreview,
+    fetchLatestMaskBytes,
+    fitToContainer,
+    imageId,
+    imgUrl,
+    isBBoxStageMode,
+    maskMode,
+    renderPredictionOverlayFull,
+    rerenderOverlayFull,
+  ]);
 
   async function runReviewAction(reviewable: ReviewableState, action: ReviewAction) {
     const version = reviewable.latestVersion;
@@ -1143,12 +1232,29 @@ export default function EditorClient({
     return { x: box.x, y: box.y, width: box.width, height: box.height };
   }
 
+  function currentBBoxPreviewMetadata() {
+    const metadata = bboxPreviewMetadataRef.current;
+    if (metadata) return metadata;
+    const bounds = bboxImageBounds();
+    return bounds ? makeIdentityBBoxPreviewMetadata(bounds.width, bounds.height) : null;
+  }
+
+  function bboxPreviewRect(box: SliceBoundingBoxProposal): ImageRect {
+    const metadata = currentBBoxPreviewMetadata();
+    return metadata ? originalRectToPreviewRect(bboxRect(box), metadata) : bboxRect(box);
+  }
+
+  function bboxOriginalRectFromPreview(rect: ImageRect) {
+    const metadata = currentBBoxPreviewMetadata();
+    return metadata ? previewRectToOriginalRect(rect, metadata) : rect;
+  }
+
   function bboxImageBounds() {
     const base = baseCanvasRef.current;
     return base ? { width: base.width, height: base.height } : null;
   }
 
-  function bboxOverlapsExisting(rect: ImageRect, excludeBBoxVersionId?: string | null) {
+  function bboxOverlapsExistingOriginal(rect: ImageRect, excludeBBoxVersionId?: string | null) {
     return bboxProposals.some((box) => {
       if (box.bboxVersionId === excludeBBoxVersionId) return false;
       return imageRectsOverlap(rect, bboxRect(box));
@@ -1175,14 +1281,14 @@ export default function EditorClient({
   function hitTestBBoxAtPoint(point: Point) {
     const handleRadius = Math.max(4, Math.round(8 / Math.max(zoom, 0.05)));
     if (selectedBBox) {
-      const selectedHit = hitTestImageRect(point, bboxRect(selectedBBox), handleRadius);
+      const selectedHit = hitTestImageRect(point, bboxPreviewRect(selectedBBox), handleRadius);
       if (selectedHit) return { box: selectedBBox, hit: selectedHit };
     }
 
     for (let index = bboxProposals.length - 1; index >= 0; index -= 1) {
       const box = bboxProposals[index];
       if (box.bboxVersionId === selectedBBoxId) continue;
-      const hit = hitTestImageRect(point, bboxRect(box), handleRadius);
+      const hit = hitTestImageRect(point, bboxPreviewRect(box), handleRadius);
       if (hit) return { box, hit };
     }
     return null;
@@ -1205,6 +1311,7 @@ export default function EditorClient({
   async function saveBBoxProposal(rect: ImageRect, options?: { replaceBBoxId?: string | null }) {
     if (!canMutateBBox) return;
 
+    const originalRect = bboxOriginalRectFromPreview(rect);
     const replaceBBoxId = options?.replaceBBoxId ?? (bboxReplaceArmed ? selectedBBoxId : null);
     const replacing = Boolean(replaceBBoxId);
     const replacingBox = replaceBBoxId
@@ -1214,7 +1321,7 @@ export default function EditorClient({
       setBBoxStatus("Cannot edit geometry: semantic/support or classification data exists for this slice.");
       return;
     }
-    if (bboxOverlapsExisting(rect, replaceBBoxId)) {
+    if (bboxOverlapsExistingOriginal(originalRect, replaceBBoxId)) {
       setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
       return;
     }
@@ -1227,7 +1334,7 @@ export default function EditorClient({
       const res = await fetch(url, {
         method,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(rect),
+        body: JSON.stringify(originalRect),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
@@ -1437,7 +1544,7 @@ export default function EditorClient({
           return;
         }
 
-        const rect = bboxRect(hit.box);
+        const rect = bboxPreviewRect(hit.box);
         const hitTarget = hit.hit as BBoxHitTarget;
         if (hitTarget && hitTarget !== "body") {
           bboxDragRef.current = {
@@ -1543,7 +1650,9 @@ export default function EditorClient({
       const rect = rectForBBoxDrag(drag, p);
       const excludeBBoxVersionId =
         drag.kind === "add" ? (bboxReplaceArmed ? selectedBBoxId : null) : drag.bboxVersionId;
-      drawBBoxPreview(rect, { issue: bboxOverlapsExisting(rect, excludeBBoxVersionId) });
+      drawBBoxPreview(rect, {
+        issue: bboxOverlapsExistingOriginal(bboxOriginalRectFromPreview(rect), excludeBBoxVersionId),
+      });
       return;
     }
 
@@ -1621,7 +1730,7 @@ export default function EditorClient({
         const end = canvasToImageCoords(e);
         const rect = rectForBBoxDrag(drag, end);
         const replaceBBoxId = drag.kind === "add" ? (bboxReplaceArmed ? selectedBBoxId : null) : drag.bboxVersionId;
-        if (bboxOverlapsExisting(rect, replaceBBoxId)) {
+        if (bboxOverlapsExistingOriginal(bboxOriginalRectFromPreview(rect), replaceBBoxId)) {
           setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
           return;
         }
@@ -1904,7 +2013,8 @@ export default function EditorClient({
           canUnlockConfirmedSet={canEditBBox}
           status={bboxStatus}
           zoom={zoom}
-          onZoomChange={setZoom}
+          bboxPreviewMetadata={bboxPreviewMetadata}
+          onZoomChange={(nextZoom) => setZoom(isBBoxStageMode ? clampBBoxPreviewZoom(nextZoom) : nextZoom)}
           onFit={fitToContainer}
           onSelect={(bboxVersionId) => {
             setSelectedBBoxId(bboxVersionId);

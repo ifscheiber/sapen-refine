@@ -19,6 +19,7 @@ import type {
   SliceBBoxSummary,
   SliceBoundingBoxProposal,
 } from "../editorTypes";
+import type { BBoxPreviewMetadata } from "../canvasGeometry";
 import { activeButtonClass, idleButtonClass } from "../editorStyles";
 
 type EditorBBoxPanelProps = {
@@ -48,6 +49,7 @@ type EditorBBoxPanelProps = {
   onEditConfirmedSet?: () => void;
   continueHref?: string;
   zoom?: number;
+  bboxPreviewMetadata?: BBoxPreviewMetadata | null;
   onZoomChange?: (zoom: number) => void;
   onFit?: () => void;
 };
@@ -61,7 +63,7 @@ function protectedReasonLabel(reason: string) {
 }
 
 function clampZoom(value: number) {
-  return Math.min(3, Math.max(0.05, value));
+  return Math.min(1, Math.max(0.01, value));
 }
 
 function formatBBoxWorkflowMessage({
@@ -116,6 +118,7 @@ export function EditorBBoxPanel({
   onEditConfirmedSet,
   continueHref,
   zoom = 1,
+  bboxPreviewMetadata,
   onZoomChange,
   onFit,
 }: EditorBBoxPanelProps) {
@@ -149,6 +152,9 @@ export function EditorBBoxPanel({
     boxCount: boxes.length,
   });
   const showOpenSlices = Boolean(continueHref && workflowStatus === "BBOX_CONFIRMED" && !hasIssues);
+  const zoomTitle = bboxPreviewMetadata
+    ? `Preview ${bboxPreviewMetadata.previewWidth} x ${bboxPreviewMetadata.previewHeight} from ${bboxPreviewMetadata.originalWidth} x ${bboxPreviewMetadata.originalHeight}`
+    : "Zoom preview";
 
   if (stageMode) {
     return (
@@ -199,15 +205,18 @@ export function EditorBBoxPanel({
             </button>
           </div>
 
-          <div className="ml-auto flex min-h-8 flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <div
+            className="ml-auto flex min-h-8 flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]"
+            title={zoomTitle}
+          >
             <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Zoom
             </span>
             <input
-              aria-label="BBox zoom"
+              aria-label="Zoom preview"
               type="range"
-              min={5}
-              max={300}
+              min={1}
+              max={100}
               value={Math.round(zoom * 100)}
               onChange={(event) => onZoomChange?.(clampZoom(Number(event.target.value) / 100))}
               disabled={!onZoomChange}

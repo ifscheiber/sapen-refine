@@ -68,7 +68,7 @@ The current readiness values and reason codes remain owned by `src/server/domain
 
 ### BBox Stage
 
-The BBox stage is the first workflow stage. It shows the source image, provides a tools-only BBox toolbar for source-image BBox proposal drawing, canvas selection, safe move/resize, safe deletion, zoom, and fit. BBox counts, protection, and workflow state are shown outside the tool row in compact status/workflow strips.
+The BBox stage is the first workflow stage. It shows the source image, provides a tools-only BBox toolbar for source-image BBox proposal drawing, canvas selection, safe move/resize, safe deletion, zoom, and fit. For large images, the stage may render a downscaled working preview to reduce browser load; the saved BBoxes remain original source-image coordinates, and crop generation still uses the original image. BBox counts, protection, and workflow state are shown outside the tool row in compact status/workflow strips.
 
 Preparing slices records the existing image-level BBox confirmation workflow intent. It does not approve BBoxes as review artifacts and does not make a slice training-ready.
 
