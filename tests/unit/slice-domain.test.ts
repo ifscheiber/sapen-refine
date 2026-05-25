@@ -79,6 +79,35 @@ describe("slice BBox validation", () => {
     ).toThrow("BBOX_OUT_OF_BOUNDS");
   });
 
+  it("detects BBox overlap while allowing edge-touching boxes", async () => {
+    const { findSliceBBoxOverlapIssues, sliceBBoxesOverlap } = await import("@/server/domain/sliceBboxes");
+
+    expect(sliceBBoxesOverlap(
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 10, y: 0, width: 10, height: 10 },
+    )).toBe(false);
+    expect(sliceBBoxesOverlap(
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 9, y: 0, width: 10, height: 10 },
+    )).toBe(true);
+    expect(findSliceBBoxOverlapIssues([
+      { bboxVersionId: "bbox-1", sliceInstanceId: "slice-1", x: 0, y: 0, width: 10, height: 10 },
+      { bboxVersionId: "bbox-2", sliceInstanceId: "slice-2", x: 10, y: 0, width: 10, height: 10 },
+      { bboxVersionId: "bbox-3", sliceInstanceId: "slice-3", x: 9, y: 0, width: 10, height: 10 },
+    ])).toEqual([
+      {
+        code: "BBOX_OVERLAP",
+        bboxVersionIds: ["bbox-1", "bbox-3"],
+        sliceInstanceIds: ["slice-1", "slice-3"],
+      },
+      {
+        code: "BBOX_OVERLAP",
+        bboxVersionIds: ["bbox-2", "bbox-3"],
+        sliceInstanceIds: ["slice-2", "slice-3"],
+      },
+    ]);
+  });
+
   it("resolves image-level BBox workflow status from confirmation snapshots", async () => {
     const { resolveImageBBoxWorkflowStatus } = await import("@/server/domain/imageCropWorkflow");
 

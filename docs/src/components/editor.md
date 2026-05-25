@@ -13,9 +13,9 @@ The current editor surfaces support the crop workflow and assisted correction. U
 - `src/features/editor/CropSemanticEditorPage.tsx` and `src/features/editor/CropSemanticEditorClient.tsx` - Core-aligned unified crop annotation editor composition, compact editor header/context rows, polygon-first mask tools, mode-aware support policy, annotation-family lock guardrails, crop support-mask editing, crop semantic-mask editing, and classification/review controls.
 - `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` - navigator-only embedded right rail showing slice counts and the whole-image overview for crop editors.
 - `src/features/editor/cropMaskOperations.ts` - shared crop editor brush/polygon helpers, including Copper support-constrained mutations.
-- `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
+- `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, pointer-to-image coordinate mapping, and BBox hit/move/resize geometry.
 - `src/features/editor/editorTools.ts` - editor tool helpers, including eraser mode/value mapping.
-- `src/features/editor/components/EditorBBoxPanel.tsx` - BBox proposal list, selection, replacement/delete controls, BBox set confirmation/unlock controls, derived crop generation, and crop preview.
+- `src/features/editor/components/EditorBBoxPanel.tsx` - compact BBox-stage toolbar, BBox selection/dropdown, add/select-resize/delete controls, BBox set confirmation/unlock controls, derived crop generation, and crop preview.
 - `src/design/editorCanvas.ts` - central preview styling constants for lasso handles and polygon previews.
 - `src/mask/serialize.ts` - mask byte serialization used by saves.
 
@@ -44,7 +44,7 @@ The current editor surfaces support the crop workflow and assisted correction. U
 - Brush, freehand Lasso, Polygon, and polygon vertex adjustment all use Pointer Events.
 - The unified crop annotation editor exposes a polygon-first tool surface with Polygon, Lasso, Brush, Background label clearing, undo/redo, fit, zoom, reload, opacity, commit mask, classification save, and review controls against crop-pixel masks. BBox proposal drawing remains limited to the BBox-stage source-image canvas. The editor keeps the opposite annotation family unavailable while the active family has foreground pixels.
 - Crop semantic Brush and lasso operations are mode-aware: Sap/Heartwood edits are unconstrained and use semantic foreground as support geometry, while Copper edits are clipped to explicit support when a support mask exists. Copper drafts can be edited before support exists, but readiness/export still requires approved explicit support.
-- BBox proposal drawing also uses Pointer Events and stores integer source-image pixel rectangles. The BBox stage uses the same `Annotation Editor` shell and local tab row as crop semantic/support editing.
+- BBox proposal editing also uses Pointer Events and stores integer source-image pixel rectangles. In BBox-stage mode the compact toolbar exposes Add BBox, Select/Edit, Resize, Delete, confirm/re-confirm, and continue actions. Selection/move/resize happen directly on the source-image canvas; protected BBoxes can still be selected but cannot be deleted or geometry-edited. The BBox stage uses the same `Annotation Editor` shell and local tab row as crop semantic/support editing.
 - The unified editor tab row exposes `BBoxes`, linking back to `/crop/bboxes` instead of the legacy full-image editor route. The embedded right rail stays navigator-only by default.
 - Old support/semantic crop routes redirect into the unified editor with the requested initial target.
 - `Background` is the primary clearing concept. Users select the Background label and apply it with Polygon, Lasso, or Brush.
@@ -59,6 +59,8 @@ The current editor surfaces support the crop workflow and assisted correction. U
 
 - Saving a mask must create a new version rather than overwrite a historical artifact.
 - Replacing or deleting a BBox proposal must append a new BBox version rather than overwrite historical proposal geometry.
+- Active BBox proposals must not overlap. Overlap issues block confirmation and continuation.
+- BBoxes with semantic mask, support/instance mask, or classification versions must not be deleted or geometry-edited without a future explicit destructive dependency-removal flow.
 - Confirming a BBox set records workflow state only and does not approve BBoxes as support geometry.
 - Re-entering the BBox stage after confirmation must keep BBoxes locked until the user explicitly unlocks editing; any resulting mutation requires re-confirmation.
 - Review actions must use server APIs; UI control hiding is not the permission boundary.

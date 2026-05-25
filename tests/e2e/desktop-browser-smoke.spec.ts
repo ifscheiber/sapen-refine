@@ -68,7 +68,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByRole("link", { name: "Crop workflow" }).click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("BBox work areas", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
   expect(abortErrors()).toEqual([]);
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
@@ -92,7 +92,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.up();
 
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Proposal 1/ })).toBeVisible();
+  await expect(page.getByLabel("Select BBox")).toHaveValue(/.+/);
   await page.getByRole("button", { name: "Confirm BBox set" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();

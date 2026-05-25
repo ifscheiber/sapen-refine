@@ -39,6 +39,7 @@ describe("safe version allocation concurrency", () => {
   let sourceImageId: string;
   let classificationImageId: string;
   let suffix: string;
+  let cropImageCounter = 0;
   const objectKeys = new Set<string>();
 
   beforeAll(async () => {
@@ -124,8 +125,10 @@ describe("safe version allocation concurrency", () => {
   }
 
   async function createCrop() {
+    cropImageCounter += 1;
+    const cropImageId = await createImage(`crop-${cropImageCounter}`, 90, 70, true);
     const bbox = await createSliceBoundingBoxForUser(
-      { imageId: sourceImageId, userId: ownerId, box: { x: 18, y: 14, width: 24, height: 18 } },
+      { imageId: cropImageId, userId: ownerId, box: { x: 18, y: 14, width: 24, height: 18 } },
       prisma,
     );
     const crop = await generateCropForSliceBBox(

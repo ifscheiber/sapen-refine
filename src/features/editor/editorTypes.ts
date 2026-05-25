@@ -23,7 +23,37 @@ export type EditorProps =
 
 export type Stroke = Patch[];
 export type Tool = "brush" | "eraser" | "lasso_free" | "lasso_poly" | "bbox";
+export type BBoxEditTool = "select" | "add" | "resize" | "delete";
 export type Point = { x: number; y: number };
+
+export type SliceBBoxDependencySummary = {
+  derivedCropCount: number;
+  semanticMaskVersionCount: number;
+  supportMaskVersionCount: number;
+  instanceMaskVersionCount: number;
+  classificationVersionCount: number;
+  hasBlockingDependencies: boolean;
+};
+
+export type SliceBBoxProtectionSummary = {
+  canDelete: boolean;
+  canReplaceGeometry: boolean;
+  reasons: string[];
+};
+
+export type SliceBBoxOverlapIssue = {
+  code: "BBOX_OVERLAP";
+  bboxVersionIds: [string, string];
+  sliceInstanceIds: [string, string];
+};
+
+export type SliceBBoxSummary = {
+  activeCount: number;
+  validCount: number;
+  issueCount: number;
+  overlapIssueCount: number;
+  protectedCount: number;
+};
 
 export type SliceBoundingBoxProposal = {
   bboxVersionId: string;
@@ -39,6 +69,8 @@ export type SliceBoundingBoxProposal = {
   createdAt: string;
   createdBy: { email: string; name: string | null } | null;
   isCurrent: boolean;
+  dependencySummary?: SliceBBoxDependencySummary;
+  protection?: SliceBBoxProtectionSummary;
 };
 
 export type ImageBBoxWorkflowStatus =

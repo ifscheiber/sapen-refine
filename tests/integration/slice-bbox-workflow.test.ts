@@ -159,9 +159,209 @@ describe("slice BBox proposal workflow", () => {
     ).rejects.toMatchObject({ code: "BBOX_OUT_OF_BOUNDS" });
   });
 
+  it("rejects overlapping BBoxes for create, replace, and confirmation", async () => {
+    const overlapImage = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: `tests/bbox/overlap-${suffix}.png`,
+        filename: "bbox-overlap.png",
+        contentType: "image/png",
+        size: 256,
+        checksum: `sha256:overlap-${suffix}`,
+        width: 40,
+        height: 40,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    const first = await createSliceBoundingBoxForUser(
+      { imageId: overlapImage.id, userId: ownerId, box: { x: 2, y: 2, width: 10, height: 10 } },
+      prisma,
+    );
+    const edgeTouching = await createSliceBoundingBoxForUser(
+      { imageId: overlapImage.id, userId: ownerId, box: { x: 12, y: 2, width: 8, height: 10 } },
+      prisma,
+    );
+    expect(edgeTouching.bboxVersionId).toBeTruthy();
+
+    await expect(
+      createSliceBoundingBoxForUser(
+        { imageId: overlapImage.id, userId: ownerId, box: { x: 11, y: 2, width: 8, height: 10 } },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BBOX_OVERLAP" });
+
+    await expect(
+      replaceSliceBoundingBoxForUser(
+        {
+          bboxVersionId: edgeTouching.bboxVersionId,
+          userId: ownerId,
+          box: { x: 11, y: 2, width: 8, height: 10 },
+        },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BBOX_OVERLAP" });
+
+    const legacyImage = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: `tests/bbox/legacy-overlap-${suffix}.png`,
+        filename: "bbox-legacy-overlap.png",
+        contentType: "image/png",
+        size: 256,
+        checksum: `sha256:legacy-overlap-${suffix}`,
+        width: 40,
+        height: 40,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+    const firstSlice = await prisma.sliceInstance.create({
+      data: { projectId, imageId: legacyImage.id, createdById: ownerId },
+      select: { id: true },
+    });
+    const secondSlice = await prisma.sliceInstance.create({
+      data: { projectId, imageId: legacyImage.id, createdById: ownerId },
+      select: { id: true },
+    });
+    const firstLegacyBBox = await prisma.sliceBoundingBoxVersion.create({
+      data: {
+        projectId,
+        imageId: legacyImage.id,
+        sliceInstanceId: firstSlice.id,
+        version: 1,
+        x: 2,
+        y: 2,
+        width: 10,
+        height: 10,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    const secondLegacyBBox = await prisma.sliceBoundingBoxVersion.create({
+      data: {
+        projectId,
+        imageId: legacyImage.id,
+        sliceInstanceId: secondSlice.id,
+        version: 1,
+        x: 8,
+        y: 2,
+        width: 10,
+        height: 10,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    const state = await listSliceBoundingBoxesForUser({ imageId: legacyImage.id, userId: ownerId }, prisma);
+    expect(state.bboxIssues).toHaveLength(1);
+    expect(state.bboxIssues[0].code).toBe("BBOX_OVERLAP");
+    expect(new Set(state.bboxIssues[0].bboxVersionIds)).toEqual(new Set([firstLegacyBBox.id, secondLegacyBBox.id]));
+    expect(new Set(state.bboxIssues[0].sliceInstanceIds)).toEqual(new Set([firstSlice.id, secondSlice.id]));
+    expect(state.bboxSummary).toMatchObject({ activeCount: 2, validCount: 0, issueCount: 1 });
+    await expect(confirmImageBBoxSetForUser({ imageId: legacyImage.id, userId: ownerId }, prisma)).rejects.toMatchObject({
+      code: "BBOX_OVERLAP",
+    });
+    expect(first.bboxVersionId).toBeTruthy();
+  });
+
+  it("blocks BBox geometry changes and deletion when dependent masks or classifications exist", async () => {
+    const protectedImage = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: `tests/bbox/protected-${suffix}.png`,
+        filename: "bbox-protected.png",
+        contentType: "image/png",
+        size: 256,
+        checksum: `sha256:protected-${suffix}`,
+        width: 40,
+        height: 40,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    const box = await createSliceBoundingBoxForUser(
+      { imageId: protectedImage.id, userId: ownerId, box: { x: 4, y: 4, width: 12, height: 12 } },
+      prisma,
+    );
+    const artifact = await prisma.annotationArtifact.create({
+      data: {
+        projectId,
+        imageId: protectedImage.id,
+        kind: "SEMANTIC_MASK",
+        scopeKey: `protected-${box.sliceInstanceId}`,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    await prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: artifact.id,
+        version: 1,
+        storageKey: `tests/bbox/protected-${suffix}-${box.sliceInstanceId}.raw`,
+        contentType: "application/octet-stream",
+        size: 16,
+        checksum: `sha256:protected-mask-${suffix}`,
+        width: 4,
+        height: 4,
+        coordinateSpace: "CROP_PIXEL",
+        labelSchemaVersionId,
+        sliceInstanceId: box.sliceInstanceId,
+        createdById: ownerId,
+      },
+    });
+
+    const state = await listSliceBoundingBoxesForUser({ imageId: protectedImage.id, userId: ownerId }, prisma);
+    expect(state.boxes[0]).toMatchObject({
+      bboxVersionId: box.bboxVersionId,
+      dependencySummary: { semanticMaskVersionCount: 1, hasBlockingDependencies: true },
+      protection: {
+        canDelete: false,
+        canReplaceGeometry: false,
+        reasons: ["SEMANTIC_MASK_EXISTS"],
+      },
+    });
+
+    await expect(
+      replaceSliceBoundingBoxForUser(
+        {
+          bboxVersionId: box.bboxVersionId,
+          userId: ownerId,
+          box: { x: 5, y: 5, width: 12, height: 12 },
+        },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BBOX_GEOMETRY_PROTECTED_DEPENDENCIES" });
+
+    await expect(
+      deleteSliceBoundingBoxForUser({ bboxVersionId: box.bboxVersionId, userId: ownerId }, prisma),
+    ).rejects.toMatchObject({ code: "BBOX_DELETE_PROTECTED_DEPENDENCIES" });
+  });
+
   it("replaces BBoxes append-only and rejects stale replacement", async () => {
+    const replaceImage = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: `tests/bbox/replace-${suffix}.png`,
+        filename: "bbox-replace.png",
+        contentType: "image/png",
+        size: 256,
+        checksum: `sha256:replace-${suffix}`,
+        width: 20,
+        height: 10,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+
     const original = await createSliceBoundingBoxForUser(
-      { imageId, userId: ownerId, box: { x: 1, y: 1, width: 6, height: 4 } },
+      { imageId: replaceImage.id, userId: ownerId, box: { x: 1, y: 1, width: 6, height: 4 } },
       prisma,
     );
 

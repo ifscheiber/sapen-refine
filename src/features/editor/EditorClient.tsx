@@ -10,9 +10,15 @@ import { editorCanvasPreviewStyle } from "@/design/editorCanvas";
 import {
   clampNumber,
   clientPointToImagePoint,
+  hitTestImageRect,
+  imageRectsOverlap,
   getFitZoom,
   getZoomedCanvasDisplaySize,
   imageRectFromPoints,
+  moveImageRect,
+  resizeImageRect,
+  type BBoxHitTarget,
+  type BBoxResizeHandle,
   type ImageRect,
 } from "./canvasGeometry";
 import {
@@ -47,6 +53,7 @@ import {
   type CorrectionContext,
   type CropWorkflowReadinessCandidate,
   type DerivedSliceCrop,
+  type BBoxEditTool,
   type EditorProps,
   type ImageBBoxWorkflowState,
   type ImageReviewState,
@@ -54,6 +61,8 @@ import {
   type Point,
   type ReviewAction,
   type ReviewableState,
+  type SliceBBoxOverlapIssue,
+  type SliceBBoxSummary,
   type SliceBoundingBoxProposal,
   type SliceClassValue,
   type SliceState,
@@ -67,22 +76,80 @@ import { EditorReviewPanel } from "./components/EditorReviewPanel";
 import { EditorSliceClassificationPanel } from "./components/EditorSliceClassificationPanel";
 import { EditorToolbar } from "./components/EditorToolbar";
 
-function drawBBoxRect(ctx: CanvasRenderingContext2D, rect: ImageRect, selected = false) {
+type BBoxDrawOptions = {
+  selected?: boolean;
+  issue?: boolean;
+  protected?: boolean;
+};
+
+type BBoxDragState =
+  | { kind: "add"; start: Point }
+  | { kind: "move"; bboxVersionId: string; start: Point; initialRect: ImageRect }
+  | {
+      kind: "resize";
+      bboxVersionId: string;
+      handle: BBoxResizeHandle;
+      initialRect: ImageRect;
+    };
+
+function drawBBoxRect(ctx: CanvasRenderingContext2D, rect: ImageRect, options: BBoxDrawOptions = {}) {
+  const selected = Boolean(options.selected);
   ctx.save();
   ctx.lineWidth = selected ? 3 : 2;
-  ctx.setLineDash(selected ? [10, 5] : [6, 4]);
-  ctx.strokeStyle = selected
-    ? editorCanvasPreviewStyle.bboxSelectedStroke
-    : editorCanvasPreviewStyle.bboxStroke;
-  ctx.fillStyle = selected
-    ? editorCanvasPreviewStyle.bboxSelectedFill
-    : editorCanvasPreviewStyle.bboxFill;
+  ctx.setLineDash(options.issue ? [] : selected ? [10, 5] : [6, 4]);
+  ctx.strokeStyle = options.issue
+    ? editorCanvasPreviewStyle.bboxIssueStroke
+    : selected
+      ? editorCanvasPreviewStyle.bboxSelectedStroke
+      : options.protected
+        ? editorCanvasPreviewStyle.bboxProtectedStroke
+        : editorCanvasPreviewStyle.bboxStroke;
+  ctx.fillStyle = options.issue
+    ? editorCanvasPreviewStyle.bboxIssueFill
+    : selected
+      ? editorCanvasPreviewStyle.bboxSelectedFill
+      : options.protected
+        ? editorCanvasPreviewStyle.bboxProtectedFill
+        : editorCanvasPreviewStyle.bboxFill;
   ctx.shadowColor = editorCanvasPreviewStyle.bboxShadow;
   ctx.shadowBlur = 2;
   ctx.beginPath();
   ctx.rect(rect.x + 0.5, rect.y + 0.5, Math.max(1, rect.width), Math.max(1, rect.height));
   ctx.fill();
   ctx.stroke();
+  ctx.restore();
+}
+
+function drawBBoxHandles(ctx: CanvasRenderingContext2D, rect: ImageRect, radius: number) {
+  const left = rect.x;
+  const right = rect.x + rect.width - 1;
+  const top = rect.y;
+  const bottom = rect.y + rect.height - 1;
+  const centerX = Math.round((left + right) / 2);
+  const centerY = Math.round((top + bottom) / 2);
+  const points = [
+    [left, top],
+    [centerX, top],
+    [right, top],
+    [right, centerY],
+    [right, bottom],
+    [centerX, bottom],
+    [left, bottom],
+    [left, centerY],
+  ];
+
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = editorCanvasPreviewStyle.handleStroke;
+  ctx.fillStyle = editorCanvasPreviewStyle.handleFill;
+  for (const [x, y] of points) {
+    ctx.beginPath();
+    ctx.rect(x - radius + 0.5, y - radius + 0.5, radius * 2, radius * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -129,11 +196,14 @@ export default function EditorClient({
   const [predictionLoaded, setPredictionLoaded] = useState(false);
   const [bboxProposals, setBBoxProposals] = useState<SliceBoundingBoxProposal[]>([]);
   const [bboxWorkflow, setBBoxWorkflow] = useState<ImageBBoxWorkflowState | null>(null);
+  const [bboxIssues, setBBoxIssues] = useState<SliceBBoxOverlapIssue[]>([]);
+  const [bboxSummary, setBBoxSummary] = useState<SliceBBoxSummary | null>(null);
   const [sliceCrops, setSliceCrops] = useState<DerivedSliceCrop[]>([]);
   const [cropReadinessCandidates, setCropReadinessCandidates] = useState<CropWorkflowReadinessCandidate[]>([]);
   const [bboxStatus, setBBoxStatus] = useState("");
   const [bboxConfirming, setBBoxConfirming] = useState(false);
   const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
+  const [bboxEditTool, setBBoxEditTool] = useState<BBoxEditTool>("add");
   const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
   const [bboxConfirmedEditUnlocked, setBBoxConfirmedEditUnlocked] = useState(false);
   const [bboxCanvasReadyRevision, setBBoxCanvasReadyRevision] = useState(0);
@@ -156,6 +226,15 @@ export default function EditorClient({
     () => (maskMode === "support" ? supportMaskLabels(supportLabelValue) : DEFAULT_LABELS),
     [maskMode, supportLabelValue],
   );
+  const selectedBBox = useMemo(
+    () => bboxProposals.find((box) => box.bboxVersionId === selectedBBoxId) ?? null,
+    [bboxProposals, selectedBBoxId],
+  );
+  const bboxIssueBoxIds = useMemo(
+    () => new Set(bboxIssues.flatMap((issue) => issue.bboxVersionIds)),
+    [bboxIssues],
+  );
+  const hasBBoxIssues = bboxIssues.length > 0;
 
   const maskRef = useRef<MaskBuffer | null>(null);
   const predictionBytesRef = useRef<Uint8Array | null>(null);
@@ -166,7 +245,7 @@ export default function EditorClient({
   const lassoPointsRef = useRef<Point[]>([]);
   const lassoActiveRef = useRef(false);
   const lassoDragIndexRef = useRef<number | null>(null);
-  const bboxDragStartRef = useRef<Point | null>(null);
+  const bboxDragRef = useRef<BBoxDragState | null>(null);
 
   // Undo/Redo: strokes (Patch[])
   const undoRef = useRef<Stroke[]>([]);
@@ -238,8 +317,12 @@ export default function EditorClient({
 
     const boxes = (data.boxes ?? []) as SliceBoundingBoxProposal[];
     const workflow = (data.bboxWorkflow ?? null) as ImageBBoxWorkflowState | null;
+    const issues = (data.bboxIssues ?? []) as SliceBBoxOverlapIssue[];
+    const summary = (data.bboxSummary ?? null) as SliceBBoxSummary | null;
     setBBoxProposals(boxes);
     setBBoxWorkflow(workflow);
+    setBBoxIssues(issues);
+    setBBoxSummary(summary);
     if (workflow?.bboxSetStatus === "BBOX_CONFIRMED") {
       setBBoxConfirmedEditUnlocked(false);
     }
@@ -317,6 +400,11 @@ export default function EditorClient({
     if (!isBBoxStageMode || isCorrectionMode) return;
     setTool("bbox");
   }, [isBBoxStageMode, isCorrectionMode]);
+
+  useEffect(() => {
+    if (!isBBoxStageMode || bboxProposals.length > 0) return;
+    setBBoxEditTool("add");
+  }, [bboxProposals.length, isBBoxStageMode]);
 
   // ---------- helpers ----------
   const getPalette = useCallback(() => {
@@ -663,21 +751,29 @@ export default function EditorClient({
     if (!ctx || !c) return;
 
     ctx.clearRect(0, 0, c.width, c.height);
+    const handleRadius = Math.max(4, Math.round(5 / Math.max(zoom, 0.05)));
     for (const box of bboxProposals) {
+      const selected = box.bboxVersionId === selectedBBoxId;
+      const rect = { x: box.x, y: box.y, width: box.width, height: box.height };
       drawBBoxRect(
         ctx,
-        { x: box.x, y: box.y, width: box.width, height: box.height },
-        box.bboxVersionId === selectedBBoxId,
+        rect,
+        {
+          selected,
+          issue: bboxIssueBoxIds.has(box.bboxVersionId),
+          protected: !(box.protection?.canReplaceGeometry ?? true),
+        },
       );
+      if (selected) drawBBoxHandles(ctx, rect, handleRadius);
     }
-  }, [bboxProposals, selectedBBoxId]);
+  }, [bboxIssueBoxIds, bboxProposals, selectedBBoxId, zoom]);
 
-  function drawBBoxPreview(rect: ImageRect) {
+  function drawBBoxPreview(rect: ImageRect, options: BBoxDrawOptions = {}) {
     const ctx = previewCtxRef.current;
     const c = previewCanvasRef.current;
     if (!ctx || !c) return;
     ctx.clearRect(0, 0, c.width, c.height);
-    drawBBoxRect(ctx, rect, true);
+    drawBBoxRect(ctx, rect, { selected: true, ...options });
   }
 
   const resetLasso = useCallback(() => {
@@ -1043,11 +1139,87 @@ export default function EditorClient({
     }
   }
 
-  async function saveBBoxProposal(rect: ImageRect) {
+  function bboxRect(box: SliceBoundingBoxProposal): ImageRect {
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  }
+
+  function bboxImageBounds() {
+    const base = baseCanvasRef.current;
+    return base ? { width: base.width, height: base.height } : null;
+  }
+
+  function bboxOverlapsExisting(rect: ImageRect, excludeBBoxVersionId?: string | null) {
+    return bboxProposals.some((box) => {
+      if (box.bboxVersionId === excludeBBoxVersionId) return false;
+      return imageRectsOverlap(rect, bboxRect(box));
+    });
+  }
+
+  function bboxWorkflowMessage(error: unknown, fallback: string) {
+    const message = errorMessage(error, fallback);
+    if (message === "BBOX_OVERLAP") return "BBox overlap detected. Move or resize boxes before continuing.";
+    if (message === "BBOX_DELETE_PROTECTED_DEPENDENCIES") {
+      return "Cannot delete: semantic/support or classification data exists for this slice.";
+    }
+    if (message === "BBOX_GEOMETRY_PROTECTED_DEPENDENCIES") {
+      return "Cannot edit geometry: semantic/support or classification data exists for this slice.";
+    }
+    return message;
+  }
+
+  function selectedBBoxProtectionMessage(box: SliceBoundingBoxProposal | null) {
+    if (!box?.protection?.reasons.length) return null;
+    return "Cannot edit geometry: semantic/support or classification data exists for this slice.";
+  }
+
+  function hitTestBBoxAtPoint(point: Point) {
+    const handleRadius = Math.max(4, Math.round(8 / Math.max(zoom, 0.05)));
+    if (selectedBBox) {
+      const selectedHit = hitTestImageRect(point, bboxRect(selectedBBox), handleRadius);
+      if (selectedHit) return { box: selectedBBox, hit: selectedHit };
+    }
+
+    for (let index = bboxProposals.length - 1; index >= 0; index -= 1) {
+      const box = bboxProposals[index];
+      if (box.bboxVersionId === selectedBBoxId) continue;
+      const hit = hitTestImageRect(point, bboxRect(box), handleRadius);
+      if (hit) return { box, hit };
+    }
+    return null;
+  }
+
+  function rectForBBoxDrag(drag: BBoxDragState, point: Point) {
+    const bounds = bboxImageBounds();
+    if (drag.kind === "add") return imageRectFromPoints(drag.start, point);
+    if (!bounds) return drag.initialRect;
+    if (drag.kind === "move") {
+      return moveImageRect(
+        drag.initialRect,
+        { x: point.x - drag.start.x, y: point.y - drag.start.y },
+        bounds,
+      );
+    }
+    return resizeImageRect(drag.initialRect, drag.handle, point, bounds);
+  }
+
+  async function saveBBoxProposal(rect: ImageRect, options?: { replaceBBoxId?: string | null }) {
     if (!canMutateBBox) return;
 
-    const replacing = bboxReplaceArmed && selectedBBoxId;
-    const url = replacing ? API_SLICE_BBOX(selectedBBoxId) : API_SLICE_BBOXES(imageId);
+    const replaceBBoxId = options?.replaceBBoxId ?? (bboxReplaceArmed ? selectedBBoxId : null);
+    const replacing = Boolean(replaceBBoxId);
+    const replacingBox = replaceBBoxId
+      ? bboxProposals.find((box) => box.bboxVersionId === replaceBBoxId) ?? null
+      : null;
+    if (replacingBox && !(replacingBox.protection?.canReplaceGeometry ?? true)) {
+      setBBoxStatus("Cannot edit geometry: semantic/support or classification data exists for this slice.");
+      return;
+    }
+    if (bboxOverlapsExisting(rect, replaceBBoxId)) {
+      setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
+      return;
+    }
+
+    const url = replacing && replaceBBoxId ? API_SLICE_BBOX(replaceBBoxId) : API_SLICE_BBOXES(imageId);
     const method = replacing ? "PATCH" : "POST";
 
     setBBoxStatus(replacing ? "Replacing BBox proposal" : "Saving BBox proposal");
@@ -1069,16 +1241,21 @@ export default function EditorClient({
       setBBoxReplaceArmed(false);
       setBBoxStatus(replacing ? "BBox proposal replaced" : "BBox proposal saved");
     } catch (error) {
-      setBBoxStatus(errorMessage(error, "BBox proposal save failed"));
+      setBBoxStatus(bboxWorkflowMessage(error, "BBox proposal save failed"));
     }
   }
 
-  async function deleteSelectedBBoxProposal() {
-    if (!canMutateBBox || !selectedBBoxId) return;
+  async function deleteSelectedBBoxProposal(bboxVersionId = selectedBBoxId) {
+    if (!canMutateBBox || !bboxVersionId) return;
+    const box = bboxProposals.find((candidate) => candidate.bboxVersionId === bboxVersionId) ?? null;
+    if (box && !(box.protection?.canDelete ?? true)) {
+      setBBoxStatus("Cannot delete: semantic/support or classification data exists for this slice.");
+      return;
+    }
 
     setBBoxStatus("Deleting BBox proposal");
     try {
-      const res = await fetch(API_SLICE_BBOX(selectedBBoxId), { method: "DELETE" });
+      const res = await fetch(API_SLICE_BBOX(bboxVersionId), { method: "DELETE" });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error ?? `BBOX_DELETE_FAILED_${res.status}`);
@@ -1091,7 +1268,7 @@ export default function EditorClient({
       await loadCropReadiness();
       setBBoxStatus("BBox proposal deleted");
     } catch (error) {
-      setBBoxStatus(errorMessage(error, "BBox proposal delete failed"));
+      setBBoxStatus(bboxWorkflowMessage(error, "BBox proposal delete failed"));
     }
   }
 
@@ -1120,6 +1297,10 @@ export default function EditorClient({
 
   async function confirmBBoxSet() {
     if (!bboxWorkflow?.canConfirm || bboxProposals.length === 0) return;
+    if (hasBBoxIssues) {
+      setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
+      return;
+    }
 
     setBBoxConfirming(true);
     setBBoxStatus("Confirming BBox set");
@@ -1132,8 +1313,12 @@ export default function EditorClient({
 
       const boxes = (data.boxes ?? []) as SliceBoundingBoxProposal[];
       const workflow = (data.bboxWorkflow ?? null) as ImageBBoxWorkflowState | null;
+      const issues = (data.bboxIssues ?? []) as SliceBBoxOverlapIssue[];
+      const summary = (data.bboxSummary ?? null) as SliceBBoxSummary | null;
       setBBoxProposals(boxes);
       setBBoxWorkflow(workflow);
+      setBBoxIssues(issues);
+      setBBoxSummary(summary);
       setBBoxConfirmedEditUnlocked(false);
       setSelectedBBoxId((current) => {
         if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
@@ -1141,7 +1326,7 @@ export default function EditorClient({
       });
       setBBoxStatus("BBox set confirmed");
     } catch (error) {
-      setBBoxStatus(errorMessage(error, "BBox set confirmation failed"));
+      setBBoxStatus(bboxWorkflowMessage(error, "BBox set confirmation failed"));
     } finally {
       setBBoxConfirming(false);
     }
@@ -1175,7 +1360,7 @@ export default function EditorClient({
 
   useEffect(() => {
     resetLasso();
-    bboxDragStartRef.current = null;
+    bboxDragRef.current = null;
     draggingRef.current = false;
     lastPtRef.current = null;
   }, [resetLasso, tool]);
@@ -1226,10 +1411,71 @@ export default function EditorClient({
     const p = canvasToImageCoords(e);
 
     if (tool === "bbox") {
-      if (!canMutateBBox) return;
-      bboxDragStartRef.current = p;
-      capturePointer(target, e.pointerId);
-      drawBBoxPreview(imageRectFromPoints(p, p));
+      if (!isBBoxStageMode) {
+        if (!canMutateBBox) return;
+        bboxDragRef.current = { kind: "add", start: p };
+        capturePointer(target, e.pointerId);
+        drawBBoxPreview(imageRectFromPoints(p, p));
+        return;
+      }
+
+      const hit = hitTestBBoxAtPoint(p);
+      if (hit) {
+        setSelectedBBoxId(hit.box.bboxVersionId);
+        setBBoxReplaceArmed(false);
+
+        if (bboxEditTool === "delete") {
+          void deleteSelectedBBoxProposal(hit.box.bboxVersionId);
+          return;
+        }
+
+        if (!canMutateBBox) return;
+
+        const protectionMessage = selectedBBoxProtectionMessage(hit.box);
+        if (protectionMessage) {
+          setBBoxStatus(protectionMessage);
+          return;
+        }
+
+        const rect = bboxRect(hit.box);
+        const hitTarget = hit.hit as BBoxHitTarget;
+        if (hitTarget && hitTarget !== "body") {
+          bboxDragRef.current = {
+            kind: "resize",
+            bboxVersionId: hit.box.bboxVersionId,
+            handle: hitTarget,
+            initialRect: rect,
+          };
+          capturePointer(target, e.pointerId);
+          drawBBoxPreview(rect);
+          return;
+        }
+
+        if (bboxEditTool === "resize") {
+          setBBoxStatus("Drag a selected BBox handle to resize.");
+          return;
+        }
+
+        bboxDragRef.current = {
+          kind: "move",
+          bboxVersionId: hit.box.bboxVersionId,
+          start: p,
+          initialRect: rect,
+        };
+        capturePointer(target, e.pointerId);
+        drawBBoxPreview(rect);
+        return;
+      }
+
+      if (bboxEditTool === "add") {
+        if (!canMutateBBox) return;
+        bboxDragRef.current = { kind: "add", start: p };
+        capturePointer(target, e.pointerId);
+        drawBBoxPreview(imageRectFromPoints(p, p));
+        return;
+      }
+
+      setSelectedBBoxId(null);
       return;
     }
 
@@ -1292,9 +1538,12 @@ export default function EditorClient({
 
     const p = canvasToImageCoords(e);
     if (tool === "bbox") {
-      const start = bboxDragStartRef.current;
-      if (!start) return;
-      drawBBoxPreview(imageRectFromPoints(start, p));
+      const drag = bboxDragRef.current;
+      if (!drag) return;
+      const rect = rectForBBoxDrag(drag, p);
+      const excludeBBoxVersionId =
+        drag.kind === "add" ? (bboxReplaceArmed ? selectedBBoxId : null) : drag.bboxVersionId;
+      drawBBoxPreview(rect, { issue: bboxOverlapsExisting(rect, excludeBBoxVersionId) });
       return;
     }
 
@@ -1364,13 +1613,23 @@ export default function EditorClient({
     const target = e.currentTarget;
 
     if (tool === "bbox") {
-      const start = bboxDragStartRef.current;
-      bboxDragStartRef.current = null;
+      const drag = bboxDragRef.current;
+      bboxDragRef.current = null;
       releasePointer(target, e.pointerId);
       clearPreview();
-      if (start) {
+      if (drag) {
         const end = canvasToImageCoords(e);
-        void saveBBoxProposal(imageRectFromPoints(start, end));
+        const rect = rectForBBoxDrag(drag, end);
+        const replaceBBoxId = drag.kind === "add" ? (bboxReplaceArmed ? selectedBBoxId : null) : drag.bboxVersionId;
+        if (bboxOverlapsExisting(rect, replaceBBoxId)) {
+          setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
+          return;
+        }
+        if (drag.kind !== "add" && rect.x === drag.initialRect.x && rect.y === drag.initialRect.y &&
+          rect.width === drag.initialRect.width && rect.height === drag.initialRect.height) {
+          return;
+        }
+        void saveBBoxProposal(rect, { replaceBBoxId });
       }
       return;
     }
@@ -1407,7 +1666,7 @@ export default function EditorClient({
     const target = e.currentTarget;
 
     if (tool === "bbox") {
-      bboxDragStartRef.current = null;
+      bboxDragRef.current = null;
       clearPreview();
       releasePointer(target, e.pointerId);
       return;
@@ -1436,7 +1695,7 @@ export default function EditorClient({
   }
 
   function onPointerLeave(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (tool === "bbox" && bboxDragStartRef.current === null) {
+    if (tool === "bbox" && bboxDragRef.current === null) {
       clearPreview();
     }
     if (tool === "lasso_poly" && lassoDragIndexRef.current === null) {
@@ -1633,16 +1892,28 @@ export default function EditorClient({
           crops={sliceCrops}
           cropReadinessCandidates={cropReadinessCandidates}
           selectedBBoxId={selectedBBoxId}
+          bboxTool={bboxEditTool}
+          bboxIssues={bboxIssues}
+          bboxSummary={bboxSummary}
           replaceArmed={bboxReplaceArmed}
           bboxWorkflow={bboxWorkflow}
           stageMode={isBBoxStageMode}
           editingConfirmedSet={bboxConfirmedEditUnlocked}
           confirmBusy={bboxConfirming}
           canEdit={canMutateBBox}
+          canUnlockConfirmedSet={canEditBBox}
           status={bboxStatus}
           onSelect={(bboxVersionId) => {
             setSelectedBBoxId(bboxVersionId);
             setBBoxReplaceArmed(false);
+          }}
+          onBBoxToolChange={(nextTool) => {
+            setBBoxEditTool(nextTool);
+            setTool("bbox");
+            setBBoxReplaceArmed(false);
+            if (nextTool === "add") setBBoxStatus("Drag on the source image to add a BBox.");
+            if (nextTool === "select") setBBoxStatus("Select, move, or drag handles on editable BBoxes.");
+            if (nextTool === "resize") setBBoxStatus("Drag a selected BBox handle to resize.");
           }}
           onArmReplace={() => {
             setTool("bbox");
@@ -1655,6 +1926,7 @@ export default function EditorClient({
           onEditConfirmedSet={() => {
             setBBoxConfirmedEditUnlocked(true);
             setTool("bbox");
+            setBBoxEditTool("select");
             setBBoxStatus("BBox editing enabled. Confirm the set again after changes.");
           }}
           continueHref={cropWorkflowSlicesHref}

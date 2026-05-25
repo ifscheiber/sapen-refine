@@ -40,9 +40,9 @@ describe("crop semantic mask workflow", () => {
   let ownerId: string;
   let viewerId: string;
   let projectId: string;
-  let imageId: string;
   let labelSchemaVersionId: string;
   let suffix: string;
+  let cropImageCounter = 0;
   const sourceKeys = new Set<string>();
   const supportKeys = new Set<string>();
   const semanticKeys = new Set<string>();
@@ -94,7 +94,6 @@ describe("crop semantic mask workflow", () => {
       select: { id: true },
     });
     projectId = project.id;
-    imageId = await createImage("source", 80, 60);
   });
 
   afterAll(async () => {
@@ -159,8 +158,10 @@ describe("crop semantic mask workflow", () => {
   }
 
   async function createCrop() {
+    cropImageCounter += 1;
+    const cropImageId = await createImage(`crop-${cropImageCounter}`, 80, 60);
     const box = await createSliceBoundingBoxForUser(
-      { imageId, userId: ownerId, box: { x: 20, y: 15, width: 24, height: 18 } },
+      { imageId: cropImageId, userId: ownerId, box: { x: 20, y: 15, width: 24, height: 18 } },
       prisma,
     );
     const crop = await generateCropForSliceBBox(
@@ -327,7 +328,7 @@ describe("crop semantic mask workflow", () => {
     });
     expect(persisted.artifact.kind).toBe("SEMANTIC_MASK");
     expect(persisted.artifact.scopeKey).toBe(`crop-semantic:${crop.id}:SAP_HEARTWOOD`);
-    expect(persisted.artifact.imageId).toBe(imageId);
+    expect(persisted.artifact.imageId).toBe(crop.sourceImageId);
     expect(persisted.artifact.projectId).toBe(projectId);
     expect(persisted.coordinateSpace).toBe("CROP_PIXEL");
     expect(persisted.coordinateTransform).toMatchObject({
@@ -593,7 +594,7 @@ describe("crop semantic mask workflow", () => {
     const artifact = await prisma.annotationArtifact.upsert({
       where: {
         imageId_kind_scopeKey: {
-          imageId,
+          imageId: crop.sourceImageId,
           kind: "SEMANTIC_MASK",
           scopeKey: `crop-semantic:${crop.id}:COPPER`,
         },
@@ -601,7 +602,7 @@ describe("crop semantic mask workflow", () => {
       update: {},
       create: {
         projectId,
-        imageId,
+        imageId: crop.sourceImageId,
         kind: "SEMANTIC_MASK",
         scopeKey: `crop-semantic:${crop.id}:COPPER`,
         createdById: ownerId,

@@ -8,5 +8,9 @@ export const editorCanvasPreviewStyle = {
   bboxFill: "rgba(105, 197, 172, 0.14)",
   bboxSelectedStroke: "rgba(245, 165, 36, 0.95)",
   bboxSelectedFill: "rgba(245, 165, 36, 0.18)",
+  bboxIssueStroke: "rgba(251, 191, 36, 0.98)",
+  bboxIssueFill: "rgba(251, 191, 36, 0.2)",
+  bboxProtectedStroke: "rgba(148, 163, 184, 0.92)",
+  bboxProtectedFill: "rgba(148, 163, 184, 0.12)",
   bboxShadow: "rgba(0, 0, 0, 0.35)",
 } as const;

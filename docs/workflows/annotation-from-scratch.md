@@ -11,7 +11,7 @@ This is the current primary workflow for SaPen Annotate.
 3. User creates or selects a project.
 4. User uploads a PNG/JPEG image through project image routes; the server validates checksum, dimensions, size, and object metadata before recording the image.
 5. User opens `/app/projects/[projectId]/images/[imageId]/crop`.
-6. User draws rough BBox slice proposals in the BBox stage. These proposals are planning artifacts only, not support-mask ground truth.
+6. User draws and edits rough BBox slice proposals in the BBox stage. These proposals are planning artifacts only, not support-mask ground truth; overlapping BBoxes must be resolved before confirmation.
 7. User confirms the BBox set and the app generates current derived crops. Each crop is a private derived PNG with source-image lineage, not a raw uploaded image and not support geometry.
 8. User opens the unified crop annotation editor for a selected slice.
 9. User chooses one annotation family for the crop: `Sapwood / Heartwood` or `Cu / Support mask`.

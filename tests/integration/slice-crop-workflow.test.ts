@@ -242,7 +242,7 @@ describe("derived slice crop workflow", () => {
       {
         bboxVersionId: original.bboxVersionId,
         userId: ownerId,
-        box: { x: 10, y: 8, width: 30, height: 20 },
+        box: { x: 60, y: 50, width: 30, height: 20 },
       },
       prisma,
     );
@@ -258,8 +258,8 @@ describe("derived slice crop workflow", () => {
     expect(secondCrop.sliceInstanceId).toBe(firstCrop.sliceInstanceId);
     expect(secondCrop.version).toBe(2);
     expect(secondCrop.paddingRequestedPx).toBe(0);
-    expect(secondCrop.sourceX).toBe(10);
-    expect(secondCrop.sourceY).toBe(8);
+    expect(secondCrop.sourceX).toBe(60);
+    expect(secondCrop.sourceY).toBe(50);
     expect(secondCrop.cropWidth).toBe(30);
     expect(secondCrop.cropHeight).toBe(20);
 
