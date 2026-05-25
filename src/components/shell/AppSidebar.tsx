@@ -67,12 +67,14 @@ function projectRowSubtitle(project: ShellProject, now: Date) {
 export function AppSidebar({
   projects,
   canCreateProject,
+  initialNow,
 }: {
   projects: ShellProject[];
   canCreateProject: boolean;
+  initialNow: string;
 }) {
   const pathname = usePathname();
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date(initialNow));
   const {
     editorRoute,
     activeProject: editorProject,

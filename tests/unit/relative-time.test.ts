@@ -18,4 +18,8 @@ describe("relative time formatting", () => {
     expect(formatRelativeTime("not-a-date", now)).toBe("date missing");
     expect(formatTimestamp("not-a-date")).toBe("date missing");
   });
+
+  it("formats timestamps deterministically for server/client hydration", () => {
+    expect(formatTimestamp("2026-05-25T12:00:00.000Z")).toBe("May 25, 2026, 12:00 PM");
+  });
 });

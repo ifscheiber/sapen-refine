@@ -44,11 +44,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     globalRoles: globalRoles.map((entry) => entry.role.name),
     projectRoles,
   });
+  const renderedAt = new Date().toISOString();
 
   return (
     <AppShell
       user={{ name: user.name, email: user.email }}
       canCreateProject={canCreateProject}
+      renderedAt={renderedAt}
       projects={sortedProjects.map((project) => ({
         id: project.id,
         name: project.name,

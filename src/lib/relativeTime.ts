@@ -42,6 +42,7 @@ export function formatTimestamp(
   const date = parseDate(value);
   if (!date) return "date missing";
   return date.toLocaleString(locale, {
+    timeZone: "UTC",
     year: "numeric",
     month: "short",
     day: "numeric",
