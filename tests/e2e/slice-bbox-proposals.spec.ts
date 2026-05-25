@@ -103,6 +103,7 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
+  await expect(sliceNavigator.getByText(/^1$/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Lasso", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Polygon", exact: true })).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();

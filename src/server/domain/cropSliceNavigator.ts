@@ -35,12 +35,25 @@ export type CropSliceNavigatorCrop = {
   version: number;
   sliceInstanceId: string;
   bboxVersionId: string;
+  sourceX: number;
+  sourceY: number;
   cropWidth: number;
   cropHeight: number;
   paddingRequestedPx: number;
   paddingClipped: boolean;
   assetUrl: string;
   createdAt: string;
+};
+
+export type CropSliceNavigatorMaskPreview = {
+  id: string;
+  version: number;
+  reviewState: CropSliceNavigatorArtifactStatus;
+  width: number | null;
+  height: number | null;
+  format: string;
+  coordinateSpace: string;
+  assetUrl: string;
 };
 
 export type CropSliceNavigatorSlice = {
@@ -67,8 +80,10 @@ export type CropSliceNavigatorSlice = {
   latestCrop: CropSliceNavigatorCrop | null;
   supportStatus: CropSliceNavigatorArtifactStatus;
   supportVersion: number | null;
+  supportMaskPreview: CropSliceNavigatorMaskPreview | null;
   semanticStatus: CropSliceNavigatorArtifactStatus;
   semanticVersion: number | null;
+  semanticMaskPreview: CropSliceNavigatorMaskPreview | null;
   semanticMode: string | null;
   semanticFamilyState: string;
   semanticFamilyActiveMode: string | null;
@@ -189,12 +204,28 @@ function serializeCrop(candidate: CropWorkflowCandidate): CropSliceNavigatorCrop
     version: candidate.crop.version,
     sliceInstanceId: candidate.crop.sliceInstanceId,
     bboxVersionId: candidate.crop.bboxVersionId,
+    sourceX: candidate.crop.sourceX,
+    sourceY: candidate.crop.sourceY,
     cropWidth: candidate.crop.cropWidth,
     cropHeight: candidate.crop.cropHeight,
     paddingRequestedPx: candidate.crop.paddingRequestedPx,
     paddingClipped: candidate.crop.paddingClipped,
     assetUrl: `/api/slice-crops/${candidate.crop.id}/asset`,
     createdAt: candidate.crop.createdAt.toISOString(),
+  };
+}
+
+function serializeMaskPreview(version: CropWorkflowCandidate["latestSupportMask"]): CropSliceNavigatorMaskPreview | null {
+  if (!version) return null;
+  return {
+    id: version.id,
+    version: version.version,
+    reviewState: version.reviewState as CropSliceNavigatorArtifactStatus,
+    width: version.width,
+    height: version.height,
+    format: version.format,
+    coordinateSpace: version.coordinateSpace,
+    assetUrl: `/api/images/${version.artifact.imageId}/mask/versions/${version.id}/asset`,
   };
 }
 
@@ -268,8 +299,10 @@ export function buildCropSliceNavigatorModel(params: {
         latestCrop,
         supportStatus: support.status,
         supportVersion: support.version,
+        supportMaskPreview: serializeMaskPreview(currentCandidate?.latestSupportMask ?? null),
         semanticStatus: semantic.status,
         semanticVersion: semantic.version,
+        semanticMaskPreview: serializeMaskPreview(currentCandidate?.latestSemanticMask ?? null),
         semanticMode: currentCandidate?.latestSemanticMask?.cropSemanticMode ?? null,
         semanticFamilyState: currentCandidate?.semanticFamily?.state ?? "NONE",
         semanticFamilyActiveMode: currentCandidate?.semanticFamily?.activeMode ?? null,

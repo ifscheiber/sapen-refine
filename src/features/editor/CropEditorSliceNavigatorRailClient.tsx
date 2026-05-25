@@ -1,14 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { RefreshCwIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/components/ui/utils";
 import type {
   CropSliceNavigatorModel,
   CropSliceNavigatorSlice,
 } from "@/server/domain/cropSliceNavigator";
+import {
+  computeCropNavigatorViewport,
+  renderMaskContourPreviewRgba,
+  renderSemanticMaskPreviewRgba,
+  sapHeartwoodSupportForegroundLabels,
+  sourceRectToViewportPercent,
+  type NavigatorViewport,
+} from "./cropNavigatorPreview";
 import { API_ENSURE_SLICE_CROPS } from "./editorApi";
 
 type CropEditorMode = "editor" | "support" | "semantic";
@@ -17,6 +24,27 @@ type EnsuredCrop = {
   id: string;
   sliceInstanceId: string;
 };
+
+type OverlayRequest = {
+  id: string;
+  assetUrl: string;
+  width: number;
+  height: number;
+};
+
+type OverlayCacheEntry =
+  | {
+      status: "loaded";
+      width: number;
+      height: number;
+      bytes: Uint8Array;
+    }
+  | {
+      status: "unavailable";
+    };
+
+const MAX_NAVIGATOR_MASK_PREVIEW_PIXELS = 4_000_000;
+const MAX_NAVIGATOR_OVERLAY_EDGE_PX = 1024;
 
 function cropEditorHref(params: {
   navigator: CropSliceNavigatorModel;
@@ -28,6 +56,156 @@ function cropEditorHref(params: {
     `/app/projects/${params.navigator.projectId}/images/${params.navigator.imageId}` +
     `/crop/slices/${params.sliceInstanceId}/crops/${params.cropId}`;
   return params.editorMode === "editor" ? base : `${base}/${params.editorMode}`;
+}
+
+function isPositiveInteger(value: number | null | undefined): value is number {
+  return Number.isInteger(value) && value! > 0;
+}
+
+function isPreviewRenderable(
+  preview: CropSliceNavigatorSlice["semanticMaskPreview"] | CropSliceNavigatorSlice["supportMaskPreview"],
+): preview is NonNullable<typeof preview> & { width: number; height: number } {
+  return (
+    Boolean(preview) &&
+    isPositiveInteger(preview?.width) &&
+    isPositiveInteger(preview?.height) &&
+    preview.width * preview.height <= MAX_NAVIGATOR_MASK_PREVIEW_PIXELS &&
+    preview?.format === "u8raw-v1" &&
+    preview?.coordinateSpace === "CROP_PIXEL"
+  );
+}
+
+function overlayCanvasSize(viewport: NavigatorViewport) {
+  const scale = Math.min(1, MAX_NAVIGATOR_OVERLAY_EDGE_PX / Math.max(viewport.width, viewport.height));
+  return {
+    width: Math.max(1, Math.round(viewport.width * scale)),
+    height: Math.max(1, Math.round(viewport.height * scale)),
+    scale,
+  };
+}
+
+function collectOverlayRequests(slices: CropSliceNavigatorSlice[]) {
+  const requests = new Map<string, OverlayRequest>();
+  for (const slice of slices) {
+    if (isPreviewRenderable(slice.semanticMaskPreview)) {
+      requests.set(slice.semanticMaskPreview.id, {
+        id: slice.semanticMaskPreview.id,
+        assetUrl: slice.semanticMaskPreview.assetUrl,
+        width: slice.semanticMaskPreview.width,
+        height: slice.semanticMaskPreview.height,
+      });
+    }
+    if (isPreviewRenderable(slice.supportMaskPreview)) {
+      requests.set(slice.supportMaskPreview.id, {
+        id: slice.supportMaskPreview.id,
+        assetUrl: slice.supportMaskPreview.assetUrl,
+        width: slice.supportMaskPreview.width,
+        height: slice.supportMaskPreview.height,
+      });
+    }
+  }
+  return Array.from(requests.values()).sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function sourceImageLayerStyle(navigator: CropSliceNavigatorModel, viewport: NavigatorViewport) {
+  const imageWidth = navigator.image.width ?? viewport.width;
+  const imageHeight = navigator.image.height ?? viewport.height;
+  return {
+    left: `${(-viewport.x / viewport.width) * 100}%`,
+    top: `${(-viewport.y / viewport.height) * 100}%`,
+    width: `${(imageWidth / viewport.width) * 100}%`,
+    height: `${(imageHeight / viewport.height) * 100}%`,
+  };
+}
+
+function drawRgbaMask(
+  ctx: CanvasRenderingContext2D,
+  rgba: Uint8ClampedArray,
+  maskWidth: number,
+  maskHeight: number,
+  viewport: NavigatorViewport,
+  slice: CropSliceNavigatorSlice,
+) {
+  const crop = slice.currentCrop;
+  if (!crop) return;
+  if (maskWidth !== crop.cropWidth || maskHeight !== crop.cropHeight) return;
+
+  const offscreen = document.createElement("canvas");
+  offscreen.width = maskWidth;
+  offscreen.height = maskHeight;
+  const offscreenCtx = offscreen.getContext("2d");
+  if (!offscreenCtx) return;
+
+  const imageData = offscreenCtx.createImageData(maskWidth, maskHeight);
+  imageData.data.set(rgba);
+  offscreenCtx.putImageData(imageData, 0, 0);
+  ctx.drawImage(offscreen, crop.sourceX - viewport.x, crop.sourceY - viewport.y, crop.cropWidth, crop.cropHeight);
+}
+
+function drawNavigatorOverlays(
+  ctx: CanvasRenderingContext2D,
+  viewport: NavigatorViewport,
+  slices: CropSliceNavigatorSlice[],
+  overlayCache: Record<string, OverlayCacheEntry>,
+  scale: number,
+) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+  for (const slice of slices) {
+    if (!slice.currentCrop) continue;
+    if (isPreviewRenderable(slice.semanticMaskPreview)) {
+      const semantic = overlayCache[slice.semanticMaskPreview.id];
+      if (semantic?.status === "loaded") {
+        drawRgbaMask(
+          ctx,
+          renderSemanticMaskPreviewRgba(semantic.bytes, semantic.width, semantic.height),
+          semantic.width,
+          semantic.height,
+          viewport,
+          slice,
+        );
+      }
+    }
+  }
+
+  for (const slice of slices) {
+    if (!slice.currentCrop) continue;
+    if (isPreviewRenderable(slice.supportMaskPreview)) {
+      const support = overlayCache[slice.supportMaskPreview.id];
+      if (support?.status === "loaded") {
+        drawRgbaMask(
+          ctx,
+          renderMaskContourPreviewRgba(support.bytes, support.width, support.height),
+          support.width,
+          support.height,
+          viewport,
+          slice,
+        );
+      }
+      continue;
+    }
+
+    if (slice.semanticMode === "SAP_HEARTWOOD" && isPreviewRenderable(slice.semanticMaskPreview)) {
+      const semantic = overlayCache[slice.semanticMaskPreview.id];
+      if (semantic?.status === "loaded") {
+        drawRgbaMask(
+          ctx,
+          renderMaskContourPreviewRgba(
+            semantic.bytes,
+            semantic.width,
+            semantic.height,
+            sapHeartwoodSupportForegroundLabels(),
+          ),
+          semantic.width,
+          semantic.height,
+          viewport,
+          slice,
+        );
+      }
+    }
+  }
 }
 
 function currentEditorHref(
@@ -52,8 +230,11 @@ export function CropEditorSliceNavigatorRailClient({
   editorMode: CropEditorMode;
 }) {
   const router = useRouter();
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [busySliceId, setBusySliceId] = useState<string | null>(null);
+  const [overlayCache, setOverlayCache] = useState<Record<string, OverlayCacheEntry>>({});
   const [status, setStatus] = useState("");
+  const overlayCacheRef = useRef(overlayCache);
   const selectedSlice = useMemo(
     () =>
       navigator.slices.find((slice) => slice.sliceInstanceId === navigator.selectedSliceInstanceId) ??
@@ -61,6 +242,76 @@ export function CropEditorSliceNavigatorRailClient({
       null,
     [navigator.selectedSliceInstanceId, navigator.slices],
   );
+  const viewport = useMemo(
+    () =>
+      computeCropNavigatorViewport(
+        navigator.image.width,
+        navigator.image.height,
+        navigator.slices.map((slice) => slice.sourceRect),
+      ),
+    [navigator.image.height, navigator.image.width, navigator.slices],
+  );
+  const overlayRequests = useMemo(() => collectOverlayRequests(navigator.slices), [navigator.slices]);
+
+  useEffect(() => {
+    overlayCacheRef.current = overlayCache;
+  }, [overlayCache]);
+
+  useEffect(() => {
+    const missingRequests = overlayRequests.filter((request) => !overlayCacheRef.current[request.id]);
+    if (missingRequests.length === 0) return;
+
+    const controller = new AbortController();
+    void Promise.all(
+      missingRequests.map(async (request) => {
+        try {
+          const response = await fetch(request.assetUrl, { credentials: "include", signal: controller.signal });
+          if (!response.ok) return [request.id, { status: "unavailable" } satisfies OverlayCacheEntry] as const;
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          if (bytes.byteLength !== request.width * request.height) {
+            return [request.id, { status: "unavailable" } satisfies OverlayCacheEntry] as const;
+          }
+          return [
+            request.id,
+            {
+              status: "loaded",
+              width: request.width,
+              height: request.height,
+              bytes,
+            } satisfies OverlayCacheEntry,
+          ] as const;
+        } catch {
+          if (controller.signal.aborted) return null;
+          return [request.id, { status: "unavailable" } satisfies OverlayCacheEntry] as const;
+        }
+      }),
+    ).then((results) => {
+      if (controller.signal.aborted) return;
+      setOverlayCache((current) => {
+        const next = { ...current };
+        for (const result of results) {
+          if (!result) continue;
+          next[result[0]] = result[1];
+        }
+        return next;
+      });
+    });
+
+    return () => controller.abort();
+  }, [overlayRequests]);
+
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas || !viewport) return;
+
+    const { width, height, scale } = overlayCanvasSize(viewport);
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    drawNavigatorOverlays(ctx, viewport, navigator.slices, overlayCache, scale);
+  }, [navigator.slices, overlayCache, viewport]);
 
   async function openSlice(slice: CropSliceNavigatorSlice) {
     const existingHref = currentEditorHref(navigator, slice, editorMode);
@@ -114,42 +365,52 @@ export function CropEditorSliceNavigatorRailClient({
           </div>
         </div>
 
-        <div className="relative overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-panel)]">
+        <div
+          className="relative overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-panel)]"
+          style={viewport ? { aspectRatio: `${viewport.width} / ${viewport.height}` } : undefined}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={navigator.image.assetUrl}
             alt={`Slice navigator for ${navigator.image.filename ?? navigator.image.id}`}
-            className="block h-auto w-full"
+            draggable={false}
+            className={cn(viewport ? "absolute max-w-none select-none" : "block h-auto w-full")}
+            style={viewport ? sourceImageLayerStyle(navigator, viewport) : undefined}
           />
+          {viewport && (
+            <canvas
+              ref={overlayCanvasRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 size-full"
+            />
+          )}
           <div className="absolute inset-0">
             {navigator.slices.map((slice) => {
               const selected = slice.sliceInstanceId === selectedSlice?.sliceInstanceId;
               const busy = busySliceId === slice.sliceInstanceId;
+              const rect = viewport ? sourceRectToViewportPercent(slice.sourceRect, viewport) : slice.sourceRectPercent;
               return (
                 <button
                   key={slice.sliceInstanceId}
                   type="button"
                   aria-label={`Open ${slice.label}`}
                   aria-current={selected ? "page" : undefined}
+                  aria-busy={busy ? "true" : undefined}
                   onClick={() => void openSlice(slice)}
                   className={cn(
-                    "absolute flex items-start justify-start border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+                    "absolute cursor-pointer border bg-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                     selected
-                      ? "border-[var(--accent-primary)] bg-[var(--workspace-selected)]"
-                      : "border-[var(--border-hover)] bg-[var(--workspace-panel)] hover:bg-[var(--workspace-panel-hover)]",
-                    busy && "cursor-wait",
+                      ? "border-2 border-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]"
+                      : "border-[var(--border-hover)] hover:border-[var(--accent-primary)]",
+                    busy && "cursor-wait opacity-80",
                   )}
                   style={{
-                    left: `${slice.sourceRectPercent.left}%`,
-                    top: `${slice.sourceRectPercent.top}%`,
-                    width: `${slice.sourceRectPercent.width}%`,
-                    height: `${slice.sourceRectPercent.height}%`,
+                    left: `${rect.left}%`,
+                    top: `${rect.top}%`,
+                    width: `${rect.width}%`,
+                    height: `${rect.height}%`,
                   }}
-                >
-                  <span className="m-1 rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-input-background)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--text-primary)]">
-                    {busy ? <RefreshCwIcon className="size-3 animate-spin" aria-hidden="true" /> : slice.index}
-                  </span>
-                </button>
+                />
               );
             })}
           </div>

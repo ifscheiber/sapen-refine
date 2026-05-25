@@ -80,7 +80,7 @@ DESIGN-006 adds BBox-stage safety guardrails. Active BBoxes must not overlap; ov
 
 ### Slice Navigator
 
-The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the unified crop annotation editor. RB-103 adds an `Edit BBoxes` action to that rail so users can return to the image-level BBox stage without leaving the crop workflow.
+The slice navigator keeps the original image visible as orientation context. It shows active BBoxes, highlights the selected slice, and summarizes crop, support, semantic, classification, and readiness state for each slice. RB-101 embeds this navigator as the right rail of the unified crop annotation editor. DESIGN-009 makes that embedded rail auto-fit to the padded union of active BBoxes, removes visible BBox number badges, keeps BBoxes directly clickable, and overlays existing crop mask state as lightweight read-only previews when the mask is small enough for rail rendering: semantic masks render as indexed-label overlays, explicit support masks render as contours, and Sap/Heartwood support contours can be derived from semantic foreground. These previews are display-only and do not change crop, mask, review, readiness, or export state.
 
 Clicking a slice in the editor rail opens the unified editor for that slice. If the current crop is missing, the rail defensively calls the ensure-current-crops API and then navigates to the created crop. The `/crop/slices/[sliceInstanceId]` route remains a compatibility entry and redirects to the selected crop editor when a current crop exists.
 

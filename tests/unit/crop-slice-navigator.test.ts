@@ -45,6 +45,8 @@ function cropCandidate(params: {
       version: params.version,
       sliceInstanceId: params.sliceInstanceId,
       bboxVersionId: params.bboxVersionId,
+      sourceX: 8,
+      sourceY: 6,
       cropWidth: 24,
       cropHeight: 18,
       paddingRequestedPx: 32,
@@ -52,10 +54,29 @@ function cropCandidate(params: {
       createdAt: new Date(`2026-01-01T00:00:0${params.version}.000Z`),
     },
     latestSupportMask: params.supportStatus
-      ? { reviewState: params.supportStatus, version: 3 }
+      ? {
+          id: `support-${params.id}`,
+          reviewState: params.supportStatus,
+          version: 3,
+          width: 24,
+          height: 18,
+          format: "u8raw-v1",
+          coordinateSpace: "CROP_PIXEL",
+          artifact: { imageId: image.id },
+        }
       : null,
     latestSemanticMask: params.semanticStatus
-      ? { reviewState: params.semanticStatus, version: 2, cropSemanticMode: "SAP_HEARTWOOD" }
+      ? {
+          id: `semantic-${params.id}`,
+          reviewState: params.semanticStatus,
+          version: 2,
+          width: 24,
+          height: 18,
+          format: "u8raw-v1",
+          coordinateSpace: "CROP_PIXEL",
+          cropSemanticMode: "SAP_HEARTWOOD",
+          artifact: { imageId: image.id },
+        }
       : null,
     latestClassification: params.classificationStatus
       ? {
@@ -140,6 +161,24 @@ describe("crop slice navigator model", () => {
       readinessStatus: "READY",
     });
     expect(model.slices[0].currentCrop?.id).toBe("crop-current");
+    expect(model.slices[0].currentCrop).toMatchObject({
+      sourceX: 8,
+      sourceY: 6,
+      cropWidth: 24,
+      cropHeight: 18,
+    });
+    expect(model.slices[0].supportMaskPreview).toMatchObject({
+      id: "support-crop-current",
+      width: 24,
+      height: 18,
+      assetUrl: "/api/images/image-1/mask/versions/support-crop-current/asset",
+    });
+    expect(model.slices[0].semanticMaskPreview).toMatchObject({
+      id: "semantic-crop-current",
+      width: 24,
+      height: 18,
+      assetUrl: "/api/images/image-1/mask/versions/semantic-crop-current/asset",
+    });
     expect(model.slices[0].selectedHref).toBe(
       "/app/projects/project-1/images/image-1/crop/slices/slice-1/crops/crop-current",
     );

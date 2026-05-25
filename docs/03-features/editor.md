@@ -230,7 +230,7 @@ Current RB-095 behavior:
 - `/crop/slices` redirects toward the selected slice editor when the BBox set is confirmed, and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
 - `/crop/slices/[sliceInstanceId]` remains a compatibility selected-slice route and redirects to the selected crop editor when a current crop exists.
 - `src/server/domain/cropSliceNavigator.ts` composes navigator state from active BBoxes, derived crop versions, and `src/server/domain/cropReadiness.ts`.
-- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds navigator-only whole-image slice context beside the unified crop annotation editor. Clicking a slice opens the editor for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
+- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds navigator-only source-image slice context beside the unified crop annotation editor. It auto-fits the displayed source-image viewport to the padded union of active BBoxes, renders BBoxes as outline-only clickable regions without visible number badges, and shows read-only latest crop mask previews when mask assets are available. Clicking a slice opens the editor for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
 - The embedded rail intentionally does not expose persistent BBox, refresh, or slice-list controls; BBox re-entry is handled by the `BBoxes` tab.
 
 Current RB-096 behavior:
