@@ -92,10 +92,11 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.up();
 
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
-  await expect(page.getByLabel("Select BBox")).toHaveValue(/.+/);
-  await page.getByRole("button", { name: "Confirm BBox set" }).click();
+  await expect(page.getByLabel("Select BBox")).toHaveCount(0);
+  await expect(page.getByText("Selected BBox active on canvas.")).toBeVisible();
+  await page.getByRole("button", { name: "Prepare slices" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await page.getByRole("link", { name: "Open slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();

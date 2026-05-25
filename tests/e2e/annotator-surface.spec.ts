@@ -14,7 +14,7 @@ test("annotator workspace hides operational surfaces while keeping image annotat
   await page.goto("/app/projects/demo_project");
 
   await expect(page.getByRole("link", { name: "New Project" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Project Settings" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Project Settings" })).toBeVisible();
 
   const projectNavigation = page.getByRole("navigation", { name: "Project navigation" });
   await expect(projectNavigation.getByRole("link", { name: "Overview" })).toBeVisible();
@@ -31,9 +31,9 @@ test("annotator workspace hides operational surfaces while keeping image annotat
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
   await expect(page.getByText("apple-touch-icon.png").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Metadata" }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Crop workflow" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
 
-  await page.getByRole("link", { name: "Crop workflow" }).first().click();
+  await page.getByRole("link", { name: "Open" }).first().click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();

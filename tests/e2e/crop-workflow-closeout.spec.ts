@@ -88,7 +88,7 @@ async function createSingleCropEditor(page: Page, projectName: string) {
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await page.getByRole("link", { name: "Open" }).click();
   await expect(page).toHaveURL(/\/crop\/bboxes$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
@@ -96,9 +96,9 @@ async function createSingleCropEditor(page: Page, projectName: string) {
 
   await drawRelativeStroke(page, 0.25, 0.25, 0.75, 0.72);
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
-  await page.getByRole("button", { name: "Confirm BBox set" }).click();
+  await page.getByRole("button", { name: "Prepare slices" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await page.getByRole("link", { name: "Open slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
 

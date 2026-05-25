@@ -71,7 +71,7 @@ Per-slice/crop state:
 - RB-095 owns the whole-image slice navigator and per-slice status badges. It is implemented through `/crop/slices/[sliceInstanceId]`, `src/features/editor/ImageCropSliceNavigatorClient.tsx`, and `src/server/domain/cropSliceNavigator.ts`.
 - RB-096 owned the earlier selected crop workbench. RB-123 supersedes it with the unified crop annotation editor at the selected-crop route.
 - RB-123 owns annotation-family exclusivity and classification guardrails. It is implemented through byte-derived family detection, `CROP_ANNOTATION_FAMILY_CONFLICT` server guards, all-background clearing saves, and readiness blockers for contradictory manual classifications or legacy conflicts.
-- RB-103 owns explicit re-entry from crop editors to the BBox stage, including confirmed-set edit/re-confirm smoke coverage. Crop editor headers and the embedded navigator rail expose `Edit BBoxes`; opening the BBox stage after confirmation shows locked proposals until the user explicitly unlocks editing.
+- RB-103 owns explicit re-entry from crop editors to the BBox stage, including confirmed-set edit/re-prepare smoke coverage. Crop editor headers and the embedded navigator rail expose `Edit BBoxes`; opening the BBox stage after confirmation shows locked proposals until the user explicitly unlocks editing.
 - RB-104 removes the legacy full-image editor route and full-image annotation surface while preserving BBox-stage and assisted-correction functionality through non-legacy surfaces.
 - RB-098 owns smoke coverage and final workflow closeout after RB-103/RB-104.
 - Crop-based annotation is the primary staged workflow for multi-slice crop work. Full-image mask editing has been removed from the product UI.

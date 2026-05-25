@@ -1903,6 +1903,9 @@ export default function EditorClient({
           canEdit={canMutateBBox}
           canUnlockConfirmedSet={canEditBBox}
           status={bboxStatus}
+          zoom={zoom}
+          onZoomChange={setZoom}
+          onFit={fitToContainer}
           onSelect={(bboxVersionId) => {
             setSelectedBBoxId(bboxVersionId);
             setBBoxReplaceArmed(false);

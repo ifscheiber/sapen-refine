@@ -68,15 +68,15 @@ The current readiness values and reason codes remain owned by `src/server/domain
 
 ### BBox Stage
 
-The BBox stage is the first workflow stage. It shows the source image, provides a compact BBox toolbar, allows source-image BBox proposal drawing, selection, safe move/resize, safe deletion, and provides a clear `Confirm BBox set` action once active BBoxes exist.
+The BBox stage is the first workflow stage. It shows the source image, provides a tools-only BBox toolbar for source-image BBox proposal drawing, canvas selection, safe move/resize, safe deletion, zoom, and fit. BBox counts, protection, and workflow state are shown outside the tool row in compact status/workflow strips.
 
-Confirming a BBox set records workflow intent only. It does not approve BBoxes as review artifacts and does not make a slice training-ready.
+Preparing slices records the existing image-level BBox confirmation workflow intent. It does not approve BBoxes as review artifacts and does not make a slice training-ready.
 
 RB-094 stores confirmation in `ImageCropWorkflowState`. BBox creation, replacement, and deletion remain append-only through `SliceBoundingBoxVersion`; when they happen after confirmation, the image-level workflow state becomes `BBOX_NEEDS_UPDATE` until the set is confirmed again.
 
-RB-103 makes this edit/re-confirm loop reachable from crop annotation editors. Opening `/crop/bboxes` after confirmation shows the confirmed BBoxes but keeps mutation controls locked until the user clicks `Edit BBoxes`. Navigation-only re-entry keeps the workflow in `BBOX_CONFIRMED`; replacing or deleting BBoxes after the explicit unlock marks the set `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set` before continuing.
+RB-103 makes this edit/re-prepare loop reachable from crop annotation editors. Opening `/crop/bboxes` after confirmation shows the confirmed BBoxes but keeps mutation controls locked until the user clicks `Unlock BBox editing`. Navigation-only re-entry keeps the workflow in `BBOX_CONFIRMED`; replacing or deleting BBoxes after the explicit unlock marks the set `BBOX_NEEDS_UPDATE` and requires `Prepare slices` before `Open slice annotation` is available again.
 
-DESIGN-006 adds BBox-stage safety guardrails. Active BBoxes must not overlap; overlap issues are shown in the toolbar and block confirmation/continuation. BBoxes with semantic mask, support/instance mask, or classification versions are locked against deletion and geometry mutation unless a future explicit destructive dependency-removal flow is implemented. Existing derived crops alone do not block BBox replacement because crop history is append-only and stale/current crop state is already represented separately.
+DESIGN-006 adds BBox-stage safety guardrails. Active BBoxes must not overlap; overlap issues are shown in the compact status strip and block slice preparation/opening. BBoxes with semantic mask, support/instance mask, or classification versions are locked against deletion and geometry mutation unless a future explicit destructive dependency-removal flow is implemented. Existing derived crops alone do not block BBox replacement because crop history is append-only and stale/current crop state is already represented separately.
 
 ### Slice Navigator
 

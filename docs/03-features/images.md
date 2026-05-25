@@ -35,9 +35,9 @@ Image UI lives in `src/features/images` while routes stay stable.
 - Browser image reads use app-mediated asset routes rather than direct MinIO URLs.
 - Browser helper types in `src/lib/projectsClient.ts` mirror that app-mediated route surface and do not expose `ImageAsset.storageKey`.
 - The app-mediated upload path accepts PNG and JPEG images only. SVG and other formats are rejected before an image row is created.
-- Uploaded images appear in the image workspace with app-mediated previews, validation/readiness hints, T-number state, additive mask-version counts where available, and links to metadata and the crop workflow.
+- Uploaded images appear in the image workspace with app-mediated previews, validation/readiness hints, T-number state, slice counts, additive mask-version counts where available, a metadata link, and a primary `Open` action for the crop workflow.
 - `/app/projects/[projectId]/images/[imageId]` shows immutable technical image metadata and editable image-level acquisition/sample metadata.
-- The image list and metadata page link to the crop workflow entry route for image-level BBox set confirmation. After confirmation, selected slices open the unified crop annotation editor directly. RB-104 removed the legacy full-image editor link from these pages.
+- The image list primary action and metadata page crop-workflow link target the crop workflow entry route for image-level BBox set confirmation. After slice preparation, selected slices open the unified crop annotation editor directly. RB-104 removed the legacy full-image editor link from these pages.
 
 ## Current Data Captured
 

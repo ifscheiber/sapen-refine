@@ -199,7 +199,7 @@ RB-093 adds the planned user-facing orchestration for the next sprint:
 
 ```text
 Image-level BBox stage
--> confirm BBox set
+-> prepare slices
 -> slice navigator with whole-image context
 -> selected-crop unified editor
 -> annotation family selection
@@ -207,7 +207,7 @@ Image-level BBox stage
 -> classification/readiness
 ```
 
-The planned crop workflow uses `confirm` wording for BBox sets. BBox confirmation is a workflow planning state, not artifact review or ground-truth approval. Pixel-perfect support masks, semantic masks, and slice classifications keep their existing artifact-specific review states.
+The persisted crop workflow still stores an image-level BBox confirmation state, but the browser UI presents it as `Prepare slices` / `Open slice annotation`. BBox confirmation is a workflow planning state, not artifact review or ground-truth approval. Pixel-perfect support masks, semantic masks, and slice classifications keep their existing artifact-specific review states.
 
 Current RB-086 behavior:
 
@@ -220,10 +220,10 @@ Current RB-094 behavior:
 
 - Image list and image metadata routes link to `/app/projects/[projectId]/images/[imageId]/crop`.
 - `/crop` redirects to `/crop/bboxes` unless the active BBox set is confirmed, then redirects to `/crop/slices`.
-- `/crop/bboxes` uses the shared `Annotation Editor` shell with the `BBoxes` tab active. Full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and BBox controls render as a compact toolbar.
+- `/crop/bboxes` uses the shared `Annotation Editor` shell with the `BBoxes` tab active. Full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and the BBox toolbar contains only direct tools plus zoom/fit controls.
 - `POST /api/images/[imageId]/slice-bboxes/confirm` persists image-level BBox set confirmation in `ImageCropWorkflowState`.
 - Creating, replacing, or deleting a BBox after confirmation keeps append-only BBox history and marks the image-level BBox set as `BBOX_NEEDS_UPDATE`.
-- Returning to `/crop/bboxes` after confirmation shows the confirmed proposals but locks mutation controls until the user explicitly clicks `Edit BBoxes`.
+- Returning to `/crop/bboxes` after confirmation shows the confirmed proposals but locks mutation controls until the user explicitly clicks `Unlock BBox editing`.
 
 Current RB-095 behavior:
 
@@ -244,7 +244,7 @@ Current BBox re-entry behavior:
 - The shared editor tab row exposes `BBoxes` back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
 - DESIGN-008 scopes the authenticated shell to the active image on editor routes. The topbar breadcrumb trail includes project and image names, and the left sidebar shows image summary plus the active project's image list instead of project gallery controls. This shell context is visual/navigation-only and does not change editor canvas, mask, BBox, save, or review contracts.
 - Crop workflow pages no longer expose `Editor` or `Full editor` escape hatches to `/app/projects/[projectId]/images/[imageId]/edit`.
-- Navigation-only re-entry preserves `BBOX_CONFIRMED`; actual BBox replacement/deletion after the explicit unlock transitions the image workflow to `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set`.
+- Navigation-only re-entry preserves `BBOX_CONFIRMED`; actual BBox replacement/deletion after the explicit unlock transitions the image workflow to `BBOX_NEEDS_UPDATE` and requires `Prepare slices` before `Open slice annotation` is available again.
 
 Current RB-087 behavior:
 

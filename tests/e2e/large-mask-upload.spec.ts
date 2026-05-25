@@ -80,7 +80,7 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await expect(page.getByText("6000 x 4000")).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await page.getByRole("link", { name: "Open" }).click();
   await expect(page).toHaveURL(/\/images\/[^/]+\/crop\/bboxes$/);
   const cropUrl = new URL(page.url());
   const imageId = cropUrl.pathname.match(/\/images\/([^/]+)\/crop\/bboxes$/)?.[1];
@@ -108,9 +108,9 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await page.mouse.up();
 
   await expect(page.getByText("BBox proposal saved")).toBeVisible();
-  await page.getByRole("button", { name: "Confirm BBox set" }).click();
+  await page.getByRole("button", { name: "Prepare slices" }).click();
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Continue to slice annotation" }).click();
+  await page.getByRole("link", { name: "Open slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
 

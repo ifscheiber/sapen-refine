@@ -952,3 +952,17 @@ Affected modules: authenticated editor routes, app shell image context, project 
 Owner: Unassigned.
 
 Priority: P3 UX follow-up after DESIGN-008.
+
+## DESIGN-010-A - Review-Scoped BBox Submission Semantics
+
+Context: DESIGN-010 removes misleading BBox-level confirmation controls from the tool toolbar, but the persisted `/api/images/[imageId]/slice-bboxes/confirm` workflow still allows editable annotation roles to prepare/open slices. The current RBAC model distinguishes `annotation:submitOwnWork` from `review:approve`, but the BBox stage itself does not yet model separate labeler submission and owner/QA confirmation semantics.
+
+Impact: The UI no longer presents BBoxes as independently approved artifacts, but future reviewer workflows may need clearer handoff language and server-side state if BBox preparation becomes part of a broader submission/review gate.
+
+Proposed next step: Design a review-scoped annotation submission model that separates labeler submit actions from owner/QA confirmation/approval, then decide whether image-level BBox preparation should remain a planning gate or participate in that review state.
+
+Affected modules: `src/server/auth/policies.ts`, BBox workflow APIs, editor workflow UI, review APIs, docs, and E2E tests.
+
+Owner: Unassigned.
+
+Priority: P3 workflow semantics follow-up after DESIGN-010.

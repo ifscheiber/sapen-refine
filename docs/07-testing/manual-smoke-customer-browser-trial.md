@@ -50,7 +50,7 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open crop workflow. | The image-level BBox stage opens through the crop workflow route. |  |  |
 | Draw a rough slice box and confirm the BBox set. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth; confirmation records workflow intent only. |  |  |
-| Continue to slice annotation. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu/Support family choices, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
+| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu/Support family choices, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
 | Choose `Cu / Support mask` and `Support`. | The same crop editor displays the crop image in crop coordinates with support/background labels. |  |  |
 | Draw and erase support, then save. | A draft crop support mask saves, reloads, and uses only support/background labels. |  |  |
 | Choose a semantic target in the generated crop editor. | The editor shows the support overlay for Copper and offers only labels for the selected annotation family. |  |  |

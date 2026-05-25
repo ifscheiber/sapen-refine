@@ -4,6 +4,7 @@ import {
   CheckCircle2Icon,
   CropIcon,
   LockKeyholeIcon,
+  Maximize2Icon,
   MousePointer2Icon,
   SquarePlusIcon,
   Trash2Icon,
@@ -46,20 +47,10 @@ type EditorBBoxPanelProps = {
   onConfirmBBoxSet?: () => void;
   onEditConfirmedSet?: () => void;
   continueHref?: string;
+  zoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  onFit?: () => void;
 };
-
-function formatBBoxSetStatus(status: ImageBBoxWorkflowState["bboxSetStatus"] | undefined) {
-  if (status === "BBOX_CONFIRMED") return "Confirmed";
-  if (status === "BBOX_NEEDS_UPDATE") return "Needs update";
-  if (status === "BBOX_DRAFT") return "Draft";
-  return "No BBoxes";
-}
-
-function formatConfirmedBy(workflow: ImageBBoxWorkflowState | null | undefined) {
-  if (!workflow?.confirmedAt) return null;
-  const actor = workflow.confirmedBy?.name ?? workflow.confirmedBy?.email ?? "unknown user";
-  return `Confirmed by ${actor}`;
-}
 
 function protectedReasonLabel(reason: string) {
   if (reason === "SEMANTIC_MASK_EXISTS") return "semantic mask";
@@ -67,6 +58,29 @@ function protectedReasonLabel(reason: string) {
   if (reason === "INSTANCE_MASK_EXISTS") return "instance/support mask";
   if (reason === "CLASSIFICATION_EXISTS") return "classification";
   return reason.toLowerCase().replaceAll("_", " ");
+}
+
+function clampZoom(value: number) {
+  return Math.min(3, Math.max(0.05, value));
+}
+
+function formatBBoxWorkflowMessage({
+  status,
+  editingConfirmedSet,
+  hasIssues,
+  boxCount,
+}: {
+  status: ImageBBoxWorkflowState["bboxSetStatus"] | undefined;
+  editingConfirmedSet: boolean;
+  hasIssues: boolean;
+  boxCount: number;
+}) {
+  if (boxCount === 0) return "Draw at least one slice work area before opening slice annotation.";
+  if (hasIssues) return "Resolve BBox issues before preparing slices.";
+  if (status === "BBOX_CONFIRMED" && !editingConfirmedSet) return "Slice annotation is ready for this BBox set.";
+  if (status === "BBOX_NEEDS_UPDATE") return "BBox edits changed the slice plan. Prepare slices again before continuing.";
+  if (editingConfirmedSet) return "BBox editing is unlocked. Prepare slices again after changes.";
+  return "Prepare slices after drawing the required work areas.";
 }
 
 function selectedProtectionMessage(selected: SliceBoundingBoxProposal | null) {
@@ -101,6 +115,9 @@ export function EditorBBoxPanel({
   onConfirmBBoxSet,
   onEditConfirmedSet,
   continueHref,
+  zoom = 1,
+  onZoomChange,
+  onFit,
 }: EditorBBoxPanelProps) {
   const selected = boxes.find((box) => box.bboxVersionId === selectedBBoxId) ?? null;
   const selectedCrop =
@@ -122,25 +139,21 @@ export function EditorBBoxPanel({
   const canConfirm = Boolean(
     onConfirmBBoxSet && bboxWorkflow?.canConfirm && boxes.length > 0 && !confirmBusy && !hasIssues,
   );
-  const confirmedBy = formatConfirmedBy(bboxWorkflow);
   const protectionMessage = selectedProtectionMessage(selected);
   const selectedCanDelete = Boolean(selected && canEdit && (selected.protection?.canDelete ?? true));
   const selectedCanEditGeometry = Boolean(selected && canEdit && (selected.protection?.canReplaceGeometry ?? true));
+  const workflowMessage = formatBBoxWorkflowMessage({
+    status: workflowStatus,
+    editingConfirmedSet,
+    hasIssues,
+    boxCount: boxes.length,
+  });
+  const showOpenSlices = Boolean(continueHref && workflowStatus === "BBOX_CONFIRMED" && !hasIssues);
 
   if (stageMode) {
     return (
       <div className="space-y-2 text-sm">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex min-w-[12rem] items-baseline gap-2">
-            <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-[var(--text-dim)]">
-              BBoxes
-            </span>
-            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-              {boxes.length} boxes · {validCount} valid · {issueCount} issues
-              {protectedCount > 0 ? ` · ${protectedCount} locked` : ""}
-            </span>
-          </div>
-
+        <div aria-label="BBox tools" className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -186,68 +199,37 @@ export function EditorBBoxPanel({
             </button>
           </div>
 
-          <label className="flex min-w-[12rem] items-center gap-2">
+          <div className="ml-auto flex min-h-8 flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
             <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Select
+              Zoom
             </span>
-            <select
-              aria-label="Select BBox"
-              value={selectedBBoxId ?? ""}
-              onChange={(event) => {
-                if (event.target.value) onSelect(event.target.value);
-              }}
-              disabled={boxes.length === 0}
-              className="h-8 min-w-40 rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-2 text-[11px] font-medium text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
-            >
-              <option value="">No BBox selected</option>
-              {boxes.map((box, index) => (
-                <option key={box.bboxVersionId} value={box.bboxVersionId}>
-                  BBox {index + 1} · {box.width} x {box.height}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <span className="rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-              {formatBBoxSetStatus(workflowStatus)}
-            </span>
-            {workflowStatus === "BBOX_CONFIRMED" && !editingConfirmedSet ? (
-              <button
-                className={idleButtonClass}
-                onClick={onEditConfirmedSet}
-                disabled={!onEditConfirmedSet || !canUnlockConfirmedSet}
-              >
-                Edit BBoxes
-              </button>
-            ) : (
-              <button className={activeButtonClass} onClick={onConfirmBBoxSet} disabled={!canConfirm}>
-                <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-                {workflowStatus === "BBOX_NEEDS_UPDATE" ? "Re-confirm BBox set" : "Confirm BBox set"}
-              </button>
-            )}
-            {continueHref && workflowStatus === "BBOX_CONFIRMED" && !hasIssues ? (
-              <Link className={activeButtonClass} href={continueHref}>
-                Continue to slice annotation
-              </Link>
-            ) : (
-              <button className={idleButtonClass} disabled>
-                Continue to slice annotation
-              </button>
-            )}
+            <input
+              aria-label="BBox zoom"
+              type="range"
+              min={5}
+              max={300}
+              value={Math.round(zoom * 100)}
+              onChange={(event) => onZoomChange?.(clampZoom(Number(event.target.value) / 100))}
+              disabled={!onZoomChange}
+              className="w-28"
+            />
+            <span className="w-10 tabular-nums text-[11px]">{Math.round(zoom * 100)}%</span>
+            <button type="button" className={idleButtonClass} onClick={onFit} disabled={!onFit} title="Fit image">
+              <Maximize2Icon className="size-3.5" aria-hidden="true" />
+              Fit
+            </button>
           </div>
         </div>
 
-        <div className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[var(--text-secondary)]">
-          {selected ? (
-            <span>
-              Selected x {selected.x} · y {selected.y} · {selected.width} x {selected.height} · v
-              {selected.version}
-            </span>
-          ) : (
-            <span>{boxes.length === 0 ? "Use Add BBox and drag on the image." : "Select a BBox to edit."}</span>
-          )}
-          {confirmedBy ? <span>{confirmedBy}</span> : null}
+        <div className="flex min-h-6 flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-subtle)] pt-2 text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-dim)]">
+            BBoxes
+          </span>
+          <span>
+            {boxes.length} boxes · {validCount} valid · {issueCount} issues
+            {protectedCount > 0 ? ` · ${protectedCount} locked` : ""}
+          </span>
+          <span>{selected ? "Selected BBox active on canvas." : boxes.length === 0 ? "Use Add BBox and drag on the image." : "Select a BBox on the canvas to edit."}</span>
           {hasIssues ? (
             <span className="inline-flex items-center gap-1 text-[var(--warning-text)]">
               <AlertTriangleIcon className="size-3.5" aria-hidden="true" />
@@ -262,6 +244,41 @@ export function EditorBBoxPanel({
           ) : null}
           {status ? <span role="status">{status}</span> : null}
           {replaceArmed ? <span>Draw a replacement BBox on the image.</span> : null}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-2 text-[11px]">
+          <div className="min-w-0">
+            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-dim)]">
+              Workflow
+            </div>
+            <div className="mt-0.5 text-[var(--text-secondary)]">{workflowMessage}</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {workflowStatus === "BBOX_CONFIRMED" && !editingConfirmedSet ? (
+              <button
+                type="button"
+                className={idleButtonClass}
+                onClick={onEditConfirmedSet}
+                disabled={!onEditConfirmedSet || !canUnlockConfirmedSet}
+              >
+                Unlock BBox editing
+              </button>
+            ) : (
+              <button type="button" className={activeButtonClass} onClick={onConfirmBBoxSet} disabled={!canConfirm}>
+                <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
+                Prepare slices
+              </button>
+            )}
+            {showOpenSlices ? (
+              <Link className={activeButtonClass} href={continueHref ?? "#"}>
+                Open slice annotation
+              </Link>
+            ) : (
+              <button type="button" className={idleButtonClass} disabled>
+                Open slice annotation
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

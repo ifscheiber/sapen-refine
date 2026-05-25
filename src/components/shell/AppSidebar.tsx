@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { ArrowLeftIcon, ChevronRightIcon, FolderOpenIcon, PlusIcon, UploadIcon } from "lucide-react";
 
 import {
-  ReadinessMarker,
   sidebarActionClassName,
   WorkspaceSidebarMetricRow,
   WorkspaceSidebarSection,
@@ -249,7 +248,6 @@ export function AppSidebar({
                         : "text-[var(--text-secondary)]",
                     )}
                   >
-                    <ReadinessMarker state="draft" />
                     <span className="min-w-0 flex-1">
                       <span className="flex min-w-0 items-center gap-2">
                         <span

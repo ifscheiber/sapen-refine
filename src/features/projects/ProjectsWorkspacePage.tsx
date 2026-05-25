@@ -84,7 +84,7 @@ export async function ProjectsWorkspacePage({
     ? projects.find((project) => project.id === projectId)
     : projects[0];
 
-  const activeTab = tab === "settings" ? "settings" : "overview";
+  const activeTab = tab === "settings" ? "settings" : "images";
   const canCreateProject = activeProject ? false : await resolveProjectCreateCapability(user.id);
 
   if (!activeProject) {
@@ -136,25 +136,30 @@ export async function ProjectsWorkspacePage({
       canViewPredictionImports(membershipRole) ||
       canViewCorrectionTasks(membershipRole)
     : false;
-  const effectiveTab = activeTab === "settings" && canEditProject ? "settings" : "overview";
+  const effectiveTab = activeTab === "settings" ? "settings" : "images";
+  const imagesHref = `/app/projects/${activeProject.id}`;
   const settingsHref = `/app/projects/${activeProject.id}?tab=settings`;
   const ownerLabel = activeProject.createdBy?.name ?? activeProject.createdBy?.email ?? "—";
-  const localTabs = canEditProject
-    ? [{ label: "Project Settings", href: settingsHref, active: effectiveTab === "settings" }]
-    : [];
+  const localTabs = [
+    { keyId: "project-images", label: "Images", href: imagesHref, active: effectiveTab === "images" },
+    { keyId: "project-settings", label: "Project Settings", href: settingsHref, active: effectiveTab === "settings" },
+  ];
 
   return (
     <WorkspacePageLayout
       header={
         <WorkspacePageHeader
-          title="Projects"
+          title={activeProject.name}
           metadata={
             <WorkspaceMetaRow>
               <WorkspaceMetaLabel>Workspace</WorkspaceMetaLabel>
               <span className="text-[var(--text-primary)]">Project root</span>
               <span className="text-[var(--text-muted)]">•</span>
-              <WorkspaceMetaLabel>Visible projects</WorkspaceMetaLabel>
-              <span className="text-[var(--text-primary)]">{projects.length}</span>
+              <WorkspaceMetaLabel>Images</WorkspaceMetaLabel>
+              <span className="text-[var(--text-primary)]">{activeProject._count.images}</span>
+              <span className="text-[var(--text-muted)]">•</span>
+              <WorkspaceMetaLabel>Role</WorkspaceMetaLabel>
+              <span className="text-[var(--text-primary)]">{roleLabel(membershipRole)}</span>
             </WorkspaceMetaRow>
           }
         />
@@ -164,14 +169,14 @@ export async function ProjectsWorkspacePage({
           <div className="flex min-w-0 flex-wrap items-center gap-6">
             <div className="min-w-0">
               <div className="text-[9px] font-bold uppercase tracking-[0.22em] text-[var(--text-dim)]">
-                Active Project
+                Project Workspace
               </div>
-              <h2 className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">
-                {activeProject.name}
-              </h2>
+              <p className="mt-1 max-w-xl truncate text-sm font-semibold text-[var(--text-primary)]">
+                {activeProject.description?.trim() || "Image annotation workspace"}
+              </p>
             </div>
             <div className="hidden h-8 w-px bg-[var(--divider-subtle)] lg:block" />
-            <div className="grid gap-3 text-xs sm:grid-cols-3">
+            <div className="grid gap-3 text-xs sm:grid-cols-4">
               <div>
                 <div className="text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Owner
@@ -188,6 +193,14 @@ export async function ProjectsWorkspacePage({
               </div>
               <div>
                 <div className="text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Images
+                </div>
+                <div className="mt-1 font-medium text-[var(--text-secondary)]">
+                  {activeProject._count.images}
+                </div>
+              </div>
+              <div>
+                <div className="text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Updated
                 </div>
                 <div className="mt-1 font-medium text-[var(--text-secondary)]">
@@ -198,16 +211,33 @@ export async function ProjectsWorkspacePage({
           </div>
         </WorkspaceContextRow>
       }
-      localTabs={localTabs.length > 0 ? <WorkspaceLocalTabs tabs={localTabs} /> : undefined}
+      localTabs={<WorkspaceLocalTabs tabs={localTabs} />}
       main={
         effectiveTab === "settings" ? (
           <div className="pl-4">
-            <ProjectMetadataForm
-              projectId={activeProject.id}
-              initialName={activeProject.name}
-              initialDescription={activeProject.description ?? ""}
-              canEdit={canEditProject}
-            />
+            {canEditProject ? (
+              <ProjectMetadataForm
+                projectId={activeProject.id}
+                initialName={activeProject.name}
+                initialDescription={activeProject.description ?? ""}
+                canEdit={canEditProject}
+              />
+            ) : (
+              <section className="grid gap-4 text-sm">
+                <div className="grid gap-3 border-b border-[var(--border-subtle)] pb-4">
+                  {statRow("Name", activeProject.name)}
+                  {statRow("Description", activeProject.description?.trim() || "—")}
+                  {statRow("Owner", ownerLabel)}
+                  {statRow("Role", roleLabel(membershipRole))}
+                  {statRow("Images", activeProject._count.images)}
+                  {statRow("Created", formatDate(activeProject.createdAt))}
+                  {statRow("Updated", formatDate(activeProject.updatedAt))}
+                </div>
+                <p className="text-xs leading-5 text-[var(--text-secondary)]">
+                  Project metadata editing is available to owner and QA roles.
+                </p>
+              </section>
+            )}
           </div>
         ) : (
           <div className="pl-4">

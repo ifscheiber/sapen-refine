@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangleIcon,
   ImageIcon,
@@ -45,6 +46,7 @@ type ImageRow = {
   createdAt: string;
   updatedAt?: string | null;
   maskVersionCount?: number;
+  sliceCount?: number;
 };
 
 function formatBytes(size: number | null) {
@@ -61,11 +63,20 @@ function formatDate(value: string | null | undefined) {
   return date.toLocaleString();
 }
 
+function formatCount(value: number | undefined, singular: string, plural: string) {
+  const count = value ?? 0;
+  return count === 1 ? `1 ${singular}` : `${count} ${plural}`;
+}
+
 function metadataSummary(image: ImageRow) {
   const warnings = [];
   if (!image.width || !image.height) warnings.push("Missing dimensions");
   if (!image.checksum) warnings.push("Missing checksum");
   return warnings.length > 0 ? warnings.join(" · ") : "Technical metadata ready";
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("a,button,input,label,select,textarea"));
 }
 
 function statusClassName(status: ImageRow["validationStatus"]) {
@@ -104,11 +115,23 @@ function ImagePreview({ image }: { image: ImageRow }) {
 }
 
 function ImageListItem({ image, projectId }: { image: ImageRow; projectId: string }) {
+  const router = useRouter();
   const editability = evaluateTrialImageEditability(image.width, image.height);
   const updatedLabel = formatDate(image.updatedAt ?? image.uploadedAt ?? image.createdAt);
+  const openHref = `/app/projects/${projectId}/images/${image.id}/crop`;
+  const canOpenEditor = editability.status !== "unsupported";
 
   return (
-    <div className="grid gap-4 rounded-md border border-[var(--border-card)] bg-[var(--workspace-panel)] p-3 shadow-[var(--shadow-workspace-panel)] transition-colors hover:border-[var(--border-hover)] sm:grid-cols-[128px_minmax(0,1fr)] 2xl:grid-cols-[96px_minmax(0,1.45fr)_118px_94px_142px_164px] 2xl:items-center">
+    <div
+      className={cn(
+        "grid gap-4 rounded-sm border border-[var(--border-card)] bg-[var(--workspace-panel)] p-3 shadow-[var(--shadow-workspace-panel)] transition-colors hover:border-[var(--border-hover)] sm:grid-cols-[128px_minmax(0,1fr)] 2xl:grid-cols-[96px_minmax(0,1.35fr)_108px_78px_108px_142px_132px] 2xl:items-center",
+        canOpenEditor ? "cursor-pointer" : "cursor-default",
+      )}
+      onClick={(event) => {
+        if (!canOpenEditor || isInteractiveTarget(event.target)) return;
+        router.push(openHref);
+      }}
+    >
       <ImagePreview image={image} />
 
       <div className="min-w-0">
@@ -159,6 +182,13 @@ function ImageListItem({ image, projectId }: { image: ImageRow; projectId: strin
 
       <div className="flex items-center justify-between gap-2 text-sm sm:col-start-2 2xl:col-auto 2xl:block">
         <span className="text-xs font-semibold uppercase tracking-normal text-[var(--text-muted)] 2xl:hidden">
+          Slices
+        </span>
+        <span className="text-[var(--text-primary)]">{formatCount(image.sliceCount, "slice", "slices")}</span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 text-sm sm:col-start-2 2xl:col-auto 2xl:block">
+        <span className="text-xs font-semibold uppercase tracking-normal text-[var(--text-muted)] 2xl:hidden">
           Mask Versions
         </span>
         <span className="text-[var(--text-primary)]">{image.maskVersionCount ?? 0}</span>
@@ -181,13 +211,13 @@ function ImageListItem({ image, projectId }: { image: ImageRow; projectId: strin
         {editability.status === "unsupported" ? (
           <Button variant="outline" size="sm" disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
             <PencilLineIcon className="size-4" aria-hidden="true" />
-            Crop workflow
+            Open
           </Button>
         ) : (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/app/projects/${projectId}/images/${image.id}/crop`}>
+          <Button asChild size="sm">
+            <Link href={openHref}>
               <PencilLineIcon className="size-4" aria-hidden="true" />
-              Crop workflow
+              Open
             </Link>
           </Button>
         )}
@@ -283,10 +313,11 @@ export function ImagesClient({
         </div>
       )}
 
-      <div className="hidden rounded-md border border-[var(--border-subtle)] bg-[var(--workspace-surface)] px-3 py-2 text-[9px] font-bold uppercase tracking-normal text-[var(--text-dim)] 2xl:grid 2xl:grid-cols-[96px_minmax(0,1.45fr)_118px_94px_142px_164px]">
+      <div className="hidden rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-surface)] px-3 py-2 text-[9px] font-bold uppercase tracking-normal text-[var(--text-dim)] 2xl:grid 2xl:grid-cols-[96px_minmax(0,1.35fr)_108px_78px_108px_142px_132px]">
         <span>Preview</span>
         <span>Image / Filename</span>
         <span>Status</span>
+        <span>Slices</span>
         <span>Mask Versions</span>
         <span>Updated</span>
         <span className="text-right">Actions</span>
