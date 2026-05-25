@@ -32,17 +32,21 @@ export function AppTopbar({ user }: { user: TopbarUser }) {
             alt="SaPen"
             width={132}
             height={30}
-            className="block"
+            className="block h-[30px] w-[132px] object-contain"
             priority
           />
         </Link>
-        <nav aria-label="Primary navigation" className="hidden md:block">
-          <Link
-            href="/app/projects"
-            className="relative inline-flex h-8 items-center pb-2 text-sm font-semibold text-[var(--text-primary)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          >
-            Projects
-          </Link>
+        <nav aria-label="Breadcrumbs" className="hidden min-w-0 text-[11px] text-[var(--text-muted)] md:block">
+          <ol className="flex flex-wrap items-center gap-1.5">
+            <li className="flex items-center gap-1.5">
+              <Link
+                href="/app/projects"
+                className="font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                Projects
+              </Link>
+            </li>
+          </ol>
         </nav>
       </div>
 

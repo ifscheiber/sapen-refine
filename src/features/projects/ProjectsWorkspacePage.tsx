@@ -9,7 +9,6 @@ import {
   WorkspaceMetaRow,
   WorkspacePageHeader,
   WorkspacePageLayout,
-  WorkspaceTopTabs,
   WorkspaceUtilityRail,
   WorkspaceUtilitySection,
 } from "@/components/workspace/WorkspaceLayout";
@@ -91,7 +90,6 @@ export async function ProjectsWorkspacePage({
   if (!activeProject) {
     return (
       <WorkspacePageLayout
-        topTabs={<WorkspaceTopTabs tabs={[{ label: "Projects", href: "/app/projects", active: true }]} />}
         header={
           <WorkspacePageHeader
             title="Projects"
@@ -147,7 +145,6 @@ export async function ProjectsWorkspacePage({
 
   return (
     <WorkspacePageLayout
-      topTabs={<WorkspaceTopTabs tabs={[{ label: "Projects", href: "/app/projects", active: true }]} />}
       header={
         <WorkspacePageHeader
           title="Projects"
