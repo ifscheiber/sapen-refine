@@ -9,8 +9,8 @@ The current editor surfaces support the crop workflow and assisted correction. U
 - `src/features/editor/ImageCropBBoxesPage.tsx` - RB-094 staged image-level BBox route composition using the editor canvas in BBox-stage mode.
 - `src/features/editor/ImageCropSlicesPage.tsx` and `src/features/editor/ImageCropSliceNavigatorClient.tsx` - RB-095 whole-image slice navigator with BBox overlays, selected-slice URL state, status badges, and crop generation/regeneration action.
 - `src/features/editor/EditorClient.tsx` - shared full-image canvas surface for BBox-stage planning and assisted correction only.
-- `src/features/editor/CropSemanticEditorPage.tsx` and `src/features/editor/CropSemanticEditorClient.tsx` - unified crop annotation editor composition, mode-aware support policy, annotation-family lock guardrails, crop support-mask editing, crop semantic-mask editing, and classification/review controls.
-- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` - embedded right-rail slice navigation and BBox-stage re-entry action for crop editors.
+- `src/features/editor/CropSemanticEditorPage.tsx` and `src/features/editor/CropSemanticEditorClient.tsx` - Core-aligned unified crop annotation editor composition, compact editor header/context rows, polygon-first mask tools, mode-aware support policy, annotation-family lock guardrails, crop support-mask editing, crop semantic-mask editing, and classification/review controls.
+- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` - compact embedded right-rail slice navigation and BBox-stage re-entry action for crop editors.
 - `src/features/editor/cropMaskOperations.ts` - shared crop editor brush/polygon helpers, including Copper support-constrained mutations.
 - `src/features/editor/canvasGeometry.ts` - tested helper functions for fit zoom, display size, and pointer-to-image coordinate mapping.
 - `src/features/editor/editorTools.ts` - editor tool helpers, including eraser mode/value mapping.
@@ -40,14 +40,14 @@ The current editor surfaces support the crop workflow and assisted correction. U
 - The base image canvas, overlay canvas, and preview canvas share the image's natural pixel dimensions.
 - CSS display size is controlled by the current zoom value and fit-to-container logic.
 - Pointer-to-image mapping uses the overlay canvas bounding rect and canvas backing dimensions via `src/features/editor/canvasGeometry.ts`.
-- Brush, Eraser, freehand lasso, and polygon lasso all use Pointer Events.
-- The unified crop annotation editor exposes Brush, Eraser, freehand lasso, polygon lasso, undo/redo, fit, zoom, reload, opacity, and save controls against crop-pixel masks. BBox proposal drawing remains limited to the BBox-stage source-image canvas. The editor keeps the opposite annotation family unavailable while the active family has foreground pixels.
+- Brush, freehand Lasso, Polygon, and polygon vertex adjustment all use Pointer Events.
+- The unified crop annotation editor exposes a polygon-first tool surface with Polygon, Lasso, Brush, Background label clearing, undo/redo, fit, zoom, reload, opacity, commit mask, classification save, and review controls against crop-pixel masks. BBox proposal drawing remains limited to the BBox-stage source-image canvas. The editor keeps the opposite annotation family unavailable while the active family has foreground pixels.
 - Crop semantic Brush and lasso operations are mode-aware: Sap/Heartwood edits are unconstrained and use semantic foreground as support geometry, while Copper edits are clipped to explicit support when a support mask exists. Copper drafts can be edited before support exists, but readiness/export still requires approved explicit support.
 - BBox proposal drawing also uses Pointer Events and stores integer source-image pixel rectangles.
 - The unified editor header and embedded slice navigator rail expose `Edit BBoxes`, linking back to `/crop/bboxes` instead of the legacy full-image editor route.
 - Old support/semantic crop routes redirect into the unified editor with the requested initial target.
-- Eraser is a brush-shaped tool. It uses the same size control as Brush, writes semantic background in `Semantic mask` mode, and writes support background in `Slice support` mode.
-- The `Background` label remains selectable; explicit Eraser is a discoverability and repeated-workflow improvement.
+- `Background` is the primary clearing concept. Users select the Background label and apply it with Polygon, Lasso, or Brush.
+- The legacy eraser mapping remains internal compatibility logic only; it writes semantic background in `Semantic mask` mode and support background in `Slice support` mode.
 - The drawing canvas is expected to suppress page scroll while drawing; page scroll should remain available outside the canvas container.
 - `pointercancel` is handled as an interruption, not as a normal lasso completion.
 - Non-primary touch/stylus pointers and non-left mouse buttons are ignored for drawing.

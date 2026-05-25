@@ -34,7 +34,10 @@ export function EditorCanvasStack({
   onCommitPolygon,
 }: EditorCanvasStackProps) {
   return (
-    <div ref={containerRef} className="relative h-[70vh] w-full overflow-auto overscroll-contain bg-background">
+    <div
+      ref={containerRef}
+      className="relative h-[calc(100dvh-24rem)] min-h-[28rem] w-full overflow-auto overscroll-contain bg-[var(--workspace-background)]"
+    >
       <div className="relative inline-block">
         <canvas ref={baseCanvasRef} className="block" />
         <canvas

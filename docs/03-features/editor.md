@@ -97,11 +97,11 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 
 ## Current Save And History Model
 
-- Brush, eraser, and lasso operations write to a `MaskBuffer` in memory.
-- The eraser uses the same brush radius and pointer path as Brush. In semantic mode it writes `Labels.BG`; in slice-support mode it writes the current support background value.
-- The unified crop annotation editor exposes the same core pixel tools as the full editor: Brush, Eraser, freehand lasso, polygon lasso, undo/redo, opacity, fit, zoom, reload, and save. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
+- Brush, Lasso, Polygon, and Background clearing operations write to a `MaskBuffer` in memory.
+- Clearing is presented as selecting the `Background` label and applying it with Polygon, Lasso, or Brush. The legacy eraser mapping remains internal compatibility logic: in semantic mode it writes `Labels.BG`; in slice-support mode it writes the current support background value.
+- The unified crop annotation editor exposes compact Core-aligned controls against crop-pixel masks: Polygon, freehand Lasso, Brush, Background label clearing, undo/redo, opacity, fit, zoom, reload, commit mask, classification save, and review actions. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
 - Crop editor brush and polygon mutations go through `src/features/editor/cropMaskOperations.ts`. Sap/Heartwood crop semantic edits and crop support edits are unconstrained crop-space operations. Copper semantic edits are clipped to explicit support when a support mask exists; supportless Copper drafts remain editable but are not export-ready.
-- Painting the explicit `Background` label remains valid. The eraser is a discoverable shortcut for repeated annotation work.
+- Painting the explicit `Background` label is the primary clearing workflow. This keeps erasing consistent with the label model because all tools apply labels, including Background.
 - Undo/redo stores patch arrays in refs and applies patches back into the mask buffer.
 - Autosave debounces dirty mask writes after edits.
 - RB-045 exposes dirty/saving state in the editor toolbar and guards browser unload while unsaved edits exist.
@@ -255,7 +255,7 @@ Current RB-088 behavior:
 
 - The selected derived crop opens the unified crop editor and can select the `Cu / Support mask` family.
 - The support target displays the private crop PNG in crop coordinates and edits a crop-sized support mask.
-- Brush and eraser tools write only background or the active `slice_support` byte.
+- Brush, Lasso, and Polygon write only background or the active `slice_support` byte when the support target is active.
 - Saving creates a new draft `SLICE_SUPPORT_MASK` artifact version with `coordinateSpace = CROP_PIXEL`.
 - The saved version is linked to the source image, slice instance, and derived crop, and can be reloaded from the crop editor.
 - Crop support-mask saves validate exact crop dimensions and reject Copper semantic bytes as support geometry.

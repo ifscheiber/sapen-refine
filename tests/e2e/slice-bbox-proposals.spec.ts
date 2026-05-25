@@ -54,13 +54,13 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: /Crop annotation editor:/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByLabel("Slice navigator")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Lasso" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Polygon" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lasso", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Polygon", exact: true })).toBeVisible();
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit BBoxes" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Editor" })).toHaveCount(0);
@@ -90,7 +90,7 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   }).toBe(1);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Crop annotation editor:/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByLabel("Slice navigator")).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit BBoxes" }).first()).toBeVisible();
@@ -135,5 +135,5 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: /Crop annotation editor:/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
 });

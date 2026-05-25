@@ -97,7 +97,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByText("BBox set confirmed")).toBeVisible();
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: /Crop annotation editor:/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
@@ -112,39 +112,41 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   expect(semanticBox).not.toBeNull();
   if (!semanticBox) return;
 
+  await page.getByRole("button", { name: "Brush", exact: true }).click();
   await page.mouse.move(semanticBox.x + semanticBox.width * 0.35, semanticBox.y + semanticBox.height * 0.45);
   await page.mouse.down();
   await page.mouse.move(semanticBox.x + semanticBox.width * 0.65, semanticBox.y + semanticBox.height * 0.55, { steps: 8 });
   await page.mouse.up();
 
-  await page.getByRole("button", { name: "Eraser" }).click();
-  await expect(page.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Background" }).click();
+  await expect(page.getByRole("button", { name: "Background" })).toHaveAttribute("aria-pressed", "true");
   await page.mouse.move(semanticBox.x + semanticBox.width * 0.45, semanticBox.y + semanticBox.height * 0.5);
   await page.mouse.down();
   await page.mouse.move(semanticBox.x + semanticBox.width * 0.5, semanticBox.y + semanticBox.height * 0.5, { steps: 4 });
   await page.mouse.up();
 
   await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save Sap/Heartwood semantic mask" }).click();
+  await page.getByRole("button", { name: "Commit Sap/Heartwood semantic mask" }).click();
   await expect(page.getByText(/Saved; suggested Sap\/Heartwood slice|Saved/)).toBeVisible();
   await expect(page.getByText(/Classification: Sap\/Heartwood slice/)).toBeVisible();
 
-  const reviewRows = page.locator("div.flex.min-h-11.items-center.gap-1");
-  const semanticReview = reviewRows.filter({ hasText: /Sap\/Heartwood: Draft v\d+/ }).first();
+  const semanticRows = page.locator("[data-review-target='semantic-SAP_HEARTWOOD']");
+  const classificationRows = page.locator("[data-review-target='classification']");
+  const semanticReview = semanticRows.filter({ hasText: /Sap\/Heartwood: Draft v\d+/ }).first();
   await expect(semanticReview).toBeVisible();
   await semanticReview.getByRole("button", { name: "Submit" }).click();
-  const submittedSemanticReview = reviewRows.filter({ hasText: /Sap\/Heartwood: Submitted v\d+/ }).first();
+  const submittedSemanticReview = semanticRows.filter({ hasText: /Sap\/Heartwood: Submitted v\d+/ }).first();
   await expect(submittedSemanticReview).toBeVisible();
   await submittedSemanticReview.getByRole("button", { name: "Approve" }).click();
-  await expect(reviewRows.filter({ hasText: /Sap\/Heartwood: Approved v\d+/ }).first()).toBeVisible();
+  await expect(semanticRows.filter({ hasText: /Sap\/Heartwood: Approved v\d+/ }).first()).toBeVisible();
 
-  const classificationReview = reviewRows.filter({ hasText: /Classification: Draft v\d+/ }).first();
+  const classificationReview = classificationRows.filter({ hasText: /Classification: Draft v\d+/ }).first();
   await expect(classificationReview).toBeVisible();
   await classificationReview.getByRole("button", { name: "Submit" }).click();
-  const submittedClassificationReview = reviewRows.filter({ hasText: /Classification: Submitted v\d+/ }).first();
+  const submittedClassificationReview = classificationRows.filter({ hasText: /Classification: Submitted v\d+/ }).first();
   await expect(submittedClassificationReview).toBeVisible();
   await submittedClassificationReview.getByRole("button", { name: "Approve" }).click();
-  await expect(reviewRows.filter({ hasText: /Classification: Approved v\d+/ }).first()).toBeVisible();
+  await expect(classificationRows.filter({ hasText: /Classification: Approved v\d+/ }).first()).toBeVisible();
   await expect(page.getByText("Export readiness: ready")).toBeVisible();
 
   await expect.poll(async () => {
