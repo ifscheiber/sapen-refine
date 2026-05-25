@@ -68,9 +68,10 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("heading", { name: "BBox status" })).toBeVisible();
   await expect(page.getByText("0 valid · 0 issues")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add BBox" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add BBox" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete selected BBox" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Resize" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Regenerate slices" })).toHaveCount(0);
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await expect(drawingSurface).toBeVisible();
@@ -156,9 +157,8 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
   await expect(page.getByText("Prepared")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add BBox" })).toBeDisabled();
-  await page.getByRole("button", { name: "Unlock BBox editing" }).click();
-  await expect(page.getByLabel("BBox tools").getByText("BBox editing unlocked")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add BBox" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Unlock BBox editing" })).toHaveCount(0);
 
   const replacementSurface = page.getByLabel("Mask drawing surface");
   await replacementSurface.scrollIntoViewIfNeeded();

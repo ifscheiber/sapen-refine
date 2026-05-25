@@ -1,6 +1,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { MaskBuffer } from "@/mask/maskBuffer";
 import { DEFAULT_LABELS, Labels, supportMaskLabels, type LabelId } from "@/mask/labels";
 import { applyBrush, applyPolygonFill } from "@/mask/tools";
@@ -47,7 +55,6 @@ import {
   API_SUPPORT_MASK_UPLOAD,
 } from "./editorApi";
 import {
-  BBOX_STAGE_UNLOCK_EVENT,
   type BBoxSaveState,
   dispatchBBoxStageStatus,
 } from "./bboxStageEvents";
@@ -60,12 +67,12 @@ import {
 } from "./editorFormatters";
 import { uploadEditorMask } from "./editorMaskUpload";
 import { capturePointer, releasePointer, shouldIgnorePointerDown } from "./editorPointer";
+import { activeButtonClass, idleButtonClass } from "./editorStyles";
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
   type CorrectionContext,
   type CropWorkflowReadinessCandidate,
   type DerivedSliceCrop,
-  type BBoxEditTool,
   type EditorProps,
   type ImageBBoxWorkflowState,
   type ImageReviewState,
@@ -103,6 +110,12 @@ type BBoxDragState =
       handle: BBoxResizeHandle;
       initialRect: ImageRect;
     };
+
+type PendingBBoxInvalidationAction =
+  | { kind: "replace"; bboxVersionId: string; rect: ImageRect }
+  | { kind: "delete"; bboxVersionId: string };
+
+const BBOX_MIN_DRAW_SIZE_PX = 4;
 
 type EditorImageView = {
   url: string;
@@ -230,9 +243,9 @@ export default function EditorClient({
   const [bboxSaveState, setBBoxSaveState] = useState<BBoxSaveState>("idle");
   const [bboxConfirming, setBBoxConfirming] = useState(false);
   const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
-  const [bboxEditTool, setBBoxEditTool] = useState<BBoxEditTool>("add");
   const [bboxReplaceArmed, setBBoxReplaceArmed] = useState(false);
-  const [bboxConfirmedEditUnlocked, setBBoxConfirmedEditUnlocked] = useState(false);
+  const [pendingBBoxInvalidation, setPendingBBoxInvalidation] =
+    useState<PendingBBoxInvalidationAction | null>(null);
   const [bboxCanvasReadyRevision, setBBoxCanvasReadyRevision] = useState(0);
   const [bboxPreviewMetadata, setBBoxPreviewMetadata] = useState<BBoxPreviewMetadata | null>(null);
 
@@ -241,11 +254,7 @@ export default function EditorClient({
   const isBBoxStageMode = workflowMode === "bboxStage";
   const editorCanEdit = canEdit && editorReady;
   const canEditBBox = editorCanEdit && !isCorrectionMode;
-  const bboxStageLocked =
-    isBBoxStageMode &&
-    bboxWorkflow?.bboxSetStatus === "BBOX_CONFIRMED" &&
-    !bboxConfirmedEditUnlocked;
-  const canMutateBBox = canEditBBox && !bboxStageLocked;
+  const canMutateBBox = canEditBBox;
   const cropWorkflowSlicesHref = `/app/projects/${projectId}/images/${imageId}/crop/slices`;
 
   const supportLabelValue = sliceState?.supportLabels.sliceSupport ?? Labels.SLICE_SUPPORT;
@@ -312,6 +321,7 @@ export default function EditorClient({
     redo: () => void;
     resetLasso: () => void;
     commitLasso: (points: Point[]) => void;
+    deleteSelectedBBox: () => void;
   } | null>(null);
 
   const loadSliceState = useCallback(async () => {
@@ -353,9 +363,6 @@ export default function EditorClient({
     setBBoxWorkflow(workflow);
     setBBoxIssues(issues);
     setBBoxSummary(summary);
-    if (workflow?.bboxSetStatus === "BBOX_CONFIRMED") {
-      setBBoxConfirmedEditUnlocked(false);
-    }
     setSelectedBBoxId((current) => {
       if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
       return null;
@@ -434,21 +441,8 @@ export default function EditorClient({
 
   useEffect(() => {
     if (!isBBoxStageMode) return;
-    const handleUnlock = () => {
-      setBBoxConfirmedEditUnlocked(true);
-      setTool("bbox");
-      setBBoxEditTool("select");
-      setBBoxStatus("BBox editing unlocked");
-      dispatchBBoxStageStatus({ lastAction: "BBox editing unlocked" });
-    };
-    window.addEventListener(BBOX_STAGE_UNLOCK_EVENT, handleUnlock);
-    return () => window.removeEventListener(BBOX_STAGE_UNLOCK_EVENT, handleUnlock);
-  }, [isBBoxStageMode]);
-
-  useEffect(() => {
-    if (!isBBoxStageMode || bboxProposals.length > 0) return;
-    setBBoxEditTool("add");
-  }, [bboxProposals.length, isBBoxStageMode]);
+    dispatchBBoxStageStatus({ selectedBBoxId });
+  }, [isBBoxStageMode, selectedBBoxId]);
 
   // ---------- helpers ----------
   const getPalette = useCallback(() => {
@@ -1328,9 +1322,18 @@ export default function EditorClient({
     return formatBBoxErrorMessage(error, fallback);
   }
 
-  function selectedBBoxProtectionMessage(box: SliceBoundingBoxProposal | null) {
-    if (!box?.protection?.reasons.length) return null;
-    return "Cannot edit geometry: semantic/support or classification data exists for this slice.";
+  function bboxLockReasonLabel(reason: string) {
+    if (reason === "SEMANTIC_MASK_EXISTS") return "semantic mask exists";
+    if (reason === "SUPPORT_MASK_EXISTS") return "support mask exists";
+    if (reason === "INSTANCE_MASK_EXISTS") return "instance/support mask exists";
+    if (reason === "CLASSIFICATION_EXISTS") return "classification exists";
+    return reason.toLowerCase().replaceAll("_", " ");
+  }
+
+  function bboxLockMessage(box: SliceBoundingBoxProposal | null) {
+    const reasons = box?.protection?.reasons ?? [];
+    if (reasons.length === 0) return "Locked: this BBox already has downstream annotation.";
+    return `Locked: ${reasons.map(bboxLockReasonLabel).join(", ")}.`;
   }
 
   function hitTestBBoxAtPoint(point: Point) {
@@ -1363,7 +1366,10 @@ export default function EditorClient({
     return resizeImageRect(drag.initialRect, drag.handle, point, bounds);
   }
 
-  async function saveBBoxProposal(rect: ImageRect, options?: { replaceBBoxId?: string | null }) {
+  async function saveBBoxProposal(
+    rect: ImageRect,
+    options?: { replaceBBoxId?: string | null; allowDependencyInvalidation?: boolean },
+  ) {
     if (!canMutateBBox) return;
 
     const originalRect = bboxOriginalRectFromPreview(rect);
@@ -1372,10 +1378,11 @@ export default function EditorClient({
     const replacingBox = replaceBBoxId
       ? bboxProposals.find((box) => box.bboxVersionId === replaceBBoxId) ?? null
       : null;
-    if (replacingBox && !(replacingBox.protection?.canReplaceGeometry ?? true)) {
-      const message = formatBBoxErrorMessage(new Error("BBOX_GEOMETRY_PROTECTED_DEPENDENCIES"));
+    if (replacingBox && !(replacingBox.protection?.canReplaceGeometry ?? true) && !options?.allowDependencyInvalidation) {
+      setPendingBBoxInvalidation({ kind: "replace", bboxVersionId: replaceBBoxId!, rect });
+      const message = bboxLockMessage(replacingBox);
       setBBoxStatus(message);
-      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message });
+      dispatchBBoxStageStatus({ lastAction: message });
       return;
     }
     if (bboxOverlapsExistingOriginal(originalRect, replaceBBoxId)) {
@@ -1396,7 +1403,10 @@ export default function EditorClient({
       const res = await fetch(url, {
         method,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(originalRect),
+        body: JSON.stringify({
+          ...originalRect,
+          allowDependencyInvalidation: options?.allowDependencyInvalidation === true,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
@@ -1408,7 +1418,6 @@ export default function EditorClient({
       await loadCropReadiness();
       setSelectedBBoxId(data.box.bboxVersionId);
       setBBoxReplaceArmed(false);
-      if (!replacing) setBBoxEditTool("select");
       const savedMessage = replacing ? "BBox proposal replaced" : "BBox proposal saved";
       setBBoxSaveState("saved");
       setBBoxStatus(savedMessage);
@@ -1421,13 +1430,17 @@ export default function EditorClient({
     }
   }
 
-  async function deleteSelectedBBoxProposal(bboxVersionId = selectedBBoxId) {
+  async function deleteSelectedBBoxProposal(
+    bboxVersionId = selectedBBoxId,
+    options?: { allowDependencyInvalidation?: boolean },
+  ) {
     if (!canMutateBBox || !bboxVersionId) return;
     const box = bboxProposals.find((candidate) => candidate.bboxVersionId === bboxVersionId) ?? null;
-    if (box && !(box.protection?.canDelete ?? true)) {
-      const message = formatBBoxErrorMessage(new Error("BBOX_DELETE_PROTECTED_DEPENDENCIES"));
+    if (box && !(box.protection?.canDelete ?? true) && !options?.allowDependencyInvalidation) {
+      setPendingBBoxInvalidation({ kind: "delete", bboxVersionId });
+      const message = bboxLockMessage(box);
       setBBoxStatus(message);
-      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message });
+      dispatchBBoxStageStatus({ lastAction: message });
       return;
     }
 
@@ -1435,7 +1448,13 @@ export default function EditorClient({
     setBBoxStatus("Deleting BBox proposal");
     dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Deleting BBox proposal" });
     try {
-      const res = await fetch(API_SLICE_BBOX(bboxVersionId), { method: "DELETE" });
+      const res = await fetch(API_SLICE_BBOX(bboxVersionId), {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          allowDependencyInvalidation: options?.allowDependencyInvalidation === true,
+        }),
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error ?? `BBOX_DELETE_FAILED_${res.status}`);
@@ -1455,6 +1474,20 @@ export default function EditorClient({
       setBBoxStatus(message);
       dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
     }
+  }
+
+  async function confirmPendingBBoxInvalidation() {
+    const pending = pendingBBoxInvalidation;
+    if (!pending) return;
+    setPendingBBoxInvalidation(null);
+    if (pending.kind === "replace") {
+      await saveBBoxProposal(pending.rect, {
+        replaceBBoxId: pending.bboxVersionId,
+        allowDependencyInvalidation: true,
+      });
+      return;
+    }
+    await deleteSelectedBBoxProposal(pending.bboxVersionId, { allowDependencyInvalidation: true });
   }
 
   async function generateSelectedSliceCrop() {
@@ -1513,7 +1546,6 @@ export default function EditorClient({
       setBBoxWorkflow(workflow);
       setBBoxIssues(issues);
       setBBoxSummary(summary);
-      setBBoxConfirmedEditUnlocked(false);
       setSelectedBBoxId((current) => {
         if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
         return boxes[0]?.bboxVersionId ?? null;
@@ -1623,18 +1655,7 @@ export default function EditorClient({
         setSelectedBBoxId(hit.box.bboxVersionId);
         setBBoxReplaceArmed(false);
 
-        if (bboxEditTool === "delete") {
-          void deleteSelectedBBoxProposal(hit.box.bboxVersionId);
-          return;
-        }
-
         if (!canMutateBBox) return;
-
-        const protectionMessage = selectedBBoxProtectionMessage(hit.box);
-        if (protectionMessage) {
-          setBBoxStatus(protectionMessage);
-          return;
-        }
 
         const rect = bboxPreviewRect(hit.box);
         const hitTarget = hit.hit as BBoxHitTarget;
@@ -1650,11 +1671,6 @@ export default function EditorClient({
           return;
         }
 
-        if (bboxEditTool === "resize") {
-          setBBoxStatus("Drag a selected BBox handle to resize.");
-          return;
-        }
-
         bboxDragRef.current = {
           kind: "move",
           bboxVersionId: hit.box.bboxVersionId,
@@ -1666,15 +1682,13 @@ export default function EditorClient({
         return;
       }
 
-      if (bboxEditTool === "add") {
-        if (!canMutateBBox) return;
-        bboxDragRef.current = { kind: "add", start: p };
-        capturePointer(target, e.pointerId);
-        drawBBoxPreview(imageRectFromPoints(p, p));
+      if (!canMutateBBox) {
+        setSelectedBBoxId(null);
         return;
       }
-
-      setSelectedBBoxId(null);
+      bboxDragRef.current = { kind: "add", start: p };
+      capturePointer(target, e.pointerId);
+      drawBBoxPreview(imageRectFromPoints(p, p));
       return;
     }
 
@@ -1822,7 +1836,19 @@ export default function EditorClient({
         const end = canvasToImageCoords(e);
         const rect = rectForBBoxDrag(drag, end);
         const replaceBBoxId = drag.kind === "add" ? (bboxReplaceArmed ? selectedBBoxId : null) : drag.bboxVersionId;
-        if (bboxOverlapsExistingOriginal(bboxOriginalRectFromPreview(rect), replaceBBoxId)) {
+        const originalRect = bboxOriginalRectFromPreview(rect);
+        if (
+          drag.kind === "add" &&
+          (Math.abs(end.x - drag.start.x) < BBOX_MIN_DRAW_SIZE_PX ||
+            Math.abs(end.y - drag.start.y) < BBOX_MIN_DRAW_SIZE_PX ||
+            originalRect.width < BBOX_MIN_DRAW_SIZE_PX ||
+            originalRect.height < BBOX_MIN_DRAW_SIZE_PX)
+        ) {
+          setSelectedBBoxId(null);
+          setBBoxReplaceArmed(false);
+          return;
+        }
+        if (bboxOverlapsExistingOriginal(originalRect, replaceBBoxId)) {
           setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
           return;
         }
@@ -1981,6 +2007,7 @@ export default function EditorClient({
     redo,
     resetLasso,
     commitLasso,
+    deleteSelectedBBox: () => void deleteSelectedBBoxProposal(),
   };
 
   // keyboard shortcuts
@@ -2010,6 +2037,15 @@ export default function EditorClient({
         e.preventDefault();
         actions.commitLasso(lassoPointsRef.current.slice());
       }
+
+      if (actions.tool === "bbox" && (e.key === "Delete" || e.key === "Backspace")) {
+        const target = e.target;
+        const tagName = target instanceof HTMLElement ? target.tagName.toLowerCase() : "";
+        if (tagName === "input" || tagName === "textarea" || target instanceof HTMLSelectElement) return;
+        if (target instanceof HTMLElement && target.isContentEditable) return;
+        e.preventDefault();
+        actions.deleteSelectedBBox();
+      }
     };
 
     window.addEventListener("keydown", onKey);
@@ -2029,15 +2065,59 @@ export default function EditorClient({
         reviewState.reviewables.sliceClassification,
       ]
     : [];
+  const pendingInvalidationBox = pendingBBoxInvalidation
+    ? bboxProposals.find((box) => box.bboxVersionId === pendingBBoxInvalidation.bboxVersionId) ?? null
+    : null;
+  const pendingInvalidationReasons = pendingInvalidationBox?.protection?.reasons ?? [];
 
   return (
-    <div
-      className={
-        isBBoxStageMode
-          ? "overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-background)] text-[var(--text-primary)]"
-          : "overflow-hidden rounded-lg border border-border bg-card text-card-foreground"
-      }
-    >
+    <>
+      <Dialog
+        open={Boolean(pendingBBoxInvalidation)}
+        onOpenChange={(open) => {
+          if (!open) setPendingBBoxInvalidation(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invalidate downstream annotations?</DialogTitle>
+            <DialogDescription>
+              This BBox already has semantic, support, or classification data for its generated slice.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Changing it will supersede the existing downstream annotations and regenerate the slice from the new
+              BBox geometry. This cannot be undone automatically.
+            </p>
+            {pendingInvalidationReasons.length > 0 ? (
+              <div>
+                <div className="font-medium text-foreground">Will supersede:</div>
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  {pendingInvalidationReasons.map((reason) => (
+                    <li key={reason}>{bboxLockReasonLabel(reason)}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <button type="button" className={idleButtonClass} onClick={() => setPendingBBoxInvalidation(null)}>
+              Cancel
+            </button>
+            <button type="button" className={activeButtonClass} onClick={() => void confirmPendingBBoxInvalidation()}>
+              Invalidate annotations and unlock BBox
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <div
+        className={
+          isBBoxStageMode
+            ? "overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-background)] text-[var(--text-primary)]"
+            : "overflow-hidden rounded-lg border border-border bg-card text-card-foreground"
+        }
+      >
       <div
         className={
           isBBoxStageMode
@@ -2093,13 +2173,11 @@ export default function EditorClient({
           crops={sliceCrops}
           cropReadinessCandidates={cropReadinessCandidates}
           selectedBBoxId={selectedBBoxId}
-          bboxTool={bboxEditTool}
           bboxIssues={bboxIssues}
           bboxSummary={bboxSummary}
           replaceArmed={bboxReplaceArmed}
           bboxWorkflow={bboxWorkflow}
           stageMode={isBBoxStageMode}
-          editingConfirmedSet={bboxConfirmedEditUnlocked}
           confirmBusy={bboxConfirming}
           canEdit={canMutateBBox}
           canUnlockConfirmedSet={canEditBBox}
@@ -2113,13 +2191,6 @@ export default function EditorClient({
             setSelectedBBoxId(bboxVersionId);
             setBBoxReplaceArmed(false);
           }}
-          onBBoxToolChange={(nextTool) => {
-            setBBoxEditTool(nextTool);
-            setTool("bbox");
-            setBBoxReplaceArmed(false);
-            if (nextTool === "add") setBBoxStatus("Drag on the source image to add a BBox.");
-            if (nextTool === "select") setBBoxStatus("Select, move, or drag handles on editable BBoxes.");
-          }}
           onArmReplace={() => {
             setTool("bbox");
             setBBoxReplaceArmed(true);
@@ -2128,12 +2199,6 @@ export default function EditorClient({
           onDelete={() => void deleteSelectedBBoxProposal()}
           onGenerateCrop={() => void generateSelectedSliceCrop()}
           onConfirmBBoxSet={() => void confirmBBoxSet()}
-          onEditConfirmedSet={() => {
-            setBBoxConfirmedEditUnlocked(true);
-            setTool("bbox");
-            setBBoxEditTool("select");
-            setBBoxStatus("BBox editing enabled. Confirm the set again after changes.");
-          }}
           continueHref={cropWorkflowSlicesHref}
         />
 
@@ -2176,6 +2241,7 @@ export default function EditorClient({
         onPointerLeave={onPointerLeave}
         onCommitPolygon={() => commitLasso(lassoPointsRef.current.slice())}
       />
-    </div>
+      </div>
+    </>
   );
 }

@@ -38,8 +38,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/slice-bboxes` - lists current active source-image BBox proposals for project members.
 - `POST /api/images/[imageId]/slice-bboxes` - creates a new slice instance plus first active BBox proposal version for editable project roles.
 - `POST /api/images/[imageId]/slice-bboxes/confirm` - confirms the current active image-level BBox set as crop workflow planning state for editable project roles; it rejects empty sets with `BBOX_SET_EMPTY`.
-- `PATCH /api/slice-bboxes/[bboxVersionId]` - appends a replacement active BBox version when the referenced version is still current.
-- `DELETE /api/slice-bboxes/[bboxVersionId]` - appends a deleted BBox version and clears the current slice-instance BBox summary.
+- `PATCH /api/slice-bboxes/[bboxVersionId]` - appends a replacement active BBox version when the referenced version is still current; optional `allowDependencyInvalidation` supersedes active downstream slice annotations before replacing a protected BBox.
+- `DELETE /api/slice-bboxes/[bboxVersionId]` - appends a deleted BBox version and clears the current slice-instance BBox summary; optional `allowDependencyInvalidation` supersedes active downstream slice annotations before deleting a protected BBox.
 - `GET /api/images/[imageId]/slice-crops` - lists sanitized derived slice crop metadata for project members.
 - `POST /api/images/[imageId]/slice-crops/ensure` - idempotently ensures current derived crops exist for the image or selected slice, reusing the existing crop generator and returning sanitized crop metadata.
 - `POST /api/slice-bboxes/[bboxVersionId]/crop` - generates a private PNG derived crop from a current active BBox version for editable project roles.

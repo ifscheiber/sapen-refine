@@ -29,9 +29,9 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Enter T-number and basic acquisition metadata. | Metadata saves successfully. |  |  |
 | Reload image metadata. | T-number and acquisition fields persist. |  |  |
 | Open crop workflow. | The image-level BBox stage opens; no `Open editor` or `Full editor` action is visible. |  |  |
-| Select `BBox proposal` and draw a rough rectangle around a slice. | A slice proposal appears in the BBox list and is clearly labeled as a proposal, not ground truth. |  |  |
+| Drag empty image space to draw a rough rectangle around a slice. | A slice proposal appears in the BBox status rail and is clearly labeled as a proposal, not ground truth. |  |  |
 | Click `Generate crop` for the selected BBox proposal. | A crop preview appears with crop dimensions, padding metadata, and crop readiness showing missing support/semantic/classification rather than export-ready. |  |  |
-| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu family choices, support/semantic/classification/readiness status, and the whole-image slice navigator. |  |  |
+| Click `Semantic Masks`. | Slice preparation runs automatically and the unified crop annotation editor opens directly with Sapwood/Heartwood and Cu family choices, support/semantic/classification/readiness status, and the whole-image slice navigator. |  |  |
 | Use Sapwood/Heartwood before support exists. | The editor states that support geometry derives from semantic foreground. |  |  |
 | Save a Sapwood/Heartwood semantic draft, then inspect Cu for the same crop. | Cu is unavailable until Sapwood/Heartwood pixels are cleared; no reset flow silently supersedes the opposite family. |  |  |
 | On a fresh crop or after clearing Sapwood/Heartwood, choose Cu and the Cu label. | Copper draft editing is allowed while export readiness still requires approved explicit support. |  |  |
@@ -40,8 +40,9 @@ This checklist verifies the current desktop browser MVP workflow after the RB-06
 | Draw and erase support, then click `Commit support mask`. | A draft crop support mask saves, reloads, remains linked to the crop, and exposes submit/review actions according to role; Sapwood/Heartwood labels are not shown while the Support label is active. |  |  |
 | Submit and approve the Copper crop support mask, semantic mask, and classification. | Crop readiness can become ready only after approved explicit support, approved Copper semantic, and approved classification exist. |  |  |
 | Choose the Cu target after support exists. | The editor shows the support overlay and constrains Copper edits to support pixels. |  |  |
-| From the crop editor, click `Edit BBoxes`. | Browser lands on `/crop/bboxes`; confirmed BBoxes are visible, mutation controls are locked, and no `Editor` or `Full editor` crop-workflow link is visible. |  |  |
-| Click the BBox-stage `Unlock BBox editing`, replace or delete a proposal, then click `Prepare slices`. | The workflow changes to `BBOX_NEEDS_UPDATE`, slice preparation becomes available, and `Open slice annotation` returns to crop annotation after preparation. |  |  |
+| From the crop editor, click `Edit BBoxes`. | Browser lands on `/crop/bboxes`; confirmed BBoxes are visible, editable BBoxes can be moved directly, and no `Editor` or `Full editor` crop-workflow link is visible. |  |  |
+| Replace or delete an editable BBox, then leave the BBox tab for `Semantic Masks`. | The workflow changes to `BBOX_NEEDS_UPDATE`, the tab switch prepares slices automatically, and the browser returns to crop annotation after preparation. |  |  |
+| Try to move or delete a BBox that already has semantic/support/classification data. | A confirmation dialog explains that downstream annotations will be invalidated; cancel preserves data, confirm supersedes downstream versions and permits the BBox change. |  |  |
 | Paint Sapwood/Heartwood inside support and save. | A draft crop semantic mask saves, reloads, records the current support version as its constraint, creates a draft auto slice-classification suggestion, and exposes support/semantic/classification review actions. |  |  |
 | Override the crop slice classification. | A new manual classification version is saved without replacing the auto suggestion. |  |  |
 | Paint near the support boundary. | Brush changes are constrained to support pixels; outside-support semantic foreground cannot be saved. |  |  |

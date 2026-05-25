@@ -2,15 +2,12 @@ import Link from "next/link";
 import {
   Maximize2Icon,
   SearchIcon,
-  SquarePlusIcon,
   Trash2Icon,
 } from "lucide-react";
 
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/components/ui/utils";
 import type {
-  BBoxEditTool,
   CropWorkflowReadinessCandidate,
   DerivedSliceCrop,
   ImageBBoxWorkflowState,
@@ -24,7 +21,6 @@ import {
   activeButtonClass,
   canvasToolbarContentClass,
   canvasToolbarDividerClass,
-  canvasToolbarIconButtonActiveClass,
   canvasToolbarIconButtonClass,
   canvasToolbarShellClass,
   canvasToolbarZoomSliderClass,
@@ -38,7 +34,6 @@ type EditorBBoxPanelProps = {
   crops: DerivedSliceCrop[];
   cropReadinessCandidates: CropWorkflowReadinessCandidate[];
   selectedBBoxId: string | null;
-  bboxTool?: BBoxEditTool;
   bboxIssues?: SliceBBoxOverlapIssue[];
   bboxSummary?: SliceBBoxSummary | null;
   replaceArmed: boolean;
@@ -51,7 +46,6 @@ type EditorBBoxPanelProps = {
   status: string;
   saveState?: BBoxSaveState;
   onSelect: (bboxVersionId: string) => void;
-  onBBoxToolChange?: (tool: BBoxEditTool) => void;
   onArmReplace: () => void;
   onDelete: () => void;
   onGenerateCrop: () => void;
@@ -82,14 +76,12 @@ export function EditorBBoxPanel({
   crops,
   cropReadinessCandidates,
   selectedBBoxId,
-  bboxTool = "select",
   replaceArmed,
   stageMode = false,
   canEdit,
   status,
   saveState,
   onSelect,
-  onBBoxToolChange,
   onArmReplace,
   onDelete,
   onGenerateCrop,
@@ -106,7 +98,7 @@ export function EditorBBoxPanel({
   const selectedCropReadiness = selectedCrop
     ? cropReadinessCandidates.find((candidate) => candidate.crop.id === selectedCrop.id) ?? null
     : null;
-  const selectedCanDelete = Boolean(selected && canEdit && (selected.protection?.canDelete ?? true));
+  const selectedCanDelete = Boolean(selected && canEdit);
   const zoomTitle = bboxPreviewMetadata
     ? `Preview ${bboxPreviewMetadata.previewWidth} x ${bboxPreviewMetadata.previewHeight} from ${bboxPreviewMetadata.originalWidth} x ${bboxPreviewMetadata.originalHeight}`
     : "Zoom preview";
@@ -121,24 +113,6 @@ export function EditorBBoxPanel({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-pressed={bboxTool === "add"}
-                  className={cn(
-                    canvasToolbarIconButtonClass,
-                    bboxTool === "add" && canvasToolbarIconButtonActiveClass,
-                  )}
-                  onClick={() => onBBoxToolChange?.(bboxTool === "add" ? "select" : "add")}
-                  disabled={!canEdit}
-                >
-                  <SquarePlusIcon className="size-4" aria-hidden="true" />
-                  <span className="sr-only">Add BBox</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Add BBox</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
                   className={canvasToolbarIconButtonClass}
                   onClick={onDelete}
                   disabled={!selectedCanDelete}
@@ -148,7 +122,7 @@ export function EditorBBoxPanel({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                {selectedCanDelete ? "Delete selected BBox" : "Select an editable BBox to delete"}
+                {selected ? "Delete selected BBox" : "Select a BBox to delete"}
               </TooltipContent>
             </Tooltip>
           </div>

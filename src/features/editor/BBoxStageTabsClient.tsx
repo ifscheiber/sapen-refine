@@ -54,14 +54,21 @@ export function BBoxStageTabsClient({
     if (busyTarget) return;
     setBusyTarget(target);
     setStatus("");
-    dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Preparing slices", refresh: true });
+    dispatchBBoxStageStatus({
+      saveState: "saving",
+      lastAction: "Preparing slices",
+      refresh: true,
+      sliceGenerationRetryAvailable: false,
+    });
 
+    let confirmed = false;
     try {
       const confirmResponse = await fetch(API_CONFIRM_SLICE_BBOX_SET(imageId), { method: "POST" });
       const confirmBody = await confirmResponse.json().catch(() => null);
       if (!confirmResponse.ok || !confirmBody?.ok) {
         throw new Error(confirmBody?.error ?? `BBOX_CONFIRM_FAILED_${confirmResponse.status}`);
       }
+      confirmed = true;
 
       const ensureResponse = await fetch(API_ENSURE_SLICE_CROPS(imageId), {
         method: "POST",
@@ -75,13 +82,23 @@ export function BBoxStageTabsClient({
 
       const crops = (ensureBody.crops ?? []) as EnsuredCrop[];
       const crop = crops[0] ?? null;
-      dispatchBBoxStageStatus({ saveState: "saved", lastAction: "Slices prepared", refresh: true });
+      dispatchBBoxStageStatus({
+        saveState: "saved",
+        lastAction: "Slices prepared",
+        refresh: true,
+        sliceGenerationRetryAvailable: false,
+      });
       router.push(targetHref({ projectId, imageId, crop, target }));
       router.refresh();
     } catch (error) {
       const message = formatBBoxErrorMessage(error, "Slice preparation failed");
       setStatus(message);
-      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
+      dispatchBBoxStageStatus({
+        saveState: "failed",
+        lastAction: message,
+        refresh: true,
+        sliceGenerationRetryAvailable: confirmed,
+      });
     } finally {
       setBusyTarget(null);
     }

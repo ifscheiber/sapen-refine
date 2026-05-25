@@ -27,6 +27,7 @@ export const PATCH = withApiErrorHandling(async function PATCH(
       bboxVersionId,
       userId: user.id,
       box: body ?? {},
+      allowDependencyInvalidation: Boolean(body?.allowDependencyInvalidation),
     });
     return NextResponse.json({ ok: true, box });
   } catch (error) {
@@ -36,7 +37,7 @@ export const PATCH = withApiErrorHandling(async function PATCH(
 });
 
 export const DELETE = withApiErrorHandling(async function DELETE(
-  _req: Request,
+  req: Request,
   props: { params: Promise<{ bboxVersionId: string }> },
 ) {
   const user = await requireUser();
@@ -48,7 +49,12 @@ export const DELETE = withApiErrorHandling(async function DELETE(
   });
 
   try {
-    const box = await deleteSliceBoundingBoxForUser({ bboxVersionId, userId: user.id });
+    const body = await req.json().catch(() => null);
+    const box = await deleteSliceBoundingBoxForUser({
+      bboxVersionId,
+      userId: user.id,
+      allowDependencyInvalidation: Boolean(body?.allowDependencyInvalidation),
+    });
     return NextResponse.json({ ok: true, box });
   } catch (error) {
     const payload = sliceBoundingBoxErrorResponse(error);

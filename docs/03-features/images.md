@@ -77,8 +77,8 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `GET /api/images/[imageId]/slice-bboxes` lists the current active BBox proposal per slice instance for project members.
 - `POST /api/images/[imageId]/slice-bboxes` creates a new `SliceInstance` plus first active `SliceBoundingBoxVersion` for editable project roles.
 - `POST /api/images/[imageId]/slice-bboxes/confirm` confirms the current active BBox set as workflow planning state for editable project roles.
-- `PATCH /api/slice-bboxes/[bboxVersionId]` appends a replacement BBox version for the same slice instance when the target version is still current.
-- `DELETE /api/slice-bboxes/[bboxVersionId]` appends a `DELETED` BBox version and clears the denormalized current `SliceInstance.boundingBox` summary.
+- `PATCH /api/slice-bboxes/[bboxVersionId]` appends a replacement BBox version for the same slice instance when the target version is still current. Optional `allowDependencyInvalidation` supersedes active downstream slice annotations before replacing a protected BBox.
+- `DELETE /api/slice-bboxes/[bboxVersionId]` appends a `DELETED` BBox version and clears the denormalized current `SliceInstance.boundingBox` summary. Optional `allowDependencyInvalidation` supersedes active downstream slice annotations before deleting a protected BBox.
 - `GET /api/images/[imageId]/slice-crops` lists sanitized derived crop metadata for project members.
 - `POST /api/slice-bboxes/[bboxVersionId]/crop` generates a private PNG derived crop for editable project roles. Optional `paddingRequestedPx` accepts `0`, `16`, `32`, or `64`; omitted uses runtime default `32`.
 - `GET /api/slice-crops/[cropId]` returns sanitized crop metadata for project members.

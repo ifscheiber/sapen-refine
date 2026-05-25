@@ -268,7 +268,7 @@ describe("slice BBox proposal workflow", () => {
     expect(first.bboxVersionId).toBeTruthy();
   });
 
-  it("blocks BBox geometry changes and deletion when dependent masks or classifications exist", async () => {
+  it("locks BBoxes with active downstream data and supersedes it only with explicit invalidation", async () => {
     const protectedImage = await prisma.imageAsset.create({
       data: {
         projectId,
@@ -315,15 +315,63 @@ describe("slice BBox proposal workflow", () => {
         createdById: ownerId,
       },
     });
+    const supportArtifact = await prisma.annotationArtifact.create({
+      data: {
+        projectId,
+        imageId: protectedImage.id,
+        kind: "SLICE_SUPPORT_MASK",
+        scopeKey: `protected-support-${box.sliceInstanceId}`,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    const supportVersion = await prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: supportArtifact.id,
+        version: 1,
+        storageKey: `tests/bbox/protected-support-${suffix}-${box.sliceInstanceId}.raw`,
+        contentType: "application/octet-stream",
+        size: 16,
+        checksum: `sha256:protected-support-${suffix}`,
+        width: 4,
+        height: 4,
+        coordinateSpace: "CROP_PIXEL",
+        labelSchemaVersionId,
+        sliceInstanceId: box.sliceInstanceId,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    await prisma.sliceInstance.update({
+      where: { id: box.sliceInstanceId },
+      data: { supportArtifactVersionId: supportVersion.id },
+    });
+    const classification = await prisma.sliceClassificationVersion.create({
+      data: {
+        projectId,
+        imageId: protectedImage.id,
+        sliceInstanceId: box.sliceInstanceId,
+        version: 1,
+        class: "SAP_HEARTWOOD_SLICE",
+        labelSchemaVersionId,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
 
     const state = await listSliceBoundingBoxesForUser({ imageId: protectedImage.id, userId: ownerId }, prisma);
     expect(state.boxes[0]).toMatchObject({
       bboxVersionId: box.bboxVersionId,
-      dependencySummary: { semanticMaskVersionCount: 1, hasBlockingDependencies: true },
+      dependencySummary: {
+        semanticMaskVersionCount: 1,
+        supportMaskVersionCount: 1,
+        classificationVersionCount: 1,
+        hasBlockingDependencies: true,
+      },
       protection: {
         canDelete: false,
         canReplaceGeometry: false,
-        reasons: ["SEMANTIC_MASK_EXISTS"],
+        reasons: ["SEMANTIC_MASK_EXISTS", "SUPPORT_MASK_EXISTS", "CLASSIFICATION_EXISTS"],
       },
     });
 
@@ -341,6 +389,56 @@ describe("slice BBox proposal workflow", () => {
     await expect(
       deleteSliceBoundingBoxForUser({ bboxVersionId: box.bboxVersionId, userId: ownerId }, prisma),
     ).rejects.toMatchObject({ code: "BBOX_DELETE_PROTECTED_DEPENDENCIES" });
+
+    const replacement = await replaceSliceBoundingBoxForUser(
+      {
+        bboxVersionId: box.bboxVersionId,
+        userId: ownerId,
+        box: { x: 5, y: 5, width: 12, height: 12 },
+        allowDependencyInvalidation: true,
+      },
+      prisma,
+    );
+    expect(replacement.version).toBe(2);
+
+    const [activeArtifacts, activeClassifications, sliceInstance, audit] = await Promise.all([
+      prisma.annotationArtifactVersion.count({
+        where: {
+          sliceInstanceId: box.sliceInstanceId,
+          reviewState: { not: "SUPERSEDED" },
+        },
+      }),
+      prisma.sliceClassificationVersion.count({
+        where: {
+          sliceInstanceId: box.sliceInstanceId,
+          reviewState: { not: "SUPERSEDED" },
+        },
+      }),
+      prisma.sliceInstance.findUniqueOrThrow({
+        where: { id: box.sliceInstanceId },
+        select: { supportArtifactVersionId: true },
+      }),
+      prisma.auditLog.findFirst({
+        where: {
+          action: "SLICE_BBOX_DOWNSTREAM_ANNOTATIONS_INVALIDATED",
+          entityId: box.sliceInstanceId,
+        },
+      }),
+    ]);
+    expect(activeArtifacts).toBe(0);
+    expect(activeClassifications).toBe(0);
+    expect(sliceInstance.supportArtifactVersionId).toBeNull();
+    expect(audit).toBeTruthy();
+
+    await expect(
+      deleteSliceBoundingBoxForUser({ bboxVersionId: replacement.bboxVersionId, userId: ownerId }, prisma),
+    ).resolves.toMatchObject({ status: "DELETED" });
+    await expect(
+      prisma.sliceClassificationVersion.findUniqueOrThrow({
+        where: { id: classification.id },
+        select: { reviewState: true },
+      }),
+    ).resolves.toMatchObject({ reviewState: "SUPERSEDED" });
   });
 
   it("replaces BBoxes append-only and rejects stale replacement", async () => {

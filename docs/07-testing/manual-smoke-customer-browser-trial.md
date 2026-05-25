@@ -49,8 +49,8 @@ This checklist verifies a deployed customer-trial browser path on desktop and iP
 | Open image metadata. | Technical metadata, checksum, dimensions, readiness summary, and editable metadata sections render without exposing MinIO/S3 URLs. |  |  |
 | Enter T-number and acquisition metadata. | Save succeeds and metadata persists after reload. |  |  |
 | Open crop workflow. | The image-level BBox stage opens through the crop workflow route. |  |  |
-| Draw a rough slice box and confirm the BBox set. | A slice proposal appears in the list and the UI labels it as a proposal, not ground truth; confirmation records workflow intent only. |  |  |
-| Click `Prepare slices`, then `Open slice annotation`. | The unified crop annotation editor opens directly with Sapwood/Heartwood and Cu family choices, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
+| Drag empty image space to draw a rough slice box. | A slice proposal appears in the status rail and the UI labels it as a proposal, not ground truth; confirmation records workflow intent only. |  |  |
+| Click `Semantic Masks`. | Slice preparation runs automatically and the unified crop annotation editor opens directly with Sapwood/Heartwood and Cu family choices, support/semantic/classification/readiness status, and whole-image slice context. |  |  |
 | Choose `Cu` and `Support`. | The same crop editor displays the crop image in crop coordinates with support/background labels and only Polygon/Lasso support drawing tools. |  |  |
 | Draw and erase support, then save. | A draft crop support mask saves, reloads, and uses only support/background labels. |  |  |
 | Choose a semantic target in the generated crop editor. | The editor shows the support overlay for Copper and offers only labels for the selected annotation family. |  |  |

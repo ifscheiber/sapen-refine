@@ -1,4 +1,10 @@
-import { AnnotationArtifactKind, Prisma, type AnnotationProjectRole, PrismaClient } from "@prisma/client";
+import {
+  AnnotationArtifactKind,
+  ArtifactReviewState,
+  Prisma,
+  type AnnotationProjectRole,
+  PrismaClient,
+} from "@prisma/client";
 
 import { canAnnotate } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
@@ -264,7 +270,11 @@ async function loadDependencySummaries(
 
   const sliceInstances = await db.sliceInstance.findMany({
     where: { id: { in: sliceInstanceIds } },
-    select: { id: true, supportArtifactVersionId: true },
+    select: {
+      id: true,
+      supportArtifactVersionId: true,
+      supportArtifactVersion: { select: { id: true, reviewState: true } },
+    },
   });
   const cropCounts = await db.derivedSliceCrop.groupBy({
     by: ["sliceInstanceId"],
@@ -273,12 +283,16 @@ async function loadDependencySummaries(
   });
   const classificationCounts = await db.sliceClassificationVersion.groupBy({
     by: ["sliceInstanceId"],
-    where: { sliceInstanceId: { in: sliceInstanceIds } },
+    where: {
+      sliceInstanceId: { in: sliceInstanceIds },
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
+    },
     _count: { _all: true },
   });
   const artifactVersions = await db.annotationArtifactVersion.findMany({
     where: {
       sliceInstanceId: { in: sliceInstanceIds },
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
       artifact: {
         kind: {
           in: [
@@ -344,6 +358,7 @@ async function loadDependencySummaries(
 
   for (const sliceInstance of sliceInstances) {
     if (!sliceInstance.supportArtifactVersionId) continue;
+    if (sliceInstance.supportArtifactVersion?.reviewState === ArtifactReviewState.SUPERSEDED) continue;
     const entry = draft.get(sliceInstance.id);
     const countedIds = countedSupportVersionIds.get(sliceInstance.id);
     if (entry && !countedIds?.has(sliceInstance.supportArtifactVersionId)) {
@@ -412,6 +427,103 @@ async function assertBBoxDeletionAllowed(db: SliceBBoxDb, sliceInstanceId: strin
   const dependencySummary = await loadDependencySummary(db, sliceInstanceId);
   if (protectionFromDependencySummary(dependencySummary).canDelete) return;
   throw new SliceBoundingBoxWorkflowError("BBOX_DELETE_PROTECTED_DEPENDENCIES");
+}
+
+async function invalidateBBoxDownstreamAnnotations(params: {
+  db: SliceBBoxDb;
+  projectId: string;
+  imageId: string;
+  sliceInstanceId: string;
+  bboxVersionId: string;
+  actorId: string;
+}) {
+  const artifactVersions = await params.db.annotationArtifactVersion.findMany({
+    where: {
+      sliceInstanceId: params.sliceInstanceId,
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
+      artifact: {
+        projectId: params.projectId,
+        imageId: params.imageId,
+        kind: {
+          in: [
+            AnnotationArtifactKind.SEMANTIC_MASK,
+            AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+            AnnotationArtifactKind.INSTANCE_MASK,
+          ],
+        },
+      },
+    },
+    select: {
+      id: true,
+      artifact: { select: { kind: true } },
+    },
+  });
+  const classifications = await params.db.sliceClassificationVersion.findMany({
+    where: {
+      projectId: params.projectId,
+      imageId: params.imageId,
+      sliceInstanceId: params.sliceInstanceId,
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
+    },
+    select: { id: true },
+  });
+
+  const artifactVersionIds = artifactVersions.map((version) => version.id);
+  const classificationIds = classifications.map((version) => version.id);
+
+  if (artifactVersionIds.length > 0) {
+    await params.db.annotationArtifactVersion.updateMany({
+      where: { id: { in: artifactVersionIds } },
+      data: { reviewState: ArtifactReviewState.SUPERSEDED },
+    });
+  }
+  if (classificationIds.length > 0) {
+    await params.db.sliceClassificationVersion.updateMany({
+      where: { id: { in: classificationIds } },
+      data: { reviewState: ArtifactReviewState.SUPERSEDED },
+    });
+  }
+
+  const supportVersionIds = artifactVersions
+    .filter((version) => version.artifact.kind === AnnotationArtifactKind.SLICE_SUPPORT_MASK)
+    .map((version) => version.id);
+  if (supportVersionIds.length > 0) {
+    await params.db.sliceInstance.updateMany({
+      where: {
+        id: params.sliceInstanceId,
+        supportArtifactVersionId: { in: supportVersionIds },
+      },
+      data: { supportArtifactVersionId: null },
+    });
+  }
+
+  if (artifactVersionIds.length === 0 && classificationIds.length === 0) return;
+
+  await recordAuditEvent(
+    {
+      action: "SLICE_BBOX_DOWNSTREAM_ANNOTATIONS_INVALIDATED",
+      entity: "SliceInstance",
+      entityId: params.sliceInstanceId,
+      actorId: params.actorId,
+      details: {
+        projectId: params.projectId,
+        imageId: params.imageId,
+        sliceInstanceId: params.sliceInstanceId,
+        bboxVersionId: params.bboxVersionId,
+        artifactVersionIds,
+        sliceClassificationVersionIds: classificationIds,
+        semanticMaskVersionCount: artifactVersions.filter(
+          (version) => version.artifact.kind === AnnotationArtifactKind.SEMANTIC_MASK,
+        ).length,
+        supportMaskVersionCount: supportVersionIds.length,
+        instanceMaskVersionCount: artifactVersions.filter(
+          (version) => version.artifact.kind === AnnotationArtifactKind.INSTANCE_MASK,
+        ).length,
+        classificationVersionCount: classificationIds.length,
+      },
+    },
+    params.db,
+  );
 }
 
 function currentBoundingBoxSummary(version: {
@@ -661,6 +773,7 @@ export async function replaceSliceBoundingBoxForUser(params: {
   bboxVersionId: string;
   userId: string;
   box: SliceBoundingBoxInput;
+  allowDependencyInvalidation?: boolean;
 }, db: SliceBBoxDb = prisma) {
   const { bbox, membership } = await getBBoxVersionWithAccess(db, params.bboxVersionId, params.userId);
   if (!canEdit(membership.role)) throw new SliceBoundingBoxWorkflowError("FORBIDDEN");
@@ -674,7 +787,18 @@ export async function replaceSliceBoundingBoxForUser(params: {
       imageBBoxSetFamilyKey(bbox.imageId),
       async () => {
         await assertProposedBoxDoesNotOverlap(tx, bbox.imageId, box, bbox.sliceInstanceId);
-        await assertBBoxGeometryMutationAllowed(tx, bbox.sliceInstanceId);
+        if (params.allowDependencyInvalidation) {
+          await invalidateBBoxDownstreamAnnotations({
+            db: tx,
+            projectId: bbox.projectId,
+            imageId: bbox.imageId,
+            sliceInstanceId: bbox.sliceInstanceId,
+            bboxVersionId: bbox.id,
+            actorId: params.userId,
+          });
+        } else {
+          await assertBBoxGeometryMutationAllowed(tx, bbox.sliceInstanceId);
+        }
 
         return withVersionAllocationLock(
           tx,
@@ -765,6 +889,7 @@ export async function replaceSliceBoundingBoxForUser(params: {
 export async function deleteSliceBoundingBoxForUser(params: {
   bboxVersionId: string;
   userId: string;
+  allowDependencyInvalidation?: boolean;
 }, db: SliceBBoxDb = prisma) {
   const { bbox, membership } = await getBBoxVersionWithAccess(db, params.bboxVersionId, params.userId);
   if (!canEdit(membership.role)) throw new SliceBoundingBoxWorkflowError("FORBIDDEN");
@@ -775,7 +900,18 @@ export async function deleteSliceBoundingBoxForUser(params: {
       tx,
       imageBBoxSetFamilyKey(bbox.imageId),
       async () => {
-        await assertBBoxDeletionAllowed(tx, bbox.sliceInstanceId);
+        if (params.allowDependencyInvalidation) {
+          await invalidateBBoxDownstreamAnnotations({
+            db: tx,
+            projectId: bbox.projectId,
+            imageId: bbox.imageId,
+            sliceInstanceId: bbox.sliceInstanceId,
+            bboxVersionId: bbox.id,
+            actorId: params.userId,
+          });
+        } else {
+          await assertBBoxDeletionAllowed(tx, bbox.sliceInstanceId);
+        }
 
         return withVersionAllocationLock(
           tx,

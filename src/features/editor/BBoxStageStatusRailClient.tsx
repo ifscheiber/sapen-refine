@@ -9,7 +9,6 @@ import {
   type BBoxSaveState,
   type BBoxStageStatusEventDetail,
   dispatchBBoxStageStatus,
-  dispatchBBoxStageUnlockEditing,
 } from "./bboxStageEvents";
 import {
   API_CONFIRM_SLICE_BBOX_SET,
@@ -76,7 +75,8 @@ export function BBoxStageStatusRailClient({
   const [state, setState] = useState<BBoxRailState | null>(null);
   const [saveState, setSaveState] = useState<BBoxSaveState>("idle");
   const [lastAction, setLastAction] = useState("");
-  const [editingUnlocked, setEditingUnlocked] = useState(false);
+  const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
+  const [sliceGenerationRetryAvailable, setSliceGenerationRetryAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const loadState = useCallback(async () => {
@@ -98,7 +98,6 @@ export function BBoxStageStatusRailClient({
       bboxSummary: (bboxBody.bboxSummary ?? null) as SliceBBoxSummary | null,
       bboxWorkflow: (bboxBody.bboxWorkflow ?? null) as ImageBBoxWorkflowState | null,
     });
-    setEditingUnlocked(false);
   }, [imageId]);
 
   useEffect(() => {
@@ -112,6 +111,10 @@ export function BBoxStageStatusRailClient({
       const detail = (event as CustomEvent<BBoxStageStatusEventDetail>).detail ?? {};
       if (detail.saveState) setSaveState(detail.saveState);
       if (detail.lastAction !== undefined) setLastAction(detail.lastAction);
+      if ("selectedBBoxId" in detail) setSelectedBBoxId(detail.selectedBBoxId ?? null);
+      if (detail.sliceGenerationRetryAvailable !== undefined) {
+        setSliceGenerationRetryAvailable(detail.sliceGenerationRetryAvailable);
+      }
       if (detail.refresh) {
         void loadState().catch((error) => {
           setLastAction(formatBBoxErrorMessage(error, "BBox status unavailable"));
@@ -125,25 +128,36 @@ export function BBoxStageStatusRailClient({
   const cropSummary = useMemo(() => computeCropSummary(state), [state]);
   const issueCount = state?.bboxSummary?.issueCount ?? 0;
   const validCount = state?.bboxSummary?.validCount ?? Math.max(0, (state?.boxes.length ?? 0) - issueCount);
-  const canRegenerate = Boolean(
+  const selectedBox = selectedBBoxId
+    ? state?.boxes.find((box) => box.bboxVersionId === selectedBBoxId) ?? null
+    : null;
+  const selectedLockReasons = selectedBox?.protection?.reasons ?? [];
+  const selectedLocked = Boolean(
+    selectedBox && (!(selectedBox.protection?.canDelete ?? true) || !(selectedBox.protection?.canReplaceGeometry ?? true)),
+  );
+  const canRetrySliceGeneration = Boolean(
     state &&
+      sliceGenerationRetryAvailable &&
       state.boxes.length > 0 &&
       issueCount === 0 &&
       (cropSummary.missing > 0 || cropSummary.stale > 0) &&
       state.bboxWorkflow?.canConfirm,
   );
-  const canUnlockEditing = Boolean(
-    state?.bboxWorkflow?.bboxSetStatus === "BBOX_CONFIRMED" &&
-      state.bboxWorkflow.canEdit &&
-      !editingUnlocked,
-  );
 
-  async function regenerateSlices() {
-    if (!canRegenerate || busy) return;
+  function reasonLabel(reason: string) {
+    if (reason === "SEMANTIC_MASK_EXISTS") return "semantic mask exists";
+    if (reason === "SUPPORT_MASK_EXISTS") return "support mask exists";
+    if (reason === "INSTANCE_MASK_EXISTS") return "instance/support mask exists";
+    if (reason === "CLASSIFICATION_EXISTS") return "classification exists";
+    return reason.toLowerCase().replaceAll("_", " ");
+  }
+
+  async function retrySliceGeneration() {
+    if (!canRetrySliceGeneration || busy) return;
     setBusy(true);
     setSaveState("saving");
-    setLastAction("Regenerating slices");
-    dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Regenerating slices" });
+    setLastAction("Retrying slice generation");
+    dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Retrying slice generation" });
     try {
       const confirmResponse = await fetch(API_CONFIRM_SLICE_BBOX_SET(imageId), { method: "POST" });
       const confirmBody = await confirmResponse.json().catch(() => null);
@@ -160,14 +174,26 @@ export function BBoxStageStatusRailClient({
         throw new Error(ensureBody?.error ?? `SLICE_CROP_ENSURE_FAILED_${ensureResponse.status}`);
       }
       setSaveState("saved");
-      setLastAction("Slices regenerated");
-      dispatchBBoxStageStatus({ saveState: "saved", lastAction: "Slices regenerated", refresh: true });
+      setLastAction("Slices generated");
+      setSliceGenerationRetryAvailable(false);
+      dispatchBBoxStageStatus({
+        saveState: "saved",
+        lastAction: "Slices generated",
+        refresh: true,
+        sliceGenerationRetryAvailable: false,
+      });
       await loadState();
     } catch (error) {
       const message = formatBBoxErrorMessage(error, "Slice regeneration failed");
       setSaveState("failed");
       setLastAction(message);
-      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
+      setSliceGenerationRetryAvailable(true);
+      dispatchBBoxStageStatus({
+        saveState: "failed",
+        lastAction: message,
+        refresh: true,
+        sliceGenerationRetryAvailable: true,
+      });
     } finally {
       setBusy(false);
     }
@@ -207,6 +233,17 @@ export function BBoxStageStatusRailClient({
               {cropSummary.current} current · {cropSummary.missing} missing · {cropSummary.stale} stale
             </span>
           </div>
+          <div className="flex items-center justify-between gap-3">
+            <span>Selected BBox</span>
+            <span className="text-right text-[var(--text-primary)]">
+              {selectedBox ? (selectedLocked ? "Locked" : "Editable") : "None"}
+            </span>
+          </div>
+          {selectedLocked && selectedLockReasons.length > 0 ? (
+            <div className="pt-1 text-[var(--warning-text)]">
+              {selectedLockReasons.map(reasonLabel).join(", ")}
+            </div>
+          ) : null}
           {lastAction ? (
             <div className="pt-1 text-[var(--text-muted)]" role="status">
               {lastAction}
@@ -214,34 +251,22 @@ export function BBoxStageStatusRailClient({
           ) : null}
         </div>
       </div>
-      {canUnlockEditing ? (
+      {sliceGenerationRetryAvailable ? (
         <button
           type="button"
           className={cn(idleButtonClass, "ml-3")}
-          onClick={() => {
-            setEditingUnlocked(true);
-            setLastAction("BBox editing unlocked");
-            dispatchBBoxStageUnlockEditing();
-            dispatchBBoxStageStatus({ lastAction: "BBox editing unlocked" });
-          }}
+          onClick={() => void retrySliceGeneration()}
+          disabled={!canRetrySliceGeneration || busy}
+          title={
+            canRetrySliceGeneration
+              ? "Retry missing or stale slice generation"
+              : "Resolve BBox issues before retrying slice generation"
+          }
         >
-          Unlock BBox editing
+          <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+          Retry slice generation
         </button>
       ) : null}
-      <button
-        type="button"
-        className={cn(idleButtonClass, "ml-3")}
-        onClick={() => void regenerateSlices()}
-        disabled={!canRegenerate || busy}
-        title={
-          canRegenerate
-            ? "Regenerate missing or stale slices"
-            : "Slices are current or BBoxes need attention"
-        }
-      >
-        <RefreshCwIcon className="size-3.5" aria-hidden="true" />
-        Regenerate slices
-      </button>
     </section>
   );
 }
