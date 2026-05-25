@@ -7,9 +7,9 @@
 ## Important Files
 
 - `src/components/ui/*` - reusable UI primitives.
-- `src/components/shell/*` - authenticated workspace shell components, including route-aware image-scoped editor sidebar/breadcrumb context.
+- `src/components/shell/*` - authenticated workspace shell components, including route-aware image-scoped editor sidebar/breadcrumb context, browser-local project recency cookie helpers, and shared relative-time use in shell rows.
 - `src/components/shell/AppMissingResource.tsx` - reusable missing-resource soft landing with projects, project overview, and task navigation actions.
-- `src/components/workspace/*` - SaPen Core-aligned workspace layout, local tabs, contextual rows, utility rail, and sidebar section primitives mirrored locally for SaPen Annotate.
+- `src/components/workspace/*` - SaPen Core-aligned workspace layout, local tabs, contextual rows, utility rail, and sidebar section/entity-row primitives mirrored locally for SaPen Annotate.
 - `src/components/LogoutButton.tsx` - logout action shared by shell variants.
 
 ## Public Interfaces / Routes / Functions
@@ -20,6 +20,7 @@ These components are consumed by route layouts under `src/app/(workspace)/app` a
 
 - Tablet and desktop layouts should remain usable across viewport sizes.
 - Authenticated workspace pages should use the shell/sidebar/workspace primitives instead of ad hoc project-directory layouts.
+- The PROJECTS and editor IMAGES sidebar lists use the same `WorkspaceSidebarEntityRow` component. Project order is browser-local last-opened order from `src/components/shell/projectRecency.ts`, with recent project update time as fallback.
 - Editor controls must preserve annotation state and not bypass backend mask-version invariants.
 - Components should not become the only source of domain validation.
 

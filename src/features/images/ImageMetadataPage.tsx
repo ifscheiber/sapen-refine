@@ -63,13 +63,13 @@ export async function ImageMetadataPage({
             {editability.status === "unsupported" ? (
               <Button disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
                 <PencilLineIcon className="size-4" aria-hidden="true" />
-                Crop workflow
+                Annotate image
               </Button>
             ) : (
               <Button asChild>
                 <Link href={`/app/projects/${projectId}/images/${image.id}/crop`}>
                   <PencilLineIcon className="size-4" aria-hidden="true" />
-                  Crop workflow
+                  Annotate image
                 </Link>
               </Button>
             )}

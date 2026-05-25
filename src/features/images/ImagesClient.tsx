@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,8 +14,20 @@ import {
 
 import { AppEmptyState } from "@/components/shell/AppEmptyState";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/components/ui/utils";
 import { evaluateTrialImageEditability } from "@/lib/imageSizePolicy";
+import { formatRelativeTime, formatTimestamp } from "@/lib/relativeTime";
 
 function errorMessage(error: unknown, fallback = "ERROR") {
   return error instanceof Error ? error.message : fallback;
@@ -49,18 +61,56 @@ type ImageRow = {
   sliceCount?: number;
 };
 
+type UploadSampleMetadataForm = {
+  tNumber: string;
+  specimenIdentifier: string;
+  sliceIndex: string;
+  replicate: string;
+  treatmentReference: string;
+  notes: string;
+};
+
+type UploadAcquisitionMetadataForm = {
+  cameraDevice: string;
+  lightingSetup: string;
+  capturedBy: string;
+  capturedAt: string;
+  notes: string;
+};
+
+type UploadMetadataForm = {
+  sample: UploadSampleMetadataForm;
+  acquisition: UploadAcquisitionMetadataForm;
+};
+
+type UploadMetadataPayload = {
+  sample?: Partial<Record<keyof UploadSampleMetadataForm, string>>;
+  acquisition?: Partial<Record<keyof UploadAcquisitionMetadataForm, string>>;
+};
+
+const EMPTY_UPLOAD_METADATA: UploadMetadataForm = {
+  sample: {
+    tNumber: "",
+    specimenIdentifier: "",
+    sliceIndex: "",
+    replicate: "",
+    treatmentReference: "",
+    notes: "",
+  },
+  acquisition: {
+    cameraDevice: "",
+    lightingSetup: "",
+    capturedBy: "",
+    capturedAt: "",
+    notes: "",
+  },
+};
+
 function formatBytes(size: number | null) {
   if (!size) return "size missing";
   if (size < 1024) return `${size} bytes`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "date missing";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "date missing";
-  return date.toLocaleString();
 }
 
 function formatCount(value: number | undefined, singular: string, plural: string) {
@@ -89,6 +139,52 @@ function statusClassName(status: ImageRow["validationStatus"]) {
   return "border-[var(--state-draft)] text-[var(--text-secondary)]";
 }
 
+function uploadMetadataForm() {
+  return {
+    sample: { ...EMPTY_UPLOAD_METADATA.sample },
+    acquisition: { ...EMPTY_UPLOAD_METADATA.acquisition },
+  };
+}
+
+function addCleanField<T extends string>(
+  target: Partial<Record<T, string>>,
+  field: T,
+  value: string,
+) {
+  const trimmed = value.trim();
+  if (trimmed) target[field] = trimmed;
+}
+
+function buildUploadMetadataPayload(form: UploadMetadataForm): UploadMetadataPayload | null {
+  const sample: UploadMetadataPayload["sample"] = {};
+  const acquisition: UploadMetadataPayload["acquisition"] = {};
+
+  addCleanField(sample, "tNumber", form.sample.tNumber);
+  addCleanField(sample, "specimenIdentifier", form.sample.specimenIdentifier);
+  addCleanField(sample, "sliceIndex", form.sample.sliceIndex);
+  addCleanField(sample, "replicate", form.sample.replicate);
+  addCleanField(sample, "treatmentReference", form.sample.treatmentReference);
+  addCleanField(sample, "notes", form.sample.notes);
+  addCleanField(acquisition, "cameraDevice", form.acquisition.cameraDevice);
+  addCleanField(acquisition, "lightingSetup", form.acquisition.lightingSetup);
+  addCleanField(acquisition, "capturedBy", form.acquisition.capturedBy);
+  addCleanField(acquisition, "capturedAt", form.acquisition.capturedAt);
+  addCleanField(acquisition, "notes", form.acquisition.notes);
+
+  const payload: UploadMetadataPayload = {};
+  if (Object.keys(sample).length > 0) payload.sample = sample;
+  if (Object.keys(acquisition).length > 0) payload.acquisition = acquisition;
+  return Object.keys(payload).length > 0 ? payload : null;
+}
+
+function imageUpdatedValue(image: ImageRow, now: Date) {
+  const value = image.updatedAt ?? image.uploadedAt ?? image.createdAt;
+  return {
+    label: formatRelativeTime(value, now),
+    title: formatTimestamp(value),
+  };
+}
+
 function ImagePreview({ image }: { image: ImageRow }) {
   const [failed, setFailed] = useState(false);
 
@@ -114,10 +210,27 @@ function ImagePreview({ image }: { image: ImageRow }) {
   );
 }
 
-function ImageListItem({ image, projectId }: { image: ImageRow; projectId: string }) {
+function ActionTooltip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ImageListItem({
+  image,
+  projectId,
+  now,
+}: {
+  image: ImageRow;
+  projectId: string;
+  now: Date;
+}) {
   const router = useRouter();
   const editability = evaluateTrialImageEditability(image.width, image.height);
-  const updatedLabel = formatDate(image.updatedAt ?? image.uploadedAt ?? image.createdAt);
+  const updated = imageUpdatedValue(image, now);
   const openHref = `/app/projects/${projectId}/images/${image.id}/crop`;
   const canOpenEditor = editability.status !== "unsupported";
 
@@ -198,31 +311,250 @@ function ImageListItem({ image, projectId }: { image: ImageRow; projectId: strin
         <span className="text-xs font-semibold uppercase tracking-normal text-[var(--text-muted)] 2xl:hidden">
           Updated
         </span>
-        <span className="text-[var(--text-secondary)]">{updatedLabel}</span>
+        <span className="text-[var(--text-secondary)]" title={updated.title}>
+          {updated.label}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:col-start-2 2xl:col-auto 2xl:justify-end">
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/app/projects/${projectId}/images/${image.id}`}>
-            <InfoIcon className="size-4" aria-hidden="true" />
-            Metadata
-          </Link>
-        </Button>
-        {editability.status === "unsupported" ? (
-          <Button variant="outline" size="sm" disabled title="Trial editor supports images up to 8000 x 6000 pixels.">
-            <PencilLineIcon className="size-4" aria-hidden="true" />
-            Open
-          </Button>
-        ) : (
-          <Button asChild size="sm">
-            <Link href={openHref}>
-              <PencilLineIcon className="size-4" aria-hidden="true" />
-              Open
+        <ActionTooltip label="Edit metadata">
+          <Button asChild variant="outline" size="icon">
+            <Link
+              href={`/app/projects/${projectId}/images/${image.id}`}
+              aria-label="Edit metadata"
+            >
+              <InfoIcon className="size-4" aria-hidden="true" />
             </Link>
           </Button>
+        </ActionTooltip>
+        {editability.status === "unsupported" ? (
+          <ActionTooltip label="Trial editor supports images up to 8000 x 6000 pixels.">
+            <span>
+              <Button
+                variant="outline"
+                size="icon"
+                disabled
+                aria-label="Annotate image"
+              >
+                <PencilLineIcon className="size-4" aria-hidden="true" />
+              </Button>
+            </span>
+          </ActionTooltip>
+        ) : (
+          <ActionTooltip label="Annotate image">
+            <Button asChild size="icon">
+              <Link href={openHref} aria-label="Annotate image">
+                <PencilLineIcon className="size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </ActionTooltip>
         )}
       </div>
     </div>
+  );
+}
+
+function UploadImageDialog({
+  loading,
+  onUpload,
+}: {
+  loading: boolean;
+  onUpload: (file: File, metadata: UploadMetadataPayload | null) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [form, setForm] = useState<UploadMetadataForm>(() => uploadMetadataForm());
+
+  function reset() {
+    setFile(null);
+    setForm(uploadMetadataForm());
+  }
+
+  function setSampleField(field: keyof UploadSampleMetadataForm, value: string) {
+    setForm((current) => ({
+      ...current,
+      sample: { ...current.sample, [field]: value },
+    }));
+  }
+
+  function setAcquisitionField(field: keyof UploadAcquisitionMetadataForm, value: string) {
+    setForm((current) => ({
+      ...current,
+      acquisition: { ...current.acquisition, [field]: value },
+    }));
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!file || loading) return;
+
+    const ok = await onUpload(file, buildUploadMetadataPayload(form));
+    if (!ok) return;
+    reset();
+    setOpen(false);
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (loading) return;
+        setOpen(nextOpen);
+        if (!nextOpen) reset();
+      }}
+    >
+      <Button type="button" onClick={() => setOpen(true)} disabled={loading}>
+        <UploadIcon className="size-4" aria-hidden="true" />
+        <span>{loading ? "Uploading..." : "Upload image"}</span>
+      </Button>
+      <DialogContent className="max-h-[min(44rem,90dvh)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Upload image</DialogTitle>
+        </DialogHeader>
+        <form className="grid gap-5" onSubmit={submit}>
+          <div className="grid gap-2">
+            <Label htmlFor="upload-image-file">Image file</Label>
+            <Input
+              id="upload-image-file"
+              type="file"
+              accept="image/*"
+              disabled={loading}
+              required
+              onChange={(event) => setFile(event.currentTarget.files?.[0] ?? null)}
+            />
+          </div>
+
+          <section className="grid gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Sample
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="upload-t-number">T-number</Label>
+                <Input
+                  id="upload-t-number"
+                  value={form.sample.tNumber}
+                  disabled={loading}
+                  onChange={(event) => setSampleField("tNumber", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload-specimen">Specimen identifier</Label>
+                <Input
+                  id="upload-specimen"
+                  value={form.sample.specimenIdentifier}
+                  disabled={loading}
+                  onChange={(event) =>
+                    setSampleField("specimenIdentifier", event.currentTarget.value)
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload-slice-index">Slice index</Label>
+                <Input
+                  id="upload-slice-index"
+                  type="number"
+                  min="0"
+                  value={form.sample.sliceIndex}
+                  disabled={loading}
+                  onChange={(event) => setSampleField("sliceIndex", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload-replicate">Replicate</Label>
+                <Input
+                  id="upload-replicate"
+                  value={form.sample.replicate}
+                  disabled={loading}
+                  onChange={(event) => setSampleField("replicate", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="upload-treatment">Treatment/reference</Label>
+                <Input
+                  id="upload-treatment"
+                  value={form.sample.treatmentReference}
+                  disabled={loading}
+                  onChange={(event) =>
+                    setSampleField("treatmentReference", event.currentTarget.value)
+                  }
+                />
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="upload-sample-notes">Sample notes</Label>
+                <Textarea
+                  id="upload-sample-notes"
+                  value={form.sample.notes}
+                  disabled={loading}
+                  onChange={(event) => setSampleField("notes", event.currentTarget.value)}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Acquisition
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="upload-camera">Camera/device</Label>
+                <Input
+                  id="upload-camera"
+                  value={form.acquisition.cameraDevice}
+                  disabled={loading}
+                  onChange={(event) => setAcquisitionField("cameraDevice", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload-lighting">Lighting setup</Label>
+                <Input
+                  id="upload-lighting"
+                  value={form.acquisition.lightingSetup}
+                  disabled={loading}
+                  onChange={(event) => setAcquisitionField("lightingSetup", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload-captured-by">Captured by</Label>
+                <Input
+                  id="upload-captured-by"
+                  value={form.acquisition.capturedBy}
+                  disabled={loading}
+                  onChange={(event) => setAcquisitionField("capturedBy", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload-captured-at">Captured at</Label>
+                <Input
+                  id="upload-captured-at"
+                  type="datetime-local"
+                  value={form.acquisition.capturedAt}
+                  disabled={loading}
+                  onChange={(event) => setAcquisitionField("capturedAt", event.currentTarget.value)}
+                />
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="upload-acquisition-notes">Acquisition notes</Label>
+                <Textarea
+                  id="upload-acquisition-notes"
+                  value={form.acquisition.notes}
+                  disabled={loading}
+                  onChange={(event) => setAcquisitionField("notes", event.currentTarget.value)}
+                />
+              </div>
+            </div>
+          </section>
+
+          <DialogFooter>
+            <Button type="submit" disabled={!file || loading}>
+              <UploadIcon className="size-4" aria-hidden="true" />
+              <span>{loading ? "Uploading..." : "Upload image"}</span>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -236,6 +568,8 @@ export function ImagesClient({
   const [images, setImages] = useState<ImageRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const loadRequestId = useRef(0);
 
   async function load() {
@@ -263,9 +597,15 @@ export function ImagesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  async function onPickFile(file: File) {
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  async function onUploadImage(file: File, metadata: UploadMetadataPayload | null) {
     setLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       const upload = await fetch(`/api/projects/${projectId}/images/upload`, {
@@ -280,9 +620,31 @@ export function ImagesClient({
       const uploadData = await upload.json().catch(() => null);
       if (!upload.ok) throw new Error(uploadErrorMessage(uploadData?.error ?? `UPLOAD_FAILED_${upload.status}`));
 
+      const imageId = typeof uploadData?.image?.id === "string" ? uploadData.image.id : null;
+      let metadataWarning: string | null = null;
+
+      if (metadata && imageId) {
+        const metadataResponse = await fetch(`/api/images/${imageId}/metadata`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(metadata),
+        });
+        const metadataData = await metadataResponse.json().catch(() => null);
+        if (!metadataResponse.ok) {
+          metadataWarning = metadataData?.error ?? `METADATA_SAVE_FAILED_${metadataResponse.status}`;
+        }
+      } else if (metadata && !imageId) {
+        metadataWarning = "METADATA_SAVE_SKIPPED";
+      }
+
       await load();
+      if (metadataWarning) {
+        setNotice(`Image uploaded, but metadata was not saved: ${metadataWarning}`);
+      }
+      return true;
     } catch (e: unknown) {
       setError(errorMessage(e));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -291,25 +653,18 @@ export function ImagesClient({
   return (
     <div className="space-y-4">
       {canUpload && (
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--workspace-panel)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--workspace-panel-hover)]">
-          <input
-            type="file"
-            className="hidden"
-            accept="image/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onPickFile(f);
-              e.currentTarget.value = "";
-            }}
-          />
-          <UploadIcon className="size-4" aria-hidden="true" />
-          <span>{loading ? "Uploading..." : "Upload image"}</span>
-        </label>
+        <UploadImageDialog loading={loading} onUpload={onUploadImage} />
       )}
 
       {error && (
         <div className="rounded-md border border-[var(--state-blocked)] px-3 py-2 text-sm text-[var(--state-blocked)]">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="rounded-md border border-[var(--border-warning)] px-3 py-2 text-sm text-[var(--warning-text)]">
+          {notice}
         </div>
       )}
 
@@ -325,7 +680,7 @@ export function ImagesClient({
 
       <div className="grid gap-2">
         {images.map((img) => (
-          <ImageListItem key={img.id} image={img} projectId={projectId} />
+          <ImageListItem key={img.id} image={img} projectId={projectId} now={now} />
         ))}
 
         {images.length === 0 && (

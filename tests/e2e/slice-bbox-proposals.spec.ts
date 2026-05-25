@@ -22,20 +22,26 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
 
   const fixtureBuffer = fs.readFileSync(fixturePath);
   await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
-  await page.locator('input[type="file"]').setInputFiles({
+  await page.getByRole("button", { name: "Upload image" }).click();
+  let uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles({
     name: "editor-primary.png",
     mimeType: "image/png",
     buffer: fixtureBuffer,
   });
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("editor-primary.png")).toBeVisible();
-  await page.locator('input[type="file"]').setInputFiles({
+  await page.getByRole("button", { name: "Upload image" }).click();
+  uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles({
     name: "editor-secondary.png",
     mimeType: "image/png",
     buffer: fixtureBuffer,
   });
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("editor-secondary.png")).toBeVisible();
 
-  await page.getByRole("link", { name: "Open" }).first().click();
+  await page.getByRole("link", { name: "Annotate image" }).first().click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   const breadcrumbs = page.getByRole("navigation", { name: "Breadcrumbs" });
   await expect(breadcrumbs.getByText(projectName)).toBeVisible();

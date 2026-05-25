@@ -28,12 +28,15 @@ test("annotator workspace hides operational surfaces while keeping image annotat
   await expect(page.getByText("Prediction runs")).toHaveCount(0);
   await expect(page.getByText("Exports")).toHaveCount(0);
 
-  await page.locator('input[type="file"]').setInputFiles(fixturePath);
+  await page.getByRole("button", { name: "Upload image" }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles(fixturePath);
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("apple-touch-icon.png").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Metadata" }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit metadata" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Annotate image" }).first()).toBeVisible();
 
-  await page.getByRole("link", { name: "Open" }).first().click();
+  await page.getByRole("link", { name: "Annotate image" }).first().click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();

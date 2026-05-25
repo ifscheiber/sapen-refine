@@ -9,7 +9,7 @@ This page lists current browser routes backed by `src/app`.
 - `/` - redirects to `/app` or `/login?next=/app` from `src/app/page.tsx`.
 - `/login` - login form from `src/app/(public)/login/page.tsx`.
 - `/app` - redirects to `/app/projects` from `src/app/(workspace)/app/page.tsx`.
-- `/app/projects` - authenticated active-project workspace from `src/app/(workspace)/app/projects/page.tsx` and `src/features/projects/ProjectsWorkspacePage.tsx`; it selects the most recently updated visible project.
+- `/app/projects` - authenticated active-project workspace from `src/app/(workspace)/app/projects/page.tsx` and `src/features/projects/ProjectsWorkspacePage.tsx`; it selects the browser-local last-opened visible project when present and otherwise falls back to the most recently updated visible project.
 - `/app/projects/new` - project creation page from `src/app/(workspace)/app/projects/new/page.tsx` and `src/features/projects/NewProjectPage.tsx`; visible/useful only to global `ADMIN` users or users that already own a project.
 - `/app/projects/[projectId]` - active-project image workspace from `src/app/(workspace)/app/projects/[projectId]/page.tsx` and `src/features/projects/ProjectsWorkspacePage.tsx`, including project context, `Images` and `Project Settings` local tabs, image list/upload controls, status rail, and capability-filtered project operations links. `?tab=settings` opens editable project metadata for `OWNER`/`QA` and a read-only settings summary for lower-privilege project roles.
 - `/app/projects/[projectId]/exports` - project export operations from `src/app/(workspace)/app/projects/[projectId]/exports/page.tsx` and `src/features/projects/ProjectExportsPage.tsx`, including training export and prediction-analysis export panels for `OWNER`/`QA`.

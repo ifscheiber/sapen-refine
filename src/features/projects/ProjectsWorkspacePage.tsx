@@ -1,6 +1,12 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+import {
+  decodeProjectRecencyCookie,
+  PROJECT_RECENCY_COOKIE_NAME,
+  sortProjectsByRecency,
+} from "@/components/shell/projectRecency";
 import { Button } from "@/components/ui/button";
 import {
   WorkspaceContextRow,
@@ -52,29 +58,36 @@ export async function ProjectsWorkspacePage({
   tab?: string | string[];
 }) {
   const user = await requireWorkspaceUser();
-  const projects = await prisma.annotationProject.findMany({
-    where: { members: { some: { userId: user.id } } },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      createdAt: true,
-      updatedAt: true,
-      createdBy: { select: { email: true, name: true } },
-      labelSchemaVersion: { select: { name: true, version: true, status: true } },
-      members: { where: { userId: user.id }, select: { role: true }, take: 1 },
-      _count: {
-        select: {
-          images: true,
-          tasks: true,
-          exportBatches: true,
-          predictionRuns: true,
-          predictionImportBatches: true,
+  const [projectsRaw, cookieStore] = await Promise.all([
+    prisma.annotationProject.findMany({
+      where: { members: { some: { userId: user.id } } },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: { select: { email: true, name: true } },
+        labelSchemaVersion: { select: { name: true, version: true, status: true } },
+        members: { where: { userId: user.id }, select: { role: true }, take: 1 },
+        _count: {
+          select: {
+            images: true,
+            tasks: true,
+            exportBatches: true,
+            predictionRuns: true,
+            predictionImportBatches: true,
+          },
         },
       },
-    },
-  });
+    }),
+    cookies(),
+  ]);
+  const projects = sortProjectsByRecency(
+    projectsRaw,
+    decodeProjectRecencyCookie(cookieStore.get(PROJECT_RECENCY_COOKIE_NAME)?.value),
+  );
 
   if (projectId && !projects.some((project) => project.id === projectId)) {
     notFound();

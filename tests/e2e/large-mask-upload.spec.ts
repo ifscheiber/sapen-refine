@@ -71,16 +71,19 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 
   await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
-  await page.locator('input[type="file"]').setInputFiles({
+  await page.getByRole("button", { name: "Upload image" }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles({
     name: "large-6000x4000.png",
     mimeType: "image/png",
     buffer: imageBuffer,
   });
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("large-6000x4000.png")).toBeVisible();
   await expect(page.getByText("6000 x 4000")).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Open" }).click();
+  await page.getByRole("link", { name: "Annotate image" }).click();
   await expect(page).toHaveURL(/\/images\/[^/]+\/crop\/bboxes$/);
   const cropUrl = new URL(page.url());
   const imageId = cropUrl.pathname.match(/\/images\/([^/]+)\/crop\/bboxes$/)?.[1];

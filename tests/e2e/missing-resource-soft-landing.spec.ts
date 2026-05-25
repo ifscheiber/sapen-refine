@@ -25,9 +25,12 @@ async function createProject(page: Page, name: string) {
 
 async function uploadFixtureAndGetImageId(page: Page, projectId: string) {
   await page.goto(`/app/projects/${projectId}`);
-  await page.locator('input[type="file"]').setInputFiles(fixturePath);
+  await page.getByRole("button", { name: "Upload image" }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles(fixturePath);
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
-  const metadataHref = await page.getByRole("link", { name: "Metadata" }).getAttribute("href");
+  const metadataHref = await page.getByRole("link", { name: "Edit metadata" }).getAttribute("href");
   const imageId = metadataHref?.match(/\/images\/([^/]+)$/)?.[1];
   expect(imageId).toBeTruthy();
   return imageId!;

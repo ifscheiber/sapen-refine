@@ -1,4 +1,11 @@
+import { cookies } from "next/headers";
+
 import { AppShell } from "@/components/shell/AppShell";
+import {
+  decodeProjectRecencyCookie,
+  PROJECT_RECENCY_COOKIE_NAME,
+  sortProjectsByRecency,
+} from "@/components/shell/projectRecency";
 import { canCreateProjectFromContext } from "@/server/auth/policies";
 import { requireWorkspaceUser } from "@/server/auth/workspaceSession";
 import { prisma } from "@/server/db";
@@ -9,7 +16,7 @@ function formatShellDate(date: Date) {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireWorkspaceUser();
-  const [projects, globalRoles] = await Promise.all([
+  const [projects, globalRoles, cookieStore] = await Promise.all([
     prisma.annotationProject.findMany({
       where: { members: { some: { userId: user.id } } },
       orderBy: { updatedAt: "desc" },
@@ -26,8 +33,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       where: { userId: user.id },
       select: { role: { select: { name: true } } },
     }),
+    cookies(),
   ]);
-  const projectRoles = projects.map((project) => project.members[0]?.role).filter((role) => Boolean(role));
+  const sortedProjects = sortProjectsByRecency(
+    projects,
+    decodeProjectRecencyCookie(cookieStore.get(PROJECT_RECENCY_COOKIE_NAME)?.value),
+  );
+  const projectRoles = sortedProjects.map((project) => project.members[0]?.role).filter((role) => Boolean(role));
   const canCreateProject = canCreateProjectFromContext({
     globalRoles: globalRoles.map((entry) => entry.role.name),
     projectRoles,
@@ -37,9 +49,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AppShell
       user={{ name: user.name, email: user.email }}
       canCreateProject={canCreateProject}
-      projects={projects.map((project) => ({
+      projects={sortedProjects.map((project) => ({
         id: project.id,
         name: project.name,
+        updatedAt: project.updatedAt.toISOString(),
         updatedLabel: formatShellDate(project.updatedAt),
         ownerLabel: project.createdBy?.name ?? project.createdBy?.email ?? null,
         myRole: project.members[0]?.role ?? null,

@@ -84,11 +84,14 @@ async function createSingleCropEditor(page: Page, projectName: string) {
   await createProject(page, projectName);
 
   await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
-  await page.locator('input[type="file"]').setInputFiles(fixturePath);
+  await page.getByRole("button", { name: "Upload image" }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles(fixturePath);
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Open" }).click();
+  await page.getByRole("link", { name: "Annotate image" }).click();
   await expect(page).toHaveURL(/\/crop\/bboxes$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");

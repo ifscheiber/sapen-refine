@@ -10,6 +10,7 @@ type ShellUser = {
 export type ShellProject = {
   id: string;
   name: string;
+  updatedAt: string;
   updatedLabel: string;
   myRole: string | null;
   ownerLabel: string | null;

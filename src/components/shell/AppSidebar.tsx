@@ -1,15 +1,18 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftIcon, ChevronRightIcon, FolderOpenIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { ArrowLeftIcon, FolderOpenIcon, PlusIcon, UploadIcon } from "lucide-react";
 
 import {
   sidebarActionClassName,
+  WorkspaceSidebarEntityRow,
   WorkspaceSidebarMetricRow,
   WorkspaceSidebarSection,
 } from "@/components/workspace/WorkspaceSidebar";
-import { cn } from "@/components/ui/utils";
+import { formatRelativeTime, formatTimestamp } from "@/lib/relativeTime";
+import { writeProjectRecencyCookie } from "./projectRecency";
 import type { ShellProject } from "./AppShell";
 import { useAppShellContext, type ShellImage } from "./AppShellContext";
 
@@ -29,26 +32,36 @@ function pluralizeSlices(count: number) {
   return count === 1 ? "1 slice" : `${count} slices`;
 }
 
-function formatDateLabel(value?: string | null) {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "—";
-  return parsed.toISOString().slice(0, 10);
-}
-
 function imageDisplayName(image: ShellImage | null, fallbackId: string) {
   return image?.filename ?? image?.id ?? fallbackId;
 }
 
-function imageUpdatedLabel(image: ShellImage | null) {
-  return formatDateLabel(image?.updatedAt ?? image?.createdAt);
+function imageUpdatedValue(image: ShellImage | null, now: Date) {
+  const value = image?.updatedAt ?? image?.createdAt;
+  return {
+    label: value ? formatRelativeTime(value, now) : "—",
+    title: value ? formatTimestamp(value) : undefined,
+  };
 }
 
-function imageRowSubtitle(image: ShellImage) {
-  const updated = imageUpdatedLabel(image);
+function imageRowSubtitle(image: ShellImage, now: Date) {
+  const updated = imageUpdatedValue(image, now);
   return typeof image.sliceCount === "number"
-    ? `${pluralizeSlices(image.sliceCount)} · Updated ${updated}`
-    : `Updated ${updated}`;
+    ? `${pluralizeSlices(image.sliceCount)} · Updated ${updated.label}`
+    : `Updated ${updated.label}`;
+}
+
+function projectUpdatedValue(project: ShellProject, now: Date) {
+  const value = project.updatedAt ?? project.updatedLabel;
+  return {
+    label: formatRelativeTime(value, now),
+    title: formatTimestamp(value),
+  };
+}
+
+function projectRowSubtitle(project: ShellProject, now: Date) {
+  const updated = projectUpdatedValue(project, now);
+  return `${pluralizeImages(project.imageCount)} · Updated ${updated.label}`;
 }
 
 export function AppSidebar({
@@ -59,6 +72,7 @@ export function AppSidebar({
   canCreateProject: boolean;
 }) {
   const pathname = usePathname();
+  const [now, setNow] = useState(() => new Date());
   const {
     editorRoute,
     activeProject: editorProject,
@@ -69,13 +83,24 @@ export function AppSidebar({
   const projectIdFromPath = activeProjectIdFromPath(pathname);
   const activeProject =
     projects.find((project) => project.id === projectIdFromPath) ?? projects[0] ?? null;
+  const visibleProjectIds = useMemo(() => projects.map((project) => project.id), [projects]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!projectIdFromPath) return;
+    writeProjectRecencyCookie(projectIdFromPath, visibleProjectIds);
+  }, [projectIdFromPath, visibleProjectIds]);
 
   if (editorRoute) {
     const projectName = editorProject?.name ?? editorRoute.projectId;
     const activeImageName = imageDisplayName(activeImage, editorRoute.imageId);
     const activeSliceCount =
       typeof activeImage?.sliceCount === "number" ? pluralizeSlices(activeImage.sliceCount) : "—";
-    const activeUpdated = imageUpdatedLabel(activeImage);
+    const activeUpdated = imageUpdatedValue(activeImage, now);
 
     return (
       <aside className="hidden w-[22rem] max-w-[78vw] shrink-0 overflow-y-auto border-r border-[var(--border-subtle)] bg-[var(--shell-sidebar-bg)] md:block">
@@ -91,7 +116,10 @@ export function AppSidebar({
                 value={<span title={projectName}>{projectName}</span>}
               />
               <WorkspaceSidebarMetricRow label="Slices" value={activeSliceCount} />
-              <WorkspaceSidebarMetricRow label="Updated" value={activeUpdated} />
+              <WorkspaceSidebarMetricRow
+                label="Updated"
+                value={<span title={activeUpdated.title}>{activeUpdated.label}</span>}
+              />
             </div>
           </WorkspaceSidebarSection>
 
@@ -124,43 +152,17 @@ export function AppSidebar({
                 const href = selected
                   ? editorRoute.currentPath
                   : `/app/projects/${editorRoute.projectId}/images/${image.id}/crop`;
+                const updated = imageUpdatedValue(image, now);
 
                 return (
-                  <Link
+                  <WorkspaceSidebarEntityRow
                     key={image.id}
                     href={href}
-                    aria-current={selected ? "page" : undefined}
-                    className={cn(
-                      "group relative flex min-h-[3.5rem] items-start gap-3.5 px-2 py-2.5 text-left transition-colors hover:bg-[var(--workspace-panel-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                      selected
-                        ? "bg-[var(--workspace-selected)] text-[var(--text-primary)] before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:bg-[var(--accent-primary)]"
-                        : "text-[var(--text-secondary)]",
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={cn(
-                            "min-w-0 flex-1 truncate text-xs font-semibold",
-                            selected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]",
-                          )}
-                          title={label}
-                        >
-                          {label}
-                        </span>
-                        <ChevronRightIcon
-                          className={cn(
-                            "size-4 shrink-0 text-[var(--text-dim)] transition-opacity",
-                            selected ? "opacity-80" : "opacity-0 group-hover:opacity-50",
-                          )}
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="mt-1 block truncate text-[10px] font-medium text-[var(--text-muted)]">
-                        {imageRowSubtitle(image)}
-                      </span>
-                    </span>
-                  </Link>
+                    selected={selected}
+                    title={label}
+                    subtitle={imageRowSubtitle(image, now)}
+                    subtitleTitle={updated.title}
+                  />
                 );
               })}
             </div>
@@ -236,41 +238,17 @@ export function AppSidebar({
             <div className="space-y-1 pr-2">
               {projects.map((project) => {
                 const selected = project.id === activeProject?.id;
+                const updated = projectUpdatedValue(project, now);
                 return (
-                  <Link
+                  <WorkspaceSidebarEntityRow
                     key={project.id}
                     href={`/app/projects/${project.id}`}
-                    aria-current={selected ? "page" : undefined}
-                    className={cn(
-                      "group relative flex min-h-[4rem] items-start gap-3.5 px-2 py-2.5 text-left transition-colors hover:bg-[var(--workspace-panel-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                      selected
-                        ? "bg-[var(--workspace-selected)] text-[var(--text-primary)] before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:bg-[var(--accent-primary)]"
-                        : "text-[var(--text-secondary)]",
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={cn(
-                            "min-w-0 flex-1 truncate text-xs font-semibold",
-                            selected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]",
-                          )}
-                        >
-                          {project.name}
-                        </span>
-                        <ChevronRightIcon
-                          className={cn(
-                            "size-4 shrink-0 text-[var(--text-dim)] transition-opacity",
-                            selected ? "opacity-80" : "opacity-0 group-hover:opacity-50",
-                          )}
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="mt-1 block truncate text-[10px] font-medium text-[var(--text-muted)]">
-                        {pluralizeImages(project.imageCount)} · Updated {project.updatedLabel}
-                      </span>
-                    </span>
-                  </Link>
+                    selected={selected}
+                    title={project.name}
+                    subtitle={projectRowSubtitle(project, now)}
+                    subtitleTitle={updated.title}
+                    onClick={() => writeProjectRecencyCookie(project.id, visibleProjectIds)}
+                  />
                 );
               })}
             </div>

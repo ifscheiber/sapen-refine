@@ -31,13 +31,13 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 - `/app/projects/[projectId]` uses the active-project workspace as the canonical image list/upload surface for the selected project.
 - `/app/projects/[projectId]/images` is a compatibility redirect to `/app/projects/[projectId]`; visible navigation should not link to it as a separate workspace.
-- Editable project roles can upload an image through `POST /api/projects/[projectId]/images/upload`.
+- Editable project roles upload images through the project workspace `Upload image` dialog. The dialog first uses `POST /api/projects/[projectId]/images/upload` for the immutable image artifact and then optionally saves entered sample/acquisition metadata through `PATCH /api/images/[imageId]/metadata`.
 - Browser image reads use app-mediated asset routes rather than direct MinIO URLs.
 - Browser helper types in `src/lib/projectsClient.ts` mirror that app-mediated route surface and do not expose `ImageAsset.storageKey`.
 - The app-mediated upload path accepts PNG and JPEG images only. SVG and other formats are rejected before an image row is created.
-- Uploaded images appear in the image workspace with app-mediated previews, validation/readiness hints, T-number state, slice counts, additive mask-version counts where available, a metadata link, and a primary `Open` action for the crop workflow.
+- Uploaded images appear in the image workspace with app-mediated previews, validation/readiness hints, T-number state, slice counts, additive mask-version counts where available, relative update time with absolute timestamp tooltips, an icon action for metadata editing, and an icon action to annotate the image through the crop workflow.
 - `/app/projects/[projectId]/images/[imageId]` shows immutable technical image metadata and editable image-level acquisition/sample metadata.
-- The image list primary action and metadata page crop-workflow link target the crop workflow entry route for image-level BBox set confirmation. After slice preparation, selected slices open the unified crop annotation editor directly. RB-104 removed the legacy full-image editor link from these pages.
+- The image list annotate action and metadata page `Annotate image` link target the crop workflow entry route for image-level BBox set confirmation. After slice preparation, selected slices open the unified crop annotation editor directly. RB-104 removed the legacy full-image editor link from these pages.
 
 ## Current Data Captured
 
@@ -68,7 +68,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 - `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain present only as disabled legacy/internal compatibility paths. After auth/RBAC they return `410 PRESIGNED_UPLOADS_DISABLED`. The supported customer-trial browser helper is `apiUploadImage`, not the presign/commit pair.
 - `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI. The response adds `updatedAt`, `maskVersionCount`, and `sliceCount` for the workspace table and DESIGN-008 editor image sidebar while preserving existing fields.
 - `GET /api/images/[imageId]/metadata` returns the image metadata bundle, membership role, edit capability, and computed completeness summary.
-- `PATCH /api/images/[imageId]/metadata` updates acquisition/sample metadata for editable project roles and rejects immutable image facts such as checksums or dimensions.
+- `PATCH /api/images/[imageId]/metadata` updates acquisition/sample metadata for editable project roles and rejects immutable image facts such as checksums or dimensions. The upload dialog reuses this endpoint after a successful image upload instead of extending the raw upload contract.
 - `GET /api/images/[imageId]/slice` returns default-slice state, latest support mask, latest classification, and support label byte values.
 - `POST /api/images/[imageId]/slice/ensure` creates the default slice instance for editable roles.
 - `PATCH /api/images/[imageId]/slice/classification` appends a slice classification version.

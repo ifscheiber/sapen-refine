@@ -966,3 +966,17 @@ Affected modules: `src/server/auth/policies.ts`, BBox workflow APIs, editor work
 Owner: Unassigned.
 
 Priority: P3 workflow semantics follow-up after DESIGN-010.
+
+## DESIGN-012-A - Cross-Device Project Last-Opened Ordering
+
+Context: DESIGN-012/DESIGN-013 add browser-local last-opened project ordering for the workspace PROJECTS sidebar and `/app/projects` default selection. The implementation uses a non-domain cookie so it avoids a schema migration and does not change project update timestamps.
+
+Impact: Project ordering follows the current browser, but it does not sync across devices or browsers for the same authenticated user.
+
+Proposed next step: Add a per-user project access timestamp table or field, update it from project route entrypoints, and sort project lists from the backend by that value before falling back to project `updatedAt`.
+
+Affected modules: project routes, app shell layout, Prisma schema, project list APIs, and shell/sidebar tests.
+
+Owner: Unassigned.
+
+Priority: P3 UX follow-up after DESIGN-012/DESIGN-013.

@@ -36,12 +36,15 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(
     page.getByRole("navigation", { name: "Project navigation" }).getByRole("link", { name: "Images" }),
   ).toHaveCount(0);
-  await page.locator('input[type="file"]').setInputFiles(fixturePath);
+  await page.getByRole("button", { name: "Upload image" }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles(fixturePath);
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
   await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
   await expect(page.getByText("T-number: missing")).toBeVisible();
   await expect(page.getByText("Missing T-number", { exact: true })).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Metadata" }).click();
+  await page.getByRole("link", { name: "Edit metadata" }).click();
   await expect(page.getByRole("heading", { name: "Sample Metadata" })).toBeVisible();
   await expect(page.getByText("image/png")).toBeVisible();
   await expect(page.getByText("VALIDATED")).toBeVisible();
@@ -65,7 +68,7 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   expect(imageId).toBeTruthy();
 
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await page.getByRole("link", { name: "Annotate image" }).click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();

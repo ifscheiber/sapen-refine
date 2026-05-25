@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ChevronRightIcon } from "lucide-react";
+
 import { cn } from "@/components/ui/utils";
 
 export function WorkspaceSidebarSection({
@@ -38,6 +41,65 @@ export function WorkspaceSidebarMetricRow({
       <span className="font-medium text-[var(--text-muted)]">{label}</span>
       <span className="min-w-0 truncate text-[var(--text-secondary)]">{value}</span>
     </div>
+  );
+}
+
+export function WorkspaceSidebarEntityRow({
+  href,
+  selected,
+  title,
+  subtitle,
+  titleAttr,
+  subtitleTitle,
+  onClick,
+}: {
+  href: string;
+  selected: boolean;
+  title: string;
+  subtitle: string;
+  titleAttr?: string;
+  subtitleTitle?: string;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={selected ? "page" : undefined}
+      onClick={onClick}
+      className={cn(
+        "group relative flex min-h-[3.5rem] items-start gap-3.5 px-2 py-2.5 text-left transition-colors hover:bg-[var(--workspace-panel-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+        selected
+          ? "bg-[var(--workspace-selected)] text-[var(--text-primary)] before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:bg-[var(--accent-primary)]"
+          : "text-[var(--text-secondary)]",
+      )}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-xs font-semibold",
+              selected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]",
+            )}
+            title={titleAttr ?? title}
+          >
+            {title}
+          </span>
+          <ChevronRightIcon
+            className={cn(
+              "size-4 shrink-0 text-[var(--text-dim)] transition-opacity",
+              selected ? "opacity-80" : "opacity-0 group-hover:opacity-50",
+            )}
+            aria-hidden="true"
+          />
+        </span>
+        <span
+          className="mt-1 block truncate text-[10px] font-medium text-[var(--text-muted)]"
+          title={subtitleTitle}
+        >
+          {subtitle}
+        </span>
+      </span>
+    </Link>
   );
 }
 
