@@ -22,9 +22,6 @@ import {
   clientPointToImagePoint,
   hitTestImageRect,
   imageRectsOverlap,
-  getFitZoom,
-  getViewportCenteredScroll,
-  getZoomedCanvasDisplaySize,
   imageRectFromPoints,
   moveImageRect,
   originalRectToPreviewRect,
@@ -94,6 +91,7 @@ import { EditorCanvasStack } from "./components/EditorCanvasStack";
 import { EditorReviewPanel } from "./components/EditorReviewPanel";
 import { EditorSliceClassificationPanel } from "./components/EditorSliceClassificationPanel";
 import { EditorToolbar } from "./components/EditorToolbar";
+import { useCanvasZoomControls } from "./useCanvasZoomControls";
 
 type BBoxDrawOptions = {
   selected?: boolean;
@@ -323,6 +321,17 @@ export default function EditorClient({
     commitLasso: (points: Point[]) => void;
     deleteSelectedBBox: () => void;
   } | null>(null);
+  const zoomCanvasRefs = useMemo(
+    () => [baseCanvasRef, predictionCanvasRef, overlayCanvasRef, bboxCanvasRef, previewCanvasRef] as const,
+    [],
+  );
+  const { applyZoom, fitToContainer, setViewportZoom: setEditorZoom } = useCanvasZoomControls({
+    containerRef,
+    canvasRefs: zoomCanvasRefs,
+    setZoom,
+    minZoom: isBBoxStageMode ? 0.01 : 0.05,
+    maxZoom: isBBoxStageMode ? 1 : 3,
+  });
 
   const loadSliceState = useCallback(async () => {
     const res = await fetch(API_SLICE_STATE(imageId), { method: "GET", cache: "no-store" });
@@ -656,95 +665,6 @@ export default function EditorClient({
       controller.abort();
     };
   }, [correctionContext?.predictionMaskUrl, renderPredictionOverlayFull]);
-
-  // ---------- Zoom / Fit ----------
-  const applyZoom = useCallback((z: number, options: { preserveViewportCenter?: boolean; centerAfter?: boolean } = {}) => {
-    const wrap = containerRef.current;
-    const base = baseCanvasRef.current;
-    const prediction = predictionCanvasRef.current;
-    const over = overlayCanvasRef.current;
-    const bbox = bboxCanvasRef.current;
-    const preview = previewCanvasRef.current;
-    if (!base || !prediction || !over || !bbox || !preview) return;
-
-    const iw = base.width;
-    const ih = base.height;
-    const viewportCenterImagePoint =
-      options.preserveViewportCenter && wrap
-        ? (() => {
-            const canvasRect = base.getBoundingClientRect();
-            const viewportRect = wrap.getBoundingClientRect();
-            if (canvasRect.width <= 0 || canvasRect.height <= 0) return null;
-            return {
-              x: clampNumber(
-                ((viewportRect.left + viewportRect.width / 2 - canvasRect.left) / canvasRect.width) * iw,
-                0,
-                iw,
-              ),
-              y: clampNumber(
-                ((viewportRect.top + viewportRect.height / 2 - canvasRect.top) / canvasRect.height) * ih,
-                0,
-                ih,
-              ),
-            };
-          })()
-        : null;
-
-    const { width: dispW, height: dispH } = getZoomedCanvasDisplaySize(iw, ih, z);
-
-    base.style.width = `${dispW}px`;
-    base.style.height = `${dispH}px`;
-    prediction.style.width = `${dispW}px`;
-    prediction.style.height = `${dispH}px`;
-    over.style.width = `${dispW}px`;
-    over.style.height = `${dispH}px`;
-    bbox.style.width = `${dispW}px`;
-    bbox.style.height = `${dispH}px`;
-    preview.style.width = `${dispW}px`;
-    preview.style.height = `${dispH}px`;
-
-    if (!wrap || (!viewportCenterImagePoint && !options.centerAfter)) return;
-    requestAnimationFrame(() => {
-      const center = viewportCenterImagePoint ?? { x: iw / 2, y: ih / 2 };
-      const next = getViewportCenteredScroll({
-        centerX: center.x * z,
-        centerY: center.y * z,
-        contentWidth: dispW,
-        contentHeight: dispH,
-        viewportWidth: wrap.clientWidth,
-        viewportHeight: wrap.clientHeight,
-      });
-      wrap.scrollTo({ left: next.left, top: next.top, behavior: "auto" });
-    });
-  }, []);
-
-  const fitToContainer = useCallback(() => {
-    const wrap = containerRef.current;
-    const base = baseCanvasRef.current;
-    if (!wrap || !base) return;
-
-    const cw = wrap.clientWidth;
-    const ch = wrap.clientHeight;
-
-    const iw = base.width;
-    const ih = base.height;
-
-    if (!iw || !ih) return;
-
-    const z = getFitZoom({
-      containerWidth: cw,
-      containerHeight: ch,
-      imageWidth: iw,
-      imageHeight: ih,
-    });
-    setZoom(z);
-    applyZoom(z, { centerAfter: true });
-  }, [applyZoom]);
-
-  function setEditorZoom(nextZoom: number) {
-    setZoom(nextZoom);
-    applyZoom(nextZoom, { preserveViewportCenter: true });
-  }
 
   // ---------- Coords ----------
   function canvasToImageCoords(evt: React.PointerEvent<HTMLCanvasElement>) {

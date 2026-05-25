@@ -1,23 +1,24 @@
-# Refine BBox Editor Tickets
+# Refine Slice Annotation Toolbar Tickets
 
-This folder contains the BBox editor follow-up tickets split into three implementation slices.
+This folder contains follow-up tickets for the Refine Slice Annotation editor toolbar and shared annotation UI primitives.
+
+## Active
+
+1. `RB-127-refine-slice-annotation-toolbar-cleanup-autosave.md`
+   - Compact icon-only Slice Annotation toolbar.
+   - Move info/status to right rail.
+   - Remove `Unknown`.
+   - Remove Apply/Close/Cancel/Commit buttons.
+   - Autosave semantic mask edits.
+   - Safe slice switching.
+   - Reuse BBox zoom behavior.
 
 ## Completed
 
 Implemented tickets are archived in `done/`.
 
-1. `done/RB-124-refine-bbox-editor-toolbar-status-ux-cleanup.md`
-   - Toolbar/status UX cleanup.
-   - Remove verbose workflow strip.
-   - Match Core Quick Analysis toolbar style.
-   - Remove Resize button.
-
-2. `done/RB-125-refine-bbox-editor-selection-autosave.md`
-   - Natural selection/deselection behavior.
-   - Autosave BBox create/move/resize/delete/proposal replacement.
-   - Save-state feedback.
-
-3. `done/RB-126-refine-bbox-slice-lifecycle-validation-zoom.md`
-   - Automatic slice preparation/regeneration on tab switch.
-   - Human-readable validation copy for `BBOX_TOO_SMALL`.
-   - Stable zoom centering behavior.
+1. `done/RB-128-refine-shared-annotation-toolbar-zoom-primitives.md`
+   - Shared compact toolbar primitives.
+   - Shared icon button component/style.
+   - Shared zoom component/hook.
+   - Shared right-rail status pattern.

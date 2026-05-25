@@ -1,12 +1,6 @@
 import Link from "next/link";
-import {
-  Maximize2Icon,
-  SearchIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 
-import { Slider } from "@/components/ui/slider";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type {
   CropWorkflowReadinessCandidate,
   DerivedSliceCrop,
@@ -17,15 +11,14 @@ import type {
 } from "../editorTypes";
 import type { BBoxPreviewMetadata } from "../canvasGeometry";
 import type { BBoxSaveState } from "../bboxStageEvents";
+import { activeButtonClass, idleButtonClass } from "../editorStyles";
 import {
-  activeButtonClass,
-  canvasToolbarContentClass,
-  canvasToolbarDividerClass,
-  canvasToolbarIconButtonClass,
-  canvasToolbarShellClass,
-  canvasToolbarZoomSliderClass,
-  idleButtonClass,
-} from "../editorStyles";
+  AnnotationIconButton,
+  AnnotationToolbarDivider,
+  AnnotationToolbarGroup,
+  AnnotationToolbarShell,
+  AnnotationZoomControl,
+} from "./AnnotationToolbar";
 
 type EditorBBoxPanelProps = {
   projectId: string;
@@ -57,10 +50,6 @@ type EditorBBoxPanelProps = {
   onZoomChange?: (zoom: number) => void;
   onFit?: () => void;
 };
-
-function clampZoom(value: number) {
-  return Math.min(1, Math.max(0.01, value));
-}
 
 function saveStateLabel(state: BBoxSaveState | undefined) {
   if (state === "saving") return "Saving...";
@@ -106,59 +95,34 @@ export function EditorBBoxPanel({
 
   if (stageMode) {
     return (
-      <div className={canvasToolbarShellClass}>
-        <div aria-label="BBox tools" className={canvasToolbarContentClass}>
-          <div className="flex items-center gap-1.5">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={canvasToolbarIconButtonClass}
-                  onClick={onDelete}
-                  disabled={!selectedCanDelete}
-                >
-                  <Trash2Icon className="size-4" aria-hidden="true" />
-                  <span className="sr-only">Delete selected BBox</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {selected ? "Delete selected BBox" : "Select a BBox to delete"}
-              </TooltipContent>
-            </Tooltip>
-          </div>
+      <AnnotationToolbarShell ariaLabel="BBox tools">
+        <AnnotationToolbarGroup>
+          <AnnotationIconButton
+            icon={Trash2Icon}
+            label="Delete selected BBox"
+            tooltip={selected ? "Delete selected BBox" : "Select a BBox to delete"}
+            onClick={onDelete}
+            disabled={!selectedCanDelete}
+          />
+        </AnnotationToolbarGroup>
 
-          <div className={canvasToolbarDividerClass} />
+        <AnnotationToolbarDivider />
 
-          <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]" title={zoomTitle}>
-            <SearchIcon className="size-3.5" aria-hidden="true" />
-            <Slider
-              aria-label="Zoom preview"
-              value={[zoom]}
-              min={0.01}
-              max={1}
-              step={0.01}
-              onValueChange={(value) => onZoomChange?.(clampZoom(value[0] ?? zoom))}
-              disabled={!onZoomChange}
-              className={canvasToolbarZoomSliderClass}
-            />
-            <span className="w-10 text-right tabular-nums">{Math.round(zoom * 100)}%</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button type="button" className={canvasToolbarIconButtonClass} onClick={onFit} disabled={!onFit}>
-                  <Maximize2Icon className="size-4" aria-hidden="true" />
-                  <span className="sr-only">Fit image</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Fit image</TooltipContent>
-            </Tooltip>
-          </div>
+        <AnnotationZoomControl
+          zoom={zoom}
+          minZoom={0.01}
+          maxZoom={1}
+          label="Zoom preview"
+          title={zoomTitle}
+          onZoomChange={onZoomChange}
+          onFit={onFit}
+        />
 
-          <div className="ml-auto min-w-32 text-right text-[11px] font-medium text-[var(--text-secondary)]">
-            {compactStatus ? <span role="status">{compactStatus}</span> : null}
-            {replaceArmed ? <span className="sr-only">Draw a replacement BBox on the image.</span> : null}
-          </div>
+        <div className="ml-auto min-w-32 text-right text-[11px] font-medium text-[var(--text-secondary)]">
+          {compactStatus ? <span role="status">{compactStatus}</span> : null}
+          {replaceArmed ? <span className="sr-only">Draw a replacement BBox on the image.</span> : null}
         </div>
-      </div>
+      </AnnotationToolbarShell>
     );
   }
 

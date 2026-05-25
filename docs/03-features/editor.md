@@ -59,6 +59,7 @@ Extracted ownership:
 - `src/features/editor/components/EditorReviewPanel.tsx` owns review/export-readiness display and submit/approve/reject controls.
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
 - `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
+- `src/features/editor/components/AnnotationToolbar.tsx` and `src/features/editor/useCanvasZoomControls.ts` provide the shared compact annotation toolbar primitives and stable stacked-canvas zoom behavior used by BBox and crop editor surfaces.
 - `src/features/editor/components/EditorBBoxPanel.tsx` owns RB-086/RB-087 slice BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview metadata.
 - `src/features/editor/AnnotationEditorWorkspace.tsx` owns the shared Core-aligned editor header, context row, local tabs, and optional navigator rail used by the BBox and crop-mask editor routes.
 
