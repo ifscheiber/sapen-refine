@@ -1,9 +1,12 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { CircleUserRound, LogOut } from "lucide-react";
 
 import { LogoutButton } from "@/components/LogoutButton";
 import { cn } from "@/components/ui/utils";
+import { useAppShellContext } from "./AppShellContext";
 
 type TopbarUser = {
   name: string | null;
@@ -19,6 +22,8 @@ export function AppTopbar({ user }: { user: TopbarUser }) {
   const displayName = user.name ?? user.email;
   const signedInLabel =
     displayName === user.email ? `Signed in as ${user.email}` : `Signed in as ${displayName}, ${user.email}`;
+  const { editorRoute, activeProject, activeImage } = useAppShellContext();
+  const imageLabel = activeImage?.filename ?? editorRoute?.imageId ?? null;
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[var(--border-subtle)] bg-[var(--shell-topbar-bg)] px-5">
@@ -37,8 +42,8 @@ export function AppTopbar({ user }: { user: TopbarUser }) {
           />
         </Link>
         <nav aria-label="Breadcrumbs" className="hidden min-w-0 text-[11px] text-[var(--text-muted)] md:block">
-          <ol className="flex flex-wrap items-center gap-1.5">
-            <li className="flex items-center gap-1.5">
+          <ol className="flex min-w-0 items-center gap-1.5">
+            <li className="flex shrink-0 items-center gap-1.5">
               <Link
                 href="/app/projects"
                 className="font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
@@ -46,6 +51,30 @@ export function AppTopbar({ user }: { user: TopbarUser }) {
                 Projects
               </Link>
             </li>
+            {editorRoute && activeProject ? (
+              <li className="flex min-w-0 items-center gap-1.5">
+                <span className="text-[var(--text-dim)]">/</span>
+                <Link
+                  href={`/app/projects/${activeProject.id}`}
+                  className="min-w-0 max-w-52 truncate font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  title={activeProject.name}
+                >
+                  {activeProject.name}
+                </Link>
+              </li>
+            ) : null}
+            {editorRoute && imageLabel ? (
+              <li className="flex min-w-0 items-center gap-1.5">
+                <span className="text-[var(--text-dim)]">/</span>
+                <Link
+                  href={editorRoute.currentPath}
+                  className="min-w-0 max-w-64 truncate font-medium text-[var(--text-primary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  title={imageLabel}
+                >
+                  {imageLabel}
+                </Link>
+              </li>
+            ) : null}
           </ol>
         </nav>
       </div>

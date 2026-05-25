@@ -66,7 +66,7 @@ Image UI lives in `src/features/images` while routes stay stable.
 
 - `POST /api/projects/[projectId]/images/upload` is the current customer-trial browser path. It checks upload size, content type, checksum hints, PNG/JPEG dimensions, object stat metadata, and then records a validated image row.
 - `POST /api/projects/[projectId]/images/presign` and `POST /api/projects/[projectId]/images/commit` remain present only as disabled legacy/internal compatibility paths. After auth/RBAC they return `410 PRESIGNED_UPLOADS_DISABLED`. The supported customer-trial browser helper is `apiUploadImage`, not the presign/commit pair.
-- `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI. The response adds `updatedAt` and `maskVersionCount` for the workspace table while preserving existing fields.
+- `GET /api/projects/[projectId]/images` lists project images without exposing private storage keys to the browser UI. The response adds `updatedAt`, `maskVersionCount`, and `sliceCount` for the workspace table and DESIGN-008 editor image sidebar while preserving existing fields.
 - `GET /api/images/[imageId]/metadata` returns the image metadata bundle, membership role, edit capability, and computed completeness summary.
 - `PATCH /api/images/[imageId]/metadata` updates acquisition/sample metadata for editable project roles and rejects immutable image facts such as checksums or dimensions.
 - `GET /api/images/[imageId]/slice` returns default-slice state, latest support mask, latest classification, and support label byte values.

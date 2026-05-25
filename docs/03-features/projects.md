@@ -50,7 +50,7 @@ Route files are thin wrappers around `src/features/projects`.
 
 - `/app/projects` opens the authenticated project workspace and selects the most recently updated visible annotation project.
 - `/app/projects/new` creates a project through `POST /api/projects` only for global `ADMIN` users or users that already own at least one project.
-- Project creation and project selection live in the authenticated shell sidebar (`src/components/shell/AppSidebar.tsx`), which lists visible annotation projects and links to `/app/projects/[projectId]`.
+- Project creation and project selection live in the authenticated shell sidebar (`src/components/shell/AppSidebar.tsx`) on project workspace routes, where the sidebar lists visible annotation projects and links to `/app/projects/[projectId]`. Annotation editor routes switch the same shell sidebar to image-scoped context for the active project/image.
 - `/app/projects/[projectId]` shows the active-project workspace for one project only. The primary tab lists images for that selected project, and `?tab=settings` shows editable name/description for `OWNER` and `QA`.
 - Annotator/`LABELER` users see the focused project/image annotation workspace only: no project creation, project settings, tasks, exports, prediction imports, prediction-analysis, or worker/operator actions.
 - The workspace right rail shows project status counts and links to the project overview, tasks, exports, and prediction imports through `src/features/projects/ProjectOperationsNav.tsx` only when the user's project role has those capabilities. Image listing/upload lives on the project overview itself.

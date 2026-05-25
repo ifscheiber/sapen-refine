@@ -242,6 +242,7 @@ Current RB-096 behavior:
 Current BBox re-entry behavior:
 
 - The shared editor tab row exposes `BBoxes` back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
+- DESIGN-008 scopes the authenticated shell to the active image on editor routes. The topbar breadcrumb trail includes project and image names, and the left sidebar shows image summary plus the active project's image list instead of project gallery controls. This shell context is visual/navigation-only and does not change editor canvas, mask, BBox, save, or review contracts.
 - Crop workflow pages no longer expose `Editor` or `Full editor` escape hatches to `/app/projects/[projectId]/images/[imageId]/edit`.
 - Navigation-only re-entry preserves `BBOX_CONFIRMED`; actual BBox replacement/deletion after the explicit unlock transitions the image workflow to `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set`.
 

@@ -22,6 +22,7 @@ export type ApiImage = {
   createdAt: string;
   updatedAt?: string | null;
   maskVersionCount?: number;
+  sliceCount?: number;
 };
 
 export async function apiListProjects(): Promise<ApiProject[]> {

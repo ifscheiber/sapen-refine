@@ -14,7 +14,7 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/projects` - lists projects visible to the current user.
 - `POST /api/projects` - creates a project and owner membership for global `ADMIN` users or users that already own at least one project; plain Annotator/`LABELER` users receive stable JSON `403 FORBIDDEN`.
 - `PATCH /api/projects/[projectId]` - updates project name/description for `OWNER` and `QA`; attaches the default active label schema when missing.
-- `GET /api/projects/[projectId]/images` - lists images for a project.
+- `GET /api/projects/[projectId]/images` - lists images for a project with browser-safe metadata, mask-version counts, and slice counts.
 - `POST /api/projects/[projectId]/images/presign` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
 - `POST /api/projects/[projectId]/images/commit` - disabled legacy/internal compatibility route; after auth/RBAC it returns `410 PRESIGNED_UPLOADS_DISABLED`.
 - `POST /api/projects/[projectId]/images/upload` - uploads a PNG/JPEG raw image through the app server, verifies checksum/dimensions/object metadata, stores it in S3/MinIO, and records the validated image row.

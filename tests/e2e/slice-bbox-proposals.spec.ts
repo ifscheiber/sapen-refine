@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -19,12 +20,45 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 
+  const fixtureBuffer = fs.readFileSync(fixturePath);
   await expect(page.getByText("Upload image", { exact: true })).toBeVisible();
-  await page.locator('input[type="file"]').setInputFiles(fixturePath);
-  await expect(page.getByText("apple-touch-icon.png")).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "editor-primary.png",
+    mimeType: "image/png",
+    buffer: fixtureBuffer,
+  });
+  await expect(page.getByText("editor-primary.png")).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "editor-secondary.png",
+    mimeType: "image/png",
+    buffer: fixtureBuffer,
+  });
+  await expect(page.getByText("editor-secondary.png")).toBeVisible();
 
-  await page.getByRole("link", { name: "Crop workflow" }).click();
+  await page.getByRole("link", { name: "Crop workflow" }).first().click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
+  const breadcrumbs = page.getByRole("navigation", { name: "Breadcrumbs" });
+  await expect(breadcrumbs.getByText(projectName)).toBeVisible();
+  await expect(breadcrumbs.getByText("editor-secondary.png")).toBeVisible();
+  const shellSidebar = page.locator("aside").first();
+  await expect(shellSidebar.getByRole("heading", { name: "Image Summary" })).toBeVisible();
+  await expect(shellSidebar.getByRole("heading", { name: "Projects Summary" })).toHaveCount(0);
+  await expect(shellSidebar.getByRole("link", { name: "Back to Project Images" })).toBeVisible();
+  await expect(shellSidebar.getByRole("link", { name: "New Project" })).toHaveCount(0);
+  await expect(shellSidebar.getByRole("link", { name: "Upload Images" })).toHaveCount(0);
+  await expect(shellSidebar.getByRole("link", { name: "Project Gallery" })).toHaveCount(0);
+  await expect(shellSidebar.getByRole("heading", { name: "Images" })).toBeVisible();
+  await expect(shellSidebar.getByRole("link", { name: /editor-secondary\.png/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await shellSidebar.getByRole("link", { name: /editor-primary\.png/ }).click();
+  await expect(page).toHaveURL(/\/crop\/bboxes$/);
+  await expect(breadcrumbs.getByText("editor-primary.png")).toBeVisible();
+  await expect(shellSidebar.getByRole("link", { name: /editor-primary\.png/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
   await expect(page.getByRole("button", { name: "Add BBox" })).toBeVisible();
@@ -57,7 +91,8 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.getByRole("link", { name: "Continue to slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
-  await expect(page.getByLabel("Slice navigator")).toBeVisible();
+  const sliceNavigator = page.getByRole("complementary", { name: "Slice navigator" });
+  await expect(sliceNavigator).toBeVisible();
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Slice 1" })).toBeVisible();
@@ -66,10 +101,10 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page.getByText("Support geometry derives from semantic foreground.")).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit BBoxes" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /#1\s+Slice 1/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Refresh navigator" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Editor" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
+  await expect(sliceNavigator.getByRole("button", { name: /#1\s+Slice 1/ })).toHaveCount(0);
+  await expect(sliceNavigator.getByRole("button", { name: "Refresh navigator" })).toHaveCount(0);
+  await expect(sliceNavigator.getByRole("link", { name: "Editor" })).toHaveCount(0);
+  await expect(sliceNavigator.getByRole("link", { name: "Full editor" })).toHaveCount(0);
 
   const imageMatch = page.url().match(/\/images\/([^/]+)\//);
   expect(imageMatch).not.toBeNull();
@@ -96,12 +131,12 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
-  await expect(page.getByLabel("Slice navigator")).toBeVisible();
+  await expect(sliceNavigator).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit BBoxes" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Editor" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
+  await expect(sliceNavigator.getByRole("link", { name: "Editor" })).toHaveCount(0);
+  await expect(sliceNavigator.getByRole("link", { name: "Full editor" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "BBoxes" }).click();
   await expect(page).toHaveURL(/\/crop\/bboxes$/);

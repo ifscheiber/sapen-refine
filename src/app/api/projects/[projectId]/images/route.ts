@@ -29,14 +29,16 @@ export const GET = withApiErrorHandling(async function GET(
       createdAt: true,
       updatedAt: true,
       artifacts: { select: { _count: { select: { versions: true } } } },
+      _count: { select: { sliceInstances: true } },
     },
   });
 
   return NextResponse.json({
     ok: true,
-    images: images.map(({ artifacts, ...image }) => ({
+    images: images.map(({ artifacts, _count, ...image }) => ({
       ...image,
       maskVersionCount: artifacts.reduce((total, artifact) => total + artifact._count.versions, 0),
+      sliceCount: _count.sliceInstances,
     })),
   });
 });

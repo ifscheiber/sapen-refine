@@ -938,3 +938,17 @@ Affected modules: `src/components/shell`, `src/design`, package/dependency confi
 Owner: Unassigned.
 
 Priority: Deferred design-system consolidation.
+
+## DESIGN-008-A - Per-User Editor Image Last-Opened Ordering
+
+Context: DESIGN-008 makes the annotation editor sidebar image-scoped and pins the active image first, but the app does not persist per-user editor image open/access timestamps.
+
+Impact: The `IMAGES` sidebar can only approximate "recently opened" ordering with active-image pinning plus `ImageAsset.updatedAt` / `createdAt` fallback. Images with recent annotation work sort reasonably, but pure view/open recency is not represented.
+
+Proposed next step: Add a lightweight per-user image editor access table or session activity field, update it from editor route entrypoints, and sort the editor sidebar by that timestamp before falling back to image update/create time.
+
+Affected modules: authenticated editor routes, app shell image context, project images API, Prisma schema, and shell/sidebar tests.
+
+Owner: Unassigned.
+
+Priority: P3 UX follow-up after DESIGN-008.

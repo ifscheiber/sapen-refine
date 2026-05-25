@@ -1,4 +1,5 @@
 import { AppSidebar } from "./AppSidebar";
+import { AppShellContextProvider } from "./AppShellContext";
 import { AppTopbar } from "./AppTopbar";
 
 type ShellUser = {
@@ -31,13 +32,15 @@ export function AppShell({
     <div className="dark min-h-dvh bg-[var(--app-background)] text-[var(--text-primary)]">
       <div className="flex min-h-dvh flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
-          <AppTopbar user={user} />
-          <div className="flex min-h-[calc(100dvh-3.5rem)]">
-            <AppSidebar projects={projects} canCreateProject={canCreateProject} />
-            <main className="min-w-0 flex-1 bg-[var(--workspace-background)]">
-              {children}
-            </main>
-          </div>
+          <AppShellContextProvider projects={projects}>
+            <AppTopbar user={user} />
+            <div className="flex min-h-[calc(100dvh-3.5rem)]">
+              <AppSidebar projects={projects} canCreateProject={canCreateProject} />
+              <main className="min-w-0 flex-1 bg-[var(--workspace-background)]">
+                {children}
+              </main>
+            </div>
+          </AppShellContextProvider>
         </div>
       </div>
     </div>
