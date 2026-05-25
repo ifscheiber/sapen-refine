@@ -5,6 +5,7 @@ import {
   computeBBoxPreviewMetadata,
   clientPointToImagePoint,
   getFitZoom,
+  getViewportCenteredScroll,
   getZoomedCanvasDisplaySize,
   hitTestImageRect,
   imageRectFromPoints,
@@ -79,6 +80,30 @@ describe("editor canvas geometry", () => {
       width: 10,
       height: 5,
     });
+  });
+
+  it("computes stable viewport-centered scroll targets", () => {
+    expect(
+      getViewportCenteredScroll({
+        centerX: 600,
+        centerY: 400,
+        contentWidth: 1200,
+        contentHeight: 800,
+        viewportWidth: 400,
+        viewportHeight: 300,
+      }),
+    ).toEqual({ left: 400, top: 250 });
+
+    expect(
+      getViewportCenteredScroll({
+        centerX: 100,
+        centerY: 100,
+        contentWidth: 300,
+        contentHeight: 200,
+        viewportWidth: 500,
+        viewportHeight: 400,
+      }),
+    ).toEqual({ left: 0, top: 0 });
   });
 
   it("selects a downscaled BBox preview for large images", () => {

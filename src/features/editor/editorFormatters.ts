@@ -13,6 +13,20 @@ export function errorMessage(error: unknown, fallback = "Save failed") {
   return error instanceof Error ? error.message : fallback;
 }
 
+export function formatBBoxErrorMessage(error: unknown, fallback = "BBox action failed") {
+  const message = errorMessage(error, fallback);
+  if (message === "BBOX_TOO_SMALL") return "BBox too small. Enlarge the selection before preparing slices.";
+  if (message === "BBOX_OVERLAP") return "BBox overlap detected. Move or resize boxes before continuing.";
+  if (message === "BBOX_DELETE_PROTECTED_DEPENDENCIES") {
+    return "Cannot delete: semantic/support or classification data exists for this slice.";
+  }
+  if (message === "BBOX_GEOMETRY_PROTECTED_DEPENDENCIES") {
+    return "Cannot edit geometry: semantic/support or classification data exists for this slice.";
+  }
+  if (message === "BBOX_SET_EMPTY") return "Draw at least one BBox before opening slice annotation.";
+  return message;
+}
+
 export function isAbortError(error: unknown) {
   return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
 }

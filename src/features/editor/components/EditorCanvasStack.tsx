@@ -38,34 +38,36 @@ export function EditorCanvasStack({
       ref={containerRef}
       className="relative h-[calc(100dvh-24rem)] min-h-[28rem] w-full overflow-auto overscroll-contain bg-[var(--workspace-background)]"
     >
-      <div className="relative inline-block">
-        <canvas ref={baseCanvasRef} className="block" />
-        <canvas
-          ref={predictionCanvasRef}
-          aria-label="Read-only prediction proposal"
-          className="absolute left-0 top-0 pointer-events-none"
-        />
-        <canvas
-          ref={overlayCanvasRef}
-          aria-label="Mask drawing surface"
-          className="absolute left-0 top-0 touch-none select-none"
-          draggable={false}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerCancel}
-          onPointerLeave={onPointerLeave}
-          style={{ touchAction: "none" }}
-          onDoubleClick={() => {
-            if (tool === "lasso_poly") onCommitPolygon();
-          }}
-        />
-        <canvas
-          ref={bboxCanvasRef}
-          aria-label="Slice BBox proposal overlay"
-          className="absolute left-0 top-0 pointer-events-none"
-        />
-        <canvas ref={previewCanvasRef} className="absolute left-0 top-0 pointer-events-none" />
+      <div className="flex h-max min-h-full w-max min-w-full items-center justify-center">
+        <div className="relative shrink-0">
+          <canvas ref={baseCanvasRef} className="block" />
+          <canvas
+            ref={predictionCanvasRef}
+            aria-label="Read-only prediction proposal"
+            className="absolute left-0 top-0 pointer-events-none"
+          />
+          <canvas
+            ref={overlayCanvasRef}
+            aria-label="Mask drawing surface"
+            className="absolute left-0 top-0 touch-none select-none"
+            draggable={false}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onPointerLeave={onPointerLeave}
+            style={{ touchAction: "none" }}
+            onDoubleClick={() => {
+              if (tool === "lasso_poly") onCommitPolygon();
+            }}
+          />
+          <canvas
+            ref={bboxCanvasRef}
+            aria-label="Slice BBox proposal overlay"
+            className="absolute left-0 top-0 pointer-events-none"
+          />
+          <canvas ref={previewCanvasRef} className="absolute left-0 top-0 pointer-events-none" />
+        </div>
       </div>
     </div>
   );

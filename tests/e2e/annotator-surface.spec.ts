@@ -39,5 +39,6 @@ test("annotator workspace hides operational surfaces while keeping image annotat
   await page.getByRole("link", { name: "Annotate image" }).first().click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BBox status" })).toBeVisible();
+  await expect(page.getByText("0 valid · 0 issues")).toBeVisible();
 });

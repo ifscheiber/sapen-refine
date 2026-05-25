@@ -15,6 +15,7 @@ import {
   hitTestImageRect,
   imageRectsOverlap,
   getFitZoom,
+  getViewportCenteredScroll,
   getZoomedCanvasDisplaySize,
   imageRectFromPoints,
   moveImageRect,
@@ -46,7 +47,13 @@ import {
   API_SUPPORT_MASK_UPLOAD,
 } from "./editorApi";
 import {
+  BBOX_STAGE_UNLOCK_EVENT,
+  type BBoxSaveState,
+  dispatchBBoxStageStatus,
+} from "./bboxStageEvents";
+import {
   errorMessage,
+  formatBBoxErrorMessage,
   formatReviewState,
   formatSliceClassLabel,
   isAbortError,
@@ -220,6 +227,7 @@ export default function EditorClient({
   const [sliceCrops, setSliceCrops] = useState<DerivedSliceCrop[]>([]);
   const [cropReadinessCandidates, setCropReadinessCandidates] = useState<CropWorkflowReadinessCandidate[]>([]);
   const [bboxStatus, setBBoxStatus] = useState("");
+  const [bboxSaveState, setBBoxSaveState] = useState<BBoxSaveState>("idle");
   const [bboxConfirming, setBBoxConfirming] = useState(false);
   const [selectedBBoxId, setSelectedBBoxId] = useState<string | null>(null);
   const [bboxEditTool, setBBoxEditTool] = useState<BBoxEditTool>("add");
@@ -333,7 +341,7 @@ export default function EditorClient({
     const res = await fetch(API_SLICE_BBOXES(imageId), { method: "GET", cache: "no-store" });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
-      setBBoxStatus(data?.error ?? `SLICE_BBOXES_FAILED_${res.status}`);
+      setBBoxStatus(formatBBoxErrorMessage(new Error(data?.error ?? `SLICE_BBOXES_FAILED_${res.status}`)));
       return [];
     }
 
@@ -350,9 +358,10 @@ export default function EditorClient({
     }
     setSelectedBBoxId((current) => {
       if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
-      return boxes[0]?.bboxVersionId ?? null;
+      return null;
     });
     setBBoxStatus("");
+    dispatchBBoxStageStatus({ refresh: true });
     return boxes;
   }, [imageId]);
 
@@ -360,7 +369,7 @@ export default function EditorClient({
     const res = await fetch(API_SLICE_CROPS(imageId), { method: "GET", cache: "no-store" });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
-      setBBoxStatus(data?.error ?? `SLICE_CROPS_FAILED_${res.status}`);
+      setBBoxStatus(formatBBoxErrorMessage(new Error(data?.error ?? `SLICE_CROPS_FAILED_${res.status}`)));
       return [];
     }
 
@@ -376,7 +385,7 @@ export default function EditorClient({
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
-      setBBoxStatus(data?.error ?? `CROP_READINESS_FAILED_${res.status}`);
+      setBBoxStatus(formatBBoxErrorMessage(new Error(data?.error ?? `CROP_READINESS_FAILED_${res.status}`)));
       return [];
     }
 
@@ -422,6 +431,19 @@ export default function EditorClient({
     if (!isBBoxStageMode || isCorrectionMode) return;
     setTool("bbox");
   }, [isBBoxStageMode, isCorrectionMode]);
+
+  useEffect(() => {
+    if (!isBBoxStageMode) return;
+    const handleUnlock = () => {
+      setBBoxConfirmedEditUnlocked(true);
+      setTool("bbox");
+      setBBoxEditTool("select");
+      setBBoxStatus("BBox editing unlocked");
+      dispatchBBoxStageStatus({ lastAction: "BBox editing unlocked" });
+    };
+    window.addEventListener(BBOX_STAGE_UNLOCK_EVENT, handleUnlock);
+    return () => window.removeEventListener(BBOX_STAGE_UNLOCK_EVENT, handleUnlock);
+  }, [isBBoxStageMode]);
 
   useEffect(() => {
     if (!isBBoxStageMode || bboxProposals.length > 0) return;
@@ -500,6 +522,7 @@ export default function EditorClient({
     setBBoxPreviewMetadata(null);
     setEditorReady(false);
     setHasUnsavedChanges(false);
+    setBBoxSaveState("idle");
   }, []);
 
   function switchMaskMode(nextMode: MaskMode) {
@@ -641,7 +664,8 @@ export default function EditorClient({
   }, [correctionContext?.predictionMaskUrl, renderPredictionOverlayFull]);
 
   // ---------- Zoom / Fit ----------
-  const applyZoom = useCallback((z: number) => {
+  const applyZoom = useCallback((z: number, options: { preserveViewportCenter?: boolean; centerAfter?: boolean } = {}) => {
+    const wrap = containerRef.current;
     const base = baseCanvasRef.current;
     const prediction = predictionCanvasRef.current;
     const over = overlayCanvasRef.current;
@@ -651,6 +675,26 @@ export default function EditorClient({
 
     const iw = base.width;
     const ih = base.height;
+    const viewportCenterImagePoint =
+      options.preserveViewportCenter && wrap
+        ? (() => {
+            const canvasRect = base.getBoundingClientRect();
+            const viewportRect = wrap.getBoundingClientRect();
+            if (canvasRect.width <= 0 || canvasRect.height <= 0) return null;
+            return {
+              x: clampNumber(
+                ((viewportRect.left + viewportRect.width / 2 - canvasRect.left) / canvasRect.width) * iw,
+                0,
+                iw,
+              ),
+              y: clampNumber(
+                ((viewportRect.top + viewportRect.height / 2 - canvasRect.top) / canvasRect.height) * ih,
+                0,
+                ih,
+              ),
+            };
+          })()
+        : null;
 
     const { width: dispW, height: dispH } = getZoomedCanvasDisplaySize(iw, ih, z);
 
@@ -664,6 +708,20 @@ export default function EditorClient({
     bbox.style.height = `${dispH}px`;
     preview.style.width = `${dispW}px`;
     preview.style.height = `${dispH}px`;
+
+    if (!wrap || (!viewportCenterImagePoint && !options.centerAfter)) return;
+    requestAnimationFrame(() => {
+      const center = viewportCenterImagePoint ?? { x: iw / 2, y: ih / 2 };
+      const next = getViewportCenteredScroll({
+        centerX: center.x * z,
+        centerY: center.y * z,
+        contentWidth: dispW,
+        contentHeight: dispH,
+        viewportWidth: wrap.clientWidth,
+        viewportHeight: wrap.clientHeight,
+      });
+      wrap.scrollTo({ left: next.left, top: next.top, behavior: "auto" });
+    });
   }, []);
 
   const fitToContainer = useCallback(() => {
@@ -686,8 +744,13 @@ export default function EditorClient({
       imageHeight: ih,
     });
     setZoom(z);
-    applyZoom(z);
+    applyZoom(z, { centerAfter: true });
   }, [applyZoom]);
+
+  function setEditorZoom(nextZoom: number) {
+    setZoom(nextZoom);
+    applyZoom(nextZoom, { preserveViewportCenter: true });
+  }
 
   // ---------- Coords ----------
   function canvasToImageCoords(evt: React.PointerEvent<HTMLCanvasElement>) {
@@ -1262,15 +1325,7 @@ export default function EditorClient({
   }
 
   function bboxWorkflowMessage(error: unknown, fallback: string) {
-    const message = errorMessage(error, fallback);
-    if (message === "BBOX_OVERLAP") return "BBox overlap detected. Move or resize boxes before continuing.";
-    if (message === "BBOX_DELETE_PROTECTED_DEPENDENCIES") {
-      return "Cannot delete: semantic/support or classification data exists for this slice.";
-    }
-    if (message === "BBOX_GEOMETRY_PROTECTED_DEPENDENCIES") {
-      return "Cannot edit geometry: semantic/support or classification data exists for this slice.";
-    }
-    return message;
+    return formatBBoxErrorMessage(error, fallback);
   }
 
   function selectedBBoxProtectionMessage(box: SliceBoundingBoxProposal | null) {
@@ -1318,18 +1373,25 @@ export default function EditorClient({
       ? bboxProposals.find((box) => box.bboxVersionId === replaceBBoxId) ?? null
       : null;
     if (replacingBox && !(replacingBox.protection?.canReplaceGeometry ?? true)) {
-      setBBoxStatus("Cannot edit geometry: semantic/support or classification data exists for this slice.");
+      const message = formatBBoxErrorMessage(new Error("BBOX_GEOMETRY_PROTECTED_DEPENDENCIES"));
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message });
       return;
     }
     if (bboxOverlapsExistingOriginal(originalRect, replaceBBoxId)) {
-      setBBoxStatus("BBox overlap detected. Move or resize boxes before continuing.");
+      const message = formatBBoxErrorMessage(new Error("BBOX_OVERLAP"));
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message });
       return;
     }
 
     const url = replacing && replaceBBoxId ? API_SLICE_BBOX(replaceBBoxId) : API_SLICE_BBOXES(imageId);
     const method = replacing ? "PATCH" : "POST";
 
-    setBBoxStatus(replacing ? "Replacing BBox proposal" : "Saving BBox proposal");
+    const savingMessage = replacing ? "Saving BBox edit" : "Saving BBox proposal";
+    setBBoxSaveState("saving");
+    setBBoxStatus(savingMessage);
+    dispatchBBoxStageStatus({ saveState: "saving", lastAction: savingMessage });
     try {
       const res = await fetch(url, {
         method,
@@ -1346,9 +1408,16 @@ export default function EditorClient({
       await loadCropReadiness();
       setSelectedBBoxId(data.box.bboxVersionId);
       setBBoxReplaceArmed(false);
-      setBBoxStatus(replacing ? "BBox proposal replaced" : "BBox proposal saved");
+      if (!replacing) setBBoxEditTool("select");
+      const savedMessage = replacing ? "BBox proposal replaced" : "BBox proposal saved";
+      setBBoxSaveState("saved");
+      setBBoxStatus(savedMessage);
+      dispatchBBoxStageStatus({ saveState: "saved", lastAction: savedMessage, refresh: true });
     } catch (error) {
-      setBBoxStatus(bboxWorkflowMessage(error, "BBox proposal save failed"));
+      const message = bboxWorkflowMessage(error, "BBox proposal save failed");
+      setBBoxSaveState("failed");
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
     }
   }
 
@@ -1356,11 +1425,15 @@ export default function EditorClient({
     if (!canMutateBBox || !bboxVersionId) return;
     const box = bboxProposals.find((candidate) => candidate.bboxVersionId === bboxVersionId) ?? null;
     if (box && !(box.protection?.canDelete ?? true)) {
-      setBBoxStatus("Cannot delete: semantic/support or classification data exists for this slice.");
+      const message = formatBBoxErrorMessage(new Error("BBOX_DELETE_PROTECTED_DEPENDENCIES"));
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message });
       return;
     }
 
+    setBBoxSaveState("saving");
     setBBoxStatus("Deleting BBox proposal");
+    dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Deleting BBox proposal" });
     try {
       const res = await fetch(API_SLICE_BBOX(bboxVersionId), { method: "DELETE" });
       const data = await res.json().catch(() => null);
@@ -1373,9 +1446,14 @@ export default function EditorClient({
       await loadBBoxProposals();
       await loadSliceCrops();
       await loadCropReadiness();
+      setBBoxSaveState("saved");
       setBBoxStatus("BBox proposal deleted");
+      dispatchBBoxStageStatus({ saveState: "saved", lastAction: "BBox proposal deleted", refresh: true });
     } catch (error) {
-      setBBoxStatus(bboxWorkflowMessage(error, "BBox proposal delete failed"));
+      const message = bboxWorkflowMessage(error, "BBox proposal delete failed");
+      setBBoxSaveState("failed");
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
     }
   }
 
@@ -1383,6 +1461,8 @@ export default function EditorClient({
     if (!canEditBBox || !selectedBBoxId) return;
 
     setBBoxStatus("Generating derived crop");
+    setBBoxSaveState("saving");
+    dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Generating derived crop" });
     try {
       const res = await fetch(API_GENERATE_SLICE_CROP(selectedBBoxId), {
         method: "POST",
@@ -1396,9 +1476,14 @@ export default function EditorClient({
 
       await loadSliceCrops();
       await loadCropReadiness();
+      setBBoxSaveState("saved");
       setBBoxStatus("Derived crop generated");
+      dispatchBBoxStageStatus({ saveState: "saved", lastAction: "Derived crop generated", refresh: true });
     } catch (error) {
-      setBBoxStatus(errorMessage(error, "Derived crop generation failed"));
+      const message = formatBBoxErrorMessage(error, "Derived crop generation failed");
+      setBBoxSaveState("failed");
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
     }
   }
 
@@ -1410,7 +1495,9 @@ export default function EditorClient({
     }
 
     setBBoxConfirming(true);
+    setBBoxSaveState("saving");
     setBBoxStatus("Confirming BBox set");
+    dispatchBBoxStageStatus({ saveState: "saving", lastAction: "Preparing slices" });
     try {
       const res = await fetch(API_CONFIRM_SLICE_BBOX_SET(imageId), { method: "POST" });
       const data = await res.json().catch(() => null);
@@ -1431,9 +1518,14 @@ export default function EditorClient({
         if (current && boxes.some((box) => box.bboxVersionId === current)) return current;
         return boxes[0]?.bboxVersionId ?? null;
       });
+      setBBoxSaveState("saved");
       setBBoxStatus("BBox set confirmed");
+      dispatchBBoxStageStatus({ saveState: "saved", lastAction: "BBox set confirmed", refresh: true });
     } catch (error) {
-      setBBoxStatus(bboxWorkflowMessage(error, "BBox set confirmation failed"));
+      const message = bboxWorkflowMessage(error, "BBox set confirmation failed");
+      setBBoxSaveState("failed");
+      setBBoxStatus(message);
+      dispatchBBoxStageStatus({ saveState: "failed", lastAction: message, refresh: true });
     } finally {
       setBBoxConfirming(false);
     }
@@ -1990,7 +2082,7 @@ export default function EditorClient({
             hasUnsavedChanges={hasUnsavedChanges}
             editorStatus={editorStatus}
             zoom={zoom}
-            onZoomChange={setZoom}
+            onZoomChange={setEditorZoom}
           />
         )}
 
@@ -2012,9 +2104,10 @@ export default function EditorClient({
           canEdit={canMutateBBox}
           canUnlockConfirmedSet={canEditBBox}
           status={bboxStatus}
+          saveState={bboxSaveState}
           zoom={zoom}
           bboxPreviewMetadata={bboxPreviewMetadata}
-          onZoomChange={(nextZoom) => setZoom(isBBoxStageMode ? clampBBoxPreviewZoom(nextZoom) : nextZoom)}
+          onZoomChange={(nextZoom) => setEditorZoom(isBBoxStageMode ? clampBBoxPreviewZoom(nextZoom) : nextZoom)}
           onFit={fitToContainer}
           onSelect={(bboxVersionId) => {
             setSelectedBBoxId(bboxVersionId);
@@ -2026,7 +2119,6 @@ export default function EditorClient({
             setBBoxReplaceArmed(false);
             if (nextTool === "add") setBBoxStatus("Drag on the source image to add a BBox.");
             if (nextTool === "select") setBBoxStatus("Select, move, or drag handles on editable BBoxes.");
-            if (nextTool === "resize") setBBoxStatus("Drag a selected BBox handle to resize.");
           }}
           onArmReplace={() => {
             setTool("bbox");

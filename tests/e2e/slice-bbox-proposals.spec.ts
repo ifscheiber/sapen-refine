@@ -66,9 +66,11 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
     "page",
   );
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BBox status" })).toBeVisible();
+  await expect(page.getByText("0 valid · 0 issues")).toBeVisible();
   await expect(page.getByRole("button", { name: "Add BBox" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Select/Edit" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete selected BBox" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Resize" })).toHaveCount(0);
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
   await expect(drawingSurface).toBeVisible();
@@ -90,12 +92,12 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.7, { steps: 6 });
   await page.mouse.up();
 
-  await expect(page.getByText("BBox proposal saved")).toBeVisible();
+  await expect(page.getByLabel("BBox tools").getByText("BBox proposal saved")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete selected BBox" })).toBeEnabled();
+  await page.mouse.click(box.x + box.width * 0.08, box.y + box.height * 0.08);
+  await expect(page.getByRole("button", { name: "Delete selected BBox" })).toBeDisabled();
   await expect(page.getByLabel("Select BBox")).toHaveCount(0);
-  await expect(page.getByText("Selected BBox active on canvas.")).toBeVisible();
-  await page.getByRole("button", { name: "Prepare slices" }).click();
-  await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Open slice annotation" }).click();
+  await page.getByRole("link", { name: "Semantic Masks" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   const sliceNavigator = page.getByRole("complementary", { name: "Slice navigator" });
@@ -150,14 +152,13 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   await expect(page).toHaveURL(/\/crop\/bboxes$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText(/\d+ boxes · \d+ valid · 0 issues/)).toBeVisible();
+  await expect(page.getByText("1 valid · 0 issues")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Full editor" })).toHaveCount(0);
-  await expect(page.getByText("Slice annotation is ready for this BBox set.")).toBeVisible();
+  await expect(page.getByText("Prepared")).toBeVisible();
   await expect(page.getByRole("button", { name: "Add BBox" })).toBeDisabled();
   await page.getByRole("button", { name: "Unlock BBox editing" }).click();
-  await expect(page.getByText("BBox editing enabled. Confirm the set again after changes.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Select/Edit" })).toBeEnabled();
+  await expect(page.getByLabel("BBox tools").getByText("BBox editing unlocked")).toBeVisible();
 
   const replacementSurface = page.getByLabel("Mask drawing surface");
   await replacementSurface.scrollIntoViewIfNeeded();
@@ -165,7 +166,6 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   expect(replacementBox).not.toBeNull();
   if (!replacementBox) return;
 
-  await page.getByRole("button", { name: "Select/Edit" }).click();
   await page.mouse.move(
     replacementBox.x + replacementBox.width * 0.45,
     replacementBox.y + replacementBox.height * 0.45,
@@ -178,12 +178,9 @@ test("editor can create BBox proposals and generate reloadable slice crops", asy
   );
   await page.mouse.up();
 
-  await expect(page.getByText("BBox proposal replaced")).toBeVisible();
-  await expect(page.getByText(/BBox edits changed the slice plan/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Prepare slices" })).toBeEnabled();
-  await page.getByRole("button", { name: "Prepare slices" }).click();
-  await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Open slice annotation" }).click();
+  await expect(page.getByLabel("BBox tools").getByText("BBox proposal replaced")).toBeVisible();
+  await expect(page.getByText("Needs regeneration")).toBeVisible();
+  await page.getByRole("link", { name: "Semantic Masks" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
 });

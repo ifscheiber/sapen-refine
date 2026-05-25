@@ -1,15 +1,14 @@
 import Link from "next/link";
 import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  CropIcon,
-  LockKeyholeIcon,
   Maximize2Icon,
-  MousePointer2Icon,
+  SearchIcon,
   SquarePlusIcon,
   Trash2Icon,
 } from "lucide-react";
 
+import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/components/ui/utils";
 import type {
   BBoxEditTool,
   CropWorkflowReadinessCandidate,
@@ -20,7 +19,17 @@ import type {
   SliceBoundingBoxProposal,
 } from "../editorTypes";
 import type { BBoxPreviewMetadata } from "../canvasGeometry";
-import { activeButtonClass, idleButtonClass } from "../editorStyles";
+import type { BBoxSaveState } from "../bboxStageEvents";
+import {
+  activeButtonClass,
+  canvasToolbarContentClass,
+  canvasToolbarDividerClass,
+  canvasToolbarIconButtonActiveClass,
+  canvasToolbarIconButtonClass,
+  canvasToolbarShellClass,
+  canvasToolbarZoomSliderClass,
+  idleButtonClass,
+} from "../editorStyles";
 
 type EditorBBoxPanelProps = {
   projectId: string;
@@ -40,6 +49,7 @@ type EditorBBoxPanelProps = {
   canEdit: boolean;
   canUnlockConfirmedSet?: boolean;
   status: string;
+  saveState?: BBoxSaveState;
   onSelect: (bboxVersionId: string) => void;
   onBBoxToolChange?: (tool: BBoxEditTool) => void;
   onArmReplace: () => void;
@@ -54,41 +64,15 @@ type EditorBBoxPanelProps = {
   onFit?: () => void;
 };
 
-function protectedReasonLabel(reason: string) {
-  if (reason === "SEMANTIC_MASK_EXISTS") return "semantic mask";
-  if (reason === "SUPPORT_MASK_EXISTS") return "support mask";
-  if (reason === "INSTANCE_MASK_EXISTS") return "instance/support mask";
-  if (reason === "CLASSIFICATION_EXISTS") return "classification";
-  return reason.toLowerCase().replaceAll("_", " ");
-}
-
 function clampZoom(value: number) {
   return Math.min(1, Math.max(0.01, value));
 }
 
-function formatBBoxWorkflowMessage({
-  status,
-  editingConfirmedSet,
-  hasIssues,
-  boxCount,
-}: {
-  status: ImageBBoxWorkflowState["bboxSetStatus"] | undefined;
-  editingConfirmedSet: boolean;
-  hasIssues: boolean;
-  boxCount: number;
-}) {
-  if (boxCount === 0) return "Draw at least one slice work area before opening slice annotation.";
-  if (hasIssues) return "Resolve BBox issues before preparing slices.";
-  if (status === "BBOX_CONFIRMED" && !editingConfirmedSet) return "Slice annotation is ready for this BBox set.";
-  if (status === "BBOX_NEEDS_UPDATE") return "BBox edits changed the slice plan. Prepare slices again before continuing.";
-  if (editingConfirmedSet) return "BBox editing is unlocked. Prepare slices again after changes.";
-  return "Prepare slices after drawing the required work areas.";
-}
-
-function selectedProtectionMessage(selected: SliceBoundingBoxProposal | null) {
-  const reasons = selected?.protection?.reasons ?? [];
-  if (reasons.length === 0) return null;
-  return `Locked: ${reasons.map(protectedReasonLabel).join(", ")} data exists.`;
+function saveStateLabel(state: BBoxSaveState | undefined) {
+  if (state === "saving") return "Saving...";
+  if (state === "saved") return "Saved";
+  if (state === "failed") return "Save failed";
+  return "";
 }
 
 export function EditorBBoxPanel({
@@ -99,24 +83,16 @@ export function EditorBBoxPanel({
   cropReadinessCandidates,
   selectedBBoxId,
   bboxTool = "select",
-  bboxIssues = [],
-  bboxSummary,
   replaceArmed,
-  bboxWorkflow,
   stageMode = false,
-  editingConfirmedSet = false,
-  confirmBusy = false,
   canEdit,
-  canUnlockConfirmedSet = canEdit,
   status,
+  saveState,
   onSelect,
   onBBoxToolChange,
   onArmReplace,
   onDelete,
   onGenerateCrop,
-  onConfirmBBoxSet,
-  onEditConfirmedSet,
-  continueHref,
   zoom = 1,
   bboxPreviewMetadata,
   onZoomChange,
@@ -130,163 +106,82 @@ export function EditorBBoxPanel({
   const selectedCropReadiness = selectedCrop
     ? cropReadinessCandidates.find((candidate) => candidate.crop.id === selectedCrop.id) ?? null
     : null;
-  const workflowStatus = bboxWorkflow?.bboxSetStatus;
-  const issueCount = bboxSummary?.issueCount ?? bboxIssues.length;
-  const validCount = bboxSummary?.validCount ?? Math.max(0, boxes.length - issueCount);
-  const protectedCount =
-    bboxSummary?.protectedCount ??
-    boxes.filter((box) =>
-      box.protection ? !box.protection.canDelete || !box.protection.canReplaceGeometry : false,
-    ).length;
-  const hasIssues = issueCount > 0;
-  const canConfirm = Boolean(
-    onConfirmBBoxSet && bboxWorkflow?.canConfirm && boxes.length > 0 && !confirmBusy && !hasIssues,
-  );
-  const protectionMessage = selectedProtectionMessage(selected);
   const selectedCanDelete = Boolean(selected && canEdit && (selected.protection?.canDelete ?? true));
-  const selectedCanEditGeometry = Boolean(selected && canEdit && (selected.protection?.canReplaceGeometry ?? true));
-  const workflowMessage = formatBBoxWorkflowMessage({
-    status: workflowStatus,
-    editingConfirmedSet,
-    hasIssues,
-    boxCount: boxes.length,
-  });
-  const showOpenSlices = Boolean(continueHref && workflowStatus === "BBOX_CONFIRMED" && !hasIssues);
   const zoomTitle = bboxPreviewMetadata
     ? `Preview ${bboxPreviewMetadata.previewWidth} x ${bboxPreviewMetadata.previewHeight} from ${bboxPreviewMetadata.originalWidth} x ${bboxPreviewMetadata.originalHeight}`
     : "Zoom preview";
+  const compactStatus = status || saveStateLabel(saveState);
 
   if (stageMode) {
     return (
-      <div className="space-y-2 text-sm">
-        <div aria-label="BBox tools" className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className={canvasToolbarShellClass}>
+        <div aria-label="BBox tools" className={canvasToolbarContentClass}>
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-pressed={bboxTool === "select"}
-              className={bboxTool === "select" ? activeButtonClass : idleButtonClass}
-              onClick={() => onBBoxToolChange?.("select")}
-              title="Select, move, or drag handles on editable BBoxes"
-            >
-              <MousePointer2Icon className="size-3.5" aria-hidden="true" />
-              Select/Edit
-            </button>
-            <button
-              type="button"
-              aria-pressed={bboxTool === "add"}
-              className={bboxTool === "add" ? activeButtonClass : idleButtonClass}
-              onClick={() => onBBoxToolChange?.("add")}
-              disabled={!canEdit}
-              title="Draw a new BBox on the source image"
-            >
-              <SquarePlusIcon className="size-3.5" aria-hidden="true" />
-              Add BBox
-            </button>
-            <button
-              type="button"
-              aria-pressed={bboxTool === "resize"}
-              className={bboxTool === "resize" ? activeButtonClass : idleButtonClass}
-              onClick={() => onBBoxToolChange?.("resize")}
-              disabled={!selectedCanEditGeometry}
-              title="Drag a selected BBox handle to resize"
-            >
-              <CropIcon className="size-3.5" aria-hidden="true" />
-              Resize
-            </button>
-            <button
-              type="button"
-              className={idleButtonClass}
-              onClick={onDelete}
-              disabled={!selectedCanDelete}
-              title={selectedCanDelete ? "Delete selected BBox" : "Cannot delete locked or missing BBox"}
-            >
-              <Trash2Icon className="size-3.5" aria-hidden="true" />
-              Delete
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-pressed={bboxTool === "add"}
+                  className={cn(
+                    canvasToolbarIconButtonClass,
+                    bboxTool === "add" && canvasToolbarIconButtonActiveClass,
+                  )}
+                  onClick={() => onBBoxToolChange?.(bboxTool === "add" ? "select" : "add")}
+                  disabled={!canEdit}
+                >
+                  <SquarePlusIcon className="size-4" aria-hidden="true" />
+                  <span className="sr-only">Add BBox</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Add BBox</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={canvasToolbarIconButtonClass}
+                  onClick={onDelete}
+                  disabled={!selectedCanDelete}
+                >
+                  <Trash2Icon className="size-4" aria-hidden="true" />
+                  <span className="sr-only">Delete selected BBox</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {selectedCanDelete ? "Delete selected BBox" : "Select an editable BBox to delete"}
+              </TooltipContent>
+            </Tooltip>
           </div>
 
-          <div
-            className="ml-auto flex min-h-8 flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]"
-            title={zoomTitle}
-          >
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Zoom
-            </span>
-            <input
+          <div className={canvasToolbarDividerClass} />
+
+          <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]" title={zoomTitle}>
+            <SearchIcon className="size-3.5" aria-hidden="true" />
+            <Slider
               aria-label="Zoom preview"
-              type="range"
-              min={1}
-              max={100}
-              value={Math.round(zoom * 100)}
-              onChange={(event) => onZoomChange?.(clampZoom(Number(event.target.value) / 100))}
+              value={[zoom]}
+              min={0.01}
+              max={1}
+              step={0.01}
+              onValueChange={(value) => onZoomChange?.(clampZoom(value[0] ?? zoom))}
               disabled={!onZoomChange}
-              className="w-28"
+              className={canvasToolbarZoomSliderClass}
             />
-            <span className="w-10 tabular-nums text-[11px]">{Math.round(zoom * 100)}%</span>
-            <button type="button" className={idleButtonClass} onClick={onFit} disabled={!onFit} title="Fit image">
-              <Maximize2Icon className="size-3.5" aria-hidden="true" />
-              Fit
-            </button>
+            <span className="w-10 text-right tabular-nums">{Math.round(zoom * 100)}%</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className={canvasToolbarIconButtonClass} onClick={onFit} disabled={!onFit}>
+                  <Maximize2Icon className="size-4" aria-hidden="true" />
+                  <span className="sr-only">Fit image</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Fit image</TooltipContent>
+            </Tooltip>
           </div>
-        </div>
 
-        <div className="flex min-h-6 flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-subtle)] pt-2 text-[11px] font-medium text-[var(--text-secondary)]">
-          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-dim)]">
-            BBoxes
-          </span>
-          <span>
-            {boxes.length} boxes · {validCount} valid · {issueCount} issues
-            {protectedCount > 0 ? ` · ${protectedCount} locked` : ""}
-          </span>
-          <span>{selected ? "Selected BBox active on canvas." : boxes.length === 0 ? "Use Add BBox and drag on the image." : "Select a BBox on the canvas to edit."}</span>
-          {hasIssues ? (
-            <span className="inline-flex items-center gap-1 text-[var(--warning-text)]">
-              <AlertTriangleIcon className="size-3.5" aria-hidden="true" />
-              BBox overlap detected. Move or resize boxes before continuing.
-            </span>
-          ) : null}
-          {protectionMessage ? (
-            <span className="inline-flex items-center gap-1 text-[var(--warning-text)]">
-              <LockKeyholeIcon className="size-3.5" aria-hidden="true" />
-              {protectionMessage}
-            </span>
-          ) : null}
-          {status ? <span role="status">{status}</span> : null}
-          {replaceArmed ? <span>Draw a replacement BBox on the image.</span> : null}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-2 text-[11px]">
-          <div className="min-w-0">
-            <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-dim)]">
-              Workflow
-            </div>
-            <div className="mt-0.5 text-[var(--text-secondary)]">{workflowMessage}</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {workflowStatus === "BBOX_CONFIRMED" && !editingConfirmedSet ? (
-              <button
-                type="button"
-                className={idleButtonClass}
-                onClick={onEditConfirmedSet}
-                disabled={!onEditConfirmedSet || !canUnlockConfirmedSet}
-              >
-                Unlock BBox editing
-              </button>
-            ) : (
-              <button type="button" className={activeButtonClass} onClick={onConfirmBBoxSet} disabled={!canConfirm}>
-                <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-                Prepare slices
-              </button>
-            )}
-            {showOpenSlices ? (
-              <Link className={activeButtonClass} href={continueHref ?? "#"}>
-                Open slice annotation
-              </Link>
-            ) : (
-              <button type="button" className={idleButtonClass} disabled>
-                Open slice annotation
-              </button>
-            )}
+          <div className="ml-auto min-w-32 text-right text-[11px] font-medium text-[var(--text-secondary)]">
+            {compactStatus ? <span role="status">{compactStatus}</span> : null}
+            {replaceArmed ? <span className="sr-only">Draw a replacement BBox on the image.</span> : null}
           </div>
         </div>
       </div>

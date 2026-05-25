@@ -98,13 +98,12 @@ async function createSingleCropEditor(page: Page, projectName: string) {
   await expect(page.getByLabel("Slice classification")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BBox status" })).toBeVisible();
+  await expect(page.getByText("0 valid · 0 issues")).toBeVisible();
 
   await drawRelativeStroke(page, 0.25, 0.25, 0.75, 0.72);
-  await expect(page.getByText("BBox proposal saved")).toBeVisible();
-  await page.getByRole("button", { name: "Prepare slices" }).click();
-  await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Open slice annotation" }).click();
+  await expect(page.getByLabel("BBox tools").getByText("BBox proposal saved")).toBeVisible();
+  await page.getByRole("link", { name: "Semantic Masks" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);

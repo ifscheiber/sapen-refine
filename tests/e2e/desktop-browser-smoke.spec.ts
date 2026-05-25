@@ -74,7 +74,8 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);
   await expect(page.getByLabel("Slice classification")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
-  await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BBox status" })).toBeVisible();
+  await expect(page.getByText("0 valid · 0 issues")).toBeVisible();
   expect(abortErrors()).toEqual([]);
 
   const drawingSurface = page.getByLabel("Mask drawing surface");
@@ -97,12 +98,10 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.72, { steps: 8 });
   await page.mouse.up();
 
-  await expect(page.getByText("BBox proposal saved")).toBeVisible();
+  await expect(page.getByLabel("BBox tools").getByText("BBox proposal saved")).toBeVisible();
   await expect(page.getByLabel("Select BBox")).toHaveCount(0);
-  await expect(page.getByText("Selected BBox active on canvas.")).toBeVisible();
-  await page.getByRole("button", { name: "Prepare slices" }).click();
-  await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Open slice annotation" }).click();
+  await expect(page.getByRole("button", { name: "Delete selected BBox" })).toBeEnabled();
+  await page.getByRole("link", { name: "Semantic Masks" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);

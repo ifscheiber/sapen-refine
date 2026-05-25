@@ -379,4 +379,99 @@ describe("derived slice crop workflow", () => {
     });
     expect(totalCrops).toBe(2);
   });
+
+  it("regenerates stale crops after BBox replacement", async () => {
+    const staleImageId = await createImage("ensure-stale-crop-regeneration", 120, 90);
+    const original = await createSliceBoundingBoxForUser(
+      { imageId: staleImageId, userId: ownerId, box: { x: 10, y: 10, width: 20, height: 18 } },
+      prisma,
+    );
+    await confirmImageBBoxSetForUser({ imageId: staleImageId, userId: ownerId }, prisma);
+
+    const firstEnsure = await ensureCurrentCropsForImageForUser(
+      { imageId: staleImageId, userId: ownerId },
+      prisma,
+    );
+    expect(firstEnsure.generatedCount).toBe(1);
+    expect(firstEnsure.existingCount).toBe(0);
+    expect(firstEnsure.crops[0]).toMatchObject({
+      bboxVersionId: original.bboxVersionId,
+      sliceInstanceId: original.sliceInstanceId,
+      version: 1,
+    });
+
+    const replacement = await replaceSliceBoundingBoxForUser(
+      {
+        bboxVersionId: original.bboxVersionId,
+        userId: ownerId,
+        box: { x: 50, y: 35, width: 28, height: 22 },
+      },
+      prisma,
+    );
+    await confirmImageBBoxSetForUser({ imageId: staleImageId, userId: ownerId }, prisma);
+
+    const beforeRegeneration = await loadCropSliceNavigatorForUser(
+      {
+        projectId,
+        imageId: staleImageId,
+        userId: ownerId,
+        selectedSliceInstanceId: original.sliceInstanceId,
+      },
+      prisma,
+    );
+    expect(beforeRegeneration.summary).toMatchObject({
+      totalSlices: 1,
+      currentCropCount: 0,
+      staleCropCount: 1,
+    });
+    expect(beforeRegeneration.slices[0]).toMatchObject({
+      sliceInstanceId: original.sliceInstanceId,
+      bboxVersionId: replacement.bboxVersionId,
+      cropStatus: "STALE",
+      currentCrop: null,
+      latestCrop: { id: firstEnsure.crops[0].id, bboxVersionId: original.bboxVersionId },
+    });
+
+    const regenerated = await ensureCurrentCropsForImageForUser(
+      { imageId: staleImageId, userId: ownerId },
+      prisma,
+    );
+    expect(regenerated.generatedCount).toBe(1);
+    expect(regenerated.existingCount).toBe(0);
+    expect(regenerated.crops[0]).toMatchObject({
+      bboxVersionId: replacement.bboxVersionId,
+      sliceInstanceId: original.sliceInstanceId,
+      version: 2,
+      sourceX: 18,
+      sourceY: 3,
+      cropWidth: 92,
+      cropHeight: 86,
+    });
+    expect(regenerated.crops[0].id).not.toBe(firstEnsure.crops[0].id);
+
+    const afterRegeneration = await loadCropSliceNavigatorForUser(
+      {
+        projectId,
+        imageId: staleImageId,
+        userId: ownerId,
+        selectedSliceInstanceId: original.sliceInstanceId,
+      },
+      prisma,
+    );
+    expect(afterRegeneration.summary).toMatchObject({
+      totalSlices: 1,
+      currentCropCount: 1,
+      staleCropCount: 0,
+    });
+    expect(afterRegeneration.slices[0]).toMatchObject({
+      cropStatus: "CURRENT",
+      currentCrop: { id: regenerated.crops[0].id, bboxVersionId: replacement.bboxVersionId },
+      latestCrop: { id: regenerated.crops[0].id, bboxVersionId: replacement.bboxVersionId },
+    });
+
+    const totalCrops = await prisma.derivedSliceCrop.count({
+      where: { sourceImageId: staleImageId, sliceInstanceId: original.sliceInstanceId },
+    });
+    expect(totalCrops).toBe(2);
+  });
 });

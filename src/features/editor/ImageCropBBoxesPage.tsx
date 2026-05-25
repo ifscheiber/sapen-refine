@@ -12,6 +12,8 @@ import {
   loadCropSliceNavigatorForUser,
 } from "@/server/domain/cropSliceNavigator";
 import { AnnotationEditorWorkspace } from "./AnnotationEditorWorkspace";
+import { BBoxStageStatusRailClient } from "./BBoxStageStatusRailClient";
+import { BBoxStageTabsClient } from "./BBoxStageTabsClient";
 import EditorClient from "./EditorClient";
 
 export async function ImageCropBBoxesPage({
@@ -56,6 +58,10 @@ export async function ImageCropBBoxesPage({
         activeTab="bboxes"
         modeLabel="BBoxes"
         cropContextLabel="BBox stage"
+        localTabsOverride={
+          <BBoxStageTabsClient projectId={projectId} imageId={image.id} bboxesHref={navigator.routes.bboxesHref} />
+        }
+        railSuffix={<BBoxStageStatusRailClient imageId={image.id} />}
         main={
           <AppEmptyState
             title="Image is too large for the current BBox stage"
@@ -72,6 +78,10 @@ export async function ImageCropBBoxesPage({
       activeTab="bboxes"
       modeLabel="BBoxes"
       cropContextLabel="BBox stage"
+      localTabsOverride={
+        <BBoxStageTabsClient projectId={projectId} imageId={image.id} bboxesHref={navigator.routes.bboxesHref} />
+      }
+      railSuffix={<BBoxStageStatusRailClient imageId={image.id} />}
       main={
         <>
           {editability.status === "large" && (

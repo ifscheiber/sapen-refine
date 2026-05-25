@@ -48,6 +48,27 @@ export function getZoomedCanvasDisplaySize(imageWidth: number, imageHeight: numb
   };
 }
 
+export function getViewportCenteredScroll({
+  centerX,
+  centerY,
+  contentWidth,
+  contentHeight,
+  viewportWidth,
+  viewportHeight,
+}: {
+  centerX: number;
+  centerY: number;
+  contentWidth: number;
+  contentHeight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}) {
+  return {
+    left: clampNumber(Math.round(centerX - viewportWidth / 2), 0, Math.max(0, contentWidth - viewportWidth)),
+    top: clampNumber(Math.round(centerY - viewportHeight / 2), 0, Math.max(0, contentHeight - viewportHeight)),
+  };
+}
+
 export function clampBBoxPreviewZoom(value: number) {
   return clampNumber(value, 0.01, 1);
 }

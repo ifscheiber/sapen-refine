@@ -113,7 +113,7 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await page.mouse.move(box.x + box.width * 0.53, box.y + box.height * 0.54, { steps: 4 });
   await page.mouse.up();
 
-  await expect(page.getByText("BBox proposal saved")).toBeVisible();
+  await expect(page.getByLabel("BBox tools").getByText("BBox proposal saved")).toBeVisible();
   await expect
     .poll(async () =>
       page.evaluate(async (id) => {
@@ -137,9 +137,7 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
       originalWidth: true,
       originalHeight: true,
     });
-  await page.getByRole("button", { name: "Prepare slices" }).click();
-  await expect(page.getByText("BBox set confirmed")).toBeVisible();
-  await page.getByRole("link", { name: "Open slice annotation" }).click();
+  await page.getByRole("link", { name: "Semantic Masks" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);

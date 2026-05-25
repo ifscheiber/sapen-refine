@@ -31,6 +31,7 @@ import { applyBrush, applyBrushWithinSupport } from "@/mask/tools";
 import {
   formatCorrectionModel,
   formatCorrectionScore,
+  formatBBoxErrorMessage,
   formatReviewState,
   formatSliceClassLabel,
   formatVersion,
@@ -67,6 +68,15 @@ describe("editor helpers", () => {
     expect(formatVersion(null)).toBe("Missing");
     expect(formatSliceClassLabel("COPPER_SLICE")).toBe("Copper slice");
     expect(formatSliceClassLabel(null)).toBe("Missing");
+  });
+
+  it("formats BBox workflow errors for users", () => {
+    expect(formatBBoxErrorMessage(new Error("BBOX_TOO_SMALL"))).toBe(
+      "BBox too small. Enlarge the selection before preparing slices.",
+    );
+    expect(formatBBoxErrorMessage(new Error("BBOX_OVERLAP"))).toBe(
+      "BBox overlap detected. Move or resize boxes before continuing.",
+    );
   });
 
   it("formats assisted correction model and score context", () => {

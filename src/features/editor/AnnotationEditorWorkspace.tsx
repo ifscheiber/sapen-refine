@@ -59,8 +59,10 @@ export function AnnotationEditorWorkspace({
   cropContextLabel,
   semanticMode = "SAP_HEARTWOOD",
   editorBaseHref,
+  localTabsOverride,
   main,
   rail = true,
+  railSuffix,
 }: {
   navigator: CropSliceNavigatorModel;
   activeTab: AnnotationEditorTab;
@@ -68,8 +70,10 @@ export function AnnotationEditorWorkspace({
   cropContextLabel: string;
   semanticMode?: CropSemanticMode;
   editorBaseHref?: string | null;
+  localTabsOverride?: React.ReactNode;
   main: React.ReactNode;
   rail?: boolean;
+  railSuffix?: React.ReactNode;
 }) {
   const filename = navigator.image.filename ?? navigator.image.id;
   const totalSlices = navigator.summary.totalSlices;
@@ -137,31 +141,38 @@ export function AnnotationEditorWorkspace({
         </WorkspaceContextRow>
       }
       localTabs={
-        <WorkspaceLocalTabs
-          tabs={[
-            {
-              keyId: "bboxes",
-              label: "BBoxes",
-              href: navigator.routes.bboxesHref,
-              active: activeTab === "bboxes",
-            },
-            {
-              keyId: "semantic",
-              label: "Semantic Masks",
-              href: semanticTabHref(baseHref, fallbackEditorHref, semanticMode),
-              active: activeTab === "semantic",
-            },
-            {
-              keyId: "export-readiness",
-              label: "Export Readiness",
-              href: anchorTabHref(baseHref, fallbackEditorHref, "export-readiness"),
-              active: activeTab === "export-readiness",
-            },
-          ]}
-        />
+        localTabsOverride ?? (
+          <WorkspaceLocalTabs
+            tabs={[
+              {
+                keyId: "bboxes",
+                label: "BBoxes",
+                href: navigator.routes.bboxesHref,
+                active: activeTab === "bboxes",
+              },
+              {
+                keyId: "semantic",
+                label: "Semantic Masks",
+                href: semanticTabHref(baseHref, fallbackEditorHref, semanticMode),
+                active: activeTab === "semantic",
+              },
+              {
+                keyId: "export-readiness",
+                label: "Export Readiness",
+                href: anchorTabHref(baseHref, fallbackEditorHref, "export-readiness"),
+                active: activeTab === "export-readiness",
+              },
+            ]}
+          />
+        )
       }
       main={main}
-      rail={rail ? <CropEditorSliceNavigatorRailClient navigator={navigator} editorMode="editor" /> : null}
+      rail={rail ? (
+        <>
+          <CropEditorSliceNavigatorRailClient navigator={navigator} editorMode="editor" />
+          {railSuffix}
+        </>
+      ) : null}
     />
   );
 }
