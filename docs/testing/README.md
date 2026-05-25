@@ -49,6 +49,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/crop-mask-operations.test.ts` covers RB-102 shared crop brush/polygon operations, including support-constrained Copper polygon/brush mutations and unconstrained crop-space fills.
 - `tests/unit/editor-canvas-geometry.test.ts` covers editor coordinate mapping, coordinate clamping, fit zoom, display sizing helpers, RB-086 image-rectangle normalization from pointer points, and DESIGN-006 BBox hit/move/resize/overlap geometry helpers.
 - `tests/unit/app-shell-context.test.ts` covers DESIGN-008 editor-route parsing and active-image-first sidebar image sorting.
+- `tests/unit/workspace-tabs.test.ts` covers stable workspace tab keys when multiple editor tabs share a fallback route.
 - `tests/unit/editor-helpers.test.ts` covers RB-068 extracted editor API path builders, review/classification/correction display helpers, abort detection, pointer ignore decisions, RB-070 eraser tool/value behavior, RB-080 exact editor mask upload payload construction for large masks and typed-array views, and RB-089/RB-100 crop semantic brush mutation.
 - `tests/unit/runtime-config.test.ts` covers server runtime config defaults, required variables, upload limit parsing, and the RB-087 slice crop padding default/preset validation.
 - `tests/unit/high-cost-rate-limit.test.ts` covers RB-111 rate-limit family policy mapping plus allow/deny/retry calculations.

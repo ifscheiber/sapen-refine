@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { cn } from "@/components/ui/utils";
+import { workspaceTabKey, type WorkspaceTab } from "./workspaceTabs";
 
 export function WorkspacePageHeader({
   title,
@@ -59,14 +60,14 @@ export function WorkspaceContextRow({
 export function WorkspaceTopTabs({
   tabs,
 }: {
-  tabs: ReadonlyArray<{ label: string; href: string; active?: boolean }>;
+  tabs: ReadonlyArray<WorkspaceTab>;
 }) {
   return (
     <nav aria-label="Workspace navigation" className="border-b border-[var(--border-subtle)] px-4 pt-2 md:px-8">
       <div className="flex flex-wrap items-center gap-5">
         {tabs.map((tab) => (
           <Link
-            key={tab.href}
+            key={workspaceTabKey(tab)}
             href={tab.href}
             aria-current={tab.active ? "page" : undefined}
             className={cn(
@@ -87,14 +88,14 @@ export function WorkspaceTopTabs({
 export function WorkspaceLocalTabs({
   tabs,
 }: {
-  tabs: ReadonlyArray<{ label: string; href: string; active?: boolean }>;
+  tabs: ReadonlyArray<WorkspaceTab>;
 }) {
   return (
     <nav aria-label="Project workspace tabs" className="border-b border-[var(--border-subtle)] pl-4">
       <div className="flex flex-wrap items-center gap-7">
         {tabs.map((tab, index) => (
           <Link
-            key={tab.href}
+            key={workspaceTabKey(tab)}
             href={tab.href}
             aria-current={tab.active ? "page" : undefined}
             className={cn(

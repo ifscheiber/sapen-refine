@@ -144,23 +144,32 @@ export function AnnotationEditorWorkspace({
       localTabs={
         <WorkspaceLocalTabs
           tabs={[
-            { label: "BBoxes", href: navigator.routes.bboxesHref, active: activeTab === "bboxes" },
             {
+              keyId: "bboxes",
+              label: "BBoxes",
+              href: navigator.routes.bboxesHref,
+              active: activeTab === "bboxes",
+            },
+            {
+              keyId: "semantic",
               label: "Semantic Masks",
               href: semanticTabHref(baseHref, fallbackEditorHref, semanticMode),
               active: activeTab === "semantic",
             },
             {
+              keyId: "support",
               label: "Support Mask",
               href: supportTabHref(baseHref, fallbackEditorHref),
               active: activeTab === "support",
             },
             {
+              keyId: "classification",
               label: "Classification",
               href: anchorTabHref(baseHref, fallbackEditorHref, "classification"),
               active: activeTab === "classification",
             },
             {
+              keyId: "export-readiness",
               label: "Export Readiness",
               href: anchorTabHref(baseHref, fallbackEditorHref, "export-readiness"),
               active: activeTab === "export-readiness",
