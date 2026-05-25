@@ -924,3 +924,17 @@ Affected modules: docs/backlog, tickets, and any areas implicated by customer fi
 Owner: Unassigned.
 
 Priority: Deferred until real customer/operator trial findings exist.
+
+## DESIGN-005 - Shared SaPen Shell Package Extraction
+
+Context: SaPen Annotate mirrors the SaPen Core top bar locally, but it does not currently depend on Core's shared `@sapen/ui` and `@sapen/assets` packages.
+
+Impact: Product-family shell changes can drift between SaPen Core, SaPen Refine, and SaPen Annotate if the shared shell components remain duplicated.
+
+Proposed next step: Define a shared shell/assets package contract for `AppTopBar`, top-bar utility buttons, logo assets, and account menu behavior once both apps can consume the same workspace package without cross-repo runtime imports.
+
+Affected modules: `src/components/shell`, `src/design`, package/dependency configuration, and future shared SaPen UI/assets packages.
+
+Owner: Unassigned.
+
+Priority: Deferred design-system consolidation.
