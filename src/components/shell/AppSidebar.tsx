@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftIcon, FolderOpenIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { ArrowLeftIcon, FolderOpenIcon, PlusIcon } from "lucide-react";
 
 import {
   sidebarActionClassName,
@@ -205,17 +205,6 @@ export function AppSidebar({
                 <span>New Project</span>
               </Link>
             ) : null}
-            {activeProject ? (
-              <Link href={`/app/projects/${activeProject.id}`} className={sidebarActionClassName}>
-                <UploadIcon className="size-3.5" aria-hidden="true" />
-                <span>Upload Images</span>
-              </Link>
-            ) : (
-              <button type="button" disabled className={sidebarActionClassName}>
-                <UploadIcon className="size-3.5" aria-hidden="true" />
-                <span>Upload Images</span>
-              </button>
-            )}
             <Link href="/app/projects" className={sidebarActionClassName}>
               <FolderOpenIcon className="size-3.5" aria-hidden="true" />
               <span>Project Gallery</span>
