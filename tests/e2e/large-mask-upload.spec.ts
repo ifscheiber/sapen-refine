@@ -85,6 +85,9 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
   await page.getByRole("link", { name: "Annotate image" }).click();
   await expect(page).toHaveURL(/\/images\/[^/]+\/crop\/bboxes$/);
+  await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);
+  await expect(page.getByLabel("Slice classification")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
   const cropUrl = new URL(page.url());
   const imageId = cropUrl.pathname.match(/\/images\/([^/]+)\/crop\/bboxes$/)?.[1];
   expect(imageId).toBeTruthy();
@@ -116,6 +119,9 @@ test("large image enters the crop workflow and saves a crop-sized semantic mask"
   await page.getByRole("link", { name: "Open slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);
+  await expect(page.getByLabel("Slice classification")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
 
   const semanticSurface = page.getByLabel("Mask drawing surface");
   await expect(semanticSurface).toBeVisible();

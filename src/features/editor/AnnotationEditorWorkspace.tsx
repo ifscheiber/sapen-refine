@@ -11,7 +11,7 @@ import type { CropSliceNavigatorModel } from "@/server/domain/cropSliceNavigator
 import { CropEditorSliceNavigatorRailClient } from "./CropEditorSliceNavigatorRailClient";
 import type { CropSemanticMode } from "./editorTypes";
 
-export type AnnotationEditorTab = "bboxes" | "semantic" | "support" | "classification" | "export-readiness";
+export type AnnotationEditorTab = "bboxes" | "semantic" | "support" | "export-readiness";
 
 function exportSummaryLabel(readyCount: number, totalSlices: number) {
   if (totalSlices === 0) return "No slices";
@@ -161,12 +161,6 @@ export function AnnotationEditorWorkspace({
               label: "Support Mask",
               href: supportTabHref(baseHref, fallbackEditorHref),
               active: activeTab === "support",
-            },
-            {
-              keyId: "classification",
-              label: "Classification",
-              href: anchorTabHref(baseHref, fallbackEditorHref, "classification"),
-              active: activeTab === "classification",
             },
             {
               keyId: "export-readiness",

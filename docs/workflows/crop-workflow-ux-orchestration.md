@@ -28,7 +28,7 @@ The BBox stage uses planning language. BBoxes are rough crop work areas and must
 - `/app/projects/[projectId]/images/[imageId]/crop/bboxes` - implemented image-level "Step 1: mark slice work areas" stage.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices` - implemented slice navigator entry. It requires a confirmed BBox set and redirects to the first selected slice when active slices exist.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]` - implemented compatibility selected-slice route. It redirects to the current crop editor when a current crop exists.
-- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - canonical unified crop annotation editor with family selector, crop mask tools, status/readiness, classification/review controls, and embedded slice navigation.
+- `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]` - canonical unified crop annotation editor with family selector, crop mask tools, status/readiness, derived classification review controls, and embedded slice navigation.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/support` - compatibility alias that redirects to the unified editor with the support target selected.
 - `/app/projects/[projectId]/images/[imageId]/crop/slices/[sliceInstanceId]/crops/[cropId]/semantic` - compatibility alias that redirects to the unified editor with the semantic target selected.
 
@@ -101,7 +101,7 @@ One crop should use exactly one active annotation family:
 
 RB-123 replaces explicit semantic-family reset with byte-derived annotation-family locking. The active family is derived from latest non-superseded mask bytes: Sapwood/Heartwood is occupied by sapwood or heartwood pixels; Cu/Support is occupied by copper pixels or support-mask foreground pixels. Saving non-empty data in the opposite family fails with `CROP_ANNOTATION_FAMILY_CONFLICT`. Saving an all-background version for the occupied family is allowed and unlocks the other family without deleting historical versions. Conflicting legacy active data surfaces as `CONFLICT` and readiness `REVIEW_REQUIRED` until one family is cleared.
 
-Classification follows semantic content. Auto-derived classifications are attributable draft suggestions unless reviewed or manually overridden through the existing classification versioning model. Manual overrides remain allowed, but an override that contradicts the active semantic family produces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` and is not export-ready.
+Classification follows semantic content. Auto-derived classifications are attributable draft suggestions unless reviewed through the existing classification review model. DESIGN-014 removes the separate Classification tab and manual crop-editor override controls; lower-level manual classification APIs remain part of the compatibility model, and any manual override that contradicts the active semantic family produces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` and is not export-ready.
 
 ## Current Implementation Boundary
 
@@ -113,7 +113,7 @@ Current runtime ownership:
 - `src/features/editor/CropSemanticEditorPage.tsx` for the selected crop unified editor route.
 - `src/server/domain/imageCropWorkflow.ts` for persisted BBox set confirmation state and status resolution.
 - `src/server/domain/cropSliceNavigator.ts` for per-slice navigator status composition from active BBoxes, crop versions, and crop readiness.
-- `src/features/editor/CropSemanticEditorClient.tsx` for support-mask editing, semantic-mask editing, classification override controls, and review controls.
+- `src/features/editor/CropSemanticEditorClient.tsx` for support-mask editing, semantic-mask editing, derived classification status/review controls, and crop artifact review controls.
 - `src/server/domain/cropAnnotationFamilies.ts` for byte-derived annotation-family state and save-time conflict enforcement.
 - `GET /api/projects/[projectId]/crop-readiness` for crop readiness summaries.
 

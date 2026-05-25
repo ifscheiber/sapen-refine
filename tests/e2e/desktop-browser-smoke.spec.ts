@@ -71,6 +71,9 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByRole("link", { name: "Annotate image" }).click();
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
   await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);
+  await expect(page.getByLabel("Slice classification")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
   await expect(page.getByText("0 boxes · 0 valid · 0 issues")).toBeVisible();
   expect(abortErrors()).toEqual([]);
 
@@ -102,6 +105,9 @@ test("desktop MVP browser workflow can upload, edit, save, and reload", async ({
   await page.getByRole("link", { name: "Open slice annotation" }).click();
   await expect(page).toHaveURL(/\/crop\/slices\/[^/]+\/crops\/[^/]+$/);
   await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Classification" })).toHaveCount(0);
+  await expect(page.getByLabel("Slice classification")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save classification" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sapwood / Heartwood" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cu / Support mask" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);

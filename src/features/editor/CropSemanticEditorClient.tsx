@@ -34,7 +34,6 @@ import {
   API_CROP_SUPPORT_MASK_UPLOAD,
   API_CROP_SEMANTIC_MASK,
   API_CROP_SEMANTIC_MASK_UPLOAD,
-  API_SLICE_INSTANCE_CLASSIFICATION,
 } from "./editorApi";
 import {
   errorMessage,
@@ -50,14 +49,12 @@ import { activeButtonClass, idleButtonClass } from "./editorStyles";
 import { defaultLabelForSemanticMode } from "./cropAnnotationGuidance";
 import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import {
-  SLICE_CLASS_OPTIONS,
   type CropAnnotationFamily,
   type CropReviewActions,
   type CropSemanticMaskState,
   type CropSemanticMode,
   type Point,
   type ReviewAction,
-  type SliceClassValue,
   type Tool,
 } from "./editorTypes";
 
@@ -237,8 +234,6 @@ export function CropSemanticEditorClient({
   const [zoom, setZoom] = useState(1);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedSliceClass, setSelectedSliceClass] = useState<SliceClassValue | "">("");
-  const [classificationSaving, setClassificationSaving] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
   const [lassoPointCount, setLassoPointCount] = useState(0);
@@ -275,7 +270,6 @@ export function CropSemanticEditorClient({
   const familyBlocked =
     annotationFamily?.state !== "CONFLICT" && blockedFamilies.includes(activeFamily);
   const editorCanEdit = canEdit && Boolean(state?.canEdit) && editorReady && !familyBlocked;
-  const classificationCanEdit = canEdit && Boolean(state?.canEdit) && Boolean(state);
 
   const applyZoom = useCallback((z: number) => {
     const canvases = [
@@ -708,10 +702,6 @@ export function CropSemanticEditorClient({
     }
   }, [activeFamily, hasUnsavedChanges, state?.annotationFamily]);
 
-  useEffect(() => {
-    setSelectedSliceClass(state?.latestClassification?.class ?? "");
-  }, [state?.latestClassification?.class]);
-
   function canvasToCropCoords(event: PointerEvent<HTMLCanvasElement>) {
     const overlay = overlayCanvasRef.current;
     if (!overlay) return { x: 0, y: 0 };
@@ -1096,30 +1086,6 @@ export function CropSemanticEditorClient({
     }
   }
 
-  async function saveManualClassification() {
-    if (!state || !classificationCanEdit || !selectedSliceClass) return;
-    setClassificationSaving(true);
-    setStatus("Saving classification");
-    try {
-      const response = await fetch(API_SLICE_INSTANCE_CLASSIFICATION(state.crop.sliceInstanceId), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ class: selectedSliceClass }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.error ?? `SLICE_CLASSIFICATION_SAVE_FAILED_${response.status}`);
-      }
-      await loadEditor();
-      setStatus("Classification saved");
-      setTimeout(() => setStatus(""), 800);
-    } catch (error) {
-      setStatus(errorMessage(error, "Classification save failed"));
-    } finally {
-      setClassificationSaving(false);
-    }
-  }
-
   async function reloadLatest() {
     if (hasUnsavedChanges && !window.confirm("Discard unsaved crop annotation changes?")) return;
     await loadEditor();
@@ -1443,33 +1409,6 @@ export function CropSemanticEditorClient({
           >
             <SaveIcon className="size-3.5" aria-hidden="true" />
             Commit {activeEditLabel}
-          </button>
-
-          <label id="classification" className="flex h-8 items-center gap-2">
-            <span className="text-[11px] font-medium text-[var(--text-secondary)]">Slice classification</span>
-            <select
-              aria-label="Slice classification"
-              value={selectedSliceClass}
-              disabled={!classificationCanEdit || classificationSaving}
-              onChange={(event) => setSelectedSliceClass(event.target.value as SliceClassValue | "")}
-              className="h-8 rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-input-background)] px-2 text-[11px] font-medium text-[var(--text-primary)]"
-            >
-              <option value="">No classification</option>
-              {SLICE_CLASS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className={idleButtonClass}
-            onClick={() => void saveManualClassification()}
-            disabled={!classificationCanEdit || classificationSaving || !selectedSliceClass}
-            title="Save classification"
-          >
-            <SaveIcon className="size-3.5" aria-hidden="true" />
-            {classificationSaving ? "Saving classification..." : "Save classification"}
           </button>
 
           <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">

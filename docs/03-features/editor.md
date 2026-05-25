@@ -36,7 +36,7 @@ Before decomposition, `src/features/editor/EditorClient.tsx` owns all client-sid
 - undo/redo patch history and keyboard shortcuts;
 - semantic/support mode switching and label palette selection;
 - toolbar controls for tools, brush size, opacity, fit/zoom, save, and status display;
-- slice classification select/save workflow;
+- auto-derived slice classification status/review workflow;
 - review state cards, submit/approve/reject actions, comments, and export-readiness display;
 - assisted correction panel, prediction overlay toggle, prediction-mask loading, and explicit prediction-to-editable-mask copy behavior.
 
@@ -100,7 +100,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 
 - Brush, Lasso, Polygon, and Background clearing operations write to a `MaskBuffer` in memory.
 - Clearing is presented as selecting the `Background` label and applying it with Polygon, Lasso, or Brush. The legacy eraser mapping remains internal compatibility logic: in semantic mode it writes `Labels.BG`; in slice-support mode it writes the current support background value.
-- The unified crop annotation editor exposes compact Core-aligned controls against crop-pixel masks: Polygon, freehand Lasso, Brush, Background label clearing, undo/redo, opacity, fit, zoom, reload, commit mask, classification save, and review actions. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
+- The unified crop annotation editor exposes compact Core-aligned controls against crop-pixel masks: Polygon, freehand Lasso, Brush, Background label clearing, undo/redo, opacity, fit, zoom, reload, commit mask, derived classification status, and review actions. DESIGN-014 removed the separate Classification tab and manual crop-editor classification save controls. BBox proposal drawing remains source-image planning only and is not available inside crop editors.
 - Crop editor brush and polygon mutations go through `src/features/editor/cropMaskOperations.ts`. Sap/Heartwood crop semantic edits and crop support edits are unconstrained crop-space operations. Copper semantic edits are clipped to explicit support when a support mask exists; supportless Copper drafts remain editable but are not export-ready.
 - Painting the explicit `Background` label is the primary clearing workflow. This keeps erasing consistent with the label model because all tools apply labels, including Background.
 - Undo/redo stores patch arrays in refs and applies patches back into the mask buffer.
@@ -143,7 +143,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - Current saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SEMANTIC_MASK`.
 - Slice support saves create `AnnotationArtifactVersion` rows under a default `AnnotationArtifact` with `AnnotationArtifactKind.SLICE_SUPPORT_MASK` and link the default `SliceInstance.supportArtifactVersionId`.
 - Saved mask versions record canonical SHA-256 checksum, byte size, width, height, `u8raw-v1` format, `IMAGE_PIXEL` coordinate space, creator, and label schema version.
-- Slice classification is set from the editor and persisted as `SliceClassificationVersion`.
+- Crop semantic saves auto-derive draft slice classifications and persist them as `SliceClassificationVersion` rows. The crop editor no longer exposes a manual classification select/save control, but existing classification APIs and review/export contracts remain available for compatibility.
 - BBox proposal mode creates one `SliceInstance` per new slice proposal and appends `SliceBoundingBoxVersion` rows in `SOURCE_IMAGE_PIXEL` coordinate space.
 - `SliceInstance.boundingBox` is a denormalized current summary only; `SliceBoundingBoxVersion` is the proposal history source of truth.
 - BBox proposals are crop planning/provenance artifacts, not support masks and not export-ready ground truth.
@@ -277,8 +277,8 @@ Current RB-090 behavior:
 
 - Successful crop semantic saves append a draft slice-classification suggestion derived from the saved semantic bytes.
 - Copper mode with Copper pixels suggests `COPPER_SLICE`; Sap/Heartwood mode with Sapwood or Heartwood pixels suggests `SAP_HEARTWOOD_SLICE`; empty/ambiguous masks produce `UNKNOWN` or `REVIEW_REQUIRED` according to the stored derivation reason.
-- The unified crop editor shows the latest classification source/reason and lets editable users append a manual override for the same slice instance.
-- Auto suggestions and manual overrides are separate `SliceClassificationVersion` rows. Auto suggestions remain draft and are not export-ready until reviewed through the classification review flow.
+- The unified crop editor shows the latest classification source/reason and classification review actions, but it does not present classification as a separate local tab or manual editing task.
+- Auto suggestions remain separate `SliceClassificationVersion` rows. They remain draft and are not export-ready until reviewed through the classification review flow.
 - Manual overrides remain possible, but a class that contradicts the active semantic family surfaces `CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH` in crop readiness and is not export-ready.
 
 The crop workflow is now the product annotation path for large images and iPad-constrained annotation because it reduces the working mask area while preserving traceability to the immutable source image.
@@ -317,7 +317,7 @@ Slice-classification prediction correction is deferred because RB-057 imports ma
 
 ## Desktop Browser Smoke Scope
 
-- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/erase/save a semantic mask, switch to slice support, draw/erase/save a support mask, set slice classification, submit/approve all three reviewable units, reload, and confirm masks, classification, and approved review state persist.
+- The supported MVP smoke path is: upload an image, add image-level T-number/acquisition metadata, open editor, draw/erase/save a semantic mask, switch to slice support, draw/erase/save a support mask, review the auto-derived classification, submit/approve all three reviewable units, reload, and confirm masks, classification, and approved review state persist.
 - RB-047 browser automation should keep this path small and avoid asserting unstable visual details.
 
 ## RB-045 Start Limitations

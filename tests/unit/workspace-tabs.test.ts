@@ -8,10 +8,10 @@ describe("workspace tab keys", () => {
     const tabs: WorkspaceTab[] = [
       { keyId: "semantic", label: "Semantic Masks", href: fallbackHref },
       { keyId: "support", label: "Support Mask", href: fallbackHref },
-      { keyId: "classification", label: "Classification", href: `${fallbackHref}#classification` },
+      { keyId: "export-readiness", label: "Export Readiness", href: `${fallbackHref}#export-readiness` },
     ];
 
-    expect(tabs.map(workspaceTabKey)).toEqual(["semantic", "support", "classification"]);
+    expect(tabs.map(workspaceTabKey)).toEqual(["semantic", "support", "export-readiness"]);
     expect(new Set(tabs.map(workspaceTabKey)).size).toBe(tabs.length);
   });
 
