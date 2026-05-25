@@ -1571,8 +1571,20 @@ export default function EditorClient({
     : [];
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
-      <div className="border-b border-border bg-muted p-3">
+    <div
+      className={
+        isBBoxStageMode
+          ? "overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-background)] text-[var(--text-primary)]"
+          : "overflow-hidden rounded-lg border border-border bg-card text-card-foreground"
+      }
+    >
+      <div
+        className={
+          isBBoxStageMode
+            ? "border-b border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-4 py-3"
+            : "border-b border-border bg-muted p-3"
+        }
+      >
         {isCorrectionMode && (
           <EditorAssistedCorrectionPanel
             correctionContext={correctionContext}

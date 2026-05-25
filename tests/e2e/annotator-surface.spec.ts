@@ -34,7 +34,7 @@ test("annotator workspace hides operational surfaces while keeping image annotat
   await expect(page.getByRole("link", { name: "Crop workflow" }).first()).toBeVisible();
 
   await page.getByRole("link", { name: "Crop workflow" }).first().click();
-  await expect(
-    page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("BBox work areas", { exact: true })).toBeVisible();
 });

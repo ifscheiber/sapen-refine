@@ -78,40 +78,112 @@ export function EditorBBoxPanel({
   const canConfirm = Boolean(onConfirmBBoxSet && bboxWorkflow?.canConfirm && boxes.length > 0 && !confirmBusy);
   const confirmedBy = formatConfirmedBy(bboxWorkflow);
 
-  return (
-    <div className={stageMode ? "mt-3 rounded-lg border border-border p-4 text-sm" : "mt-3 border-t border-border pt-3 text-sm"}>
-      {stageMode && (
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Step 1: Mark slice work areas</h2>
-            <p className="mt-1 max-w-3xl text-muted-foreground">
-              Draw rough BBoxes around every visible slice. BBoxes seed crop work areas; pixel-perfect support masks remain ground truth.
-            </p>
+  if (stageMode) {
+    return (
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-[var(--text-dim)]">
+              BBox work areas
+            </span>
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+              Draw rough boxes around visible slices.
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+            <span className="rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
               {formatBBoxSetStatus(workflowStatus)}
             </span>
             {confirmedBy && (
-              <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+              <span className="rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-2 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
                 {confirmedBy}
+              </span>
+            )}
+            {status && (
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]" role="status">
+                {status}
               </span>
             )}
           </div>
         </div>
-      )}
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
+          <span className="mr-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            Proposals
+          </span>
+          {boxes.length === 0 ? (
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+              No slice proposals yet.
+            </span>
+          ) : (
+            boxes.map((box, index) => (
+              <button
+                key={box.bboxVersionId}
+                className={box.bboxVersionId === selectedBBoxId ? activeButtonClass : idleButtonClass}
+                aria-pressed={box.bboxVersionId === selectedBBoxId}
+                onClick={() => onSelect(box.bboxVersionId)}
+              >
+                Proposal {index + 1} {box.width} x {box.height}
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
+          {selected ? (
+            <>
+              <span className="mr-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Selected
+              </span>
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                x {selected.x} · y {selected.y} · {selected.width} x {selected.height} · v{selected.version}
+              </span>
+              <button className={idleButtonClass} onClick={onArmReplace} disabled={!canEdit}>
+                {replaceArmed ? "Draw replacement box" : "Replace geometry"}
+              </button>
+              <button className={idleButtonClass} onClick={onDelete} disabled={!canEdit}>
+                Delete proposal
+              </button>
+            </>
+          ) : (
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+              Draw on the source image to create the first BBox proposal.
+            </span>
+          )}
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {workflowStatus === "BBOX_CONFIRMED" && !editingConfirmedSet ? (
+              <button className={idleButtonClass} onClick={onEditConfirmedSet} disabled={!onEditConfirmedSet}>
+                Edit BBoxes
+              </button>
+            ) : (
+              <button className={activeButtonClass} onClick={onConfirmBBoxSet} disabled={!canConfirm}>
+                {workflowStatus === "BBOX_NEEDS_UPDATE" ? "Re-confirm BBox set" : "Confirm BBox set"}
+              </button>
+            )}
+            {continueHref && workflowStatus === "BBOX_CONFIRMED" ? (
+              <Link className={activeButtonClass} href={continueHref}>
+                Continue to slice annotation
+              </Link>
+            ) : (
+              <button className={idleButtonClass} disabled>
+                Continue to slice annotation
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 border-t border-border pt-3 text-sm">
       <div className="flex flex-wrap items-center gap-3">
         <div className="text-muted-foreground">
           BBox proposals are rough crop work areas. Pixel-perfect support masks remain ground truth.
         </div>
         {status && <div className="text-muted-foreground">{status}</div>}
       </div>
-
-      {stageMode && boxes.length === 0 && (
-        <div className="mt-3 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
-          No slice work areas have been marked yet. Draw at least one BBox before confirming the set.
-        </div>
-      )}
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {boxes.length === 0 ? (
@@ -145,30 +217,7 @@ export function EditorBBoxPanel({
         </div>
       )}
 
-      {stageMode && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {workflowStatus === "BBOX_CONFIRMED" && !editingConfirmedSet ? (
-            <button className={idleButtonClass} onClick={onEditConfirmedSet} disabled={!onEditConfirmedSet}>
-              Edit BBoxes
-            </button>
-          ) : (
-            <button className={activeButtonClass} onClick={onConfirmBBoxSet} disabled={!canConfirm}>
-              {workflowStatus === "BBOX_NEEDS_UPDATE" ? "Re-confirm BBox set" : "Confirm BBox set"}
-            </button>
-          )}
-          {continueHref && workflowStatus === "BBOX_CONFIRMED" ? (
-            <Link className={activeButtonClass} href={continueHref}>
-              Continue to slice annotation
-            </Link>
-          ) : (
-            <button className={idleButtonClass} disabled>
-              Continue to slice annotation
-            </button>
-          )}
-        </div>
-      )}
-
-      {selected && !stageMode && (
+      {selected && (
         <div className="mt-2 flex flex-wrap items-center gap-3 text-muted-foreground">
           {selectedCrop ? (
             <>

@@ -60,6 +60,7 @@ Extracted ownership:
 - `src/features/editor/components/EditorSliceClassificationPanel.tsx` owns slice-classification selection and save controls.
 - `src/features/editor/components/EditorAssistedCorrectionPanel.tsx` owns prediction proposal metadata, overlay toggle, and copy-to-editable-mask action controls.
 - `src/features/editor/components/EditorBBoxPanel.tsx` owns RB-086/RB-087 slice BBox proposal list, selection, replacement/delete controls, derived crop generation, and crop preview metadata.
+- `src/features/editor/AnnotationEditorWorkspace.tsx` owns the shared Core-aligned editor header, context row, local tabs, and optional navigator rail used by the BBox and crop-mask editor routes.
 
 RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit eraser tool without changing mask serialization, server API semantics, review/export behavior, or prediction provenance.
 
@@ -78,7 +79,7 @@ RB-068 was a behavior-preserving decomposition. RB-070 then added the explicit e
 - Image metadata route before editing: `/app/projects/[projectId]/images/[imageId]`.
 - Shared source-image canvas surface: `src/features/editor/EditorClient.tsx`, used by `src/features/editor/ImageCropBBoxesPage.tsx` and `src/features/editor/CorrectionTaskEditorPage.tsx`.
 
-RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implemented the earlier selected-crop workbench and crop-prefixed support/semantic tool routes. RB-123 removes the workbench screen, makes `/crops/[cropId]` the unified crop annotation editor, and redirects old support/semantic crop routes into that editor. RB-123 also replaces semantic-family reset with byte-derived annotation-family locking. RB-103 adds explicit `Edit BBoxes` navigation from crop editors back to `/crop/bboxes`. RB-104 removes `/app/projects/[projectId]/images/[imageId]/edit`; old links now fall through to workspace not-found behavior.
+RB-094 implements the crop workflow entry route and BBox stage route. RB-095 implements the slice navigator route and selected-slice URL state. RB-096 implemented the earlier selected-crop workbench and crop-prefixed support/semantic tool routes. RB-123 removes the workbench screen, makes `/crops/[cropId]` the unified crop annotation editor, and redirects old support/semantic crop routes into that editor. RB-123 also replaces semantic-family reset with byte-derived annotation-family locking. DESIGN-004 makes BBox re-entry part of the shared editor tab row instead of a separate right-rail action. RB-104 removes `/app/projects/[projectId]/images/[imageId]/edit`; old links now fall through to workspace not-found behavior.
 
 ## Current Canvas And Input Model
 
@@ -219,7 +220,7 @@ Current RB-094 behavior:
 
 - Image list and image metadata routes link to `/app/projects/[projectId]/images/[imageId]/crop`.
 - `/crop` redirects to `/crop/bboxes` unless the active BBox set is confirmed, then redirects to `/crop/slices`.
-- `/crop/bboxes` uses the editor canvas in BBox-stage mode: full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and the panel uses "Step 1: Mark slice work areas" wording.
+- `/crop/bboxes` uses the shared `Annotation Editor` shell with the `BBoxes` tab active. Full-image semantic/support/classification/review controls are hidden, BBox drawing is selected by default, and BBox controls render as a compact toolbar.
 - `POST /api/images/[imageId]/slice-bboxes/confirm` persists image-level BBox set confirmation in `ImageCropWorkflowState`.
 - Creating, replacing, or deleting a BBox after confirmation keeps append-only BBox history and marks the image-level BBox set as `BBOX_NEEDS_UPDATE`.
 - Returning to `/crop/bboxes` after confirmation shows the confirmed proposals but locks mutation controls until the user explicitly clicks `Edit BBoxes`.
@@ -229,8 +230,8 @@ Current RB-095 behavior:
 - `/crop/slices` redirects toward the selected slice editor when the BBox set is confirmed, and redirects back to `/crop/bboxes` if the BBox set is not confirmed.
 - `/crop/slices/[sliceInstanceId]` remains a compatibility selected-slice route and redirects to the selected crop editor when a current crop exists.
 - `src/server/domain/cropSliceNavigator.ts` composes navigator state from active BBoxes, derived crop versions, and `src/server/domain/cropReadiness.ts`.
-- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds whole-image slice navigation and status beside the unified crop annotation editor. Clicking a slice opens the editor for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
-- The embedded rail also exposes `Edit BBoxes`, which links to the image-level BBox stage instead of the legacy full-image editor.
+- `src/features/editor/CropEditorSliceNavigatorRailClient.tsx` embeds navigator-only whole-image slice context beside the unified crop annotation editor. Clicking a slice opens the editor for that slice, using `POST /api/images/[imageId]/slice-crops/ensure` as a defensive fallback if a current crop is missing.
+- The embedded rail intentionally does not expose persistent BBox, refresh, or slice-list controls; BBox re-entry is handled by the `BBoxes` tab.
 
 Current RB-096 behavior:
 
@@ -238,9 +239,9 @@ Current RB-096 behavior:
 - Sap/Heartwood semantic editing is available without explicit support. Copper semantic drafts are available without support, while readiness/export guidance requires approved explicit support.
 - Crop workflow support and semantic links use the crop-prefixed route family as compatibility aliases. The older non-crop-prefixed support/semantic routes redirect to the canonical editor.
 
-Current RB-103 behavior:
+Current BBox re-entry behavior:
 
-- Crop editor headers expose `Edit BBoxes` back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
+- The shared editor tab row exposes `BBoxes` back to `/app/projects/[projectId]/images/[imageId]/crop/bboxes`.
 - Crop workflow pages no longer expose `Editor` or `Full editor` escape hatches to `/app/projects/[projectId]/images/[imageId]/edit`.
 - Navigation-only re-entry preserves `BBOX_CONFIRMED`; actual BBox replacement/deletion after the explicit unlock transitions the image workflow to `BBOX_NEEDS_UPDATE` and requires `Re-confirm BBox set`.
 

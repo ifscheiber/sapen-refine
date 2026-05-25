@@ -90,9 +90,9 @@ async function createSingleCropEditor(page: Page, projectName: string) {
   await expect(page.getByRole("link", { name: "Open editor" })).toHaveCount(0);
   await page.getByRole("link", { name: "Crop workflow" }).click();
   await expect(page).toHaveURL(/\/crop\/bboxes$/);
-  await expect(
-    page.getByRole("heading", { name: "Step 1: Mark slice work areas", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("BBox work areas", { exact: true })).toBeVisible();
 
   await drawRelativeStroke(page, 0.25, 0.25, 0.75, 0.72);
   await expect(page.getByText("BBox proposal saved")).toBeVisible();

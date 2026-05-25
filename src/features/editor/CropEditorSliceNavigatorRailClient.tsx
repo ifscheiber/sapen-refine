@@ -1,18 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCwIcon, SquareMousePointerIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 import type {
   CropSliceNavigatorModel,
   CropSliceNavigatorSlice,
 } from "@/server/domain/cropSliceNavigator";
 import { API_ENSURE_SLICE_CROPS } from "./editorApi";
-import { formatToken } from "./ImageCropSliceNavigatorClient";
 
 type CropEditorMode = "editor" | "support" | "semantic";
 
@@ -45,24 +42,6 @@ function currentEditorHref(
     cropId: slice.currentCrop.id,
     editorMode,
   });
-}
-
-function compactSliceStatus(slice: CropSliceNavigatorSlice) {
-  if (slice.readinessStatus === "READY") return "Ready";
-  if (slice.readinessStatus === "REVIEW_REQUIRED") return "Review required";
-  if (slice.cropStatus === "STALE") return "Update crop";
-  if (slice.cropStatus === "MISSING") return "Missing crop";
-  return formatToken(slice.cropStatus);
-}
-
-function compactSliceStatusClass(slice: CropSliceNavigatorSlice) {
-  if (slice.readinessStatus === "READY") {
-    return "border-[var(--state-ready)] bg-[var(--workspace-panel)] text-[var(--text-primary)]";
-  }
-  if (slice.readinessStatus === "REVIEW_REQUIRED" || slice.cropStatus === "STALE") {
-    return "border-[var(--border-warning)] bg-[var(--warning-surface)] text-[var(--warning-text)]";
-  }
-  return "border-[var(--border-subtle)] bg-[var(--workspace-panel)] text-[var(--text-secondary)]";
 }
 
 export function CropEditorSliceNavigatorRailClient({
@@ -134,17 +113,6 @@ export function CropEditorSliceNavigatorRailClient({
             {navigator.summary.readyCount} ready
           </div>
         </div>
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="w-full rounded-sm border-[var(--border-subtle)] bg-[var(--workspace-panel)] text-[var(--text-primary)] hover:bg-[var(--workspace-panel-hover)]"
-        >
-          <Link href={navigator.routes.bboxesHref}>
-            <SquareMousePointerIcon className="size-4" aria-hidden="true" />
-            Edit BBoxes
-          </Link>
-        </Button>
 
         <div className="relative overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-panel)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -189,57 +157,10 @@ export function CropEditorSliceNavigatorRailClient({
       </div>
 
       {status && (
-        <div className="border border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-secondary)]" role="status">
+        <div className="sr-only" role="status">
           {status}
         </div>
       )}
-
-      <div className="space-y-1.5">
-        {navigator.slices.map((slice) => {
-          const selected = slice.sliceInstanceId === selectedSlice?.sliceInstanceId;
-          const busy = busySliceId === slice.sliceInstanceId;
-          return (
-            <button
-              key={slice.sliceInstanceId}
-              type="button"
-              onClick={() => void openSlice(slice)}
-              className={cn(
-                "block w-full border px-2.5 py-2 text-left text-[12px] transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--workspace-panel-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                selected
-                  ? "border-[var(--accent-primary)] bg-[var(--workspace-selected)]"
-                  : "border-[var(--border-subtle)] bg-[var(--workspace-panel)]",
-                busy && "cursor-wait",
-              )}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0 font-semibold text-[var(--text-primary)]">
-                  #{slice.index}
-                  <span className="ml-2 font-medium text-[var(--text-secondary)]">{slice.label}</span>
-                </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]",
-                    compactSliceStatusClass(slice),
-                  )}
-                >
-                  {busy ? "Ensuring" : compactSliceStatus(slice)}
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => router.refresh()}
-        className="w-full rounded-sm border-[var(--border-subtle)] bg-[var(--workspace-panel)] text-[var(--text-secondary)] hover:bg-[var(--workspace-panel-hover)]"
-      >
-        <RefreshCwIcon className="size-4" aria-hidden="true" />
-        Refresh navigator
-      </Button>
     </aside>
   );
 }
