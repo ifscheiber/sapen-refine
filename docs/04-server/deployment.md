@@ -183,7 +183,7 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml logs -f export-worker
 ```
 
-Use a named project `OWNER` account for training/crop exports; `OWNER` or `QA` can process prediction-analysis exports. Keep `EXPORT_JOB_MAX_JOBS_PER_TICK`, `EXPORT_JOB_LEASE_SECONDS`, `EXPORT_JOB_MAX_ATTEMPTS`, and `EXPORT_JOB_WORKER_INTERVAL_SECONDS` bounded. The worker uses PostgreSQL claim/lease metadata and JSZip behind RB-111 caps; do not scale multiple export worker replicas without reviewing the lease and storage assumptions.
+Use a named project `OWNER` or `QA` account for export job processing. RB-140 gates processing with `export:processJobs`; this lets QA run the worker for queued training, crop-training, and prediction-analysis jobs without granting training export creation or download rights. Keep `EXPORT_JOB_MAX_JOBS_PER_TICK`, `EXPORT_JOB_LEASE_SECONDS`, `EXPORT_JOB_MAX_ATTEMPTS`, and `EXPORT_JOB_WORKER_INTERVAL_SECONDS` bounded. The worker uses PostgreSQL claim/lease metadata and JSZip behind RB-111 caps; do not scale multiple export worker replicas without reviewing the lease and storage assumptions.
 
 ## Storage Retention Cleanup
 

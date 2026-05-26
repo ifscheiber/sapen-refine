@@ -38,6 +38,7 @@ function minimalPng(name: string) {
 
 describe("training export workflow", () => {
   let ownerId: string;
+  let qaId: string;
   let labelerId: string;
   let viewerId: string;
   let projectId: string;
@@ -57,9 +58,13 @@ describe("training export workflow", () => {
     labelSchemaVersionId = labelSchema.id;
 
     suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const [owner, labeler, viewer] = await Promise.all([
+    const [owner, qa, labeler, viewer] = await Promise.all([
       prisma.user.create({
         data: { email: `export-owner-${suffix}@test.local`, name: "Export Owner" },
+        select: { id: true },
+      }),
+      prisma.user.create({
+        data: { email: `export-qa-${suffix}@test.local`, name: "Export QA" },
         select: { id: true },
       }),
       prisma.user.create({
@@ -72,6 +77,7 @@ describe("training export workflow", () => {
       }),
     ]);
     ownerId = owner.id;
+    qaId = qa.id;
     labelerId = labeler.id;
     viewerId = viewer.id;
 
@@ -83,6 +89,7 @@ describe("training export workflow", () => {
         members: {
           create: [
             { userId: ownerId, role: "OWNER" },
+            { userId: qaId, role: "QA" },
             { userId: labelerId, role: "LABELER" },
             { userId: viewerId, role: "VIEWER" },
           ],
@@ -109,7 +116,7 @@ describe("training export workflow", () => {
       await prisma.annotationProject.delete({ where: { id: projectId } }).catch(() => undefined);
     }
     await Promise.all(
-      [ownerId, labelerId, viewerId]
+      [ownerId, qaId, labelerId, viewerId]
         .filter(Boolean)
         .map((id) => prisma.user.delete({ where: { id } }).catch(() => undefined)),
     );
@@ -957,6 +964,76 @@ describe("training export workflow", () => {
     expect(createdAuditCount).toBe(1);
   });
 
+  it("uses export process capability separately from training export creation", async () => {
+    const imageId = await createImage("qa-process-training");
+    await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "qa-process-training-semantic",
+    });
+
+    await expect(
+      exportsDomain.createTrainingExportForUser(
+        { projectId, userId: qaId, targets: ["semantic_segmentation"] },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+      prisma,
+    );
+    await expect(
+      exportJobs.processDueExportJobsForUser({
+        userId: labelerId,
+        input: { maxJobs: 1, processorRunId: `labeler-process-${queued.id}` },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      exportJobs.processDueExportJobsForUser({
+        userId: viewerId,
+        input: { maxJobs: 1, processorRunId: `viewer-process-${queued.id}` },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const processorRunId = `qa-process-${queued.id}`;
+    const processed = await exportJobs.processDueExportJobsForUser({
+      userId: qaId,
+      input: {
+        maxJobs: 1,
+        processorId: "test-export-worker",
+        processorRunId,
+      },
+    });
+    expect(processed.completedCount).toBe(1);
+
+    const completed = await exportsDomain.getTrainingExportForUser(
+      { exportId: queued.id, userId: ownerId },
+      prisma,
+    );
+    expect(completed.status).toBe("COMPLETED");
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: "EXPORT_JOB_DUE_PROCESS_COMPLETED", actorId: qaId },
+      orderBy: { createdAt: "desc" },
+      select: { details: true },
+    });
+    expect(audit?.details).toMatchObject({
+      processorId: "test-export-worker",
+      processorRunId,
+      exportIds: [queued.id],
+      actorContext: {
+        triggeredBy: { type: "USER", userId: qaId },
+        performedBy: {
+          type: "WORKER",
+          label: "export-worker",
+          processorId: "test-export-worker",
+          processorRunId,
+        },
+      },
+    });
+  });
+
   it("creates a crop training export with crop lineage, transform metadata, and package files", async () => {
     const { crop, bboxVersionId } = await createCropFixture("ready");
     const supportVersionId = await createCropArtifactVersion({
@@ -1707,6 +1784,18 @@ describe("training export workflow", () => {
         }),
       ]),
     );
+    const failureAudit = await prisma.auditLog.findFirst({
+      where: { action: "EXPORT_JOB_FAILED", entity: "ExportBatch", entityId: queued.id },
+      select: { actorId: true, details: true },
+    });
+    expect(failureAudit?.actorId).toBe(ownerId);
+    expect(failureAudit?.details).toMatchObject({
+      errorCode: "EXPORT_OBJECT_INTEGRITY_MISMATCH",
+      actorContext: {
+        triggeredBy: { type: "USER", userId: ownerId },
+        performedBy: { type: "WORKER", label: "export-worker" },
+      },
+    });
   });
 
   it("fails crop training export when derived crop object bytes do not match persisted checksum", async () => {

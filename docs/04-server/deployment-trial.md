@@ -176,7 +176,7 @@ This is a single-host customer-trial guard. It is not a distributed quota system
 
 Normal annotation work does not use a queue. The optional workers are for bounded prediction-import batch processing and async export package generation.
 
-Set `SAPEN_JOB_EMAIL` and preferably `SAPEN_JOB_PASSWORD_FILE` to a named project `OWNER` or `QA` account, then start the needed worker. Use `SAPEN_JOB_PASSWORD` only when file-mounted secrets are not available:
+Set `SAPEN_JOB_EMAIL` and preferably `SAPEN_JOB_PASSWORD_FILE` to a named project `OWNER` or `QA` account, then start the needed worker. For export jobs, RB-140 gates processing with `export:processJobs`; QA can operate queued training, crop-training, and prediction-analysis jobs without receiving training export creation or download rights. Use `SAPEN_JOB_PASSWORD` only when file-mounted secrets are not available:
 
 ```bash
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml --profile worker up -d prediction-import-worker

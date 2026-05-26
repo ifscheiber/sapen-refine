@@ -186,6 +186,10 @@ export function canExportTraining(role: AnnotationProjectRole) {
   return hasProjectCapability(role, "export:createTraining");
 }
 
+export function canProcessExportJobs(role: AnnotationProjectRole) {
+  return hasProjectCapability(role, "export:processJobs");
+}
+
 export function canViewProjectExports(role: AnnotationProjectRole) {
   return hasProjectCapability(role, "export:view");
 }

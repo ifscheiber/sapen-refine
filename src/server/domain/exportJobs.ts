@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { ExportStatus, ExportTarget, type AnnotationProjectRole } from "@prisma/client";
 
-import { canExportPredictionAnalysis, canExportTraining } from "@/server/auth/policies";
+import { canProcessExportJobs } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
 import { AUDIT_ACTOR_LABELS, recordAuditEvent, withAuditActorContext } from "@/server/domain/audit";
 import { ExportObjectIntegrityError } from "@/server/domain/exportObjectIntegrity";
@@ -84,8 +84,8 @@ function retryAt(now: Date, retryDelaySeconds: number) {
 }
 
 function canProcessTarget(role: AnnotationProjectRole, target: ExportTarget) {
-  if (target === ExportTarget.PREDICTION_ANALYSIS) return canExportPredictionAnalysis(role);
-  return canExportTraining(role);
+  void target;
+  return canProcessExportJobs(role);
 }
 
 function failureCode(error: unknown, target: ExportTarget) {

@@ -8,6 +8,7 @@ import {
   canExportTraining,
   canImportPrediction,
   canManageProject,
+  canProcessExportJobs,
   canReadProject,
   canReview,
   canSubmitReview,
@@ -48,6 +49,10 @@ describe("auth/RBAC policies", () => {
     expect(canWorkOnCorrectionTask("LABELER")).toBe(false);
     expect(canExportTraining("QA")).toBe(false);
     expect(canExportTraining("OWNER")).toBe(true);
+    expect(canProcessExportJobs("OWNER")).toBe(true);
+    expect(canProcessExportJobs("QA")).toBe(true);
+    expect(canProcessExportJobs("LABELER")).toBe(false);
+    expect(canProcessExportJobs("VIEWER")).toBe(false);
     expect(canExportPredictionAnalysis("QA")).toBe(true);
     expect(canImportPrediction("QA")).toBe(true);
     expect(canViewPredictionRuns("QA")).toBe(true);

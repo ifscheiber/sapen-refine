@@ -64,7 +64,7 @@ This page lists the current API route handlers under `src/app/api`.
 - `POST /api/projects/[projectId]/prediction-analysis-exports` - enqueues an RB-060/RB-067 prediction-analysis export job with exact candidate references for project `OWNER`/`QA`; it returns `202` with a pending export summary.
 - `GET /api/prediction-analysis-exports/[exportId]` - returns sanitized prediction-analysis export summary and download routes for project `OWNER`/`QA`.
 - `GET /api/prediction-analysis-exports/[exportId]/download?file=manifest|package` - streams the prediction-analysis manifest JSON or ZIP package through the app for project `OWNER`/`QA`.
-- `POST /api/export-jobs/process-due` - worker-oriented endpoint that processes a bounded number of due training, crop-training, and prediction-analysis export jobs for projects where the authenticated account can export that target; accounts with no eligible project target receive `403 FORBIDDEN`.
+- `POST /api/export-jobs/process-due` - worker-oriented endpoint that processes a bounded number of due training, crop-training, and prediction-analysis export jobs for projects where the authenticated account has `export:processJobs`; project `OWNER` and `QA` accounts can process jobs, while export creation/download permissions remain target-specific.
 - `POST /api/model-runs` - creates a model/checkpoint/training provenance record for global admins.
 - `GET /api/model-runs/[modelRunId]` - returns full model-run provenance for global admins.
 - `GET /api/projects/[projectId]/prediction-runs` - lists project-scoped prediction/inference runs for project `OWNER`/`QA`.

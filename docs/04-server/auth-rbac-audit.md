@@ -24,6 +24,7 @@ Project permissions are intentionally role-based for the trial:
 - Upload images, edit image/sample metadata, open annotation workspaces, edit BBoxes, edit support masks, edit semantic masks, and submit own work: `OWNER`, `QA`, `LABELER`.
 - Review/approve/reject: `OWNER`, `QA`.
 - Create training exports: `OWNER`.
+- Process queued export jobs: `OWNER`, `QA` through `export:processJobs`; this does not grant training export creation or download rights.
 - View/use project export, prediction import, prediction-analysis, active-learning correction task, and worker/process-due surfaces: `OWNER`, `QA`.
 - Create model runs, view full audit data, and run storage cleanup: global `ADMIN`.
 

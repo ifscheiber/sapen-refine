@@ -1,6 +1,6 @@
 # RB-140 - Export Job Processor RBAC And Audit Alignment
 
-Status: Planned
+Status: Done
 Priority: P2
 Type: Authorization semantics / audit correctness
 

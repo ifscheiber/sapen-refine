@@ -15,13 +15,12 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 
 ## Active Risk-First Order
 
-1. [RB-140 - Export job processor RBAC and audit alignment](RB-140-export-job-processor-rbac-audit-alignment.md) - P2; use explicit `export:processJobs` authorization while preserving existing worker audit context.
-2. [RB-131 - Runtime environment docs, templates, and secret-input parity](RB-131-runtime-environment-docs-templates-and-secret-input-parity.md) - P2; follows RB-130 so the environment inventory reflects the propagation fix.
-3. [RB-132 - Current-state and architecture documentation drift cleanup](RB-132-current-state-and-architecture-doc-drift-cleanup.md) - P2; follows higher-risk operational/data-integrity tickets.
-4. [RB-135 - Ticket and docs governance scope extension](RB-135-ticket-and-docs-governance-scope-extension.md) - P2; should make future active sprint README drift visible.
-5. [RB-138 - Deep checksum consistency for primary storage objects](RB-138-storage-consistency-primary-object-checksums.md) - P1/P2; keep explicit/deep mode only, after cleanup-category behavior is clear.
-6. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
-7. [RB-133 - Opportunistic decomposition map refresh and hotspot guard](RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md) - P3; maintainability map, no production refactor by itself.
+1. [RB-131 - Runtime environment docs, templates, and secret-input parity](RB-131-runtime-environment-docs-templates-and-secret-input-parity.md) - P2; follows RB-130 so the environment inventory reflects the propagation fix.
+2. [RB-132 - Current-state and architecture documentation drift cleanup](RB-132-current-state-and-architecture-doc-drift-cleanup.md) - P2; follows higher-risk operational/data-integrity tickets.
+3. [RB-135 - Ticket and docs governance scope extension](RB-135-ticket-and-docs-governance-scope-extension.md) - P2; should make future active sprint README drift visible.
+4. [RB-138 - Deep checksum consistency for primary storage objects](RB-138-storage-consistency-primary-object-checksums.md) - P1/P2; keep explicit/deep mode only, after cleanup-category behavior is clear.
+5. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
+6. [RB-133 - Opportunistic decomposition map refresh and hotspot guard](RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md) - P3; maintainability map, no production refactor by itself.
 
 ## Done
 
@@ -30,6 +29,7 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 - [RB-136 - Approved snapshot freshness gating](done/RB-136-approved-snapshot-freshness-gating.md) - completed; training exports now report and block stale approved snapshots when newer non-approved support, semantic, or classification work exists in the requested export scope.
 - [RB-137 - Storage cleanup coverage for crop object prefixes](done/RB-137-storage-cleanup-crop-object-prefixes.md) - completed; cleanup now classifies unreferenced crop workflow prefixes while DB-referenced derived crops and crop artifact versions remain protected.
 - [RB-139 - Prediction batch ZIP inflation guard](done/RB-139-prediction-batch-zip-inflation-guard.md) - completed; prediction batch create now checks expected and metadata-reported uncompressed mask sizes before staging ZIP entries.
+- [RB-140 - Export job processor RBAC and audit alignment](done/RB-140-export-job-processor-rbac-audit-alignment.md) - completed; due export job processing now uses `export:processJobs` while export creation/download permissions remain target-specific.
 
 ## Reviewed But Not Active
 
