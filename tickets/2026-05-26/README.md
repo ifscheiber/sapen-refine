@@ -24,3 +24,19 @@ Ticket sequence:
 
 5. `done/EX-005-annotate-side-local-sapen-cnn-materializer.md`
    Add an annotate-side local materializer that creates `sapen-cnn`-compatible local folders/manifests without editing `sapen-cnn`.
+
+## Editor Follow-Up Sprint
+
+Active and completed editor follow-up tickets added after the export sprint:
+
+1. `done/DESIGN-022-per-label-opacity-support-contour-state-cleanup.md`
+   Add per-label semantic opacity, contour-only support display, and a quieter editor status rail.
+
+2. `FEAT-020-live-navigator-refresh-on-mask-changes.md`
+   Refresh the crop navigator from local mask edits without requiring slice switches or persisted preview reloads.
+
+3. `FEAT-019-reeditable-closed-polygons-semantic-masks.md`
+   Preserve in-session closed polygon geometry so committed semantic polygons can be reselected and edited.
+
+4. `FEAT-021-image-level-submission-review-workflow.md`
+   Replace mask-level review controls with a persisted image-level submission/review workflow.

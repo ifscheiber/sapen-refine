@@ -113,7 +113,7 @@ export function AnnotationSegmentButton({
           ? "border-[var(--accent-primary)] bg-[var(--workspace-selected)] text-[var(--text-primary)] shadow-[inset_0_0_0_1px_var(--focus-ring)]"
           : "border-[var(--border-subtle)] bg-[var(--workspace-panel)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:bg-[var(--workspace-panel-hover)] hover:text-[var(--text-primary)]",
       )}
-      aria-label={label}
+      aria-label={title ? `${label}: ${title}` : label}
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}

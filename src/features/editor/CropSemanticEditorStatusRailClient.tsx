@@ -34,42 +34,26 @@ export function CropSemanticEditorStatusRailClient({ cropId }: { cropId: string 
   if (!status) return null;
 
   return (
-    <WorkspaceUtilitySection title="Annotation State" className="pt-2">
+    <WorkspaceUtilitySection title="Display" className="pt-2">
       <div className="space-y-4 text-[11px] font-medium text-[var(--text-secondary)]">
-        <div className="space-y-1.5">
-          <div className="flex justify-between gap-3">
-            <span className="text-[var(--text-muted)]">Family</span>
-            <span className="text-right text-[var(--text-primary)]">{status.family}</span>
-          </div>
-          <div className="flex justify-between gap-3">
-            <span className="text-[var(--text-muted)]">Label</span>
-            <span className="text-right text-[var(--text-primary)]">{status.label}</span>
-          </div>
-          <div className="flex justify-between gap-3">
-            <span className="text-[var(--text-muted)]">Tool</span>
-            <span className="text-right text-[var(--text-primary)]">{status.tool}</span>
-          </div>
+        <div className="space-y-1.5" title={status.warning ?? undefined}>
           <div className="flex justify-between gap-3">
             <span className="text-[var(--text-muted)]">Save</span>
             <span className="text-right text-[var(--text-primary)]" role="status">
               {statusText(status.saveState)}
             </span>
           </div>
-        </div>
-
-        {status.status ? <div className="text-[var(--text-primary)]">{status.status}</div> : null}
-        {status.warning ? (
-          <div className="border border-[var(--border-warning)] bg-[var(--warning-surface)] px-2.5 py-2 text-[var(--warning-text)]">
-            {status.warning}
+          <div className="flex justify-between gap-3">
+            <span className="text-[var(--text-muted)]">Target</span>
+            <span className="text-right text-[var(--text-primary)]">{status.editTarget}</span>
           </div>
-        ) : null}
-        {status.toolState ? <div>{status.toolState}</div> : null}
-
-        <div className="space-y-1.5 border-t border-[var(--border-subtle)] pt-3">
-          <div>{status.support}</div>
-          <div>{status.semantic}</div>
-          <div>{status.classification}</div>
-          <div>{status.readiness}</div>
+          <div className="flex justify-between gap-3">
+            <span className="text-[var(--text-muted)]">Ready</span>
+            <span className="text-right text-[var(--text-primary)]">{status.readiness}</span>
+          </div>
+          {status.status ? <div className="text-[var(--text-primary)]">{status.status}</div> : null}
+          {status.warning ? <div className="sr-only">{status.warning}</div> : null}
+          {status.toolState ? <div title={status.toolState}>{status.toolState}</div> : null}
         </div>
 
         <div className="space-y-3 border-t border-[var(--border-subtle)] pt-3">
@@ -90,40 +74,38 @@ export function CropSemanticEditorStatusRailClient({ cropId }: { cropId: string 
               }
             />
           </label>
-          <label className="block space-y-1.5">
-            <span>Semantic opacity {Math.round(status.semanticOpacity * 100)}%</span>
-            <Slider
-              aria-label="Semantic opacity"
-              value={[status.semanticOpacity]}
-              min={0}
-              max={1}
-              step={0.01}
-              onValueChange={(value) =>
-                dispatchCropSemanticEditorCommand({
-                  cropId,
-                  command: "setSemanticOpacity",
-                  value: value[0] ?? status.semanticOpacity,
-                })
-              }
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span>Support opacity {Math.round(status.supportOpacity * 100)}%</span>
-            <Slider
-              aria-label="Support opacity"
-              value={[status.supportOpacity]}
-              min={0}
-              max={1}
-              step={0.01}
-              onValueChange={(value) =>
-                dispatchCropSemanticEditorCommand({
-                  cropId,
-                  command: "setSupportOpacity",
-                  value: value[0] ?? status.supportOpacity,
-                })
-              }
-            />
-          </label>
+          {status.semanticOpacityControls.map((control) => (
+            <label key={control.labelId} className="block space-y-1.5">
+              <span className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="size-2 rounded-full border border-[var(--border-subtle)]"
+                    style={{
+                      backgroundColor: `rgb(${control.swatch[0]}, ${control.swatch[1]}, ${control.swatch[2]})`,
+                    }}
+                    aria-hidden="true"
+                  />
+                  {control.name}
+                </span>
+                <span className="tabular-nums">{Math.round(control.value * 100)}%</span>
+              </span>
+              <Slider
+                aria-label={`${control.name} opacity`}
+                value={[control.value]}
+                min={0}
+                max={1}
+                step={0.01}
+                onValueChange={(value) =>
+                  dispatchCropSemanticEditorCommand({
+                    cropId,
+                    command: "setSemanticLabelOpacity",
+                    labelId: control.labelId,
+                    value: value[0] ?? control.value,
+                  })
+                }
+              />
+            </label>
+          ))}
         </div>
 
         <div className="flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">

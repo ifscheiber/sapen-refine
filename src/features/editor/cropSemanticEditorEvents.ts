@@ -9,21 +9,19 @@ export type CropSemanticEditorSaveState = "idle" | "dirty" | "saving" | "saved" 
 
 export type CropSemanticEditorStatusDetail = {
   cropId: string;
-  family: string;
-  label: string;
-  tool: string;
   editTarget: string;
   saveState: CropSemanticEditorSaveState;
   status: string;
-  support: string;
-  semantic: string;
-  classification: string;
   readiness: string;
   warning: string | null;
   toolState: string | null;
   brushRadius: number;
-  semanticOpacity: number;
-  supportOpacity: number;
+  semanticOpacityControls: Array<{
+    labelId: number;
+    name: string;
+    value: number;
+    swatch: [number, number, number];
+  }>;
   canRetrySave: boolean;
   canReloadLatest: boolean;
 };
@@ -32,8 +30,7 @@ export type CropSemanticEditorCommandDetail =
   | { cropId: string; command: "retrySave" }
   | { cropId: string; command: "reloadLatest" }
   | { cropId: string; command: "setBrushRadius"; value: number }
-  | { cropId: string; command: "setSemanticOpacity"; value: number }
-  | { cropId: string; command: "setSupportOpacity"; value: number };
+  | { cropId: string; command: "setSemanticLabelOpacity"; labelId: number; value: number };
 
 export type CropSemanticEditorFlushRequestDetail = {
   requestId: string;
