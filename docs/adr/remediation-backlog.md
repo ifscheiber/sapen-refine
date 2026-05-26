@@ -980,3 +980,31 @@ Affected modules: project routes, app shell layout, Prisma schema, project list 
 Owner: Unassigned.
 
 Priority: P3 UX follow-up after DESIGN-012/DESIGN-013.
+
+## DR-2026-05-27-A - Trial Runtime Config Propagation Drift
+
+Context: The 2026-05-27 production-readiness review found that RB-111 high-cost write-limit and export-cap variables are read by runtime config and exposed in `deploy/trial.env.example`, but the customer-trial app service does not currently pass those variables through `deploy/docker-compose.trial.yml`.
+
+Impact: Operators can tune trial env values while the running app still falls back to defaults. This weakens rate-limit/export-cap guardrails for expensive uploads, editor saves, prediction-import operations, cleanup, and export package creation.
+
+Proposed next step: Execute `tickets/2026-05-27/RB-130-trial-runtime-config-env-propagation-for-rate-limits-and-export-caps.md`, then align the broader environment inventory through `tickets/2026-05-27/RB-131-runtime-environment-docs-templates-and-secret-input-parity.md`.
+
+Affected modules: `deploy/docker-compose.trial.yml`, `deploy/trial.env.example`, `.env.example`, `src/server/runtime/config.ts`, deployment docs, and deployment hygiene tests.
+
+Owner: Unassigned.
+
+Priority: P1 for propagation, P2 for broader inventory parity.
+
+## DR-2026-05-27-B - User Deactivation And Attribution Preservation
+
+Context: The 2026-05-27 production-readiness review confirmed that docs warn against deleting users to disable access, but there is no supported user deactivation flow. Many attribution-bearing relations can become nullable through user deletion.
+
+Impact: Deleting users as an access-revocation mechanism can weaken audit, review, artifact, export, and membership attribution. That increases production investigation risk and makes data-provenance questions harder to answer.
+
+Proposed next step: Execute `tickets/2026-05-27/RB-134-user-lifecycle-deactivation-and-attribution-preservation.md` before broader production user lifecycle operations.
+
+Affected modules: Prisma `User` model, auth/session helpers, operator/admin access-revocation process, audit docs, deployment docs, and auth/session tests.
+
+Owner: Unassigned.
+
+Priority: P1/P2 before production operations with real users.
