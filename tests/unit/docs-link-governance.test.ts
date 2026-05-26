@@ -7,9 +7,27 @@ const ROOT = process.cwd();
 const DIRECT_FILES = [
   "AGENTS.md",
   "ARCHITECTURE.md",
-  "tickets/2026-05-23/README.md",
 ];
 const DOC_DIRS = ["docs"];
+const TICKET_ROOT = "tickets";
+const ACTIVE_TICKET_INDEX_FILES = new Set(["README.md", "00-sprint-index.md"]);
+
+function hasPathSegment(repoPath: string, segment: string) {
+  return repoPath.split(path.sep).includes(segment);
+}
+
+function walkDirectories(repoPath: string): string[] {
+  const absolute = path.join(ROOT, repoPath);
+  if (!existsSync(absolute)) return [];
+
+  const stat = statSync(absolute);
+  if (!stat.isDirectory()) return [];
+
+  return [
+    repoPath,
+    ...readdirSync(absolute).flatMap((entry) => walkDirectories(path.join(repoPath, entry))),
+  ].sort();
+}
 
 function walkMarkdownFiles(repoPath: string): string[] {
   const absolute = path.join(ROOT, repoPath);
@@ -55,11 +73,31 @@ function markdownLinks(source: string) {
   return Array.from(withoutFencedCode(source).matchAll(linkPattern), (match) => match[1]);
 }
 
+function activeTicketIndexDirs() {
+  return walkDirectories(TICKET_ROOT)
+    .filter((repoPath) => !hasPathSegment(repoPath, "done"))
+    .filter((repoPath) =>
+      readdirSync(path.join(ROOT, repoPath)).some((entry) => ACTIVE_TICKET_INDEX_FILES.has(entry)),
+    )
+    .sort();
+}
+
+function topLevelMarkdownFiles(repoPath: string) {
+  return readdirSync(path.join(ROOT, repoPath))
+    .filter((entry) => {
+      const filePath = path.join(ROOT, repoPath, entry);
+      return statSync(filePath).isFile() && entry.endsWith(".md");
+    })
+    .map((entry) => path.join(repoPath, entry))
+    .sort();
+}
+
 function scannedMarkdownFiles() {
-  return [
+  return Array.from(new Set([
     ...DIRECT_FILES,
     ...DOC_DIRS.flatMap(walkMarkdownFiles),
-  ].sort();
+    ...activeTicketIndexDirs().flatMap(topLevelMarkdownFiles),
+  ])).sort();
 }
 
 describe("documentation link governance", () => {
@@ -90,11 +128,16 @@ describe("documentation link governance", () => {
     expect(failures).toEqual([]);
   });
 
-  it("protects the rejected docs README false positive and active sprint links", () => {
+  it("protects the rejected docs README false positive and active indexed sprint links", () => {
     expect(existsSync(path.join(ROOT, "docs/src/app/README.md"))).toBe(true);
     expect(existsSync(path.join(ROOT, "docs/08-adr/ADR-008-upload-content-safety.md"))).toBe(true);
 
     const sprintReadme = readFileSync(path.join(ROOT, "tickets/2026-05-23/README.md"), "utf8");
     expect(sprintReadme).toContain("docs/README.md` broken-link claim");
+
+    const scanned = scannedMarkdownFiles();
+    expect(scanned).toContain("tickets/2026-05-27/README.md");
+    expect(scanned).toContain("tickets/design/00-sprint-index.md");
+    expect(scanned.some((repoPath) => repoPath.includes(`${path.sep}done${path.sep}`))).toBe(false);
   });
 });

@@ -56,7 +56,7 @@ Propagate these variables through trial Compose and add a deployment hygiene gua
 ### F-02 - Runtime environment docs and templates are no longer fully aligned
 
 Priority: P2
-Ticket: [RB-131](RB-131-runtime-environment-docs-templates-and-secret-input-parity.md)
+Ticket: [RB-131](done/RB-131-runtime-environment-docs-templates-and-secret-input-parity.md)
 
 Evidence:
 
@@ -75,7 +75,7 @@ Create a governed runtime environment inventory and align `.env.example`, trial 
 ### F-03 - High-level architecture/auth docs still say general write-rate limiting is absent
 
 Priority: P2
-Ticket: [RB-132](RB-132-current-state-and-architecture-doc-drift-cleanup.md)
+Ticket: [RB-132](done/RB-132-current-state-and-architecture-doc-drift-cleanup.md)
 
 Evidence:
 
@@ -94,7 +94,7 @@ Update docs to describe the implemented RB-111 limiter and precisely name the re
 ### F-04 - Current-state docs lag behind recent implementation slices
 
 Priority: P2
-Ticket: [RB-132](RB-132-current-state-and-architecture-doc-drift-cleanup.md)
+Ticket: [RB-132](done/RB-132-current-state-and-architecture-doc-drift-cleanup.md)
 
 Evidence:
 
@@ -114,7 +114,7 @@ Refresh current-state, editor, crop, and component docs without changing histori
 ### F-05 - User deletion remains an attribution preservation risk
 
 Priority: P1/P2
-Ticket: [RB-134](RB-134-user-lifecycle-deactivation-and-attribution-preservation.md)
+Ticket: [RB-134](done/RB-134-user-lifecycle-deactivation-and-attribution-preservation.md)
 
 Evidence:
 
@@ -159,7 +159,7 @@ Refresh the map and optionally add a reporting guard for large-module drift. Do 
 ### F-07 - Docs-link governance only covers one ticket README
 
 Priority: P2
-Ticket: [RB-135](RB-135-ticket-and-docs-governance-scope-extension.md)
+Ticket: [RB-135](done/RB-135-ticket-and-docs-governance-scope-extension.md)
 
 Evidence:
 

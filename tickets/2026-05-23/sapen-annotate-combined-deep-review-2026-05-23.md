@@ -97,7 +97,7 @@ Status: Rejected for the current repo.
 
 Evidence:
 
-- `docs/README.md` links such as `[src/app/README.md](src/app/README.md)` are relative to `docs/README.md`.
+- `docs/README.md` links such as `[src/app/README.md](../../docs/src/app/README.md)` are relative to `docs/README.md`.
 - Those paths resolve to `docs/src/app/README.md`, `docs/src/server/README.md`, `docs/src/mask/README.md`, `docs/src/components/README.md`, `docs/src/lib/README.md`, `docs/prisma/README.md`, and `docs/testing/README.md`.
 - Those target files exist.
 

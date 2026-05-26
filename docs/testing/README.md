@@ -124,6 +124,8 @@ This page defines the current validation baseline and the intended testing direc
 - Use deterministic fixtures and clean up DB rows created by tests.
 - Mock object storage where possible.
 
+`npm run check:docs-links` scans governed Markdown links in `AGENTS.md`, `ARCHITECTURE.md`, `docs/**/*.md`, and active indexed ticket folders under `tickets/**`. A ticket folder is included when it has a top-level `README.md` or `00-sprint-index.md`; nested `done/` folders are intentionally excluded so historical completed tickets do not make current planning noisy.
+
 ## Known Gaps
 
 - Current tests cover stable mask serialization, editor canvas geometry utilities, and extracted editor helper utilities.

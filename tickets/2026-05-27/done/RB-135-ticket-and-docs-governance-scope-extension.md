@@ -1,6 +1,6 @@
 # RB-135 - Ticket And Docs Governance Scope Extension
 
-Status: Planned
+Status: Done
 Priority: P2
 Type: Documentation governance / regression guard
 
