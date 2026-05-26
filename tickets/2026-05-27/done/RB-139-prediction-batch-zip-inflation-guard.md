@@ -1,6 +1,6 @@
 # RB-139 - Prediction Batch ZIP Inflation Guard
 
-Status: Planned
+Status: Done
 Priority: P1/P2
 Type: Production hardening for prediction import uploads
 

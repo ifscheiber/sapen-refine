@@ -16,6 +16,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 let provenance: typeof import("@/server/domain/predictionProvenance");
 let batches: typeof import("@/server/domain/predictionImportBatches");
 let exportsDomain: typeof import("@/server/domain/exports");
+let getRuntimeConfig: typeof import("@/server/runtime/config").getRuntimeConfig;
 
 const PREDICTION_BATCH_MANIFEST_VERSION = "sapen-annotate-prediction-batch-import-v1";
 
@@ -36,6 +37,7 @@ describe("prediction import batch workflow", () => {
     provenance = await import("@/server/domain/predictionProvenance");
     batches = await import("@/server/domain/predictionImportBatches");
     exportsDomain = await import("@/server/domain/exports");
+    getRuntimeConfig = (await import("@/server/runtime/config")).getRuntimeConfig;
 
     const labelSchema = await prisma.labelSchemaVersion.findFirstOrThrow({
       where: { isDefault: true, status: "ACTIVE" },
@@ -177,6 +179,9 @@ describe("prediction import batch workflow", () => {
       fileName: string;
       bytes: Uint8Array;
       checksum?: string;
+      width?: number;
+      height?: number;
+      format?: string;
     }>;
   }) {
     const zip = new JSZip();
@@ -191,9 +196,10 @@ describe("prediction import batch workflow", () => {
           targetType: item.targetType ?? "SEMANTIC_MASK",
           fileName: item.fileName,
           checksum: item.checksum ?? sha256Checksum(item.bytes),
-          width: 2,
-          height: 2,
+          width: item.width ?? 2,
+          height: item.height ?? 2,
           contentType: "application/octet-stream",
+          format: item.format ?? "u8raw-v1",
           confidenceScore: 0.7,
           uncertaintyScore: 0.3,
           perClassScores: { fixture: item.clientItemId },
@@ -634,5 +640,103 @@ describe("prediction import batch workflow", () => {
         prisma,
       ),
     ).rejects.toMatchObject({ code: "BATCH_ITEM_TARGET_UNSUPPORTED" });
+  });
+
+  it("rejects oversized expected mask dimensions before staging ZIP entries", async () => {
+    const imageId = await createImage("oversized-dimensions");
+    const beforeCount = await prisma.predictionImportBatchJob.count({ where: { projectId } });
+    const zipBytes = await createZip({
+      items: [
+        {
+          clientItemId: "oversized-dimensions",
+          imageId,
+          fileName: "predictions/oversized-dimensions.u8raw",
+          bytes: new Uint8Array([0, 1, 2, 3]),
+          width: getRuntimeConfig().uploads.maskMaxBytes + 1,
+          height: 1,
+        },
+      ],
+    });
+
+    await expect(
+      batches.createPredictionImportBatchFromZipForUser(
+        { predictionRunId, userId: ownerId, zipBytes },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BATCH_ITEM_UNCOMPRESSED_SIZE_EXCEEDED", status: 413 });
+
+    await expect(prisma.predictionImportBatchJob.count({ where: { projectId } })).resolves.toBe(beforeCount);
+  });
+
+  it("rejects aggregate expected uncompressed ZIP payloads before staging", async () => {
+    const config = getRuntimeConfig().uploads;
+    const itemBytes = Math.min(config.maskMaxBytes, Math.floor(config.predictionBatchMaxBytes / 3) + 1);
+    const itemCount = Math.floor(config.predictionBatchMaxBytes / itemBytes) + 1;
+    expect(itemCount).toBeLessThanOrEqual(config.predictionBatchMaxItems);
+    const imageIds = await Promise.all(
+      Array.from({ length: itemCount }, (_, index) => createImage(`aggregate-${index}`)),
+    );
+    const zipBytes = await createZip({
+      items: imageIds.map((imageId, index) => ({
+        clientItemId: `aggregate-${index}`,
+        imageId,
+        fileName: `predictions/aggregate-${index}.u8raw`,
+        bytes: new Uint8Array([0, 1, 2, 3]),
+        width: itemBytes,
+        height: 1,
+      })),
+    });
+
+    await expect(
+      batches.createPredictionImportBatchFromZipForUser(
+        { predictionRunId, userId: ownerId, zipBytes },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BATCH_UNCOMPRESSED_BYTES_EXCEEDED", status: 413 });
+  });
+
+  it("rejects ZIP metadata size mismatches before decompression", async () => {
+    const imageId = await createImage("metadata-size-mismatch");
+    const bytes = new Uint8Array([0, 1, 2, 3, 0]);
+    const zipBytes = await createZip({
+      items: [
+        {
+          clientItemId: "metadata-size-mismatch",
+          imageId,
+          fileName: "predictions/metadata-size-mismatch.u8raw",
+          bytes,
+          width: 2,
+          height: 2,
+        },
+      ],
+    });
+
+    await expect(
+      batches.createPredictionImportBatchFromZipForUser(
+        { predictionRunId, userId: ownerId, zipBytes },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BATCH_ITEM_EXPECTED_SIZE_MISMATCH" });
+  });
+
+  it("rejects path traversal entries before staging", async () => {
+    const imageId = await createImage("path-traversal");
+    const zipBytes = await createZip({
+      items: [
+        {
+          clientItemId: "path-traversal",
+          imageId,
+          fileName: "../escape.u8raw",
+          bytes: new Uint8Array([0, 1, 2, 3]),
+        },
+      ],
+    });
+
+    await expect(
+      batches.createPredictionImportBatchFromZipForUser(
+        { predictionRunId, userId: ownerId, zipBytes },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "BATCH_ITEM_FILE_PATH_INVALID" });
   });
 });

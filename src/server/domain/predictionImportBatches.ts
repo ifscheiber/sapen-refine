@@ -215,6 +215,12 @@ type StagedItem = ManifestItem & {
   sourceFilename: string;
 };
 
+type ZipFileWithInflationMetadata = JSZip.JSZipObject & {
+  _data?: {
+    uncompressedSize?: unknown;
+  };
+};
+
 export class PredictionImportBatchError extends Error {
   constructor(
     public readonly code: string,
@@ -314,6 +320,57 @@ function assertMaskStagingSize(bytes: Uint8Array) {
   }
 }
 
+function assertMaskExpectedByteLength(expectedBytes: number) {
+  if (!Number.isSafeInteger(expectedBytes) || expectedBytes <= 0) {
+    throw new PredictionImportBatchError("BATCH_ITEM_UNCOMPRESSED_SIZE_EXCEEDED", 413);
+  }
+  const validation = validateUploadSize(expectedBytes, "mask");
+  if (!validation.ok) {
+    throw new PredictionImportBatchError("BATCH_ITEM_UNCOMPRESSED_SIZE_EXCEEDED", 413);
+  }
+}
+
+function expectedMaskByteLength(item: Pick<ManifestItem, "format" | "width" | "height">) {
+  if (item.format !== "u8raw-v1") return null;
+  const expectedBytes = item.width * item.height;
+  assertMaskExpectedByteLength(expectedBytes);
+  return expectedBytes;
+}
+
+function assertAggregateExpectedUncompressedBytes(items: ManifestItem[]) {
+  let total = 0;
+  for (const item of items) {
+    const expectedBytes = expectedMaskByteLength(item);
+    if (expectedBytes === null) continue;
+    total += expectedBytes;
+    if (!Number.isSafeInteger(total) || total > getRuntimeConfig().uploads.predictionBatchMaxBytes) {
+      throw new PredictionImportBatchError("BATCH_UNCOMPRESSED_BYTES_EXCEEDED", 413);
+    }
+  }
+}
+
+function zipMetadataUncompressedSize(zipFile: JSZip.JSZipObject) {
+  const size = (zipFile as ZipFileWithInflationMetadata)._data?.uncompressedSize;
+  return typeof size === "number" && Number.isFinite(size) ? size : null;
+}
+
+function assertZipFileInflationMetadata(params: {
+  zipFile: JSZip.JSZipObject;
+  expectedBytes: number | null;
+}) {
+  const uncompressedSize = zipMetadataUncompressedSize(params.zipFile);
+  if (uncompressedSize === null) return;
+  if (!Number.isSafeInteger(uncompressedSize) || uncompressedSize < 0) {
+    throw new PredictionImportBatchError("BATCH_ITEM_UNCOMPRESSED_SIZE_EXCEEDED", 413);
+  }
+  if (uncompressedSize > getRuntimeConfig().uploads.maskMaxBytes) {
+    throw new PredictionImportBatchError("BATCH_ITEM_UNCOMPRESSED_SIZE_EXCEEDED", 413);
+  }
+  if (params.expectedBytes !== null && uncompressedSize !== params.expectedBytes) {
+    throw new PredictionImportBatchError("BATCH_ITEM_EXPECTED_SIZE_MISMATCH");
+  }
+}
+
 function parseTargetType(value: unknown) {
   const targetType = requiredText(value, "BATCH_ITEM_TARGET_TYPE_REQUIRED");
   if (!Object.values(PredictionTargetType).includes(targetType as PredictionTargetType)) {
@@ -396,6 +453,7 @@ function parseManifest(raw: unknown, predictionRunId: string) {
   }
 
   const items = body.items.map(parseManifestItem);
+  assertAggregateExpectedUncompressedBytes(items);
   const clientItemIds = items.map((item) => item.clientItemId).filter((id): id is string => Boolean(id));
   if (new Set(clientItemIds).size !== clientItemIds.length) {
     throw new PredictionImportBatchError("BATCH_ITEM_CLIENT_ID_DUPLICATE");
@@ -473,10 +531,15 @@ async function stageZipItems(params: {
   for (const item of params.items) {
     const zipFile = params.zip.file(item.fileName);
     if (!zipFile) throw new PredictionImportBatchError("BATCH_ITEM_FILE_MISSING");
+    const expectedBytes = expectedMaskByteLength(item);
+    assertZipFileInflationMetadata({ zipFile, expectedBytes });
 
     const bytes = await zipFile.async("uint8array").catch(() => null);
     if (!bytes) throw new PredictionImportBatchError("BATCH_ITEM_FILE_UNREADABLE");
     assertMaskStagingSize(bytes);
+    if (expectedBytes !== null && bytes.byteLength !== expectedBytes) {
+      throw new PredictionImportBatchError("BATCH_ITEM_EXPECTED_SIZE_MISMATCH");
+    }
 
     const id = randomUUID();
     const stagingKey = `projects/${params.projectId}/prediction-import-batches/${params.batchId}/${id}.msk`;

@@ -141,6 +141,7 @@ Default trial limits:
 - App image upload: 100 MiB.
 - App mask upload: 50 MiB.
 - Prediction batch ZIP upload: 100 MiB.
+- Prediction batch expected uncompressed `u8raw-v1` bytes: 100 MiB aggregate and 50 MiB per item.
 - Prediction batch items per ZIP: 200.
 - Prediction batch process pass: 25 items.
 - Training export package: 500 items / 512 MiB estimated input bytes.
@@ -156,6 +157,8 @@ Raise app, Next proxy, and Caddy limits together:
 - `CADDY_MAX_BODY_SIZE` in `deploy/trial.env`.
 
 Supported raw image uploads are PNG and JPEG. Oversized app-mediated uploads return `413` and `UPLOAD_TOO_LARGE` when the request reaches the app. If the Next proxy or Caddy rejects/truncates first, the app may not produce the intended JSON error, so keep both proxy limits above the app limits. Trial full-resolution annotation supports normal images up to `6000x4000`, large-warning images up to `8000x6000`, and rejects larger images with `IMAGE_DIMENSIONS_UNSUPPORTED`.
+
+Prediction batch imports also guard decompressed ZIP payload size before staging where possible. Oversized or mismatched `u8raw-v1` entries return batch-specific JSON errors such as `BATCH_ITEM_UNCOMPRESSED_SIZE_EXCEEDED`, `BATCH_UNCOMPRESSED_BYTES_EXCEEDED`, or `BATCH_ITEM_EXPECTED_SIZE_MISMATCH`.
 
 Current upload validation is an authenticated customer-trial integrity boundary, not malware/content-safety scanning. Do not expose anonymous or broad untrusted upload access until [ADR-008](../08-adr/ADR-008-upload-content-safety.md) follow-ups add quarantine, scanning, decode/re-encode, metadata stripping, rejection audit, cleanup, and reverse-proxy alignment.
 
