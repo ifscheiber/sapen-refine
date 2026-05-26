@@ -35,6 +35,12 @@ import {
   ExportTrialCapError,
   trainingExportTrialLimits,
 } from "@/server/domain/exportTrialCaps";
+import {
+  buildSapenCnnTrainingSnapshot,
+  SAPEN_CNN_TRAINING_MANIFEST_VERSION,
+  SAPEN_CNN_TRAINING_TARGET,
+  sapenCnnTrainingExportItemsFromManifest,
+} from "@/server/domain/sapenCnnTrainingSnapshot";
 import { getRuntimeConfig } from "@/server/runtime/config";
 import { getObjectBytes } from "@/server/storage/s3";
 import { normalizeChecksum } from "@/server/uploads/integrity";
@@ -46,7 +52,8 @@ export type ApiExportTarget =
   | "support_segmentation"
   | "slice_classification"
   | "combined"
-  | "crop_training";
+  | "crop_training"
+  | typeof SAPEN_CNN_TRAINING_TARGET;
 
 export type ApiExportPackageMode = "zip" | "manifest_only";
 
@@ -165,6 +172,7 @@ const TARGETS = new Set<ApiExportTarget>([
   "slice_classification",
   "combined",
   "crop_training",
+  SAPEN_CNN_TRAINING_TARGET,
 ]);
 
 const TRAINING_EXPORT_MANIFEST_VERSION = "sapen-annotate-training-export-v1";
@@ -253,6 +261,9 @@ export function parseExportTargets(value: unknown): ApiExportTarget[] {
   if (parsed.includes("crop_training") && parsed.length > 1) {
     throw new TrainingExportError("EXPORT_TARGET_COMBINATION_INVALID");
   }
+  if (parsed.includes(SAPEN_CNN_TRAINING_TARGET) && parsed.length > 1) {
+    throw new TrainingExportError("EXPORT_TARGET_COMBINATION_INVALID");
+  }
   return parsed;
 }
 
@@ -289,6 +300,10 @@ function targetForSelection(targets: ApiExportTarget[]): ExportTarget {
 
 function isCropTrainingSelection(targets: ApiExportTarget[]) {
   return targets.length === 1 && targets[0] === "crop_training";
+}
+
+function isSapenCnnTrainingSelection(targets: ApiExportTarget[]) {
+  return targets.length === 1 && targets[0] === SAPEN_CNN_TRAINING_TARGET;
 }
 
 async function getProjectMembership(db: ExportDb, projectId: string, userId: string) {
@@ -1505,6 +1520,97 @@ async function createCropTrainingExportBatch(params: {
   return sanitizeExportBatch(queued);
 }
 
+async function createSapenCnnTrainingExportBatch(params: {
+  readiness: Awaited<ReturnType<typeof resolveProjectExportReadiness>>;
+  user: { id: string; email: string; name: string | null };
+}, db: PrismaClient) {
+  const exportId = randomUUID();
+  const exportedAt = new Date();
+  const selectionCriteria = {
+    targets: [SAPEN_CNN_TRAINING_TARGET],
+    approvedOnly: true,
+    packageMode: "manifest_only",
+  };
+
+  const snapshot = await buildSapenCnnTrainingSnapshot({
+    db,
+    exportId,
+    exportedAt,
+    exportedBy: params.user,
+    project: { id: params.readiness.project.id, name: params.readiness.project.name },
+    candidates: params.readiness.cropCandidates,
+  });
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(snapshot.manifest, null, 2));
+  assertExportWithinTrialCaps({
+    metrics: {
+      itemCount: snapshot.manifest.summary.itemCount,
+      estimatedBytes: estimateSourceBytes({
+        manifestBytes,
+        sources: snapshot.objectSources,
+      }),
+    },
+    limits: trainingExportTrialLimits(),
+    itemCode: "EXPORT_ITEM_LIMIT_EXCEEDED",
+    byteCode: "EXPORT_BYTE_LIMIT_EXCEEDED",
+  });
+  const exportItems = sapenCnnTrainingExportItemsFromManifest({ manifest: snapshot.manifest });
+
+  const queued = await db.$transaction(async (tx) => {
+    const created = await tx.exportBatch.create({
+      data: {
+        id: exportId,
+        projectId: params.readiness.project.id,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.PENDING,
+        manifestFormatVersion: SAPEN_CNN_TRAINING_MANIFEST_VERSION,
+        selectionCriteria,
+        warnings: snapshot.manifest.warnings as Prisma.InputJsonValue,
+        metadataSummary: {
+          logicalTarget: SAPEN_CNN_TRAINING_TARGET,
+          packageMode: "manifest_only",
+          packageWriter: packageWriterForMode("manifest_only"),
+          manifestSnapshot: snapshot.manifest,
+          packageSources: snapshot.objectSources,
+          objectSources: snapshot.objectSources,
+          itemCount: snapshot.manifest.summary.itemCount,
+          fullImageItemCount: snapshot.manifest.summary.fullImageItemCount,
+          classificationItemCount: snapshot.manifest.summary.classificationItemCount,
+          cropSemanticItemCount: snapshot.manifest.summary.cropSemanticItemCount,
+          skippedItemCount: snapshot.manifest.summary.skippedItemCount,
+          warningCount: snapshot.manifest.summary.warningCount,
+          estimatedBytes: estimateSourceBytes({ manifestBytes, sources: snapshot.objectSources }),
+        } as Prisma.InputJsonObject,
+        exportedById: params.user.id,
+        exportedAt,
+        jobMaxAttempts: exportJobConfig().maxAttempts,
+        ...(exportItems.length
+          ? { items: { createMany: { data: exportItems } } }
+          : {}),
+      },
+      select: EXPORT_BATCH_SANITIZE_SELECT,
+    });
+
+    await recordAuditEvent({
+      action: "EXPORT_QUEUED",
+      entity: "ExportBatch",
+      entityId: created.id,
+      actorId: params.user.id,
+      details: {
+        projectId: created.projectId,
+        target: created.target,
+        logicalTarget: SAPEN_CNN_TRAINING_TARGET,
+        manifestFormatVersion: SAPEN_CNN_TRAINING_MANIFEST_VERSION,
+        packageMode: "manifest_only",
+        itemCount: snapshot.manifest.summary.itemCount,
+      },
+    }, tx);
+
+    return created;
+  });
+
+  return sanitizeExportBatch(queued);
+}
+
 export async function createTrainingExportForUser(params: {
   projectId: string;
   userId: string;
@@ -1522,10 +1628,14 @@ export async function createTrainingExportForUser(params: {
     select: { id: true, email: true, name: true },
   });
   if (!user) throw new TrainingExportError("USER_NOT_FOUND");
-  const packageMode = params.packageMode ?? "zip";
+  const packageMode = params.packageMode ?? (isSapenCnnTrainingSelection(params.targets) ? "manifest_only" : "zip");
 
   if (isCropTrainingSelection(params.targets)) {
     return createCropTrainingExportBatch({ readiness, user, packageMode }, db);
+  }
+  if (isSapenCnnTrainingSelection(params.targets)) {
+    if (packageMode !== "manifest_only") throw new TrainingExportError("EXPORT_PACKAGE_MODE_INVALID");
+    return createSapenCnnTrainingExportBatch({ readiness, user }, db);
   }
 
   const selectionCriteria = {

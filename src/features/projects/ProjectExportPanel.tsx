@@ -9,7 +9,8 @@ type ExportTarget =
   | "support_segmentation"
   | "slice_classification"
   | "combined"
-  | "crop_training";
+  | "crop_training"
+  | "sapen_cnn_training";
 type PredictionTarget = "SEMANTIC_MASK" | "SLICE_SUPPORT_MASK" | "SLICE_CLASSIFICATION";
 
 type ExportReadiness = {
@@ -100,6 +101,7 @@ const TARGET_OPTIONS: Array<{ value: ExportTarget; label: string }> = [
   { value: "slice_classification", label: "Slice classification" },
   { value: "combined", label: "Combined manifest" },
   { value: "crop_training", label: "Crop training" },
+  { value: "sapen_cnn_training", label: "SaPen-CNN snapshot" },
 ];
 
 const PREDICTION_TARGET_OPTIONS: Array<{ value: PredictionTarget; label: string }> = [
@@ -141,6 +143,7 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
   const [predictionError, setPredictionError] = useState<string | null>(null);
 
   const targetSummary = useMemo(() => {
+    if (selectedTargets.includes("sapen_cnn_training")) return ["sapen_cnn_training"];
     if (selectedTargets.includes("crop_training")) return ["crop_training"];
     if (selectedTargets.includes("combined")) return ["combined"];
     return selectedTargets;
@@ -247,8 +250,13 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
       if (target === "crop_training") {
         return current.includes("crop_training") ? [] : ["crop_training"];
       }
+      if (target === "sapen_cnn_training") {
+        return current.includes("sapen_cnn_training") ? [] : ["sapen_cnn_training"];
+      }
       if (target === "combined") return current.includes("combined") ? [] : ["combined"];
-      const withoutCombined = current.filter((item) => item !== "combined" && item !== "crop_training");
+      const withoutCombined = current.filter(
+        (item) => item !== "combined" && item !== "crop_training" && item !== "sapen_cnn_training",
+      );
       if (withoutCombined.includes(target)) {
         return withoutCombined.filter((item) => item !== target);
       }
@@ -271,7 +279,10 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
       const res = await fetch(`/api/projects/${projectId}/exports`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ targets: targetSummary }),
+        body: JSON.stringify({
+          targets: targetSummary,
+          ...(targetSummary.includes("sapen_cnn_training") ? { packageMode: "manifest_only" } : {}),
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) throw new Error(data?.error ?? `EXPORT_FAILED_${res.status}`);

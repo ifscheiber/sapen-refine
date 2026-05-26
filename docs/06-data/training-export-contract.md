@@ -17,6 +17,7 @@ into current `../sapen-cnn` dataset layouts. That target must not reinterpret ex
 Important files:
 
 - `src/server/domain/exports.ts` - readiness, exact snapshot creation, manifest generation, async package processing, export persistence, and download authorization.
+- `src/server/domain/sapenCnnTrainingSnapshot.ts` - EX-003/EX-004 SaPen-CNN snapshot manifest builder for full-image instance data, crop classification samples, crop semantic samples, shared splits, and private object refs.
 - `src/server/domain/exportJobs.ts` - due-job processing, atomic claim, bounded retry, and stale lease recovery for export jobs.
 - `src/server/domain/exportPackageWriter.ts` - current verified JSZip package-writer and manifest-only writer boundary.
 - `src/app/api/projects/[projectId]/export/readiness/route.ts` - project export readiness.
@@ -34,8 +35,9 @@ API target strings:
 - `slice_classification`
 - `combined`
 - `crop_training`
+- `sapen_cnn_training`
 
-The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values, maps multi-target or combined full-image selections to `COMBINED_MANIFEST`, and maps crop packages to `CROP_TRAINING`. `crop_training` is intentionally exclusive and cannot be mixed with full-image target strings in one request. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the training export API.
+The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values, maps multi-target or combined full-image selections to `COMBINED_MANIFEST`, and maps crop packages to `CROP_TRAINING`. `sapen_cnn_training` is a logical/API target that is also persisted as `COMBINED_MANIFEST`, but only rows with `manifestFormatVersion = sapen-annotate-cnn-training-dataset-v1` and `metadataSummary.logicalTarget = sapen_cnn_training` are SaPen-CNN snapshots. Existing `combined` exports keep their current meaning. `crop_training` and `sapen_cnn_training` are intentionally exclusive and cannot be mixed with other target strings in one request. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the training export API.
 
 Create endpoints return `202 Accepted` with `status = PENDING` and no download links. Status reads expose `PENDING`, `PROCESSING`, `COMPLETED`, or `FAILED`; downloads are available only when the batch is `COMPLETED`. Failed jobs store stable `errorCode`/`errorMessage` values without exposing private storage keys.
 
@@ -131,6 +133,20 @@ Copper-specific export rule: Copper semantic masks remain semantic material targ
 Sap/Heartwood-specific export rule: Supportless Sap/Heartwood crop items record `supportGeometrySource = SEMANTIC_FOREGROUND`. Non-background Sap/Heartwood semantic pixels define the support geometry; background crop padding is not support.
 
 Prediction-analysis exports remain separate from ground-truth training exports. RB-085 does not add crop-aware model QA package semantics; that must be designed explicitly if a later crop-prediction workflow needs it.
+
+### SaPen-CNN Training Snapshot
+
+Purpose: make reviewed crop-workflow ground truth available to `../sapen-cnn` through a manifest-only local materialization workflow.
+
+Includes:
+
+- `fullImageItems[]` for source-image instance segmentation reconstructed from crop support geometry,
+- `classificationItems[]` for crop-level classification samples with source-image provenance, never one class per full image,
+- `cropSemanticItems[]` for Sap/Heartwood and Copper crop semantic segmentation,
+- one deterministic `groupSplitMap` shared by all dataset families,
+- public `objectRefId` references only; private storage keys remain in the audited materialization refs path.
+
+Overlap policy: any positive intersection of non-background support pixels after reprojection into source-image pixel space excludes only the affected full-image instance item. Boundary touching without shared pixels is not overlap. Valid crop classification and crop semantic items remain exportable.
 
 ## Manifest Shape
 

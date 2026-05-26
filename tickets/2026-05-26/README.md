@@ -16,10 +16,10 @@ Ticket sequence:
 2. `done/EX-002-manifest-only-training-snapshot-mode.md`
    Add manifest-only snapshot transport without making ZIP the primary training path.
 
-3. `EX-003-full-image-training-from-crop-annotations.md`  
+3. `done/EX-003-full-image-training-from-crop-annotations.md`
    Build full-image instance/classification manifest data derived from crop annotations.
 
-4. `EX-004-crop-semantic-training-dataset-snapshot.md`  
+4. `done/EX-004-crop-semantic-training-dataset-snapshot.md`
    Build crop semantic segmentation manifest data for Sap/Heartwood and Copper models.
 
 5. `EX-005-annotate-side-local-sapen-cnn-materializer.md`  

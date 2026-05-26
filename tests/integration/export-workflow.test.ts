@@ -253,19 +253,33 @@ describe("training export workflow", () => {
 
   async function createCropFixture(name: string) {
     const imageId = await createImage(`crop-${name}`);
+    return createCropFixtureForImage({ name, imageId });
+  }
+
+  async function createCropFixtureForImage(params: {
+    name: string;
+    imageId: string;
+    sourceX?: number;
+    sourceY?: number;
+  }) {
+    const image = await prisma.imageAsset.findUniqueOrThrow({
+      where: { id: params.imageId },
+      select: { checksum: true, width: true, height: true },
+    });
+    if (!image.width || !image.height) throw new Error("TEST_IMAGE_DIMENSIONS_REQUIRED");
     const slice = await prisma.sliceInstance.create({
-      data: { projectId, imageId, createdById: labelerId },
+      data: { projectId, imageId: params.imageId, createdById: labelerId },
       select: { id: true },
     });
     const bbox = await prisma.sliceBoundingBoxVersion.create({
       data: {
         projectId,
-        imageId,
+        imageId: params.imageId,
         sliceInstanceId: slice.id,
         version: 1,
         status: "ACTIVE",
-        x: 0,
-        y: 0,
+        x: params.sourceX ?? 0,
+        y: params.sourceY ?? 0,
         width: 4,
         height: 4,
         coordinateSpace: "SOURCE_IMAGE_PIXEL",
@@ -273,21 +287,21 @@ describe("training export workflow", () => {
       },
       select: { id: true },
     });
-    const cropBytes = minimalPng(`derived-crop-${name}`);
-    const cropStorageKey = `tests/export/${suffix}/derived-crop-${name}.png`;
+    const cropBytes = minimalPng(`derived-crop-${params.name}`);
+    const cropStorageKey = `tests/export/${suffix}/derived-crop-${params.name}.png`;
     await storage.putObject(cropStorageKey, cropBytes, "image/png");
     const crop = await prisma.derivedSliceCrop.create({
       data: {
         projectId,
-        sourceImageId: imageId,
-        sourceImageChecksum: sha256Checksum(minimalPng(`crop-${name}`)),
-        sourceImageWidth: 4,
-        sourceImageHeight: 4,
+        sourceImageId: params.imageId,
+        sourceImageChecksum: image.checksum,
+        sourceImageWidth: image.width,
+        sourceImageHeight: image.height,
         sliceInstanceId: slice.id,
         bboxVersionId: bbox.id,
         version: 1,
-        sourceX: 0,
-        sourceY: 0,
+        sourceX: params.sourceX ?? 0,
+        sourceY: params.sourceY ?? 0,
         sourceWidth: 4,
         sourceHeight: 4,
         cropX: 0,
@@ -303,7 +317,7 @@ describe("training export workflow", () => {
         coordinateSpace: "CROP_PIXEL",
         transformToSourceJson: {
           version: "integer-translation-v1",
-          sourceOrigin: { x: 0, y: 0 },
+          sourceOrigin: { x: params.sourceX ?? 0, y: params.sourceY ?? 0 },
           cropCoordinateSpace: "CROP_PIXEL",
           sourceCoordinateSpace: "SOURCE_IMAGE_PIXEL",
         },
@@ -323,7 +337,7 @@ describe("training export workflow", () => {
       },
     });
 
-    return { imageId, sliceInstanceId: slice.id, bboxVersionId: bbox.id, crop };
+    return { imageId: params.imageId, sliceInstanceId: slice.id, bboxVersionId: bbox.id, crop };
   }
 
   async function createCropArtifactVersion(params: {
@@ -417,7 +431,7 @@ describe("training export workflow", () => {
     crop: Awaited<ReturnType<typeof createCropFixture>>["crop"];
     semanticMaskVersionId: string;
     supportMaskVersionId?: string | null;
-    class?: "SAP_HEARTWOOD_SLICE" | "COPPER_SLICE";
+    class?: "SAP_HEARTWOOD_SLICE" | "COPPER_SLICE" | "UNKNOWN" | "REVIEW_REQUIRED";
     reviewState?: ArtifactReviewState;
     name: string;
   }) {
@@ -710,6 +724,187 @@ describe("training export workflow", () => {
       select: { id: true },
     });
     expect(refsAudit).toBeTruthy();
+  });
+
+  it("creates a SaPen-CNN snapshot with crop-level classification, shared splits, and overlap warnings", async () => {
+    const sourceImageA = await createImage("cnn-source-a");
+    const sourceImageB = await createImage("cnn-source-b");
+
+    const sapCrop = await createCropFixtureForImage({ name: "cnn-sap", imageId: sourceImageA });
+    const sapSemanticId = await createCropArtifactVersion({
+      crop: sapCrop.crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      semanticMode: "SAP_HEARTWOOD",
+      name: "cnn-sap-semantic",
+    });
+    const sapClassificationId = await createCropClassificationVersion({
+      crop: sapCrop.crop,
+      semanticMaskVersionId: sapSemanticId,
+      class: "SAP_HEARTWOOD_SLICE",
+      name: "cnn-sap-classification",
+    });
+
+    const copperCrop = await createCropFixtureForImage({ name: "cnn-copper", imageId: sourceImageA });
+    const copperSupportId = await createCropArtifactVersion({
+      crop: copperCrop.crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "cnn-copper-support",
+    });
+    const copperSemanticId = await createCropArtifactVersion({
+      crop: copperCrop.crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: copperSupportId,
+      semanticMode: "COPPER",
+      name: "cnn-copper-semantic",
+    });
+    const copperClassificationId = await createCropClassificationVersion({
+      crop: copperCrop.crop,
+      semanticMaskVersionId: copperSemanticId,
+      supportMaskVersionId: copperSupportId,
+      class: "COPPER_SLICE",
+      name: "cnn-copper-classification",
+    });
+
+    const unknownCrop = await createCropFixtureForImage({ name: "cnn-unknown", imageId: sourceImageB });
+    const unknownSemanticId = await createCropArtifactVersion({
+      crop: unknownCrop.crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      semanticMode: "SAP_HEARTWOOD",
+      name: "cnn-unknown-semantic",
+    });
+    await createCropClassificationVersion({
+      crop: unknownCrop.crop,
+      semanticMaskVersionId: unknownSemanticId,
+      class: "UNKNOWN",
+      name: "cnn-unknown-classification",
+    });
+
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["sapen_cnn_training"] },
+      prisma,
+    );
+    expect(queued).toMatchObject({
+      target: "COMBINED_MANIFEST",
+      logicalTarget: "sapen_cnn_training",
+      packageMode: "manifest_only",
+      status: "PENDING",
+    });
+    expect(JSON.stringify(queued)).not.toContain("tests/export/");
+
+    const completed = await processQueuedTrainingExport(queued.id);
+    expect(completed).toMatchObject({
+      target: "COMBINED_MANIFEST",
+      logicalTarget: "sapen_cnn_training",
+      packageMode: "manifest_only",
+      packageAvailable: false,
+    });
+
+    const manifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: queued.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    expect(manifest.manifestVersion).toBe("sapen-annotate-cnn-training-dataset-v1");
+    expect(manifest.selection.targets).toEqual(["sapen_cnn_training"]);
+    expect(JSON.stringify(manifest)).not.toContain("tests/export/");
+
+    expect(manifest.classificationItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceImageId: sourceImageA,
+          derivedCropId: sapCrop.crop.id,
+          classification: expect.objectContaining({
+            classificationVersionId: sapClassificationId,
+            sapenCnnLabel: "HEARTWOOD_STAINED",
+          }),
+        }),
+        expect.objectContaining({
+          sourceImageId: sourceImageA,
+          derivedCropId: copperCrop.crop.id,
+          classification: expect.objectContaining({
+            classificationVersionId: copperClassificationId,
+            sapenCnnLabel: "COPPER",
+          }),
+        }),
+      ]),
+    );
+    expect(
+      manifest.classificationItems.some(
+        (item: { derivedCropId: string }) => item.derivedCropId === unknownCrop.crop.id,
+      ),
+    ).toBe(false);
+
+    expect(manifest.cropSemanticItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          task: "SAP_HEARTWOOD_SEMSEG",
+          derivedCropId: sapCrop.crop.id,
+          semanticMask: expect.objectContaining({ artifactVersionId: sapSemanticId }),
+        }),
+        expect.objectContaining({
+          task: "COPPER_SEMSEG",
+          derivedCropId: copperCrop.crop.id,
+          semanticMask: expect.objectContaining({ artifactVersionId: copperSemanticId }),
+          supportMask: expect.objectContaining({ artifactVersionId: copperSupportId }),
+        }),
+      ]),
+    );
+    expect(
+      manifest.fullImageItems.some(
+        (item: { sourceImage: { id: string } }) => item.sourceImage.id === sourceImageA,
+      ),
+    ).toBe(false);
+    expect(manifest.skippedItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "classification",
+          derivedCropId: unknownCrop.crop.id,
+          reason: "CLASSIFICATION_LABEL_SKIPPED",
+        }),
+        expect.objectContaining({
+          type: "full-image-instance",
+          sourceImageId: sourceImageA,
+          reason: "FULL_IMAGE_INSTANCE_CONFLICT",
+        }),
+      ]),
+    );
+    expect(manifest.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "SUPPORT_REPROJECTION_OVERLAP",
+          sourceImageId: sourceImageA,
+        }),
+      ]),
+    );
+
+    const splitMap = manifest.splitPolicy.groupSplitMap as Record<string, string>;
+    for (const item of [
+      ...manifest.fullImageItems,
+      ...manifest.classificationItems,
+      ...manifest.cropSemanticItems,
+    ] as Array<{ groupKey: string; split: string }>) {
+      expect(item.split).toBe(splitMap[item.groupKey]);
+    }
+    const sapClassification = manifest.classificationItems.find(
+      (item: { derivedCropId: string }) => item.derivedCropId === sapCrop.crop.id,
+    );
+    const sapSemantic = manifest.cropSemanticItems.find(
+      (item: { derivedCropId: string }) => item.derivedCropId === sapCrop.crop.id,
+    );
+    expect(sapClassification.split).toBe(sapSemantic.split);
+
+    const refs = await exportsDomain.getTrainingExportMaterializationRefsForUser(
+      { exportId: queued.id, userId: ownerId },
+      prisma,
+    );
+    expect(refs.logicalTarget).toBe("sapen_cnn_training");
+    expect(refs.refs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ objectRefId: `crop:${sapCrop.crop.id}` }),
+        expect.objectContaining({ objectRefId: `artifact:${copperSupportId}` }),
+      ]),
+    );
+    expect(JSON.stringify(refs)).toContain("tests/export/");
   });
 
   it("claims a queued training export once across concurrent processor passes", async () => {

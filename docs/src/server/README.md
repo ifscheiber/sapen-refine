@@ -24,6 +24,7 @@
 - `src/server/domain/exports.ts` - RB-053 full-image and RB-091 crop training export readiness, exact export snapshot creation, async job package generation, export persistence, and download authorization.
 - `src/server/domain/exportJobs.ts` - RB-112 single-host export job processor, PostgreSQL claim/retry/lease handling, and due-job summaries.
 - `src/server/domain/exportPackageWriter.ts` - RB-112 verified JSZip package writer boundary plus EX-002 manifest-only writer/source-verification helpers.
+- `src/server/domain/sapenCnnTrainingSnapshot.ts` - EX-003/EX-004 SaPen-CNN training snapshot builder for crop-derived full-image instance items, crop-level classification samples, crop semantic samples, shared split policy, and public object refs.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
 - `src/server/domain/predictionImport.ts` - RB-057 prediction mask import validation, storage write/stat verification, artifact-version creation, provenance linking, and audit events.
 - `src/server/domain/predictionImportBatches.ts` - RB-061 ZIP batch prediction import manifest validation, private staging, job/item status updates, retry, and processing through the RB-057 import service.
@@ -101,6 +102,7 @@
 - Crop semantic-mask services create draft crop-scoped `SEMANTIC_MASK` artifact versions after exact crop-dimension and mode-label validation. Sap/Heartwood may save with `supportMaskVersionId = null`; Copper may save supportless drafts but needs approved explicit support before readiness/export. RB-123 blocks non-empty opposite-family saves with `CROP_ANNOTATION_FAMILY_CONFLICT`; all-background saves are allowed so users can clear the active family without deleting historical versions.
 - Slice-classification derivation uses semantic mask bytes and label-schema values only; it stores `AUTO_FROM_SEMANTIC_MASK` provenance, exact semantic/crop lineage, optional support lineage, stable derivation reasons, and draft review state. Manual overrides append separate `MANUAL` versions.
 - Crop readiness is resolved centrally. Crop training exports include only `READY` crop candidates with approved crop semantic masks and approved classifications; Copper candidates also require approved explicit support. Manifests record `supportGeometrySource`, and `REVIEW_REQUIRED` candidates are skipped with explicit reasons. The manifest version remains `sapen-annotate-crop-training-export-v1`, and browser/API responses do not expose private storage keys.
+- SaPen-CNN training snapshots use the logical `sapen_cnn_training` API target and persist as `ExportTarget.COMBINED_MANIFEST` only when paired with `manifestFormatVersion = sapen-annotate-cnn-training-dataset-v1` and `metadataSummary.logicalTarget = sapen_cnn_training`. They keep `classificationItems` crop-level and apply one deterministic split map across full-image, classification, and crop-semantic items.
 
 ## Known Gaps
 
