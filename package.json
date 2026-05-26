@@ -28,6 +28,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ipad-prep": "playwright test tests/e2e/ipad-viewport-prep.spec.ts",
     "check:docs-links": "vitest run tests/unit/docs-link-governance.test.ts",
+    "check:decomposition-hotspots": "node scripts/report-decomposition-hotspots.mjs",
     "check:design-hardcoding": "rg -n --glob 'src/**' --glob '!src/design/**' --glob '!src/mask/labels.ts' '#[0-9a-fA-F]{3,8}|rgba\\(|oklch\\(|(^|:)(bg|text|border)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|black|white)' && exit 1 || exit 0",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit --incremental false",

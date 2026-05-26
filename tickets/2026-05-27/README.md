@@ -17,13 +17,13 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 
 1. [RB-138 - Deep checksum consistency for primary storage objects](RB-138-storage-consistency-primary-object-checksums.md) - P1/P2; keep explicit/deep mode only, after cleanup-category behavior is clear.
 2. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
-3. [RB-133 - Opportunistic decomposition map refresh and hotspot guard](RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md) - P3; maintainability map, no production refactor by itself.
 
 ## Done
 
 - [RB-130 - Trial runtime config env propagation for rate limits and export caps](done/RB-130-trial-runtime-config-env-propagation-for-rate-limits-and-export-caps.md) - completed; `deploy/docker-compose.trial.yml` now passes documented RB-111 high-cost write limit and export cap vars into the app service, guarded by `tests/unit/deployment-hygiene.test.ts`.
 - [RB-131 - Runtime environment docs, templates, and secret-input parity](done/RB-131-runtime-environment-docs-templates-and-secret-input-parity.md) - completed; the environment inventory and templates now cover runtime, operational-script, and SaPen-CNN materializer variables with a parity guard.
 - [RB-132 - Current-state and architecture documentation drift cleanup](done/RB-132-current-state-and-architecture-doc-drift-cleanup.md) - completed; current-state, architecture, auth, editor, crop-workflow, and component docs now distinguish implemented RB-111/RB-112/RB-140/EX behavior from deferred production gates.
+- [RB-133 - Opportunistic decomposition map refresh and hotspot guard](done/RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md) - completed; the decomposition map now reflects current editor/export/storage/CNN snapshot hotspots and a report-only drift script.
 - [RB-134 - User lifecycle deactivation and attribution preservation](done/RB-134-user-lifecycle-deactivation-and-attribution-preservation.md) - completed; named admin operators can deactivate users, revoke sessions, and preserve historical user-row attribution.
 - [RB-135 - Ticket and docs governance scope extension](done/RB-135-ticket-and-docs-governance-scope-extension.md) - completed; `npm run check:docs-links` now scans active indexed ticket folders while keeping historical `done/` tickets out of the default guard.
 - [RB-136 - Approved snapshot freshness gating](done/RB-136-approved-snapshot-freshness-gating.md) - completed; training exports now report and block stale approved snapshots when newer non-approved support, semantic, or classification work exists in the requested export scope.

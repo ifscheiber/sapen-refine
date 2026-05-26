@@ -1,6 +1,6 @@
 # RB-133 - Opportunistic Decomposition Map Refresh And Hotspot Guard
 
-Status: Planned
+Status: Done
 Priority: P3
 Type: Maintainability / production-change risk reduction
 

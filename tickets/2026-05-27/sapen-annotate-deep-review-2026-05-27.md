@@ -133,7 +133,7 @@ Introduce a deactivation policy and implementation so access can be revoked whil
 ### F-06 - The large-module decomposition map is stale after editor/export growth
 
 Priority: P3
-Ticket: [RB-133](RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md)
+Ticket: [RB-133](done/RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md)
 
 Evidence:
 

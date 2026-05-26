@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This map records maintainability hotspots after RB-119. It is not a rewrite plan. Use it when a future feature, bug fix, or production hardening ticket already touches one of these areas and a small behavior-preserving extraction would reduce risk.
+This map records maintainability hotspots after RB-133. It is not a rewrite plan. Use it when a future feature, bug fix, or production hardening ticket already touches one of these areas and a small behavior-preserving extraction would reduce risk.
 
 Rules:
 
@@ -15,14 +15,19 @@ Rules:
 
 | Module | Size | Mixed concerns | Risk | Current protection |
 | --- | ---: | --- | --- | --- |
-| `src/server/domain/exports.ts` | 1770 lines | training/crop readiness, manifest construction, package-source construction, export caps, async job processing, download authorization | High | `tests/integration/export-workflow.test.ts`, export cap tests, RB-109 DB constraints |
-| `src/server/domain/predictionAnalysisExports.ts` | 1685 lines | prediction-analysis readiness, QA metric inputs, manifest construction, package sources, caps, async job processing, downloads | High | `tests/integration/prediction-analysis-export.test.ts`, metric unit tests |
-| `src/features/editor/EditorClient.tsx` | 1692 lines | source-image canvas, BBox planning, assisted correction, save state, review/classification actions, overlays | High | editor helper/canvas tests, desktop and crop E2E smoke |
-| `src/features/editor/CropSemanticEditorClient.tsx` | 1365+ lines | unified crop canvas, support overlay, annotation-family guards, support/semantic save/reload, classification overrides, review actions | High | crop semantic/support integration tests, crop mask operation tests, E2E crop closeout |
-| `src/server/domain/predictionImportBatches.ts` | 1335 lines | ZIP manifest parsing, staging, membership, item claiming, stale recovery, processing, retry, serialization | High | `tests/integration/prediction-import-batches.test.ts`, lease unit tests |
-| `src/server/domain/storageCleanup.ts` | 1099 lines | option parsing, key classification, cleanup candidates, consistency findings, hard-drift policy, execution, audit | High | `tests/integration/storage-cleanup.test.ts`, cleanup unit/route-contract tests |
-| `src/server/domain/cropReadiness.ts` | 1031 lines | readiness rules, review-action availability, lineage validation, serialization, summary counts | Medium | crop semantic/export integration tests, slice navigator tests |
-| `src/server/domain/cropSemanticMasks.ts` | 1006+ lines | state loading, support-lineage validation, annotation-family state serialization, value validation, version creation, readiness serialization | Medium | crop semantic integration tests, slice-domain unit tests |
+| `src/features/editor/EditorClient.tsx` | 2167 lines | source-image canvas, BBox planning, assisted correction, save state, review/classification actions, overlays | High | editor helper/canvas tests, desktop and crop E2E smoke |
+| `src/server/domain/exports.ts` | 2151 lines | training/crop readiness, manifest construction, package-source construction, export caps, async job processing, download authorization, SaPen-CNN snapshot dispatch | High | `tests/integration/export-workflow.test.ts`, export cap tests, RB-109 DB constraints |
+| `src/server/domain/predictionAnalysisExports.ts` | 1691 lines | prediction-analysis readiness, QA metric inputs, manifest construction, package sources, caps, async job processing, downloads | High | `tests/integration/prediction-analysis-export.test.ts`, metric unit tests |
+| `src/features/editor/CropSemanticEditorClient.tsx` | 1657 lines | unified crop canvas, support overlay, annotation-family guards, support/semantic save/reload, classification family state, review actions | High | crop semantic/support integration tests, crop mask operation tests, E2E crop closeout |
+| `src/server/domain/predictionImportBatches.ts` | 1389 lines | ZIP manifest parsing, staging, membership, item claiming, stale recovery, processing, retry, serialization | High | `tests/integration/prediction-import-batches.test.ts`, lease unit tests |
+| `src/server/domain/storageCleanup.ts` | 1168 lines | option parsing, key classification, cleanup candidates, consistency findings, hard-drift policy, execution, audit | High | `tests/integration/storage-cleanup.test.ts`, cleanup unit/route-contract tests |
+| `src/server/domain/cropReadiness.ts` | 1161 lines | readiness rules, review-action availability, lineage validation, serialization, summary counts | Medium | crop semantic/export integration tests, slice navigator tests |
+| `src/server/domain/cropSemanticMasks.ts` | 915 lines | state loading, support-lineage validation, annotation-family state serialization, value validation, version creation, readiness serialization | Medium | crop semantic integration tests, slice-domain unit tests |
+| `src/server/domain/sapenCnnTrainingSnapshot.ts` | 823 lines | approved crop candidate projection, shared split policy, full-image instance reconstruction, crop classification/semantic item serialization, private object refs | Medium | `tests/integration/export-workflow.test.ts`, `tests/unit/sapen-cnn-materializer.test.ts` |
+
+## Hotspot Drift Report
+
+Run `npm run check:decomposition-hotspots` after sizeable editor, export, cleanup, or materialization slices. The script parses this hotspot table, recomputes current line counts, and prints report-only warnings when a documented count drifts by more than `max(150 lines, 10%)`. It exits non-zero only when a configured file is missing or the table cannot be parsed; line-count growth alone is not a CI failure.
 
 ## Recommended Extraction Slices
 
@@ -91,6 +96,29 @@ Required validation:
 - `npm run test -- tests/integration/export-workflow.test.ts tests/integration/prediction-analysis-export.test.ts`
 - export cap and prediction metric unit tests when affected.
 
+### Future - SaPen-CNN Snapshot Builder Boundaries
+
+Activate when changing `sapen_cnn_training` manifest shape, object-ref privacy, split policy, crop classification, crop semantic items, or full-image instance reconstruction.
+
+Move:
+
+- pure item serializers for `fullImageItems`, `classificationItems`, and `cropSemanticItems`,
+- split-policy/group-key helpers,
+- overlap warning and skipped-item serialization,
+- public object-ref construction that does not need DB access.
+
+Do not move:
+
+- approved-snapshot freshness gating,
+- `COMBINED_MANIFEST` versus `sapen_cnn_training` target discrimination,
+- audited private materialization refs,
+- 32-bit TIFF instance-mask contract decisions.
+
+Required validation:
+
+- `npm run test -- tests/integration/export-workflow.test.ts tests/unit/sapen-cnn-materializer.test.ts`
+- `npm run dataset:materialize` fixture checks when materializer layout changes.
+
 ### RB-120-D - Prediction Import Processor Boundaries
 
 Activate when changing batch import manifest, retry, processing, or lease behavior.
@@ -158,6 +186,7 @@ Required validation:
 - Do not rewrite `EditorClient.tsx` or crop editor clients before RB-113 if the change affects touch, pointer, zoom, or Pencil behavior.
 - Do not merge training export and prediction-analysis export flows into a generic exporter; they have different manifest semantics and QA/proposal boundaries.
 - Do not split RB-112 worker/job lifecycle out of export modules unless a job-processing feature is already being changed.
+- Do not split the SaPen-CNN snapshot builder while changing manifest semantics, object-ref privacy, or materializer output layout; pin behavior first, then extract pure helpers.
 - Do not split storage cleanup while changing hard-drift policy; classify first, then change behavior in a separate ticket.
 - Do not use RB-120 to implement RB-115-B, RB-115-C, or RB-118-A through RB-118-E.
 
