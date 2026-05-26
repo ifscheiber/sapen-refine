@@ -49,6 +49,7 @@ const REQUIRED_OPERATIONAL_ENTRYPOINTS = [
   { route_or_entrypoint: "scripts/storage-cleanup.mjs", method_or_trigger: "CLI" },
   { route_or_entrypoint: "scripts/trial-bootstrap.mjs", method_or_trigger: "CLI" },
   { route_or_entrypoint: "scripts/create-trial-user.mjs", method_or_trigger: "CLI" },
+  { route_or_entrypoint: "scripts/deactivate-trial-user.mjs", method_or_trigger: "CLI" },
   { route_or_entrypoint: "src/server/http/highCostRateLimit.ts", method_or_trigger: "guard write" },
 ] as const;
 

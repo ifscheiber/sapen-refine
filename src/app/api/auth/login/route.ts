@@ -74,8 +74,37 @@ export async function POST(req: Request) {
     );
   }
 
+  if (user.disabledAt) {
+    await recordAuditEvent({
+      action: "LOGIN_FAILED",
+      entity: "Auth",
+      actorId: user.id,
+      details: {
+        reason: "ACCOUNT_DISABLED",
+        ...loginThrottleAuditDetails(email, req.headers),
+      },
+    });
+    return NextResponse.json({ ok: false, error: "ACCOUNT_DISABLED" }, { status: 403 });
+  }
+
   const token = createSessionToken();
-  await createDbSession(user.id, token);
+  try {
+    await createDbSession(user.id, token);
+  } catch (error) {
+    if (error instanceof Error && error.message === "ACCOUNT_DISABLED") {
+      await recordAuditEvent({
+        action: "LOGIN_FAILED",
+        entity: "Auth",
+        actorId: user.id,
+        details: {
+          reason: "ACCOUNT_DISABLED",
+          ...loginThrottleAuditDetails(email, req.headers),
+        },
+      });
+      return NextResponse.json({ ok: false, error: "ACCOUNT_DISABLED" }, { status: 403 });
+    }
+    throw error;
+  }
   await setSessionCookie(token);
   await clearLoginFailures({ email, headers: req.headers });
   await recordAuditEvent({

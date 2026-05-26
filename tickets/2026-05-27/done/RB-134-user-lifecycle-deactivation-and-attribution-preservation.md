@@ -1,6 +1,6 @@
 # RB-134 - User Lifecycle Deactivation And Attribution Preservation
 
-Status: Planned
+Status: Done
 Priority: P1/P2
 Type: Auth / audit / data-integrity policy
 

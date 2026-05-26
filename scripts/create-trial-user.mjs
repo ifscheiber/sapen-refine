@@ -142,6 +142,14 @@ async function main() {
   });
 
   try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { disabledAt: true },
+    });
+    if (existingUser?.disabledAt) {
+      throw new Error(`User is disabled and cannot be updated by trial:user:create: ${email}`);
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.upsert({
       where: { email },

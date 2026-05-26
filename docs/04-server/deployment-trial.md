@@ -112,11 +112,13 @@ Add a tester to an existing project:
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='owner@example.com' -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/bob_password app npm run trial:user:create -- --email bob@example.com --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
 ```
 
-Rotate a password by rerunning the command for the same email with a new password. To revoke active sessions:
+Rotate a password by rerunning the command for the same email with a new password. To revoke access while preserving attribution, deactivate the user:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB" -c "UPDATE \"Session\" SET \"revokedAt\" = now() WHERE \"userId\" = (SELECT id FROM \"User\" WHERE email = '\''alice@example.com'\'');"'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='admin@example.com' app npm run trial:user:deactivate -- --email alice@example.com --reason 'trial access revoked'
 ```
+
+Do not delete users for access revocation. Deactivation keeps the user row available for historical artifact, review, export, and audit attribution, revokes active sessions, and blocks future login/session use.
 
 ## Verify Runtime
 

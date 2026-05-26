@@ -41,6 +41,12 @@ The UI may hide unavailable actions, but backend/domain services remain the sour
 
 Shared demo credentials are displayed only in `NODE_ENV=development` or when `SHOW_DEMO_CREDENTIALS=true`. Customer trials should use named tester accounts created with `npm run trial:user:create`.
 
+## User Deactivation
+
+Production and customer-trial access revocation uses deactivation, not user-row deletion. `User.disabledAt`, `disabledById`, and `disabledReason` preserve the user row for historical attribution while preventing new and existing sessions from authenticating. Disabled users cannot log in, session lookup revokes the matched active session, and operational user creation refuses to silently update disabled accounts.
+
+Use `npm run trial:user:deactivate -- --email '<user-email>' --reason '<reason>'` with `SAPEN_OPERATOR_EMAIL` set to a named active global `ADMIN` operator. The command revokes active sessions and writes a `USER_DEACTIVATED` audit row with actor context. It refuses to disable the last active global admin. Reactivation, anonymization, and erasure are separate future workflows.
+
 ## Same-Origin Mutation Guard
 
 `src/proxy.ts` rejects unsafe `/api/**` methods when browser request metadata shows a cross-site mutation:

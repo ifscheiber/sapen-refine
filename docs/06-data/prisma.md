@@ -8,7 +8,7 @@ RB-049 intentionally replaces the previous MVP migration. There is no production
 
 ## Current Persisted Model
 
-- `User`, `Role`, `UserGlobalRole`, `Session`, and `AuthLoginThrottle` support local authentication, global roles, session persistence, and hashed login failure buckets.
+- `User`, `Role`, `UserGlobalRole`, `Session`, and `AuthLoginThrottle` support local authentication, global roles, session persistence, user deactivation without attribution loss, and hashed login failure buckets.
 - `AnnotationProject` and `AnnotationProjectMember` are the standalone annotation project and membership boundary.
 - `LabelSchemaVersion` and `LabelDefinition` persist stable machine-readable label ids, semantic meanings, UI metadata, and task applicability.
 - `ImageAsset`, `ImageAcquisitionMetadata`, and `SampleMetadata` persist immutable image references plus the RB-050 image-level metadata workflow.
@@ -46,6 +46,7 @@ Existing browser URLs and APIs still use project/image/mask language. Route hand
 - prediction-analysis export routes enqueue/read/download `ExportBatch.target = PREDICTION_ANALYSIS` packages with `ExportItem.predictionProvenanceId` references and worker-generated manifest-level QA metrics,
 - crop training export routes enqueue/read/download `ExportBatch.target = CROP_TRAINING` packages with `ExportItem.derivedCropId` references for original-image, derived-crop, crop support-mask, crop semantic-mask, and crop classification roles,
 - login throttling writes hashed failure buckets to `AuthLoginThrottle` and never stores raw email/IP values in that table,
+- user deactivation writes `User.disabledAt`, `disabledById`, and `disabledReason`, revokes active sessions, and preserves the user row for historical attribution,
 - latest-mask reads return the latest `AnnotationArtifactVersion` for the default semantic mask scope.
 
 `MaskKind.REFINED` is removed from the Prisma schema. Current editor saves are draft human semantic mask versions, not refinement artifacts.

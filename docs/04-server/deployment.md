@@ -79,13 +79,13 @@ The first tester can log in, create a project, and run global-admin operational 
 docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='owner@example.com' -e SAPEN_TRIAL_USER_PASSWORD_FILE=/run/secrets/bob_password app npm run trial:user:create -- --email bob@example.com --name 'Bob Tester' --project-id '<project-id>' --project-role LABELER
 ```
 
-To rotate a trial user's password, rerun the same command with a new password. To revoke active sessions for that user:
+To rotate a trial user's password, rerun the same command with a new password. To revoke access while preserving historical attribution, deactivate the user:
 
 ```bash
-docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB" -c "UPDATE \"Session\" SET \"revokedAt\" = now() WHERE \"userId\" = (SELECT id FROM \"User\" WHERE email = '\''alice@example.com'\'');"'
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml run --rm -e SAPEN_OPERATOR_EMAIL='admin@example.com' app npm run trial:user:deactivate -- --email alice@example.com --reason 'trial access revoked'
 ```
 
-Do not delete users to disable access unless you intentionally accept losing direct user-row attribution for historical rows that use `onDelete: SetNull`.
+Do not delete users to disable access. Deactivation keeps the user row available for attribution, revokes active sessions, blocks future login/session use, and writes a `USER_DEACTIVATED` audit row.
 
 ## Login And Mutation Guard
 
