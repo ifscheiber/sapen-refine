@@ -30,11 +30,8 @@ All active tickets in this sprint are complete. The next backlog should come fro
 - [RB-138 - Deep checksum consistency for primary storage objects](done/RB-138-storage-consistency-primary-object-checksums.md) - completed; storage cleanup consistency can now run explicit project-scoped deep checksum verification for durable raw image, artifact version, and derived crop objects.
 - [RB-139 - Prediction batch ZIP inflation guard](done/RB-139-prediction-batch-zip-inflation-guard.md) - completed; prediction batch create now checks expected and metadata-reported uncompressed mask sizes before staging ZIP entries.
 - [RB-140 - Export job processor RBAC and audit alignment](done/RB-140-export-job-processor-rbac-audit-alignment.md) - completed; due export job processing now uses `export:processJobs` while export creation/download permissions remain target-specific.
+- [RB-141 - ReviewDecision target DB invariant](done/RB-141-review-decision-target-db-invariant.md) - closed as already covered by resolved RB-109; the exact-one-target DB constraint, docs, and tests already exist.
 - [RB-142 - Mask statistic metadata for readiness performance](done/RB-142-mask-stat-metadata-for-readiness-performance.md) - completed; crop support/semantic saves now persist version-scoped mask stats and readiness/family checks prefer those stats before byte-read fallback.
-
-## Reviewed But Not Active
-
-- [RB-141 - ReviewDecision target DB invariant](RB-141-review-decision-target-db-invariant.md) is not active. The same invariant was already implemented by RB-109 through `ReviewDecision_exactly_one_target_chk` in `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql`, with docs and tests in `docs/prisma/schema.md` and `tests/integration/review-export-db-constraints.test.ts`.
 
 ## Merge Decisions
 

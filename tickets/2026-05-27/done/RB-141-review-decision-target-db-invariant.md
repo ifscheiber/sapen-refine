@@ -1,6 +1,6 @@
 # RB-141 - ReviewDecision Target DB Invariant
 
-Status: Reviewed - Not Active
+Status: Done - Covered by RB-109
 Priority: Covered by resolved RB-109
 Type: Duplicate finding preservation
 
