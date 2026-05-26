@@ -1,6 +1,6 @@
 # RB-132 - Current-State And Architecture Documentation Drift Cleanup
 
-Status: Planned
+Status: Done
 Priority: P2
 Type: Documentation accuracy / agent-governance
 

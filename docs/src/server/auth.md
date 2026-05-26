@@ -33,13 +33,14 @@ Server auth ties browser sessions to persisted `Session` rows and enforces proje
 - `lastSeenAt` writes are throttled by `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS`.
 - Login throttling stores hashed email/IP buckets in `AuthLoginThrottle`; raw IP/email values are not stored there.
 - Unsafe API mutations from cross-site browser contexts are rejected in `src/proxy.ts`.
+- High-cost authenticated mutation rate limiting is enforced outside the auth module by `src/server/http/highCostRateLimit.ts`.
 - Admin-only behavior must be checked server-side when added.
 
 ## Known Gaps
 
 - Local password auth is MVP-level.
 - Full admin user-management is not implemented.
-- General API write rate limiting beyond the login/cross-site guard is not implemented.
+- Distributed API quota/abuse controls beyond the RB-111 single-host high-cost limiter are not implemented.
 
 ## Related Tickets / Docs
 

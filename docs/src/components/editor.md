@@ -78,7 +78,7 @@ The current editor surfaces support the crop workflow and assisted correction. U
 
 - Undo/redo and canvas rendering need focused validation beyond the current BBox autosave and crop-smoke coverage.
 - RB-045 resolved the previous editor hook dependency warnings.
-- iPad Safari and Apple Pencil behavior has a manual smoke checklist planned in RB-045.
+- Real iPad Safari and Apple Pencil behavior remains an evidence-gated manual trial gate under RB-113/RB-077-B; do not mark it complete from viewport simulation.
 - Advanced multi-touch zoom/pan remains deferred.
 - Review controls are minimal; reviewer dashboards, bulk review, and multi-reviewer policy are deferred.
 - BBox proposals and derived crops are crop-planning/editing artifacts only. Crop support-mask editing, crop semantic editing, auto-derived classification status/review controls, and crop readiness/review controls exist. Manual crop-editor classification override controls are removed from the product UI; reviewer dashboards and bulk review remain deferred.

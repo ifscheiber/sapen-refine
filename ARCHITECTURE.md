@@ -4,7 +4,7 @@ This is the high-level architecture map. Detailed, evidence-backed documentation
 
 ## Overview
 
-SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, source-image BBox slice proposals, image-level BBox set confirmation, whole-image crop slice navigation, derived slice crop generation, crop support/semantic mask commits, auto-derived crop slice classification suggestions, default image semantic/support mask commits, slice classification, minimal review/approval, async owner-created training exports, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, async prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
+SaPen Annotate is a standalone Next.js application for wood-slice annotation. The current MVP supports local login, project creation, validated PNG/JPEG image upload, metadata capture, editor access, source-image BBox slice proposals, image-level BBox set confirmation, whole-image crop slice navigation, derived slice crop generation, crop support/semantic mask commits, auto-derived crop slice classification suggestions, default image semantic/support mask commits, slice classification, minimal review/approval, async owner-created training exports, SaPen-CNN manifest-only training snapshots with private materialization refs, model/prediction-run provenance persistence, server-side prediction mask import, assisted correction, async prediction-analysis exports, and ZIP-backed batch prediction imports. It is intended to grow into an attributable training-data tool for heartwood/sapwood masks, copper masks, image/acquisition metadata, review/approval, reproducible dataset exports, and expanded prediction-assisted correction.
 
 Scratch annotation is the primary product mode. Prediction-assisted correction is a secondary provenance-bearing mode. SaPen Core handoff workflows are future integrations and must remain explicit.
 
@@ -45,8 +45,9 @@ Persisted entities today:
 - `SliceInstance`, `SliceBoundingBoxVersion`, `ImageCropWorkflowState`, `DerivedSliceCrop`, and `SliceClassificationVersion` for physical slice proposals, BBox planning history, image-level BBox set confirmation state, derived crop persistence, crop support-mask lineage, classification persistence, and crop-semantic-derived classification provenance.
 - `ReviewDecision`, `ExportBatch`, `ExportItem`, and `AuditLog` for review/export/audit foundations.
 - `ModelRun`, `PredictionRun`, `PredictionArtifactProvenance`, `PredictionImportBatchJob`, and `PredictionImportBatchItem` for model-assisted correction provenance and trial-sized batch prediction import bookkeeping.
+- `AuthLoginThrottle` and `HighCostRateLimitBucket` for DB-backed login throttling and RB-111 high-cost authenticated write limits.
 
-Known workflow gaps include advanced export filters/history, streaming export packages, reviewer dashboards/bulk review, source-image-space crop-mask reprojection, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial workers. Crop training export, crop readiness, crop review controls, crop export integration, and async export processing exist for the current trial-sized workflow. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
+Known workflow gaps include advanced export filters/history, streaming export packages, reviewer dashboards/bulk review, general interactive crop-mask reprojection outside the SaPen-CNN snapshot builder, cleanup dashboards/committed-artifact retention policy, prediction dashboards/model reports, slice-classification prediction correction, and production-scale queue infrastructure beyond the current single-host trial workers. Crop training export, crop readiness, crop review controls, crop export integration, SaPen-CNN manifest snapshots, and async export processing exist for the current trial-sized workflow. `MaskKind.PREDICTION` and `MaskKind.REFINED` are removed from the active schema; "refine" is reserved for a future prediction-correction mode, not the product name.
 
 ## Current Flows
 
@@ -75,10 +76,11 @@ Current MVP protections:
 - Current upload, mask, support-mask, export create, and export download paths record explicit `AuditLog` rows.
 - Session cookies are HTTP-only, `sameSite=lax`, and secure in production.
 - Login throttling, sanitized redirects, and same-origin browser mutation protection are implemented for the current local-auth trial model.
+- RB-111 high-cost authenticated mutation families are rate limited through a single-host DB-backed limiter; this is an operational trial guard, not a distributed quota or billing system.
 
 Known gaps:
 
-- General write-rate limiting beyond login throttling and same-origin mutation protection is not implemented.
+- Distributed quota/abuse controls and production monitoring beyond the RB-111 single-host high-cost limiter are not implemented.
 - Admin user-management and advanced export authorization policy are incomplete; RB-053 currently restricts export creation/download to project owners.
 - Audit logging covers key mutation routes, but there is no audit UI or complete production attribution policy for every possible administrative action.
 - Review decisions are append-only for the minimal RB-052 workflow, but full audit logging remains incomplete.
@@ -95,7 +97,7 @@ Known gaps:
 - Prediction dashboards, model reports, and large analysis job handling beyond the current prediction-analysis export metrics.
 - Reviewer dashboards, bulk review, and multi-reviewer approval policy.
 - Mask format normalization and backward compatibility.
-- Broader audit coverage, malware scanning, general API write-rate limiting, cleanup UI, committed-artifact retention governance, and production monitoring.
+- Broader audit coverage, malware scanning, distributed API quota/abuse controls beyond RB-111, cleanup UI, committed-artifact retention governance, and production monitoring.
 - Further prediction-assisted annotation/correction beyond the current semantic/support mask MVP.
 
 See [docs/known-gaps.md](docs/known-gaps.md) and [docs/adr/remediation-backlog.md](docs/adr/remediation-backlog.md) for the working backlog.

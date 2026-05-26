@@ -370,8 +370,8 @@ Known architectural risks:
 - Current mask terminology and serialization are MVP-level and need normalization.
 - Editor implementation is large and should be decomposed incrementally before heavier production annotation workflows.
 - Project operations are route-addressable after RB-063, but advanced export/import history dashboards remain incomplete.
-- RBAC, audit coverage, login hardening, background workers, retention cleanup, and advanced export/history workflows remain incomplete.
-- Trial-sized training export, prediction-analysis export, prediction import, correction tasks, and batch prediction import workflows exist but are not production-scale operations yet.
+- Core RBAC, login hardening, audit guards, single-host worker paths, and temporary cleanup exist for the current trial model; full admin user management, audit UI, unattended/system-actor credentials, cleanup UI, committed-artifact retention policy, and advanced export/import history dashboards remain incomplete.
+- Trial-sized training export, SaPen-CNN snapshot export/materialization, prediction-analysis export, prediction import, correction tasks, and batch prediction import workflows exist but are not production-scale operations yet.
 
 ---
 

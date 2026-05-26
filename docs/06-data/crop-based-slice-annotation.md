@@ -8,7 +8,7 @@ The crop workflow is now the product annotation path for large images and iPad-c
 
 ## Workflow
 
-The planned workflow is:
+The current workflow is:
 
 ```text
 Original image
@@ -21,7 +21,7 @@ Original image
 -> export with crop and source-image provenance
 ```
 
-The RB-093 UX orchestration splits that technical flow into staged user routes:
+The RB-093 UX orchestration and RB-094/RB-095/RB-123 implementation split that technical flow into staged user routes:
 
 ```text
 BBox stage
@@ -32,7 +32,7 @@ BBox stage
 -> classification/readiness
 ```
 
-The planned route/state details live in `docs/workflows/crop-workflow-ux-orchestration.md` and `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md`.
+The route/state details live in `docs/workflows/crop-workflow-ux-orchestration.md` and `docs/08-adr/ADR-006-crop-workflow-ux-orchestration.md`; historical future-tense language in those design records should be read as ADR history unless a page explicitly marks a behavior as deferred.
 
 The original uploaded image remains immutable and is the source of truth for provenance. BBox proposals, derived crops, support masks, semantic masks, classifications, reviews, and exports are derived artifacts or decisions that reference the source image.
 

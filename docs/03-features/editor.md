@@ -198,12 +198,11 @@ Original image
 -> export with crop/source-image provenance
 ```
 
-RB-093 adds the planned user-facing orchestration for the next sprint:
+RB-093 defines the staged user-facing orchestration, and RB-094/RB-095/RB-101/RB-123 plus the later editor design slices implement the current product path:
 
 ```text
 Image-level BBox stage
--> switch to Semantic Masks or Export Readiness
--> auto-prepare current slices
+-> confirm/update BBox set
 -> selected-crop unified editor
 -> annotation family selection
 -> support or semantic mask
