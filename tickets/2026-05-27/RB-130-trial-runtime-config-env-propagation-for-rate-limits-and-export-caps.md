@@ -33,9 +33,31 @@ Make the customer-trial runtime path honor documented high-cost write-limit and 
 3. Add or extend a focused deployment hygiene test that checks the trial Compose app service includes every runtime config variable documented as customer-trial configurable.
 4. Update environment/deployment docs only as needed to make the propagation path explicit.
 
+## Files to Inspect
+
+- `src/server/runtime/config.ts`
+- `deploy/docker-compose.trial.yml`
+- `deploy/trial.env.example`
+- `.env.example`
+- `docs/04-server/deployment.md`
+- `docs/04-server/deployment-trial.md`
+- `docs/04-server/runtime-config.md`
+- `docs/operations/environment.md`
+- `tests/unit` or existing deployment hygiene tests
+
 ## Acceptance Criteria
 
 - A value set in `deploy/trial.env` for a high-cost limit or export cap is passed to the `app` container by the trial Compose file.
 - The test suite fails if a future runtime cap variable is documented in the trial env template but omitted from the app service environment.
 - Existing rate-limit and export-cap behavior remains backward-compatible when the variables are unset.
 - Validation includes `npm run test`, `npm run check:docs-links`, and `git diff --check`.
+
+## Validation Commands
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run check:docs-links
+git diff --check
+```

@@ -38,6 +38,19 @@ Refresh current-state and architecture docs so they distinguish implemented beha
 4. Narrow `AGENTS.md` baseline-risk wording without expanding it into an encyclopedia.
 5. Run docs-link checks and targeted text searches for stale phrases such as "general write-rate limiting ... not implemented" and "planned workflow" in current implementation docs.
 
+## Files to Inspect
+
+- `AGENTS.md`
+- `ARCHITECTURE.md`
+- `docs/00-overview/current-state.md`
+- `docs/known-gaps.md`
+- `docs/src/server/auth.md`
+- `docs/03-features/editor.md`
+- `docs/06-data/crop-based-slice-annotation.md`
+- `docs/src/components/editor.md`
+- `docs/06-data/training-export-contract.md`
+- `docs/06-data/sapen-cnn-training-dataset-snapshot-contract.md`
+
 ## Acceptance Criteria
 
 - Current docs no longer claim RB-111 high-cost write limiting is absent.
@@ -46,3 +59,11 @@ Refresh current-state and architecture docs so they distinguish implemented beha
 - Real iPad Safari remains explicitly pending and evidence-gated.
 - Historical references remain clearly historical.
 - Validation includes `npm run check:docs-links`, targeted `rg` checks for the stale phrases, and `git diff --check`.
+
+## Validation Commands
+
+```bash
+npm run check:docs-links
+rg -n "general write-rate limiting.*not implemented|planned workflow|planned user-facing orchestration" AGENTS.md ARCHITECTURE.md docs
+git diff --check
+```

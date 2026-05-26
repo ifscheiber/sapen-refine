@@ -40,9 +40,28 @@ Refresh the decomposition map and add a lightweight guard so large-module drift 
 3. Consider a lightweight test or script that reports major line-count drift for mapped hotspots without failing normal CI until a threshold policy is accepted.
 4. If a failing guard is introduced, set thresholds conservatively and document the rationale.
 
+## Files to Inspect
+
+- `docs/01-architecture/opportunistic-decomposition-map.md`
+- `src/features/editor/EditorClient.tsx`
+- `src/features/editor/CropSemanticEditorClient.tsx`
+- `src/server/domain/exports.ts`
+- `src/server/domain/storageCleanup.ts`
+- `src/server/domain/predictionImportBatches.ts`
+- `src/server/domain/sapenCnnTrainingSnapshot.ts`
+- `tests/unit`
+
 ## Acceptance Criteria
 
 - The map reflects current major editor, export, prediction-import, cleanup, and SaPen-CNN snapshot modules.
 - Refactor activation guidance remains opportunistic and scoped.
 - Any guard added is documented and does not force unrelated refactors.
 - Validation includes the guard if added, `npm run check:docs-links`, and `git diff --check`.
+
+## Validation Commands
+
+```bash
+wc -l src/features/editor/EditorClient.tsx src/features/editor/CropSemanticEditorClient.tsx src/server/domain/exports.ts src/server/domain/storageCleanup.ts src/server/domain/predictionImportBatches.ts src/server/domain/sapenCnnTrainingSnapshot.ts
+npm run check:docs-links
+git diff --check
+```

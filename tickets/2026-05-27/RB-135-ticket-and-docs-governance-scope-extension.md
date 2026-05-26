@@ -37,9 +37,26 @@ Extend link/index governance to current active ticket sprints without making his
 4. Keep the existing false-positive protection around the rejected `docs/README.md` broken-link claim.
 5. Document the scope in [../../docs/testing/README.md](../../docs/testing/README.md) or a nearby governance doc.
 
+## Files to Inspect
+
+- `tests/unit/docs-link-governance.test.ts`
+- `docs/testing/README.md`
+- `tickets/2026-05-23/README.md`
+- `tickets/2026-05-27/README.md`
+- `tickets/design/00-sprint-index.md`
+- `tickets/performance`
+
 ## Acceptance Criteria
 
 - Active sprint README local links are checked by `npm run check:docs-links`.
 - Historical `done/` tickets are not made noisy by default.
 - The test failure output identifies the source file and resolved missing target.
 - Validation includes `npm run check:docs-links`, `npm run test -- tests/unit/docs-link-governance.test.ts` if supported by the script setup, and `git diff --check`.
+
+## Validation Commands
+
+```bash
+npm run check:docs-links
+npm run test -- tests/unit/docs-link-governance.test.ts
+git diff --check
+```

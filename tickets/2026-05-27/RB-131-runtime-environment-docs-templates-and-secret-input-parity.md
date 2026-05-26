@@ -42,6 +42,20 @@ Create a governed runtime environment inventory that keeps implementation, templ
 3. Add a lightweight test or script-level guard for parity between documented runtime variables and templates where practical.
 4. Keep local-development examples safe: use placeholders and file/env/stdin secret mechanisms instead of command-line password arguments.
 
+## Files to Inspect
+
+- `src/server/runtime/config.ts`
+- `scripts/process-export-jobs.mjs`
+- `scripts/process-prediction-import-batch.mjs`
+- `scripts/storage-cleanup.mjs`
+- `scripts/create-trial-user.mjs`
+- `scripts/materialize-sapen-cnn-dataset.mjs`
+- `.env.example`
+- `deploy/trial.env.example`
+- `docs/operations/environment.md`
+- `docs/04-server/runtime-config.md`
+- `docs/operations/local-sapen-cnn-training-handoff.md`
+
 ## Acceptance Criteria
 
 - Current app runtime variables and operational script variables are documented in one environment inventory.
@@ -49,3 +63,13 @@ Create a governed runtime environment inventory that keeps implementation, templ
 - File-mounted secret variables introduced by RB-117 are represented in docs/templates where applicable.
 - SaPen-CNN dataset materializer variables are documented without exposing private storage keys or signed URLs.
 - Validation includes the parity guard, `npm run check:docs-links`, and `git diff --check`.
+
+## Validation Commands
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run check:docs-links
+git diff --check
+```

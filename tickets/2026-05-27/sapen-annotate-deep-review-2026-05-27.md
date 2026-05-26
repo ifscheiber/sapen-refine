@@ -182,6 +182,10 @@ Extend governance to active sprint README files while excluding historical `done
 
 ## Recommended Sprint Order
 
+This section reflects the original Codex-only review order. The reconciled, authoritative order now lives in [README.md](README.md) and incorporates the assistant-side RB-136 through RB-142 input.
+
+Original Codex-only order:
+
 1. RB-130 - Fix the trial runtime config propagation gap first because it directly affects operational guardrails.
 2. RB-131 - Align environment docs/templates so operators know which knobs and secret inputs are real.
 3. RB-134 - Add a deactivation path before production user lifecycle operations begin.
@@ -195,3 +199,31 @@ Extend governance to active sprint README files while excluding historical `done
 - RB-115-B/RB-115-C: explicit actor context for broader unattended workers and external/Core handoff.
 - RB-118-A through RB-118-E: upload quarantine/scanning/normalization/rejection/reverse-proxy hardening before broad public uploads.
 - RB-120-A through RB-120-F: opportunistic module decomposition, activated only when adjacent work touches those modules.
+
+## Reconciliation Addendum
+
+After this Codex report was created, a second independent assistant review supplied additional tickets under RB-136 through RB-142 plus [README-chatGPT.md](README-chatGPT.md). The reconciliation compared findings semantically against the current repository and this report.
+
+Kept unchanged as active Codex findings:
+
+- RB-130 - trial runtime config env propagation for rate limits and export caps.
+- RB-131 - runtime environment docs, templates, and secret-input parity.
+- RB-132 - current-state and architecture documentation drift cleanup.
+- RB-133 - opportunistic decomposition map refresh and hotspot guard.
+- RB-134 - user lifecycle deactivation and attribution preservation.
+- RB-135 - ticket and docs governance scope extension.
+
+Added as active assistant-side findings:
+
+- RB-136 - approved snapshot freshness gating.
+- RB-137 - storage cleanup coverage for crop object prefixes.
+- RB-138 - deep checksum consistency for primary storage objects.
+- RB-139 - prediction batch ZIP inflation guard.
+- RB-140 - export job processor RBAC and audit alignment, narrowed to the remaining explicit `export:processJobs` capability gap while preserving existing worker audit context.
+- RB-142 - mask statistic metadata for readiness performance.
+
+Reviewed but not active:
+
+- RB-141 - ReviewDecision target DB invariant. This is already implemented by resolved RB-109 through `ReviewDecision_exactly_one_target_chk` in `prisma/migrations/20260524090000_review_export_integrity_constraints/migration.sql`, with docs in `docs/prisma/schema.md` and coverage in `tests/integration/review-export-db-constraints.test.ts`.
+
+No active assistant-side ticket was merged into RB-130 through RB-135 because the remaining scopes are distinct. The Export Sprint EX-001 through EX-005 is treated as implemented in the current repository and was not duplicated as remediation work.

@@ -35,6 +35,18 @@ Add a supported deactivation policy that disables access while preserving histor
 6. Add tests proving disabled users cannot log in, existing sessions are rejected, and historical attribution rows remain readable.
 7. Update deployment/operator docs with the approved deactivation procedure.
 
+## Files to Inspect
+
+- `prisma/schema.prisma`
+- `src/server/auth/session.ts`
+- `src/app/api/auth/login/route.ts`
+- `src/app/api/auth/me/route.ts`
+- `scripts/create-trial-user.mjs`
+- `docs/04-server/auth-rbac-audit.md`
+- `docs/04-server/deployment.md`
+- `tests/unit/auth-hardening.test.ts`
+- `tests/integration`
+
 ## Acceptance Criteria
 
 - Operators have a documented way to revoke user access without deleting user rows.
@@ -43,3 +55,15 @@ Add a supported deactivation policy that disables access while preserving histor
 - Tests cover login/session rejection and attribution preservation.
 - Docs explicitly warn that deletion is not the supported revocation mechanism.
 - Validation includes auth/session tests, affected route/API tests, `npm run test`, and `git diff --check`.
+
+## Validation Commands
+
+```bash
+npm run prisma:generate
+npm run lint
+npm run typecheck
+npm run test -- tests/unit/auth-hardening.test.ts
+npm run test
+npm run check:docs-links
+git diff --check
+```
