@@ -36,7 +36,7 @@ STORAGE_CLEANUP_MAX_DELETE_PER_RUN=500
 
 ## Protected Object Rules
 
-Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows. RB-114 consistency checks also report missing protected DB-referenced objects as hard drift; they do not try to repair or delete those references.
+Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows. Project-scoped cleanup lists only the `projects/<projectId>/` object prefix before applying those DB protections, so a busy shared bucket cannot hide the requested project's candidates behind unrelated objects. RB-114 consistency checks also report missing protected DB-referenced objects as hard drift; they do not try to repair or delete those references.
 
 Never delete:
 

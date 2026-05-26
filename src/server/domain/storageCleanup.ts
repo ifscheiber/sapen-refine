@@ -458,7 +458,8 @@ async function collectObjectStorageCandidates(
 ): Promise<CleanupCandidate[]> {
   if (options.category === "batch-staging") return [];
 
-  const objects = await listObjectsByPrefix("projects/", Math.max(1000, options.limit * 20));
+  const listingPrefix = options.projectId ? `projects/${options.projectId}/` : "projects/";
+  const objects = await listObjectsByPrefix(listingPrefix, Math.max(1000, options.limit * 20));
   const classified = objects
     .map((object) => ({ object, classification: classifyStorageCleanupKey(object.key) }))
     .filter((entry): entry is { object: ListedObject; classification: NonNullable<ReturnType<typeof classifyStorageCleanupKey>> } =>
