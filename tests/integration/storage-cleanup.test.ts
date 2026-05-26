@@ -151,6 +151,45 @@ describe("storage cleanup workflow", () => {
     return image.id;
   }
 
+  async function createProject(name: string) {
+    return prisma.annotationProject.create({
+      data: {
+        name: `${name} ${suffix}`,
+        labelSchemaVersionId,
+        createdById: ownerId,
+        members: { create: [{ userId: ownerId, role: "OWNER" }] },
+      },
+      select: { id: true },
+    });
+  }
+
+  async function createImageReference(params: {
+    projectId: string;
+    name: string;
+    bytes: Uint8Array;
+    checksum?: string | null;
+    size?: number | null;
+  }) {
+    const storageKey = `tests/storage-cleanup/${suffix}/${params.name}.png`;
+    await storage.putObject(storageKey, params.bytes, "image/png");
+    objectKeys.add(storageKey);
+    return prisma.imageAsset.create({
+      data: {
+        projectId: params.projectId,
+        storageKey,
+        filename: `${params.name}.png`,
+        contentType: "image/png",
+        size: params.size ?? params.bytes.byteLength,
+        checksum: params.checksum === undefined ? sha256Checksum(params.bytes) : params.checksum,
+        width: 2,
+        height: 2,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true, storageKey: true },
+    });
+  }
+
   async function createCropFixture(params: {
     projectId: string;
     name: string;
@@ -952,6 +991,219 @@ describe("storage cleanup workflow", () => {
       }));
     } finally {
       await prisma.imageAsset.delete({ where: { id: image.id } }).catch(() => undefined);
+    }
+  });
+
+  it("keeps normal primary-object consistency stat-only for same-size checksum drift", async () => {
+    const project = await createProject("Storage Cleanup Normal Checksum");
+    const originalBytes = new Uint8Array([1, 1, 1, 1]);
+    const replacementBytes = new Uint8Array([2, 2, 2, 2]);
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "normal-same-size-drift",
+      bytes: originalBytes,
+    });
+    await storage.putObject(image.storageKey, replacementBytes, "image/png");
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", projectId: project.id } },
+        prisma,
+      );
+      expect(result.consistency.deepChecksumEnabled).toBe(false);
+      expect(result.consistency.hardDriftCount).toBe(0);
+      expect(result.consistency.findings).not.toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        key: image.storageKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("detects deep checksum drift for primary image, artifact, and derived crop objects", async () => {
+    const project = await createProject("Storage Cleanup Deep Checksum Drift");
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "deep-image-drift",
+      bytes: new Uint8Array([1, 1, 1, 1]),
+    });
+    const cropKey = `projects/${project.id}/derived-crops/deep-image/deep-slice/deep-${suffix}.png`;
+    const artifactKey = `projects/${project.id}/crop-support-masks/deep-image/deep-slice/deep-crop/${suffix}.msk`;
+    const originalCropBytes = new Uint8Array([3, 3, 3, 3]);
+    const originalArtifactBytes = new Uint8Array([5, 5, 5, 5]);
+    await storage.putObject(cropKey, originalCropBytes, "image/png");
+    await storage.putObject(artifactKey, originalArtifactBytes, "application/octet-stream");
+    objectKeys.add(cropKey);
+    objectKeys.add(artifactKey);
+
+    try {
+      const crop = await createCropFixture({
+        projectId: project.id,
+        name: "deep-crop-source",
+        derivedCropKey: cropKey,
+        bytes: originalCropBytes,
+      });
+      await createCropArtifactVersion({
+        projectId: project.id,
+        imageId: crop.imageId,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropId: crop.cropId,
+        key: artifactKey,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+        scopeKey: `deep-support:${crop.cropId}`,
+        bytes: originalArtifactBytes,
+      });
+
+      await storage.putObject(image.storageKey, new Uint8Array([2, 2, 2, 2]), "image/png");
+      await storage.putObject(cropKey, new Uint8Array([4, 4, 4, 4]), "image/png");
+      await storage.putObject(artifactKey, new Uint8Array([6, 6, 6, 6]), "application/octet-stream");
+
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "all",
+            projectId: project.id,
+            deepChecksum: true,
+            deepChecksumMaxObjects: 20,
+            deepChecksumMaxBytes: 1024,
+          },
+        },
+        prisma,
+      );
+      expect(result.consistency.deepChecksumEnabled).toBe(true);
+      expect(result.consistency.deepChecksumObjectCount).toBeGreaterThanOrEqual(3);
+      expect(result.consistency.checksumMismatchCount).toBeGreaterThanOrEqual(3);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "ImageAsset",
+        key: image.storageKey,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "DerivedSliceCrop",
+        key: cropKey,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "AnnotationArtifactVersion",
+        key: artifactKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports missing primary checksum metadata as a deep checksum warning", async () => {
+    const project = await createProject("Storage Cleanup Deep Missing Checksum");
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "missing-checksum",
+      bytes: new Uint8Array([7, 7, 7, 7]),
+      checksum: null,
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: { category: "all", projectId: project.id, deepChecksum: true },
+        },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBe(0);
+      expect(result.consistency.checksumMissingCount).toBe(1);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISSING",
+        severity: "WARNING",
+        entity: "ImageAsset",
+        key: image.storageKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports size mismatch before deep checksum comparison", async () => {
+    const project = await createProject("Storage Cleanup Deep Size Precedence");
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "size-precedence",
+      bytes: new Uint8Array([8, 8, 8, 8]),
+    });
+    await storage.putObject(image.storageKey, new Uint8Array([9, 9, 9, 9, 9]), "image/png");
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: { category: "all", projectId: project.id, deepChecksum: true },
+        },
+        prisma,
+      );
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_SIZE_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "ImageAsset",
+        key: image.storageKey,
+      }));
+      expect(result.consistency.findings).not.toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        key: image.storageKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("rejects unsafe deep checksum scope and limit requests before cleanup", async () => {
+    const project = await createProject("Storage Cleanup Deep Limits");
+    await createImageReference({
+      projectId: project.id,
+      name: "limit-a",
+      bytes: new Uint8Array([1, 2, 3, 4]),
+    });
+    await createImageReference({
+      projectId: project.id,
+      name: "limit-b",
+      bytes: new Uint8Array([5, 6, 7, 8]),
+    });
+
+    try {
+      await expect(cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", deepChecksum: true } },
+        prisma,
+      )).rejects.toMatchObject({ code: "DEEP_CHECKSUM_PROJECT_REQUIRED" });
+      await expect(cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "all",
+            projectId: project.id,
+            deepChecksum: true,
+            deepChecksumMaxObjects: 1,
+          },
+        },
+        prisma,
+      )).rejects.toMatchObject({ code: "DEEP_CHECKSUM_LIMIT_EXCEEDED" });
+      await expect(cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "all",
+            projectId: project.id,
+            deepChecksum: true,
+            deepChecksumMaxBytes: 1,
+          },
+        },
+        prisma,
+      )).rejects.toMatchObject({ code: "DEEP_CHECKSUM_LIMIT_EXCEEDED" });
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
     }
   });
 });

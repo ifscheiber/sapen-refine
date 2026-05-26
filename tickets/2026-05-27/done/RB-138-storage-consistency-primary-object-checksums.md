@@ -1,6 +1,6 @@
 # RB-138 - Deep Checksum Consistency For Primary Storage Objects
 
-Status: Planned
+Status: Done
 Priority: P1/P2
 Type: Evidence-grade storage integrity
 

@@ -64,6 +64,9 @@ export type StorageCleanupOptions = {
   projectId?: string;
   batchId?: string;
   limit: number;
+  deepChecksum: boolean;
+  deepChecksumMaxObjects: number;
+  deepChecksumMaxBytes: number;
   completedRetentionDays: number;
   failedRetentionDays: number;
   presignedRetentionHours: number;
@@ -106,8 +109,12 @@ export type StorageConsistencyReport = {
   scannedStorageObjectCount: number;
   scannedStorageBytes: number;
   scannedProtectedReferenceCount: number;
+  deepChecksumEnabled: boolean;
+  deepChecksumObjectCount: number;
+  deepChecksumBytes: number;
   missingReferencedObjectCount: number;
   sizeMismatchCount: number;
+  checksumMissingCount: number;
   checksumMismatchCount: number;
   orphanExportObjectCount: number;
   stalePendingExportJobCount: number;
@@ -127,7 +134,12 @@ type ProtectedStorageReference = {
   key: string;
   projectId: string | null;
   expectedSize: number | null;
+  expectedChecksum: string | null;
+  deepChecksumEligible: boolean;
 };
+
+const DEFAULT_DEEP_CHECKSUM_MAX_OBJECTS = 100;
+const DEFAULT_DEEP_CHECKSUM_MAX_BYTES = 512 * 1024 * 1024;
 
 function cleanText(value: unknown) {
   if (typeof value !== "string") return null;
@@ -262,13 +274,31 @@ export function normalizeStorageCleanupOptions(input: unknown): StorageCleanupOp
       ? new Date(body.now)
       : new Date();
   if (Number.isNaN(nowInput.getTime())) throw new StorageCleanupError("CLEANUP_NOW_INVALID");
+  const projectId = cleanText(body.projectId) ?? undefined;
+  const deepChecksum = parseBoolean(body.deepChecksum, false);
+  const deepChecksumMaxObjects = parsePositiveInteger(
+    body.deepChecksumMaxObjects,
+    DEFAULT_DEEP_CHECKSUM_MAX_OBJECTS,
+    "DEEP_CHECKSUM_LIMIT_INVALID",
+  );
+  const deepChecksumMaxBytes = parsePositiveInteger(
+    body.deepChecksumMaxBytes,
+    DEFAULT_DEEP_CHECKSUM_MAX_BYTES,
+    "DEEP_CHECKSUM_LIMIT_INVALID",
+  );
+  if (deepChecksum && !projectId) {
+    throw new StorageCleanupError("DEEP_CHECKSUM_PROJECT_REQUIRED");
+  }
 
   return {
     execute,
     category: parseCategory(body.category),
-    projectId: cleanText(body.projectId) ?? undefined,
+    projectId,
     batchId: cleanText(body.batchId) ?? undefined,
     limit,
+    deepChecksum,
+    deepChecksumMaxObjects,
+    deepChecksumMaxBytes,
     completedRetentionDays: parsePositiveInteger(
       body.completedRetentionDays,
       config.batchStagingCompletedRetentionDays,
@@ -631,7 +661,10 @@ function finding(params: StorageConsistencyFinding): StorageConsistencyFinding {
   return params;
 }
 
-async function checkReference(reference: ProtectedStorageReference): Promise<StorageConsistencyFinding[]> {
+async function checkReference(
+  reference: ProtectedStorageReference,
+  options: StorageCleanupOptions,
+): Promise<StorageConsistencyFinding[]> {
   try {
     const stat = await statObject(reference.key);
     if (
@@ -650,6 +683,46 @@ async function checkReference(reference: ProtectedStorageReference): Promise<Sto
         actualSize: stat.contentLength,
       })];
     }
+    if (!options.deepChecksum || !reference.deepChecksumEligible) return [];
+
+    const normalizedExpectedChecksum = normalizeChecksum(reference.expectedChecksum);
+    if (!normalizedExpectedChecksum) {
+      return [finding({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISSING",
+        severity: "WARNING",
+        entity: reference.entity,
+        entityId: reference.entityId,
+        key: reference.key,
+        projectId: reference.projectId,
+        expectedSize: reference.expectedSize,
+      })];
+    }
+
+    try {
+      const actualChecksum = sha256Checksum(await getObjectBytes(reference.key));
+      if (actualChecksum !== normalizedExpectedChecksum) {
+        return [finding({
+          code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+          severity: "HARD_DRIFT",
+          entity: reference.entity,
+          entityId: reference.entityId,
+          key: reference.key,
+          projectId: reference.projectId,
+          expectedChecksum: normalizedExpectedChecksum,
+          actualChecksum,
+        })];
+      }
+    } catch {
+      return [finding({
+        code: "REFERENCED_OBJECT_READ_FAILED",
+        severity: "HARD_DRIFT",
+        entity: reference.entity,
+        entityId: reference.entityId,
+        key: reference.key,
+        projectId: reference.projectId,
+        expectedChecksum: normalizedExpectedChecksum,
+      })];
+    }
     return [];
   } catch {
     return [finding({
@@ -660,6 +733,7 @@ async function checkReference(reference: ProtectedStorageReference): Promise<Sto
       key: reference.key,
       projectId: reference.projectId,
       expectedSize: reference.expectedSize,
+      expectedChecksum: normalizeChecksum(reference.expectedChecksum),
     })];
   }
 }
@@ -671,7 +745,7 @@ async function collectProtectedReferences(
   const [images, artifacts, crops, importItems] = await Promise.all([
     db.imageAsset.findMany({
       where: options.projectId ? { projectId: options.projectId } : {},
-      select: { id: true, projectId: true, storageKey: true, size: true },
+      select: { id: true, projectId: true, storageKey: true, size: true, checksum: true },
     }),
     db.annotationArtifactVersion.findMany({
       where: options.projectId ? { artifact: { projectId: options.projectId } } : {},
@@ -679,12 +753,13 @@ async function collectProtectedReferences(
         id: true,
         storageKey: true,
         size: true,
+        checksum: true,
         artifact: { select: { projectId: true } },
       },
     }),
     db.derivedSliceCrop.findMany({
       where: options.projectId ? { projectId: options.projectId } : {},
-      select: { id: true, projectId: true, storageKey: true, byteSize: true },
+      select: { id: true, projectId: true, storageKey: true, byteSize: true, checksum: true },
     }),
     db.predictionImportBatchItem.findMany({
       where: {
@@ -708,6 +783,8 @@ async function collectProtectedReferences(
       key: image.storageKey,
       projectId: image.projectId,
       expectedSize: image.size,
+      expectedChecksum: image.checksum,
+      deepChecksumEligible: true,
     })),
     ...artifacts.map((artifact) => ({
       entity: "AnnotationArtifactVersion",
@@ -715,6 +792,8 @@ async function collectProtectedReferences(
       key: artifact.storageKey,
       projectId: artifact.artifact.projectId,
       expectedSize: artifact.size,
+      expectedChecksum: artifact.checksum,
+      deepChecksumEligible: true,
     })),
     ...crops.map((crop) => ({
       entity: "DerivedSliceCrop",
@@ -722,6 +801,8 @@ async function collectProtectedReferences(
       key: crop.storageKey,
       projectId: crop.projectId,
       expectedSize: crop.byteSize,
+      expectedChecksum: crop.checksum,
+      deepChecksumEligible: true,
     })),
     ...importItems.map((item) => ({
       entity: "PredictionImportBatchItem",
@@ -729,8 +810,29 @@ async function collectProtectedReferences(
       key: item.stagingKey,
       projectId: item.batchJob.projectId,
       expectedSize: null,
+      expectedChecksum: null,
+      deepChecksumEligible: false,
     })),
   ];
+}
+
+function enforceDeepChecksumLimits(references: ProtectedStorageReference[], options: StorageCleanupOptions) {
+  if (!options.deepChecksum) return { objectCount: 0, expectedBytes: 0 };
+
+  const eligibleReferences = references.filter((reference) => reference.deepChecksumEligible);
+  const expectedBytes = eligibleReferences.reduce((total, reference) => total + (reference.expectedSize ?? 0), 0);
+  if (
+    eligibleReferences.length > options.deepChecksumMaxObjects ||
+    expectedBytes > options.deepChecksumMaxBytes
+  ) {
+    throw new StorageCleanupError("DEEP_CHECKSUM_LIMIT_EXCEEDED");
+  }
+  return { objectCount: eligibleReferences.length, expectedBytes };
+}
+
+async function assertDeepChecksumLimitsBeforeMutation(db: CleanupDb, options: StorageCleanupOptions) {
+  if (!options.deepChecksum) return;
+  enforceDeepChecksumLimits(await collectProtectedReferences(db, options), options);
 }
 
 async function checkExportObject(params: {
@@ -960,7 +1062,10 @@ async function collectConsistencyReport(
     ? storageObjects.filter((object) => object.key.startsWith(`projects/${options.projectId}/`))
     : storageObjects;
   const references = await collectProtectedReferences(db, options);
-  const referenceFindings = (await Promise.all(references.map(checkReference))).flat();
+  const deepChecksumSummary = enforceDeepChecksumLimits(references, options);
+  const referenceFindings = (await Promise.all(
+    references.map((reference) => checkReference(reference, options)),
+  )).flat();
   const exportFindings = await collectExportConsistencyFindings({
     db,
     options,
@@ -976,6 +1081,9 @@ async function collectConsistencyReport(
     scannedStorageObjectCount: filteredStorageObjects.length,
     scannedStorageBytes: filteredStorageObjects.reduce((total, object) => total + (object.size ?? 0), 0),
     scannedProtectedReferenceCount: references.length,
+    deepChecksumEnabled: options.deepChecksum,
+    deepChecksumObjectCount: deepChecksumSummary.objectCount,
+    deepChecksumBytes: deepChecksumSummary.expectedBytes,
     missingReferencedObjectCount: findings.filter((entry) =>
       entry.code === "MISSING_REFERENCED_OBJECT" ||
       entry.code === "EXPORT_MANIFEST_MISSING" ||
@@ -984,6 +1092,7 @@ async function collectConsistencyReport(
       entry.code === "EXPORT_PACKAGE_KEY_MISSING",
     ).length,
     sizeMismatchCount: findings.filter((entry) => entry.code.endsWith("_SIZE_MISMATCH")).length,
+    checksumMissingCount: findings.filter((entry) => entry.code.endsWith("_CHECKSUM_MISSING")).length,
     checksumMismatchCount: findings.filter((entry) => entry.code.endsWith("_CHECKSUM_MISMATCH")).length,
     orphanExportObjectCount: findings.filter((entry) =>
       entry.code === "ORPHAN_EXPORT_PACKAGE_OBJECT" ||
@@ -1076,6 +1185,9 @@ async function recordCleanupAudit(params: {
         projectId: params.options.projectId ?? null,
         batchId: params.options.batchId ?? null,
         limit: params.options.limit,
+        deepChecksum: params.options.deepChecksum,
+        deepChecksumMaxObjects: params.options.deepChecksumMaxObjects,
+        deepChecksumMaxBytes: params.options.deepChecksumMaxBytes,
       },
       {
         triggeredBy: { type: "OPERATOR", userId: params.actorId },
@@ -1129,6 +1241,7 @@ export async function runStorageCleanup(params: {
 }, db: CleanupDb = prisma) {
   await requireCleanupAdmin(db, params.actorId);
   const options = normalizeStorageCleanupOptions(params.input);
+  await assertDeepChecksumLimitsBeforeMutation(db, options);
   const [batchCandidates, storageCandidates] = await Promise.all([
     collectBatchStagingCandidates(db, options),
     collectObjectStorageCandidates(db, options),
@@ -1149,6 +1262,9 @@ export async function runStorageCleanup(params: {
       projectId: options.projectId ?? null,
       batchId: options.batchId ?? null,
       limit: options.limit,
+      deepChecksum: options.deepChecksum,
+      deepChecksumMaxObjects: options.deepChecksumMaxObjects,
+      deepChecksumMaxBytes: options.deepChecksumMaxBytes,
       completedRetentionDays: options.completedRetentionDays,
       failedRetentionDays: options.failedRetentionDays,
       presignedRetentionHours: options.presignedRetentionHours,

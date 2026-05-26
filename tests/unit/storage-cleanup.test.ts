@@ -65,4 +65,34 @@ describe("storage cleanup helpers", () => {
     expect(cleanup.ageSeconds(now, new Date("2026-05-21T09:59:30.000Z"))).toBe(30);
     expect(cleanup.ageSeconds(now, null)).toBeNull();
   });
+
+  it("requires project-scoped deep checksum options", () => {
+    try {
+      cleanup.normalizeStorageCleanupOptions({ deepChecksum: true });
+      throw new Error("Expected deep checksum project requirement");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "DEEP_CHECKSUM_PROJECT_REQUIRED" });
+    }
+
+    try {
+      cleanup.normalizeStorageCleanupOptions({
+        deepChecksum: true,
+        projectId: "project-1",
+        deepChecksumMaxObjects: 0,
+      });
+      throw new Error("Expected deep checksum limit validation");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "DEEP_CHECKSUM_LIMIT_INVALID" });
+    }
+
+    expect(cleanup.normalizeStorageCleanupOptions({
+      deepChecksum: true,
+      projectId: "project-1",
+    })).toMatchObject({
+      deepChecksum: true,
+      deepChecksumMaxObjects: 100,
+      deepChecksumMaxBytes: 536870912,
+      projectId: "project-1",
+    });
+  });
 });

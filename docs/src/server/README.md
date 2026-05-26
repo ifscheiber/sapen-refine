@@ -61,7 +61,7 @@
 - `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
 - `createPredictionImportBatchFromZipForUser`, `processPredictionImportBatchForUser`, `retryPredictionImportBatchForUser`, and batch list/detail helpers implement the RB-061 single-host DB-backed batch import baseline.
-- `runStorageCleanup` implements the RB-066 admin-only dry-run/execute cleanup path for temporary batch staging and abandoned presigned upload objects.
+- `runStorageCleanup` implements the RB-066 admin-only dry-run/execute cleanup path for temporary batch staging and abandoned presigned upload objects, with RB-114/RB-138 consistency and optional project-scoped deep checksum reporting.
 - `enforceHighCostRouteLimit` applies RB-111 route-family rate limits for high-cost authenticated writes and throws `RATE_LIMITED` with retry metadata when the hashed bucket is over limit.
 - `createCorrectionTasksForPredictionRunForUser`, `listProjectCorrectionTasksForUser`, `getCorrectionTaskForUser`, and `updateCorrectionTaskForUser` implement the RB-058 correction task queue service layer.
 - `loadCorrectionContextForUser`, `readPredictionMaskForCorrectionTask`, and `saveCorrectionForTaskForUser` implement the RB-059 assisted correction service layer.

@@ -34,6 +34,9 @@ describe("storage cleanup route contract", () => {
         projectId: null,
         batchId: null,
         limit: 100,
+        deepChecksum: false,
+        deepChecksumMaxObjects: 100,
+        deepChecksumMaxBytes: 536870912,
         completedRetentionDays: 7,
         failedRetentionDays: 30,
         presignedRetentionHours: 24,
@@ -51,6 +54,10 @@ describe("storage cleanup route contract", () => {
         warningCount: 0,
         infoCount: 0,
         findingCount: 1,
+        deepChecksumEnabled: false,
+        deepChecksumObjectCount: 0,
+        deepChecksumBytes: 0,
+        checksumMissingCount: 0,
         findings: [{
           code: "MISSING_REFERENCED_OBJECT",
           severity: "HARD_DRIFT",
@@ -96,5 +103,73 @@ describe("storage cleanup route contract", () => {
       actorId: "admin-1",
       input: { dryRun: true },
     });
+  });
+
+  it("forwards additive deep checksum options without changing the response wrapper", async () => {
+    const cleanup = {
+      options: {
+        execute: false,
+        category: "all",
+        projectId: "project-1",
+        batchId: null,
+        limit: 100,
+        deepChecksum: true,
+        deepChecksumMaxObjects: 2,
+        deepChecksumMaxBytes: 64,
+        completedRetentionDays: 7,
+        failedRetentionDays: 30,
+        presignedRetentionHours: 24,
+      },
+      summary: {
+        mode: "dry-run",
+        totalResults: 0,
+        wouldDeleteCount: 0,
+        deletedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+      },
+      consistency: {
+        hardDriftCount: 0,
+        warningCount: 0,
+        infoCount: 0,
+        findingCount: 0,
+        scannedStorageObjectCount: 0,
+        scannedStorageBytes: 0,
+        scannedProtectedReferenceCount: 0,
+        deepChecksumEnabled: true,
+        deepChecksumObjectCount: 0,
+        deepChecksumBytes: 0,
+        missingReferencedObjectCount: 0,
+        sizeMismatchCount: 0,
+        checksumMissingCount: 0,
+        checksumMismatchCount: 0,
+        orphanExportObjectCount: 0,
+        stalePendingExportJobCount: 0,
+        expiredProcessingExportJobCount: 0,
+        findings: [],
+      },
+      results: [],
+    };
+
+    mocks.requireUser.mockResolvedValue({ id: "admin-1" });
+    mocks.runStorageCleanup.mockResolvedValue(cleanup);
+
+    const { POST } = await import("@/app/api/storage-cleanup/route");
+    const body = {
+      dryRun: true,
+      projectId: "project-1",
+      deepChecksum: true,
+      deepChecksumMaxObjects: 2,
+      deepChecksumMaxBytes: 64,
+    };
+    const response = await POST(new Request("http://local.test/api/storage-cleanup", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true, cleanup });
+    expect(mocks.runStorageCleanup).toHaveBeenCalledWith({ actorId: "admin-1", input: body });
   });
 });

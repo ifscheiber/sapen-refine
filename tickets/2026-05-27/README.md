@@ -15,8 +15,7 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 
 ## Active Risk-First Order
 
-1. [RB-138 - Deep checksum consistency for primary storage objects](RB-138-storage-consistency-primary-object-checksums.md) - P1/P2; keep explicit/deep mode only, after cleanup-category behavior is clear.
-2. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
+1. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
 
 ## Done
 
@@ -28,6 +27,7 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 - [RB-135 - Ticket and docs governance scope extension](done/RB-135-ticket-and-docs-governance-scope-extension.md) - completed; `npm run check:docs-links` now scans active indexed ticket folders while keeping historical `done/` tickets out of the default guard.
 - [RB-136 - Approved snapshot freshness gating](done/RB-136-approved-snapshot-freshness-gating.md) - completed; training exports now report and block stale approved snapshots when newer non-approved support, semantic, or classification work exists in the requested export scope.
 - [RB-137 - Storage cleanup coverage for crop object prefixes](done/RB-137-storage-cleanup-crop-object-prefixes.md) - completed; cleanup now classifies unreferenced crop workflow prefixes while DB-referenced derived crops and crop artifact versions remain protected.
+- [RB-138 - Deep checksum consistency for primary storage objects](done/RB-138-storage-consistency-primary-object-checksums.md) - completed; storage cleanup consistency can now run explicit project-scoped deep checksum verification for durable raw image, artifact version, and derived crop objects.
 - [RB-139 - Prediction batch ZIP inflation guard](done/RB-139-prediction-batch-zip-inflation-guard.md) - completed; prediction batch create now checks expected and metadata-reported uncompressed mask sizes before staging ZIP entries.
 - [RB-140 - Export job processor RBAC and audit alignment](done/RB-140-export-job-processor-rbac-audit-alignment.md) - completed; due export job processing now uses `export:processJobs` while export creation/download permissions remain target-specific.
 

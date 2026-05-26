@@ -33,6 +33,9 @@ function parseArgs(argv) {
     projectId: undefined,
     batchId: undefined,
     limit: undefined,
+    deepChecksum: false,
+    deepChecksumMaxObjects: undefined,
+    deepChecksumMaxBytes: undefined,
     completedRetentionDays: undefined,
     failedRetentionDays: undefined,
     presignedRetentionHours: undefined,
@@ -73,6 +76,14 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--limit" && next) {
       args.limit = parsePositiveInteger(next, "--limit");
+      index += 1;
+    } else if (arg === "--deep-checksum") {
+      args.deepChecksum = true;
+    } else if (arg === "--deep-checksum-max-objects" && next) {
+      args.deepChecksumMaxObjects = parsePositiveInteger(next, "--deep-checksum-max-objects");
+      index += 1;
+    } else if (arg === "--deep-checksum-max-bytes" && next) {
+      args.deepChecksumMaxBytes = parsePositiveInteger(next, "--deep-checksum-max-bytes");
       index += 1;
     } else if (arg === "--completed-retention-days" && next) {
       args.completedRetentionDays = parsePositiveInteger(next, "--completed-retention-days");
@@ -117,6 +128,9 @@ Options:
   --project <project-id>
   --batch <batch-id>
   --limit <n>
+  --deep-checksum                 Verify SHA-256 for durable project objects. Requires --project.
+  --deep-checksum-max-objects <n> Maximum durable objects to checksum. Default: 100.
+  --deep-checksum-max-bytes <n>   Maximum expected durable bytes to checksum. Default: 536870912.
   --completed-retention-days <n>
   --failed-retention-days <n>
   --presigned-retention-hours <n>
@@ -156,6 +170,9 @@ function requestBody(args) {
     ...(args.projectId ? { projectId: args.projectId } : {}),
     ...(args.batchId ? { batchId: args.batchId } : {}),
     ...(args.limit ? { limit: args.limit } : {}),
+    ...(args.deepChecksum ? { deepChecksum: true } : {}),
+    ...(args.deepChecksumMaxObjects ? { deepChecksumMaxObjects: args.deepChecksumMaxObjects } : {}),
+    ...(args.deepChecksumMaxBytes ? { deepChecksumMaxBytes: args.deepChecksumMaxBytes } : {}),
     ...(args.completedRetentionDays ? { completedRetentionDays: args.completedRetentionDays } : {}),
     ...(args.failedRetentionDays ? { failedRetentionDays: args.failedRetentionDays } : {}),
     ...(args.presignedRetentionHours ? { presignedRetentionHours: args.presignedRetentionHours } : {}),

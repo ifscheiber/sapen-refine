@@ -2,11 +2,11 @@
 
 ## Purpose
 
-RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. RB-114 extends the same operational path with a storage/DB consistency report. Cleanup is scoped to staged prediction-batch objects, identifiable presigned-upload orphans, and RB-137 crop-workflow object orphans. It must not delete committed raw images, committed artifact versions, DB-referenced derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
+RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. RB-114 extends the same operational path with a storage/DB consistency report. RB-138 adds explicit project-scoped deep checksum verification for durable primary objects. Cleanup is scoped to staged prediction-batch objects, identifiable presigned-upload orphans, and RB-137 crop-workflow object orphans. It must not delete committed raw images, committed artifact versions, DB-referenced derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
 
 Implemented evidence:
 
-- `src/server/domain/storageCleanup.ts` - retention policy parsing, candidate classification, protected-object checks, RB-114 consistency reporting, dry-run/execute behavior, and audit events.
+- `src/server/domain/storageCleanup.ts` - retention policy parsing, candidate classification, protected-object checks, RB-114/RB-138 consistency reporting, dry-run/execute behavior, and audit events.
 - `src/app/api/storage-cleanup/route.ts` - admin-only operational API.
 - `scripts/storage-cleanup.mjs` - API-based operational CLI.
 - `src/server/storage/s3.ts` - object listing and strict delete helper.
@@ -37,7 +37,7 @@ STORAGE_CLEANUP_MAX_DELETE_PER_RUN=500
 
 ## Protected Object Rules
 
-Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows. Project-scoped cleanup lists only the `projects/<projectId>/` object prefix before applying those DB protections, so a busy shared bucket cannot hide the requested project's candidates behind unrelated objects. RB-114 consistency checks also report missing protected DB-referenced objects as hard drift; they do not try to repair or delete those references.
+Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows. Project-scoped cleanup lists only the `projects/<projectId>/` object prefix before applying those DB protections, so a busy shared bucket cannot hide the requested project's candidates behind unrelated objects. RB-114 consistency checks report missing protected DB-referenced objects as hard drift; RB-138 deep checksum checks can also report same-size object corruption as hard drift. The cleanup path does not try to repair or delete those durable references.
 
 Never delete:
 
@@ -120,6 +120,14 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ex
 
 Use a named global `ADMIN` account for cleanup. Do not use shared demo credentials for customer-facing trial operations.
 
+Deep checksum verification is opt-in and project-scoped. It reads durable primary objects for one project and compares stored SHA-256 metadata for `ImageAsset`, `AnnotationArtifactVersion`, and `DerivedSliceCrop` rows. Run a dry-run first:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --project '<project-id>' --deep-checksum --deep-checksum-max-objects 100 --deep-checksum-max-bytes 536870912
+```
+
+Deep checksum mode rejects requests without `--project`. It also rejects requests that would read more than the configured object or byte limit before any cleanup deletion runs. Normal cleanup and consistency reports remain stat-only for primary objects.
+
 RB-076 verified this dry-run command against the local trial Compose stack; the dry run returned zero cleanup candidates.
 
 The same script can run outside Compose against a deployed app:
@@ -138,11 +146,16 @@ SAPEN_CLEANUP_BASE_URL=https://annotate.example.com SAPEN_CLEANUP_EMAIL=admin@ex
   "category": "all",
   "projectId": "optional-project-id",
   "batchId": "optional-batch-id",
-  "limit": 100
+  "limit": 100,
+  "deepChecksum": false,
+  "deepChecksumMaxObjects": 100,
+  "deepChecksumMaxBytes": 536870912
 }
 ```
 
 Valid categories are `all`, `batch-staging`, and `upload-orphans`. The route requires an authenticated global `ADMIN` user through the same audit-view permission used for admin audit access. Browser same-origin mutation protection still applies.
+
+When `deepChecksum=true`, `projectId` is required. The route rejects unsafe deep-mode scope or limits with stable `400` errors such as `DEEP_CHECKSUM_PROJECT_REQUIRED`, `DEEP_CHECKSUM_LIMIT_INVALID`, or `DEEP_CHECKSUM_LIMIT_EXCEEDED`.
 
 The response includes options, summary counts, item-level cleanup results with key, category, status, reason, size, age, project id, batch id, and item id, plus an additive `consistency` report. Existing `cleanup.summary` and `cleanup.results` fields remain present for older consumers. The response does not expose presigned URLs or credentials.
 
@@ -152,14 +165,15 @@ Dry-run and execute responses include a report with:
 
 - scanned storage object counts and known bytes,
 - scanned protected DB reference count,
+- deep checksum enablement, object count, and expected bytes when explicitly requested,
 - missing referenced object count,
-- checksum/size mismatch count,
+- checksum missing/mismatch and size mismatch counts,
 - report-only orphan export object count,
 - stale `PENDING` export job count,
 - expired `PROCESSING` export lease count,
 - per-finding code, severity, entity, key, project id, expected/actual size, and expected/actual checksum where relevant.
 
-`HARD_DRIFT` findings are reserved for protected DB references that are missing from storage and completed export manifest/package checksum or size mismatches. Ordinary cleanup candidates, including unreferenced crop-workflow object orphans, skipped/ambiguous objects, report-only orphan export package objects, stale `PENDING` export jobs, and expired `PROCESSING` leases are warnings/findings only.
+`HARD_DRIFT` findings are reserved for protected DB references that are missing from storage, protected DB references with size mismatch, protected primary objects with deep checksum mismatch, and completed export manifest/package checksum or size mismatches. Missing or invalid checksum metadata for a deep-checked primary object is a warning. Ordinary cleanup candidates, including unreferenced crop-workflow object orphans, skipped/ambiguous objects, report-only orphan export package objects, stale `PENDING` export jobs, and expired `PROCESSING` leases are warnings/findings only.
 
 The CLI exits non-zero only when `cleanup.consistency.hardDriftCount > 0`, invalid configuration is supplied, or storage/API connectivity fails. A dry-run with only cleanup candidates or warnings exits `0`.
 

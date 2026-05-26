@@ -99,6 +99,14 @@ docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml ex
 
 Cleanup reduces temporary MinIO data size, but it is not a backup substitute. Once a failed batch item's staged source is purged, that item cannot be retried without re-uploading the batch.
 
+After restoring DB and MinIO data, use project-scoped deep checksum dry-runs when evidence-grade object integrity needs verification:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec app npm run storage:cleanup -- --dry-run --project '<project-id>' --deep-checksum
+```
+
+This reads durable primary objects for the selected project and reports missing, size-mismatched, or checksum-mismatched DB-referenced objects as hard drift. Run it per project and keep the default object/byte limits unless the operator intentionally widens the scope.
+
 ## Failure Window
 
 If the host disk fails before a backup finishes, all database rows, login throttle/audit/cleanup state, raw images, masks, staged prediction batch sources that were not yet purged, imported prediction artifacts, queued export jobs, export manifests/packages, sessions, Caddy state, and trial-account changes since the latest successful backup are lost. This runbook is not HA and does not provide point-in-time recovery.
