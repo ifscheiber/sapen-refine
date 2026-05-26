@@ -1,0 +1,44 @@
+import path from "node:path";
+
+import { expect, test } from "@playwright/test";
+
+const fixturePath = path.resolve("public/apple-touch-icon.png");
+
+test("annotator workspace hides operational surfaces while keeping image annotation entrypoints", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(process.env.E2E_ANNOTATOR_EMAIL ?? "labeler@sapen.local");
+  await page.getByLabel("Password").fill(process.env.E2E_ANNOTATOR_PASSWORD ?? "labeler1234");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/app/);
+
+  await page.goto("/app/projects/demo_project");
+
+  await expect(page.getByRole("link", { name: "New Project" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Project Settings" })).toBeVisible();
+
+  const projectNavigation = page.getByRole("navigation", { name: "Project navigation" });
+  await expect(projectNavigation.getByRole("link", { name: "Overview" })).toBeVisible();
+  await expect(projectNavigation.getByRole("link", { name: "Images" })).toHaveCount(0);
+  await expect(projectNavigation.getByRole("link", { name: "Exports" })).toHaveCount(0);
+  await expect(projectNavigation.getByRole("link", { name: "Tasks" })).toHaveCount(0);
+  await expect(projectNavigation.getByRole("link", { name: "Prediction Imports" })).toHaveCount(0);
+
+  await expect(page.getByRole("heading", { name: "Project status" })).toBeVisible();
+  await expect(page.getByText("Prediction imports")).toHaveCount(0);
+  await expect(page.getByText("Prediction runs")).toHaveCount(0);
+  await expect(page.getByText("Exports")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Upload image" }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload image" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles(fixturePath);
+  await uploadDialog.getByRole("button", { name: "Upload image" }).click();
+  await expect(page.getByText("apple-touch-icon.png").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit metadata" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Annotate image" }).first()).toBeVisible();
+
+  await page.getByRole("link", { name: "Annotate image" }).first().click();
+  await expect(page.getByRole("heading", { name: "Annotation Editor" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "BBoxes" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "BBox status" })).toBeVisible();
+  await expect(page.getByText("0 valid · 0 issues")).toBeVisible();
+});

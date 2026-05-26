@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { requireUser } from "@/server/auth/rbac"; // Pfad ggf. anpassen
-import { ProjectRole } from "@prisma/client";
+import { requireProjectCreateCapability, requireUser } from "@/server/auth/rbac";
+import { recordAuditEvent } from "@/server/domain/audit";
+import { AnnotationProjectRole } from "@prisma/client";
+import { withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET() {
+export const GET = withApiErrorHandling(async function GET() {
   const user = await requireUser();
 
-  const projects = await prisma.project.findMany({
+  const projects = await prisma.annotationProject.findMany({
     where: { members: { some: { userId: user.id } } },
     orderBy: { updatedAt: "desc" },
     select: {
@@ -19,6 +21,7 @@ export async function GET() {
         select: { role: true },
         take: 1,
       },
+      _count: { select: { images: true } },
     },
   });
 
@@ -30,12 +33,14 @@ export async function GET() {
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       myRole: p.members[0]?.role ?? null,
+      imageCount: p._count.images,
     })),
   });
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withApiErrorHandling(async function POST(req: Request) {
   const user = await requireUser();
+  await requireProjectCreateCapability(user.id);
 
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -43,18 +48,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "NAME_REQUIRED" }, { status: 400 });
   }
 
-  const project = await prisma.project.create({
+  const labelSchema = await prisma.labelSchemaVersion.findFirst({
+    where: { isDefault: true, status: "ACTIVE" },
+    select: { id: true },
+  });
+
+  const project = await prisma.annotationProject.create({
     data: {
       name,
+      createdById: user.id,
+      labelSchemaVersionId: labelSchema?.id,
       members: {
         create: {
           userId: user.id,
-          role: ProjectRole.OWNER,
+          role: AnnotationProjectRole.OWNER,
         },
       },
     },
     select: { id: true, name: true, createdAt: true, updatedAt: true },
   });
 
+  await recordAuditEvent({
+    action: "PROJECT_CREATED",
+    entity: "AnnotationProject",
+    entityId: project.id,
+    actorId: user.id,
+    details: { name: project.name },
+  });
+
   return NextResponse.json({ ok: true, project });
-}
+});

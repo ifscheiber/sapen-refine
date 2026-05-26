@@ -1,20 +1,29 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  HeadBucketCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const endpoint = process.env.S3_ENDPOINT!;
-const accessKeyId = process.env.S3_ACCESS_KEY!;
-const secretAccessKey = process.env.S3_SECRET_KEY!;
-const region = process.env.S3_REGION || "us-east-1";
-const forcePathStyle = (process.env.S3_FORCE_PATH_STYLE || "true") === "true";
+import { getRuntimeConfig } from "@/server/runtime/config";
+
+const storageConfig = getRuntimeConfig().s3;
 
 export const s3 = new S3Client({
-  region,
-  endpoint,
-  forcePathStyle,
-  credentials: { accessKeyId, secretAccessKey },
+  region: storageConfig.region,
+  endpoint: storageConfig.endpoint,
+  forcePathStyle: storageConfig.forcePathStyle,
+  credentials: {
+    accessKeyId: storageConfig.accessKeyId,
+    secretAccessKey: storageConfig.secretAccessKey,
+  },
 });
 
-export const bucket = process.env.S3_BUCKET!;
+export const bucket = storageConfig.bucket;
 
 export async function presignPutObject(key: string, contentType: string, expiresSeconds = 300) {
   const cmd = new PutObjectCommand({
@@ -31,4 +40,98 @@ export async function presignGetObject(key: string, expiresSeconds = 300) {
     Key: key,
   });
   return getSignedUrl(s3, cmd, { expiresIn: expiresSeconds });
+}
+
+export async function putObject(key: string, body: Uint8Array, contentType: string) {
+  const cmd = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  });
+  await s3.send(cmd);
+}
+
+export async function statObject(key: string) {
+  const response = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  return {
+    contentLength: response.ContentLength ?? null,
+    contentType: response.ContentType ?? null,
+    etag: response.ETag ?? null,
+  };
+}
+
+export async function verifyStoredObject(params: {
+  key: string;
+  size?: number;
+  contentType?: string | null;
+}) {
+  const stat = await statObject(params.key);
+  if (params.size !== undefined && stat.contentLength !== params.size) {
+    throw new Error("OBJECT_STAT_SIZE_MISMATCH");
+  }
+  if (
+    params.contentType &&
+    stat.contentType &&
+    stat.contentType.split(";")[0]?.toLowerCase() !== params.contentType.split(";")[0]?.toLowerCase()
+  ) {
+    throw new Error("OBJECT_STAT_CONTENT_TYPE_MISMATCH");
+  }
+  return stat;
+}
+
+export async function deleteObjectBestEffort(key: string) {
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined);
+}
+
+export async function deleteObject(key: string) {
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+export async function listObjectsByPrefix(prefix: string, maxKeys = 1000) {
+  const objects: Array<{
+    key: string;
+    lastModified: Date | null;
+    size: number | null;
+    etag: string | null;
+  }> = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await s3.send(new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+      MaxKeys: Math.min(1000, Math.max(1, maxKeys - objects.length)),
+    }));
+    for (const object of response.Contents ?? []) {
+      if (!object.Key) continue;
+      objects.push({
+        key: object.Key,
+        lastModified: object.LastModified ?? null,
+        size: object.Size ?? null,
+        etag: object.ETag ?? null,
+      });
+      if (objects.length >= maxKeys) return objects;
+    }
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken && objects.length < maxKeys);
+
+  return objects;
+}
+
+export async function getObjectBytes(key: string): Promise<Uint8Array> {
+  const cmd = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+  const response = await s3.send(cmd);
+  if (!response.Body) {
+    throw new Error("Storage object response body is empty");
+  }
+  return response.Body.transformToByteArray();
+}
+
+export async function checkStorageReady() {
+  await s3.send(new HeadBucketCommand({ Bucket: bucket }));
 }

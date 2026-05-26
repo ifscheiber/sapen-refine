@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -19,19 +21,37 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+.codex/
+.cache/
+.turbo/
+tmp/
+temp/
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env.*
+!.env.example
+deploy/trial.env
+
+# local storage/database artifacts
+/pgdata/
+/miniodata/
+/redis-data/
+/storage/
+/uploads/
+/tmp/
 
 # vercel
 .vercel

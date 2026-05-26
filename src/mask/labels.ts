@@ -5,6 +5,8 @@ export const Labels = {
   SAPWOOD: 1,
   HEARTWOOD: 2,
   COPPER: 3,
+  UNKNOWN: 4,
+  SLICE_SUPPORT: 10,
 } as const satisfies Record<string, LabelId>;
 
 export type BuiltinLabelKey = keyof typeof Labels;
@@ -22,4 +24,18 @@ export const DEFAULT_LABELS: LabelDef[] = [
   { id: Labels.SAPWOOD,  key: "SAPWOOD",  name: "Sapwood",    rgb: [255, 170, 0], alpha: 0.45 },
   { id: Labels.HEARTWOOD,key: "HEARTWOOD",name: "Heartwood",  rgb: [255, 70, 70], alpha: 0.45 },
   { id: Labels.COPPER,   key: "COPPER",   name: "Copper",     rgb: [40, 120, 255], alpha: 0.55 },
+  { id: Labels.UNKNOWN,  key: "UNKNOWN",  name: "Unknown",    rgb: [150, 120, 255], alpha: 0.45 },
 ];
+
+export function supportMaskLabels(sliceSupportValue: LabelId = Labels.SLICE_SUPPORT): LabelDef[] {
+  return [
+    { id: Labels.BG, key: "BG", name: "Background", rgb: [0, 0, 0], alpha: 0 },
+    {
+      id: sliceSupportValue,
+      key: "SLICE_SUPPORT",
+      name: "Slice support",
+      rgb: [30, 180, 120],
+      alpha: 0.5,
+    },
+  ];
+}

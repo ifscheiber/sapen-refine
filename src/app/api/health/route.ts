@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/db";
+
+import { getHealthStatus } from "@/server/runtime/health";
 
 export async function GET() {
-  const userCount = await prisma.user.count();
-  return NextResponse.json({ ok: true, userCount });
+  return NextResponse.json(getHealthStatus());
 }

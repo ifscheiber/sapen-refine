@@ -1,0 +1,1209 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { config as loadEnv } from "dotenv";
+import JSZip from "jszip";
+import pg from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import {
+  AnnotationArtifactKind,
+  ArtifactProvenance,
+  CoordinateSpace,
+  CropSemanticMode,
+  ExportStatus,
+  ExportTarget,
+  PrismaClient,
+} from "@prisma/client";
+
+import { sha256Checksum } from "@/server/uploads/integrity";
+
+loadEnv({ path: ".env.local" });
+
+const { Pool } = pg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+
+let provenance: typeof import("@/server/domain/predictionProvenance");
+let batches: typeof import("@/server/domain/predictionImportBatches");
+let cleanup: typeof import("@/server/domain/storageCleanup");
+let storage: typeof import("@/server/storage/s3");
+
+const PREDICTION_BATCH_MANIFEST_VERSION = "sapen-annotate-prediction-batch-import-v1";
+
+describe("storage cleanup workflow", () => {
+  let adminId: string;
+  let ownerId: string;
+  let projectId: string;
+  let modelRunId: string;
+  let predictionRunId: string;
+  let labelSchemaVersionId: string;
+  let suffix: string;
+  const objectKeys = new Set<string>();
+
+  beforeAll(async () => {
+    provenance = await import("@/server/domain/predictionProvenance");
+    batches = await import("@/server/domain/predictionImportBatches");
+    cleanup = await import("@/server/domain/storageCleanup");
+    storage = await import("@/server/storage/s3");
+
+    const labelSchema = await prisma.labelSchemaVersion.findFirstOrThrow({
+      where: { isDefault: true, status: "ACTIVE" },
+      select: { id: true },
+    });
+    labelSchemaVersionId = labelSchema.id;
+
+    suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const [admin, owner] = await Promise.all([
+      prisma.user.create({
+        data: { email: `storage-cleanup-admin-${suffix}@test.local`, name: "Storage Cleanup Admin" },
+        select: { id: true },
+      }),
+      prisma.user.create({
+        data: { email: `storage-cleanup-owner-${suffix}@test.local`, name: "Storage Cleanup Owner" },
+        select: { id: true },
+      }),
+    ]);
+    adminId = admin.id;
+    ownerId = owner.id;
+
+    const adminRole = await prisma.role.upsert({
+      where: { name: "ADMIN" },
+      update: {},
+      create: { name: "ADMIN" },
+      select: { id: true },
+    });
+    await prisma.userGlobalRole.create({ data: { userId: adminId, roleId: adminRole.id } });
+
+    const project = await prisma.annotationProject.create({
+      data: {
+        name: `Storage Cleanup Test ${suffix}`,
+        labelSchemaVersionId,
+        createdById: ownerId,
+        members: { create: [{ userId: ownerId, role: "OWNER" }] },
+      },
+      select: { id: true },
+    });
+    projectId = project.id;
+
+    const modelRun = await provenance.createModelRunForUser(
+      {
+        userId: adminId,
+        input: {
+          modelFamily: `storage-cleanup-${suffix}`,
+          modelName: "cleanup-fixture",
+          modelVersion: "0.1.0",
+          taskType: "SEMANTIC_SEGMENTATION",
+          checkpointHash: `sha256:checkpoint-${suffix}`,
+          configHash: `sha256:config-${suffix}`,
+        },
+      },
+      prisma,
+    );
+    modelRunId = modelRun.id;
+
+    const predictionRun = await provenance.createPredictionRunForUser(
+      {
+        projectId,
+        userId: ownerId,
+        input: {
+          modelRunId,
+          inferenceRunId: `cleanup-${suffix}`,
+          status: "COMPLETED",
+          inputImageCount: 1,
+          outputPredictionCount: 0,
+        },
+      },
+      prisma,
+    );
+    predictionRunId = predictionRun.id;
+  });
+
+  afterAll(async () => {
+    await Promise.all([...objectKeys].map((key) => storage.deleteObjectBestEffort(key)));
+    if (projectId) await prisma.annotationProject.delete({ where: { id: projectId } }).catch(() => undefined);
+    if (modelRunId) await prisma.modelRun.delete({ where: { id: modelRunId } }).catch(() => undefined);
+    await Promise.all(
+      [adminId, ownerId]
+        .filter(Boolean)
+        .map((id) => prisma.user.delete({ where: { id } }).catch(() => undefined)),
+    );
+    await prisma.$disconnect();
+    await pool.end();
+  });
+
+  async function createImage(name: string, targetProjectId = projectId) {
+    const storageKey = `tests/storage-cleanup/${suffix}/${name}.png`;
+    await storage.putObject(storageKey, new Uint8Array([0, 1, 2, 3]), "image/png");
+    objectKeys.add(storageKey);
+    const image = await prisma.imageAsset.create({
+      data: {
+        projectId: targetProjectId,
+        storageKey,
+        filename: `${name}.png`,
+        contentType: "image/png",
+        size: 4,
+        checksum: sha256Checksum(new Uint8Array([0, 1, 2, 3])),
+        width: 2,
+        height: 2,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+    return image.id;
+  }
+
+  async function createProject(name: string) {
+    return prisma.annotationProject.create({
+      data: {
+        name: `${name} ${suffix}`,
+        labelSchemaVersionId,
+        createdById: ownerId,
+        members: { create: [{ userId: ownerId, role: "OWNER" }] },
+      },
+      select: { id: true },
+    });
+  }
+
+  async function createImageReference(params: {
+    projectId: string;
+    name: string;
+    bytes: Uint8Array;
+    checksum?: string | null;
+    size?: number | null;
+  }) {
+    const storageKey = `tests/storage-cleanup/${suffix}/${params.name}.png`;
+    await storage.putObject(storageKey, params.bytes, "image/png");
+    objectKeys.add(storageKey);
+    return prisma.imageAsset.create({
+      data: {
+        projectId: params.projectId,
+        storageKey,
+        filename: `${params.name}.png`,
+        contentType: "image/png",
+        size: params.size ?? params.bytes.byteLength,
+        checksum: params.checksum === undefined ? sha256Checksum(params.bytes) : params.checksum,
+        width: 2,
+        height: 2,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true, storageKey: true },
+    });
+  }
+
+  async function createCropFixture(params: {
+    projectId: string;
+    name: string;
+    derivedCropKey: string;
+    bytes: Uint8Array;
+  }) {
+    const imageId = await createImage(params.name, params.projectId);
+    const slice = await prisma.sliceInstance.create({
+      data: {
+        projectId: params.projectId,
+        imageId,
+        boundingBox: { x: 0, y: 0, width: 2, height: 2 },
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    const bbox = await prisma.sliceBoundingBoxVersion.create({
+      data: {
+        projectId: params.projectId,
+        imageId,
+        sliceInstanceId: slice.id,
+        version: 1,
+        x: 0,
+        y: 0,
+        width: 2,
+        height: 2,
+        coordinateSpace: CoordinateSpace.SOURCE_IMAGE_PIXEL,
+        provenance: ArtifactProvenance.HUMAN_ANNOTATION,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    const crop = await prisma.derivedSliceCrop.create({
+      data: {
+        projectId: params.projectId,
+        sourceImageId: imageId,
+        sourceImageChecksum: `sha256:source-${params.name}-${suffix}`,
+        sourceImageWidth: 2,
+        sourceImageHeight: 2,
+        sliceInstanceId: slice.id,
+        bboxVersionId: bbox.id,
+        version: 1,
+        sourceX: 0,
+        sourceY: 0,
+        sourceWidth: 2,
+        sourceHeight: 2,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: 2,
+        cropHeight: 2,
+        paddingRequestedPx: 0,
+        paddingAppliedLeftPx: 0,
+        paddingAppliedTopPx: 0,
+        paddingAppliedRightPx: 0,
+        paddingAppliedBottomPx: 0,
+        coordinateSpace: CoordinateSpace.CROP_PIXEL,
+        transformToSourceJson: {
+          cropX: 0,
+          cropY: 0,
+          sourceX: 0,
+          sourceY: 0,
+          sourceWidth: 2,
+          sourceHeight: 2,
+        },
+        storageKey: params.derivedCropKey,
+        checksum: sha256Checksum(params.bytes),
+        contentType: "image/png",
+        byteSize: params.bytes.byteLength,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    return {
+      imageId,
+      sliceInstanceId: slice.id,
+      cropId: crop.id,
+    };
+  }
+
+  async function createCropArtifactVersion(params: {
+    projectId: string;
+    imageId: string;
+    sliceInstanceId: string;
+    cropId: string;
+    key: string;
+    kind: AnnotationArtifactKind;
+    scopeKey: string;
+    bytes: Uint8Array;
+    supportMaskVersionId?: string;
+    cropSemanticMode?: CropSemanticMode;
+  }) {
+    const artifact = await prisma.annotationArtifact.create({
+      data: {
+        projectId: params.projectId,
+        imageId: params.imageId,
+        kind: params.kind,
+        scopeKey: params.scopeKey,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    return prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: artifact.id,
+        version: 1,
+        provenance: ArtifactProvenance.HUMAN_ANNOTATION,
+        storageKey: params.key,
+        contentType: "application/octet-stream",
+        size: params.bytes.byteLength,
+        checksum: sha256Checksum(params.bytes),
+        width: 2,
+        height: 2,
+        coordinateSpace: CoordinateSpace.CROP_PIXEL,
+        labelSchemaVersionId,
+        derivedCropId: params.cropId,
+        sliceInstanceId: params.sliceInstanceId,
+        supportMaskVersionId: params.supportMaskVersionId,
+        cropSemanticMode: params.cropSemanticMode,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+  }
+
+  async function createZip(params: {
+    imageId: string;
+    clientItemId: string;
+    fileName: string;
+    bytes: Uint8Array;
+    checksum?: string;
+  }) {
+    const zip = new JSZip();
+    zip.file(
+      "manifest.json",
+      JSON.stringify({
+        manifestVersion: PREDICTION_BATCH_MANIFEST_VERSION,
+        predictionRunId,
+        items: [{
+          clientItemId: params.clientItemId,
+          imageId: params.imageId,
+          targetType: "SEMANTIC_MASK",
+          fileName: params.fileName,
+          checksum: params.checksum ?? sha256Checksum(params.bytes),
+          width: 2,
+          height: 2,
+          contentType: "application/octet-stream",
+        }],
+      }),
+    );
+    zip.file(params.fileName, params.bytes);
+    return new Uint8Array(await zip.generateAsync({ type: "uint8array" }));
+  }
+
+  it("dry-runs and executes terminal batch staging cleanup without deleting imported prediction artifacts", async () => {
+    const imageId = await createImage("terminal-batch");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const zipBytes = await createZip({
+      imageId,
+      clientItemId: "terminal-batch",
+      fileName: "predictions/terminal-batch.u8raw",
+      bytes,
+    });
+    const batch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes, sourceFilename: "terminal-batch.zip" },
+      prisma,
+    );
+    const stagedItem = await prisma.predictionImportBatchItem.findFirstOrThrow({
+      where: { batchJobId: batch.id },
+      select: { id: true, stagingKey: true },
+    });
+    objectKeys.add(stagedItem.stagingKey);
+    await storage.statObject(stagedItem.stagingKey);
+
+    await batches.processPredictionImportBatchForUser(
+      { batchId: batch.id, userId: ownerId, input: { limit: 10 } },
+      prisma,
+    );
+    const item = await prisma.predictionImportBatchItem.findUniqueOrThrow({
+      where: { id: stagedItem.id },
+      select: {
+        predictionArtifactVersion: { select: { storageKey: true } },
+      },
+    });
+    const predictionKey = item.predictionArtifactVersion?.storageKey;
+    if (!predictionKey) throw new Error("Expected imported prediction artifact");
+    objectKeys.add(predictionKey);
+    await storage.statObject(predictionKey);
+
+    const now = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
+    const dryRun = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: { category: "batch-staging", batchId: batch.id, projectId, now: now.toISOString() },
+      },
+      prisma,
+    );
+    expect(dryRun.summary).toMatchObject({ mode: "dry-run", wouldDeleteCount: 1, deletedCount: 0 });
+    expect(dryRun.results).toContainEqual(expect.objectContaining({
+      key: stagedItem.stagingKey,
+      status: "WOULD_DELETE",
+    }));
+    await storage.statObject(stagedItem.stagingKey);
+
+    const executed = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: {
+          execute: true,
+          category: "batch-staging",
+          batchId: batch.id,
+          projectId,
+          now: now.toISOString(),
+        },
+      },
+      prisma,
+    );
+    expect(executed.summary).toMatchObject({ mode: "execute", deletedCount: 1, failedCount: 0 });
+    await expect(storage.statObject(stagedItem.stagingKey)).rejects.toThrow();
+    await storage.statObject(predictionKey);
+
+    const purged = await prisma.predictionImportBatchItem.findUniqueOrThrow({
+      where: { id: stagedItem.id },
+      select: { stagingPurgedAt: true, stagingPurgeReason: true },
+    });
+    expect(purged.stagingPurgedAt).toBeTruthy();
+    expect(purged.stagingPurgeReason).toBe("BATCH_COMPLETED_RETENTION_EXPIRED");
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: "STORAGE_CLEANUP_OBJECT_DELETED", entityId: stagedItem.stagingKey },
+      select: { id: true, details: true },
+    });
+    expect(audit).toBeTruthy();
+    expect(audit?.details).toMatchObject({
+      actorContext: {
+        triggeredBy: { type: "OPERATOR", userId: adminId },
+        performedBy: { type: "OPERATOR", label: "storage-cleanup" },
+      },
+    });
+  });
+
+  it("requires a global admin actor", async () => {
+    await expect(cleanup.runStorageCleanup(
+      { actorId: ownerId, input: { category: "all", projectId } },
+      prisma,
+    )).rejects.toMatchObject({ code: "CLEANUP_FORBIDDEN" });
+  });
+
+  it("does not clean active or retryable batch staging", async () => {
+    const imageId = await createImage("active-batch");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const zipBytes = await createZip({
+      imageId,
+      clientItemId: "active-batch",
+      fileName: "predictions/active-batch.u8raw",
+      bytes,
+    });
+    const batch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes, sourceFilename: "active-batch.zip" },
+      prisma,
+    );
+    const item = await prisma.predictionImportBatchItem.findFirstOrThrow({
+      where: { batchJobId: batch.id },
+      select: { stagingKey: true },
+    });
+    objectKeys.add(item.stagingKey);
+    const sourceZipKey = `projects/${projectId}/prediction-import-batches/${batch.id}/source.zip`;
+    await storage.putObject(sourceZipKey, new Uint8Array([0, 1, 2, 3]), "application/zip");
+    objectKeys.add(sourceZipKey);
+
+    const result = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: {
+          execute: true,
+          category: "all",
+          batchId: batch.id,
+          projectId,
+          now: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      prisma,
+    );
+    expect(result.results).toContainEqual(expect.objectContaining({
+      key: item.stagingKey,
+      status: "SKIPPED",
+      reason: "BATCH_ITEM_ACTIVE_OR_RETRYABLE",
+    }));
+    expect(result.results).toContainEqual(expect.objectContaining({
+      key: sourceZipKey,
+      status: "SKIPPED",
+      reason: "BATCH_NOT_TERMINAL",
+    }));
+    await storage.statObject(item.stagingKey);
+    await storage.statObject(sourceZipKey);
+  });
+
+  it("does not treat missing terminal staging cleanup candidates as hard drift", async () => {
+    const imageId = await createImage("missing-terminal-staging");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const zipBytes = await createZip({
+      imageId,
+      clientItemId: "missing-terminal-staging",
+      fileName: "predictions/missing-terminal-staging.u8raw",
+      bytes,
+      checksum: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    });
+    const batch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes, sourceFilename: "missing-terminal-staging.zip" },
+      prisma,
+    );
+    await batches.processPredictionImportBatchForUser(
+      { batchId: batch.id, userId: ownerId, input: { limit: 10 } },
+      prisma,
+    );
+    const item = await prisma.predictionImportBatchItem.findFirstOrThrow({
+      where: { batchJobId: batch.id },
+      select: { id: true, stagingKey: true, status: true },
+    });
+    expect(item.status).toBe("FAILED");
+    objectKeys.add(item.stagingKey);
+    await storage.deleteObjectBestEffort(item.stagingKey);
+
+    const result = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: {
+          category: "batch-staging",
+          batchId: batch.id,
+          projectId,
+          now: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      prisma,
+    );
+
+    expect(result.results).toContainEqual(expect.objectContaining({
+      key: item.stagingKey,
+      status: "WOULD_DELETE",
+      reason: "BATCH_FAILED_RETENTION_EXPIRED",
+    }));
+    expect(result.consistency.hardDriftCount).toBe(0);
+    expect(result.consistency.findings).not.toContainEqual(expect.objectContaining({
+      severity: "HARD_DRIFT",
+      key: item.stagingKey,
+    }));
+  });
+
+  it("does not reset failed batch items after their staging source is purged", async () => {
+    const imageId = await createImage("failed-purged");
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const zipBytes = await createZip({
+      imageId,
+      clientItemId: "failed-purged",
+      fileName: "predictions/failed-purged.u8raw",
+      bytes,
+      checksum: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    });
+    const batch = await batches.createPredictionImportBatchFromZipForUser(
+      { predictionRunId, userId: ownerId, zipBytes, sourceFilename: "failed-purged.zip" },
+      prisma,
+    );
+    await batches.processPredictionImportBatchForUser(
+      { batchId: batch.id, userId: ownerId, input: { limit: 10 } },
+      prisma,
+    );
+    const item = await prisma.predictionImportBatchItem.findFirstOrThrow({
+      where: { batchJobId: batch.id },
+      select: { id: true, stagingKey: true, status: true },
+    });
+    expect(item.status).toBe("FAILED");
+    objectKeys.add(item.stagingKey);
+
+    const result = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: {
+          execute: true,
+          category: "batch-staging",
+          batchId: batch.id,
+          projectId,
+          now: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      prisma,
+    );
+    expect(result.summary.deletedCount).toBe(1);
+    const retry = await batches.retryPredictionImportBatchForUser(
+      { batchId: batch.id, userId: ownerId },
+      prisma,
+    );
+    expect(retry.resetCount).toBe(0);
+  });
+
+  it("deletes only unreferenced presigned upload orphans", async () => {
+    const rawKey = `projects/${projectId}/images/protected-${suffix}.png`;
+    const orphanKey = `projects/${projectId}/images/orphan-${suffix}.png`;
+    const secondOrphanKey = `projects/${projectId}/images/orphan-2-${suffix}.png`;
+    const artifactKey = `projects/${projectId}/masks/protected-image/protected-${suffix}.msk`;
+    const exportKey = `projects/${projectId}/exports/protected-${suffix}/package.zip`;
+    for (const key of [rawKey, orphanKey, secondOrphanKey, artifactKey, exportKey]) {
+      await storage.putObject(key, new Uint8Array([0, 1, 2, 3]), "application/octet-stream");
+      objectKeys.add(key);
+    }
+
+    const rawImage = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: rawKey,
+        filename: "protected.png",
+        contentType: "image/png",
+        size: 4,
+        checksum: `sha256:protected-${suffix}`,
+        width: 2,
+        height: 2,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+    const artifact = await prisma.annotationArtifact.create({
+      data: {
+        projectId,
+        imageId: rawImage.id,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+        scopeKey: "cleanup-protected",
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    await prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: artifact.id,
+        version: 1,
+        storageKey: artifactKey,
+        contentType: "application/octet-stream",
+        size: 4,
+        checksum: `sha256:artifact-${suffix}`,
+        width: 2,
+        height: 2,
+        labelSchemaVersionId,
+        createdById: ownerId,
+      },
+    });
+
+    const result = await cleanup.runStorageCleanup(
+      {
+        actorId: adminId,
+        input: {
+          execute: true,
+          category: "upload-orphans",
+          projectId,
+          limit: 1,
+          now: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      prisma,
+    );
+    expect(result.summary.deletedCount).toBe(1);
+    const orphanResults = result.results.filter((entry) =>
+      entry.key === orphanKey || entry.key === secondOrphanKey,
+    );
+    expect(orphanResults.map((entry) => entry.status).sort()).toEqual(["DELETED", "SKIPPED"]);
+    expect(orphanResults.find((entry) => entry.status === "SKIPPED")).toMatchObject({
+      reason: "DELETE_LIMIT_REACHED",
+    });
+    expect(result.results).toContainEqual(expect.objectContaining({
+      key: rawKey,
+      status: "SKIPPED",
+      reason: "IMAGE_ASSET_REFERENCE",
+    }));
+    expect(result.results).toContainEqual(expect.objectContaining({
+      key: artifactKey,
+      status: "SKIPPED",
+      reason: "ARTIFACT_VERSION_REFERENCE",
+    }));
+    const deletedOrphan = orphanResults.find((entry) => entry.status === "DELETED")?.key;
+    const skippedOrphan = orphanResults.find((entry) => entry.status === "SKIPPED")?.key;
+    if (!deletedOrphan || !skippedOrphan) throw new Error("Expected one deleted and one skipped orphan");
+    await expect(storage.statObject(deletedOrphan)).rejects.toThrow();
+    await storage.statObject(skippedOrphan);
+    await storage.statObject(rawKey);
+    await storage.statObject(artifactKey);
+    await storage.statObject(exportKey);
+    expect(result.consistency.hardDriftCount).toBe(0);
+  });
+
+  it("deletes only unreferenced crop workflow orphans", async () => {
+    const cropProject = await prisma.annotationProject.create({
+      data: {
+        name: `Storage Cleanup Crop Objects ${suffix}`,
+        labelSchemaVersionId,
+        createdById: ownerId,
+        members: { create: [{ userId: ownerId, role: "OWNER" }] },
+      },
+      select: { id: true },
+    });
+    const bytes = new Uint8Array([4, 5, 6, 7]);
+    const protectedDerivedKey =
+      `projects/${cropProject.id}/derived-crops/protected-image/protected-slice/protected-${suffix}.png`;
+    const protectedSupportKey =
+      `projects/${cropProject.id}/crop-support-masks/protected-image/protected-slice/protected-crop/${suffix}.msk`;
+    const protectedSemanticKey =
+      `projects/${cropProject.id}/crop-semantic-masks/protected-image/protected-slice/protected-crop/SAP_HEARTWOOD/${suffix}.msk`;
+    const orphanDerivedKey =
+      `projects/${cropProject.id}/derived-crops/orphan-image/orphan-slice/orphan-${suffix}.png`;
+    const orphanSupportKey =
+      `projects/${cropProject.id}/crop-support-masks/orphan-image/orphan-slice/orphan-crop/${suffix}.msk`;
+    const orphanSemanticKey =
+      `projects/${cropProject.id}/crop-semantic-masks/orphan-image/orphan-slice/orphan-crop/COPPER/${suffix}.msk`;
+    const allCropKeys = [
+      protectedDerivedKey,
+      protectedSupportKey,
+      protectedSemanticKey,
+      orphanDerivedKey,
+      orphanSupportKey,
+      orphanSemanticKey,
+    ];
+
+    try {
+      for (const key of allCropKeys) {
+        await storage.putObject(key, bytes, key.endsWith(".png") ? "image/png" : "application/octet-stream");
+        objectKeys.add(key);
+      }
+
+      const crop = await createCropFixture({
+        projectId: cropProject.id,
+        name: "crop-protected",
+        derivedCropKey: protectedDerivedKey,
+        bytes,
+      });
+      const support = await createCropArtifactVersion({
+        projectId: cropProject.id,
+        imageId: crop.imageId,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropId: crop.cropId,
+        key: protectedSupportKey,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+        scopeKey: `crop-support:${crop.cropId}`,
+        bytes,
+      });
+      await createCropArtifactVersion({
+        projectId: cropProject.id,
+        imageId: crop.imageId,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropId: crop.cropId,
+        key: protectedSemanticKey,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+        scopeKey: `crop-semantic:${crop.cropId}:sap-heartwood`,
+        bytes,
+        supportMaskVersionId: support.id,
+        cropSemanticMode: CropSemanticMode.SAP_HEARTWOOD,
+      });
+
+      const now = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const dryRun = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "upload-orphans",
+            projectId: cropProject.id,
+            now: now.toISOString(),
+          },
+        },
+        prisma,
+      );
+
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: protectedDerivedKey,
+        category: "ORPHAN_DERIVED_CROP_OBJECT",
+        status: "SKIPPED",
+        reason: "DERIVED_SLICE_CROP_REFERENCE",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: protectedSupportKey,
+        category: "ORPHAN_CROP_SUPPORT_MASK_OBJECT",
+        status: "SKIPPED",
+        reason: "ARTIFACT_VERSION_REFERENCE",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: protectedSemanticKey,
+        category: "ORPHAN_CROP_SEMANTIC_MASK_OBJECT",
+        status: "SKIPPED",
+        reason: "ARTIFACT_VERSION_REFERENCE",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: orphanDerivedKey,
+        category: "ORPHAN_DERIVED_CROP_OBJECT",
+        status: "WOULD_DELETE",
+        reason: "DERIVED_CROP_OBJECT_ORPHAN_RETENTION_EXPIRED",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: orphanSupportKey,
+        category: "ORPHAN_CROP_SUPPORT_MASK_OBJECT",
+        status: "WOULD_DELETE",
+        reason: "CROP_SUPPORT_MASK_OBJECT_ORPHAN_RETENTION_EXPIRED",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: orphanSemanticKey,
+        category: "ORPHAN_CROP_SEMANTIC_MASK_OBJECT",
+        status: "WOULD_DELETE",
+        reason: "CROP_SEMANTIC_MASK_OBJECT_ORPHAN_RETENTION_EXPIRED",
+      }));
+      expect(dryRun.summary.byCategory).toMatchObject({
+        ORPHAN_DERIVED_CROP_OBJECT: { wouldDeleteCount: 1, skippedCount: 1 },
+        ORPHAN_CROP_SUPPORT_MASK_OBJECT: { wouldDeleteCount: 1, skippedCount: 1 },
+        ORPHAN_CROP_SEMANTIC_MASK_OBJECT: { wouldDeleteCount: 1, skippedCount: 1 },
+      });
+
+      const batchOnly = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "batch-staging",
+            projectId: cropProject.id,
+            now: now.toISOString(),
+          },
+        },
+        prisma,
+      );
+      expect(batchOnly.results.some((entry) => allCropKeys.includes(entry.key))).toBe(false);
+
+      const executed = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            execute: true,
+            category: "upload-orphans",
+            projectId: cropProject.id,
+            limit: 10,
+            now: now.toISOString(),
+          },
+        },
+        prisma,
+      );
+      expect(executed.results).toContainEqual(expect.objectContaining({
+        key: orphanDerivedKey,
+        status: "DELETED",
+      }));
+      expect(executed.results).toContainEqual(expect.objectContaining({
+        key: orphanSupportKey,
+        status: "DELETED",
+      }));
+      expect(executed.results).toContainEqual(expect.objectContaining({
+        key: orphanSemanticKey,
+        status: "DELETED",
+      }));
+      await expect(storage.statObject(orphanDerivedKey)).rejects.toThrow();
+      await expect(storage.statObject(orphanSupportKey)).rejects.toThrow();
+      await expect(storage.statObject(orphanSemanticKey)).rejects.toThrow();
+      await storage.statObject(protectedDerivedKey);
+      await storage.statObject(protectedSupportKey);
+      await storage.statObject(protectedSemanticKey);
+      expect(executed.consistency.hardDriftCount).toBe(0);
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: cropProject.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports export package orphans and stale jobs as warnings only", async () => {
+    const orphanKey = `projects/${projectId}/exports/orphan-export-${suffix}/package.zip`;
+    await storage.putObject(orphanKey, new Uint8Array([9, 9, 9]), "application/zip");
+    objectKeys.add(orphanKey);
+    const oldDate = new Date(Date.now() - 60 * 60 * 1000);
+    const pending = await prisma.exportBatch.create({
+      data: {
+        projectId,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.PENDING,
+        exportedById: ownerId,
+        exportedAt: oldDate,
+        createdAt: oldDate,
+      },
+      select: { id: true },
+    });
+    const processing = await prisma.exportBatch.create({
+      data: {
+        projectId,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.PROCESSING,
+        exportedById: ownerId,
+        exportedAt: oldDate,
+        createdAt: oldDate,
+        processingStartedAt: oldDate,
+        leaseExpiresAt: oldDate,
+      },
+      select: { id: true },
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: { category: "all", projectId, now: new Date().toISOString() },
+        },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBe(0);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "ORPHAN_EXPORT_PACKAGE_OBJECT",
+        severity: "WARNING",
+        key: orphanKey,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "STALE_PENDING_EXPORT_JOB",
+        severity: "WARNING",
+        entityId: pending.id,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "EXPIRED_PROCESSING_EXPORT_JOB",
+        severity: "WARNING",
+        entityId: processing.id,
+      }));
+      await storage.statObject(orphanKey);
+    } finally {
+      await prisma.exportBatch.deleteMany({ where: { id: { in: [pending.id, processing.id] } } });
+    }
+  });
+
+  it("reports completed export checksum and size mismatches as hard drift", async () => {
+    const exportId = `cleanup-export-mismatch-${suffix}`;
+    const manifestKey = `projects/${projectId}/exports/${exportId}/manifest.json`;
+    const packageKey = `projects/${projectId}/exports/${exportId}/package.zip`;
+    const manifestBytes = new TextEncoder().encode(JSON.stringify({ ok: true }));
+    const packageBytes = new Uint8Array([1, 2, 3, 4]);
+    await storage.putObject(manifestKey, manifestBytes, "application/json");
+    await storage.putObject(packageKey, packageBytes, "application/zip");
+    objectKeys.add(manifestKey);
+    objectKeys.add(packageKey);
+    const batch = await prisma.exportBatch.create({
+      data: {
+        id: exportId,
+        projectId,
+        target: ExportTarget.COMBINED_MANIFEST,
+        status: ExportStatus.COMPLETED,
+        manifestStorageKey: manifestKey,
+        manifestChecksum: sha256Checksum(manifestBytes),
+        packageStorageKey: packageKey,
+        packageChecksum: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        packageSize: packageBytes.byteLength + 1,
+        exportedById: ownerId,
+        completedAt: new Date(),
+      },
+      select: { id: true },
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", projectId } },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBeGreaterThanOrEqual(2);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "EXPORT_PACKAGE_SIZE_MISMATCH",
+        severity: "HARD_DRIFT",
+        entityId: batch.id,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "EXPORT_PACKAGE_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entityId: batch.id,
+      }));
+    } finally {
+      await prisma.exportBatch.delete({ where: { id: batch.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports missing protected DB-referenced objects as hard drift", async () => {
+    const missingKey = `tests/storage-cleanup/${suffix}/missing-protected.png`;
+    const image = await prisma.imageAsset.create({
+      data: {
+        projectId,
+        storageKey: missingKey,
+        filename: "missing-protected.png",
+        contentType: "image/png",
+        size: 4,
+        checksum: sha256Checksum(new Uint8Array([1, 2, 3, 4])),
+        width: 2,
+        height: 2,
+        validationStatus: "VALIDATED",
+        uploadedById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", projectId } },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBeGreaterThan(0);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "MISSING_REFERENCED_OBJECT",
+        severity: "HARD_DRIFT",
+        entity: "ImageAsset",
+        entityId: image.id,
+        key: missingKey,
+      }));
+    } finally {
+      await prisma.imageAsset.delete({ where: { id: image.id } }).catch(() => undefined);
+    }
+  });
+
+  it("keeps normal primary-object consistency stat-only for same-size checksum drift", async () => {
+    const project = await createProject("Storage Cleanup Normal Checksum");
+    const originalBytes = new Uint8Array([1, 1, 1, 1]);
+    const replacementBytes = new Uint8Array([2, 2, 2, 2]);
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "normal-same-size-drift",
+      bytes: originalBytes,
+    });
+    await storage.putObject(image.storageKey, replacementBytes, "image/png");
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", projectId: project.id } },
+        prisma,
+      );
+      expect(result.consistency.deepChecksumEnabled).toBe(false);
+      expect(result.consistency.hardDriftCount).toBe(0);
+      expect(result.consistency.findings).not.toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        key: image.storageKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("detects deep checksum drift for primary image, artifact, and derived crop objects", async () => {
+    const project = await createProject("Storage Cleanup Deep Checksum Drift");
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "deep-image-drift",
+      bytes: new Uint8Array([1, 1, 1, 1]),
+    });
+    const cropKey = `projects/${project.id}/derived-crops/deep-image/deep-slice/deep-${suffix}.png`;
+    const artifactKey = `projects/${project.id}/crop-support-masks/deep-image/deep-slice/deep-crop/${suffix}.msk`;
+    const originalCropBytes = new Uint8Array([3, 3, 3, 3]);
+    const originalArtifactBytes = new Uint8Array([5, 5, 5, 5]);
+    await storage.putObject(cropKey, originalCropBytes, "image/png");
+    await storage.putObject(artifactKey, originalArtifactBytes, "application/octet-stream");
+    objectKeys.add(cropKey);
+    objectKeys.add(artifactKey);
+
+    try {
+      const crop = await createCropFixture({
+        projectId: project.id,
+        name: "deep-crop-source",
+        derivedCropKey: cropKey,
+        bytes: originalCropBytes,
+      });
+      await createCropArtifactVersion({
+        projectId: project.id,
+        imageId: crop.imageId,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropId: crop.cropId,
+        key: artifactKey,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+        scopeKey: `deep-support:${crop.cropId}`,
+        bytes: originalArtifactBytes,
+      });
+
+      await storage.putObject(image.storageKey, new Uint8Array([2, 2, 2, 2]), "image/png");
+      await storage.putObject(cropKey, new Uint8Array([4, 4, 4, 4]), "image/png");
+      await storage.putObject(artifactKey, new Uint8Array([6, 6, 6, 6]), "application/octet-stream");
+
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "all",
+            projectId: project.id,
+            deepChecksum: true,
+            deepChecksumMaxObjects: 20,
+            deepChecksumMaxBytes: 1024,
+          },
+        },
+        prisma,
+      );
+      expect(result.consistency.deepChecksumEnabled).toBe(true);
+      expect(result.consistency.deepChecksumObjectCount).toBeGreaterThanOrEqual(3);
+      expect(result.consistency.checksumMismatchCount).toBeGreaterThanOrEqual(3);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "ImageAsset",
+        key: image.storageKey,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "DerivedSliceCrop",
+        key: cropKey,
+      }));
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "AnnotationArtifactVersion",
+        key: artifactKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports missing primary checksum metadata as a deep checksum warning", async () => {
+    const project = await createProject("Storage Cleanup Deep Missing Checksum");
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "missing-checksum",
+      bytes: new Uint8Array([7, 7, 7, 7]),
+      checksum: null,
+    });
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: { category: "all", projectId: project.id, deepChecksum: true },
+        },
+        prisma,
+      );
+      expect(result.consistency.hardDriftCount).toBe(0);
+      expect(result.consistency.checksumMissingCount).toBe(1);
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISSING",
+        severity: "WARNING",
+        entity: "ImageAsset",
+        key: image.storageKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("reports size mismatch before deep checksum comparison", async () => {
+    const project = await createProject("Storage Cleanup Deep Size Precedence");
+    const image = await createImageReference({
+      projectId: project.id,
+      name: "size-precedence",
+      bytes: new Uint8Array([8, 8, 8, 8]),
+    });
+    await storage.putObject(image.storageKey, new Uint8Array([9, 9, 9, 9, 9]), "image/png");
+
+    try {
+      const result = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: { category: "all", projectId: project.id, deepChecksum: true },
+        },
+        prisma,
+      );
+      expect(result.consistency.findings).toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_SIZE_MISMATCH",
+        severity: "HARD_DRIFT",
+        entity: "ImageAsset",
+        key: image.storageKey,
+      }));
+      expect(result.consistency.findings).not.toContainEqual(expect.objectContaining({
+        code: "REFERENCED_OBJECT_CHECKSUM_MISMATCH",
+        key: image.storageKey,
+      }));
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+
+  it("rejects unsafe deep checksum scope and limit requests before cleanup", async () => {
+    const project = await createProject("Storage Cleanup Deep Limits");
+    await createImageReference({
+      projectId: project.id,
+      name: "limit-a",
+      bytes: new Uint8Array([1, 2, 3, 4]),
+    });
+    await createImageReference({
+      projectId: project.id,
+      name: "limit-b",
+      bytes: new Uint8Array([5, 6, 7, 8]),
+    });
+
+    try {
+      await expect(cleanup.runStorageCleanup(
+        { actorId: adminId, input: { category: "all", deepChecksum: true } },
+        prisma,
+      )).rejects.toMatchObject({ code: "DEEP_CHECKSUM_PROJECT_REQUIRED" });
+      await expect(cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "all",
+            projectId: project.id,
+            deepChecksum: true,
+            deepChecksumMaxObjects: 1,
+          },
+        },
+        prisma,
+      )).rejects.toMatchObject({ code: "DEEP_CHECKSUM_LIMIT_EXCEEDED" });
+      await expect(cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "all",
+            projectId: project.id,
+            deepChecksum: true,
+            deepChecksumMaxBytes: 1,
+          },
+        },
+        prisma,
+      )).rejects.toMatchObject({ code: "DEEP_CHECKSUM_LIMIT_EXCEEDED" });
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: project.id } }).catch(() => undefined);
+    }
+  });
+});

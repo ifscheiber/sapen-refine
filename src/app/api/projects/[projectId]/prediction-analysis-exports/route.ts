@@ -1,0 +1,35 @@
+import { NextResponse } from "next/server";
+
+import { requireUser } from "@/server/auth/rbac";
+import {
+  createPredictionAnalysisExportForUser,
+  predictionAnalysisExportErrorResponse,
+} from "@/server/domain/predictionAnalysisExports";
+import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
+import { enforceHighCostRouteLimit } from "@/server/http/highCostRateLimit";
+
+export const POST = withApiErrorHandling(async function POST(
+  req: Request,
+  props: { params: Promise<{ projectId: string }> },
+) {
+  const user = await requireUser();
+  const { projectId } = await props.params;
+  await enforceHighCostRouteLimit({
+    family: "export:prediction-analysis-create",
+    userId: user.id,
+    scope: [projectId],
+  });
+  const body = await req.json().catch(() => null);
+
+  try {
+    const exportBatch = await createPredictionAnalysisExportForUser({
+      projectId,
+      userId: user.id,
+      input: body,
+    });
+    return NextResponse.json({ ok: true, export: exportBatch }, { status: 202 });
+  } catch (error) {
+    const payload = predictionAnalysisExportErrorResponse(error);
+    return apiErrorFromPayload(payload);
+  }
+});

@@ -1,0 +1,246 @@
+import { describe, expect, it } from "vitest";
+import type React from "react";
+
+import {
+  API_ARTIFACT_REVIEW,
+  API_CORRECTION_CONTEXT,
+  API_CROP_SEMANTIC_MASK,
+  API_CROP_SEMANTIC_MASK_UPLOAD,
+  API_CROP_SUPPORT_MASK,
+  API_CROP_SUPPORT_MASK_UPLOAD,
+  API_IMAGE_VIEW,
+  API_MASK_LATEST,
+  API_SUPPORT_MASK_UPLOAD,
+} from "@/features/editor/editorApi";
+import {
+  formatEraserHint,
+  getEraseLabelForMaskMode,
+  getPaintLabelForTool,
+  isBrushLikeTool,
+} from "@/features/editor/editorTools";
+import {
+  buildEditorMaskUploadRequest,
+  EditorMaskUploadError,
+  expectedMaskUploadByteLength,
+  MASK_UPLOAD_CONTENT_TYPE,
+  MASK_UPLOAD_FORMAT,
+} from "@/features/editor/editorMaskUpload";
+import { Labels } from "@/mask/labels";
+import { MaskBuffer } from "@/mask/maskBuffer";
+import { applyBrush, applyBrushWithinSupport } from "@/mask/tools";
+import {
+  formatCorrectionModel,
+  formatCorrectionScore,
+  formatBBoxErrorMessage,
+  formatReviewState,
+  formatSliceClassLabel,
+  formatVersion,
+  isAbortError,
+} from "@/features/editor/editorFormatters";
+import { shouldIgnorePointerDown } from "@/features/editor/editorPointer";
+import type { CorrectionContext, ReviewVersion } from "@/features/editor/editorTypes";
+
+describe("editor helpers", () => {
+  it("builds stable editor API paths", () => {
+    expect(API_IMAGE_VIEW("img_1")).toBe("/api/images/img_1/view");
+    expect(API_MASK_LATEST("img_1")).toBe("/api/images/img_1/mask/latest");
+    expect(API_SUPPORT_MASK_UPLOAD("img_1")).toBe("/api/images/img_1/support-mask/upload");
+    expect(API_CROP_SUPPORT_MASK("crop_1")).toBe("/api/slice-crops/crop_1/support-mask");
+    expect(API_CROP_SUPPORT_MASK_UPLOAD("crop_1")).toBe("/api/slice-crops/crop_1/support-mask/upload");
+    expect(API_CROP_SEMANTIC_MASK("crop_1")).toBe("/api/slice-crops/crop_1/semantic-mask");
+    expect(API_CROP_SEMANTIC_MASK_UPLOAD("crop_1")).toBe("/api/slice-crops/crop_1/semantic-mask/upload");
+    expect(API_ARTIFACT_REVIEW("version_1")).toBe("/api/artifact-versions/version_1/review");
+    expect(API_CORRECTION_CONTEXT("task_1")).toBe("/api/correction-tasks/task_1/correction-context");
+  });
+
+  it("formats review and classification labels", () => {
+    const version: ReviewVersion = {
+      id: "version_1",
+      version: 3,
+      reviewState: "SUBMITTED",
+      createdAt: "2026-05-21T00:00:00.000Z",
+      createdBy: { email: "labeler@example.test", name: null },
+    };
+
+    expect(formatReviewState("REVIEW_REQUIRED")).toBe("Review required");
+    expect(formatReviewState(null)).toBe("Missing");
+    expect(formatVersion(version)).toBe("Submitted v3");
+    expect(formatVersion(null)).toBe("Missing");
+    expect(formatSliceClassLabel("COPPER_SLICE")).toBe("Copper slice");
+    expect(formatSliceClassLabel(null)).toBe("Missing");
+  });
+
+  it("formats BBox workflow errors for users", () => {
+    expect(formatBBoxErrorMessage(new Error("BBOX_TOO_SMALL"))).toBe(
+      "BBox too small. Enlarge the selection before preparing slices.",
+    );
+    expect(formatBBoxErrorMessage(new Error("BBOX_OVERLAP"))).toBe(
+      "BBox overlap detected. Move or resize boxes before continuing.",
+    );
+  });
+
+  it("formats assisted correction model and score context", () => {
+    const context: CorrectionContext = {
+      task: {
+        id: "task_1",
+        projectId: "project_1",
+        imageId: "image_1",
+        status: "OPEN",
+        priority: 50,
+        taskReason: "LOW_CONFIDENCE",
+        confidenceScore: 0.42,
+        uncertaintyScore: 0.58,
+      },
+      mode: "semantic",
+      targetType: "SEMANTIC_MASK",
+      humanArtifactKind: "SEMANTIC_MASK",
+      predictionRun: {
+        id: "run_1",
+        inferenceRunId: "inference_1",
+        modelRun: {
+          modelFamily: "sapen",
+          modelName: "wood-segmentation",
+          modelVersion: "0.1.0",
+        },
+      },
+      sourcePrediction: {
+        id: "prediction_1",
+        checksum: "sha256:test",
+        width: 2,
+        height: 2,
+        format: "u8raw-v1",
+      },
+      predictionMaskUrl: "/api/correction-tasks/task_1/prediction-mask",
+      correctionSaveUrl: "/api/correction-tasks/task_1/corrections",
+    };
+
+    expect(formatCorrectionModel(context)).toBe("sapen / wood-segmentation / 0.1.0");
+    expect(formatCorrectionScore(context)).toBe("LOW_CONFIDENCE · confidence 0.42 · uncertainty 0.58");
+    expect(formatCorrectionModel(null)).toBe("Unknown model");
+    expect(formatCorrectionScore(null)).toBe("");
+  });
+
+  it("keeps pointer ignore decisions stable", () => {
+    expect(shouldIgnorePointerDown({ pointerType: "mouse", button: 1, isPrimary: true } as React.PointerEvent<HTMLCanvasElement>)).toBe(true);
+    expect(shouldIgnorePointerDown({ pointerType: "mouse", button: 0, isPrimary: true } as React.PointerEvent<HTMLCanvasElement>)).toBe(false);
+    expect(shouldIgnorePointerDown({ pointerType: "touch", button: 0, isPrimary: false } as React.PointerEvent<HTMLCanvasElement>)).toBe(true);
+    expect(shouldIgnorePointerDown({ pointerType: "pen", button: 0, isPrimary: true } as React.PointerEvent<HTMLCanvasElement>)).toBe(false);
+  });
+
+  it("maps eraser to the current mask-mode background value", () => {
+    expect(isBrushLikeTool("brush")).toBe(true);
+    expect(isBrushLikeTool("eraser")).toBe(true);
+    expect(isBrushLikeTool("lasso_free")).toBe(false);
+    expect(getEraseLabelForMaskMode("semantic", 99)).toBe(Labels.BG);
+    expect(getEraseLabelForMaskMode("support", 99)).toBe(99);
+    expect(getPaintLabelForTool({
+      tool: "brush",
+      maskMode: "semantic",
+      activeLabel: Labels.COPPER,
+      supportBackgroundLabel: 99,
+    })).toBe(Labels.COPPER);
+    expect(getPaintLabelForTool({
+      tool: "eraser",
+      maskMode: "support",
+      activeLabel: Labels.SLICE_SUPPORT,
+      supportBackgroundLabel: 99,
+    })).toBe(99);
+    expect(formatEraserHint("semantic")).toBe("Eraser: semantic background");
+    expect(formatEraserHint("support")).toBe("Eraser: support background");
+  });
+
+  it("erases through the same brush mutation path", () => {
+    const semantic = new MaskBuffer(5, 5, Labels.COPPER);
+    applyBrush(semantic, 2, 2, 1, getPaintLabelForTool({
+      tool: "eraser",
+      maskMode: "semantic",
+      activeLabel: Labels.COPPER,
+    }));
+    expect(semantic.get(2, 2)).toBe(Labels.BG);
+    expect(semantic.get(0, 0)).toBe(Labels.COPPER);
+
+    const support = new MaskBuffer(5, 5, Labels.SLICE_SUPPORT);
+    applyBrush(support, 2, 2, 1, getPaintLabelForTool({
+      tool: "eraser",
+      maskMode: "support",
+      activeLabel: Labels.SLICE_SUPPORT,
+      supportBackgroundLabel: Labels.BG,
+    }));
+    expect(support.get(2, 2)).toBe(Labels.BG);
+    expect(support.get(0, 0)).toBe(Labels.SLICE_SUPPORT);
+  });
+
+  it("constrains crop semantic brush strokes to support pixels", () => {
+    const semantic = new MaskBuffer(5, 5, Labels.BG);
+    const support = new MaskBuffer(5, 5, Labels.BG);
+    support.set(2, 2, Labels.SLICE_SUPPORT);
+    support.set(3, 2, Labels.SLICE_SUPPORT);
+
+    const patch = applyBrushWithinSupport(semantic, support, 2, 2, 2, Labels.SAPWOOD);
+
+    expect(patch).not.toBeNull();
+    expect(semantic.get(2, 2)).toBe(Labels.SAPWOOD);
+    expect(semantic.get(3, 2)).toBe(Labels.SAPWOOD);
+    expect(semantic.get(1, 2)).toBe(Labels.BG);
+    expect(semantic.get(2, 1)).toBe(Labels.BG);
+  });
+
+  it("builds exact raw mask upload requests for full-resolution masks", () => {
+    const bytes = new Uint8Array(6000 * 4000);
+    bytes[bytes.length - 1] = Labels.COPPER;
+
+    const request = buildEditorMaskUploadRequest({
+      data: bytes,
+      width: 6000,
+      height: 4000,
+    });
+
+    expect(expectedMaskUploadByteLength(6000, 4000)).toBe(24_000_000);
+    expect(request.body).toBeInstanceOf(Uint8Array);
+    expect(request.body.byteLength).toBe(24_000_000);
+    expect(request.body[request.body.byteLength - 1]).toBe(Labels.COPPER);
+    expect(request.headers).toMatchObject({
+      "content-type": MASK_UPLOAD_CONTENT_TYPE,
+      "x-mask-width": "6000",
+      "x-mask-height": "4000",
+      "x-mask-format": MASK_UPLOAD_FORMAT,
+      "x-mask-byte-length": "24000000",
+    });
+  });
+
+  it("copies only the typed-array view bytes into mask upload requests", () => {
+    const backing = new Uint8Array([9, 9, 1, 2, 3, 4, 9, 9]);
+    const view = backing.subarray(2, 6);
+
+    const request = buildEditorMaskUploadRequest({
+      data: view,
+      width: 2,
+      height: 2,
+    });
+
+    expect(Array.from(request.body)).toEqual([1, 2, 3, 4]);
+    expect(request.body.byteLength).toBe(4);
+    expect(request.headers["x-mask-byte-length"]).toBe("4");
+  });
+
+  it("rejects client-side mask byte-length mismatches before upload", () => {
+    expect(() =>
+      buildEditorMaskUploadRequest({
+        data: new Uint8Array(3),
+        width: 2,
+        height: 2,
+      }),
+    ).toThrow(new EditorMaskUploadError("MASK_CLIENT_BYTE_LENGTH_MISMATCH", {
+      width: 2,
+      height: 2,
+      expectedBytes: 4,
+      actualBytes: 3,
+      format: MASK_UPLOAD_FORMAT,
+    }));
+  });
+
+  it("recognizes abort errors without relying on fetch implementations", () => {
+    expect(isAbortError({ name: "AbortError" })).toBe(true);
+    expect(isAbortError(new Error("regular failure"))).toBe(false);
+  });
+});

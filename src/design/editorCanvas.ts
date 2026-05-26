@@ -1,0 +1,16 @@
+export const editorCanvasPreviewStyle = {
+  polygonStroke: "rgba(255, 255, 255, 0.95)",
+  polygonFill: "rgba(220, 220, 220, 0.45)",
+  polygonShadow: "rgba(0, 0, 0, 0.25)",
+  handleStroke: "rgba(20, 20, 20, 0.9)",
+  handleFill: "rgba(255, 255, 255, 0.95)",
+  bboxStroke: "rgba(105, 197, 172, 0.95)",
+  bboxFill: "rgba(105, 197, 172, 0.14)",
+  bboxSelectedStroke: "rgba(245, 165, 36, 0.95)",
+  bboxSelectedFill: "rgba(245, 165, 36, 0.18)",
+  bboxIssueStroke: "rgba(251, 191, 36, 0.98)",
+  bboxIssueFill: "rgba(251, 191, 36, 0.2)",
+  bboxProtectedStroke: "rgba(148, 163, 184, 0.92)",
+  bboxProtectedFill: "rgba(148, 163, 184, 0.12)",
+  bboxShadow: "rgba(0, 0, 0, 0.35)",
+} as const;

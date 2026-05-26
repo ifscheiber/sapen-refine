@@ -11,16 +11,179 @@ enum GlobalRole {
   USER
 }
 
-enum ProjectRole {
+enum AnnotationProjectRole {
   OWNER
   QA
   LABELER
   VIEWER
 }
 
-enum MaskKind {
-  PREDICTION
-  REFINED
+enum LabelSchemaStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  ARCHIVED
+}
+
+enum LabelApplicability {
+  SEMANTIC_MASK
+  SUPPORT_MASK
+  SLICE_CLASSIFICATION
+  REVIEW_FLAG
+}
+
+enum ImageValidationStatus {
+  PENDING
+  VALIDATED
+  FAILED
+}
+
+enum AnnotationTaskType {
+  SEMANTIC_MATERIAL_MASK
+  SLICE_SUPPORT_MASK
+  SLICE_CLASSIFICATION
+  REVIEW_APPROVAL
+  MODEL_PREDICTION_CORRECTION
+}
+
+enum AnnotationTaskStatus {
+  OPEN
+  IN_PROGRESS
+  SUBMITTED
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum AnnotationArtifactKind {
+  SEMANTIC_MASK
+  SLICE_SUPPORT_MASK
+  INSTANCE_MASK
+  PREDICTION_MASK
+  DERIVED_MASK
+}
+
+enum ArtifactReviewState {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+enum ArtifactProvenance {
+  HUMAN_ANNOTATION
+  HUMAN_CORRECTION
+  MODEL_PREDICTION
+  DERIVED
+  SYSTEM_IMPORT
+}
+
+enum CoordinateSpace {
+  IMAGE_PIXEL
+  SOURCE_IMAGE_PIXEL
+  CROP_PIXEL
+  TRANSFORMED
+}
+
+enum CropSemanticMode {
+  SAP_HEARTWOOD
+  COPPER
+}
+
+enum SliceClass {
+  SAP_HEARTWOOD_SLICE
+  COPPER_SLICE
+  UNKNOWN
+  REVIEW_REQUIRED
+}
+
+enum SliceClassificationSource {
+  MANUAL
+  AUTO_FROM_SEMANTIC_MASK
+}
+
+enum SliceClassificationDerivationReason {
+  COPPER_PIXELS_PRESENT
+  SAP_HEARTWOOD_PIXELS_PRESENT
+  NO_CLASSIFYING_PIXELS
+  UNKNOWN_PIXELS_PRESENT
+  SEMANTIC_MODE_LABEL_CONFLICT
+}
+
+enum SliceBoundingBoxStatus {
+  ACTIVE
+  DELETED
+}
+
+enum ImageCropBBoxSetStatus {
+  DRAFT
+  CONFIRMED
+  NEEDS_UPDATE
+}
+
+enum ExportTarget {
+  SEMANTIC_SEGMENTATION
+  INSTANCE_SUPPORT_SEGMENTATION
+  SLICE_CLASSIFICATION
+  COMBINED_MANIFEST
+  CROP_TRAINING
+  PREDICTION_ANALYSIS
+}
+
+enum ExportStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ModelTaskType {
+  SEMANTIC_SEGMENTATION
+  SUPPORT_SEGMENTATION
+  INSTANCE_SEGMENTATION
+  SLICE_CLASSIFICATION
+  COMBINED
+  OTHER
+}
+
+enum PredictionRunStatus {
+  CREATED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PredictionTargetType {
+  SEMANTIC_MASK
+  SLICE_SUPPORT_MASK
+  INSTANCE_MASK
+  SLICE_CLASSIFICATION
+}
+
+enum PredictionImportBatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  CANCELLED
+}
+
+enum PredictionImportBatchItemStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  RETRY_PENDING
+}
+
+enum PredictionImportBatchSourceKind {
+  ZIP_UPLOAD
+  MANIFEST_UPLOAD
 }
 
 model User {
@@ -28,20 +191,46 @@ model User {
   email        String   @unique
   name         String?
   passwordHash String?
+  disabledAt   DateTime?
+  disabledById String?
+  disabledReason String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  globalRoles         UserGlobalRole[]
-  memberships         ProjectMember[]
-  auditLogs           AuditLog[]    @relation("AuditActor")
-  createdMaskVersions MaskVersion[] @relation("MaskVersionCreatedBy")
-  sessions            Session[]
-  createdImages       Image[]       @relation("ImageCreatedBy")
+  globalRoles                    UserGlobalRole[]
+  projectMemberships             AnnotationProjectMember[]
+  auditLogs                      AuditLog[]                   @relation("AuditActor")
+  sessions                       Session[]
+  createdProjects                AnnotationProject[]          @relation("ProjectCreatedBy")
+  uploadedImages                 ImageAsset[]                 @relation("ImageUploadedBy")
+  createdLabelSchemas            LabelSchemaVersion[]         @relation("LabelSchemaCreatedBy")
+  createdTasks                   AnnotationTask[]             @relation("TaskCreatedBy")
+  assignedTasks                  AnnotationTask[]             @relation("TaskAssignedTo")
+  editingSessions                AnnotationSession[]          @relation("AnnotationSessionActor")
+  createdArtifacts               AnnotationArtifact[]         @relation("ArtifactCreatedBy")
+  createdArtifactVersions        AnnotationArtifactVersion[]  @relation("ArtifactVersionCreatedBy")
+  createdSliceInstances          SliceInstance[]              @relation("SliceInstanceCreatedBy")
+  createdSliceBoundingBoxes      SliceBoundingBoxVersion[]    @relation("SliceBoundingBoxCreatedBy")
+  confirmedImageCropWorkflows    ImageCropWorkflowState[]     @relation("ImageCropWorkflowConfirmedBy")
+  submittedImageAnnotationReviews ImageAnnotationReview[]      @relation("ImageAnnotationReviewSubmittedBy")
+  reviewedImageAnnotationReviews  ImageAnnotationReview[]      @relation("ImageAnnotationReviewReviewedBy")
+  createdDerivedSliceCrops       DerivedSliceCrop[]           @relation("DerivedSliceCropCreatedBy")
+  createdSliceClassifications    SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
+  reviewDecisions                ReviewDecision[]             @relation("ReviewDecisionReviewedBy")
+  exportBatches                  ExportBatch[]                @relation("ExportBatchExportedBy")
+  createdModelRuns               ModelRun[]                   @relation("ModelRunCreatedBy")
+  generatedPredictionRuns        PredictionRun[]              @relation("PredictionRunGeneratedBy")
+  createdPredictionImportBatches PredictionImportBatchJob[]   @relation("PredictionImportBatchCreatedBy")
+  disabledBy                     User?                        @relation("UserDisabledBy", fields: [disabledById], references: [id], onDelete: SetNull)
+  disabledUsers                  User[]                       @relation("UserDisabledBy")
+
+  @@index([disabledAt])
+  @@index([disabledById])
 }
 
 model Role {
-  id    String     @id @default(cuid())
-  name  GlobalRole @unique
+  id    String           @id @default(cuid())
+  name  GlobalRole       @unique
   users UserGlobalRole[]
 }
 
@@ -55,84 +244,788 @@ model UserGlobalRole {
   @@id([userId, roleId])
 }
 
-model Project {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model AnnotationProject {
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?
+  labelSchemaVersionId String?
+  createdById          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  members ProjectMember[]
-  images  Image[]
+  labelSchemaVersion      LabelSchemaVersion?          @relation("ProjectActiveLabelSchema", fields: [labelSchemaVersionId], references: [id], onDelete: SetNull)
+  createdBy               User?                        @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members                 AnnotationProjectMember[]
+  images                  ImageAsset[]
+  tasks                   AnnotationTask[]
+  annotationSessions      AnnotationSession[]
+  artifacts               AnnotationArtifact[]
+  sliceInstances          SliceInstance[]
+  sliceBoundingBoxes      SliceBoundingBoxVersion[]
+  imageCropWorkflowStates ImageCropWorkflowState[]
+  imageAnnotationReviews  ImageAnnotationReview[]
+  derivedSliceCrops       DerivedSliceCrop[]
+  classifications         SliceClassificationVersion[]
+  reviewDecisions         ReviewDecision[]
+  exportBatches           ExportBatch[]
+  predictionRuns          PredictionRun[]
+  predictionImportBatches PredictionImportBatchJob[]
+
+  @@index([labelSchemaVersionId])
+  @@index([createdById])
 }
 
-model ProjectMember {
+model AnnotationProjectMember {
   projectId String
   userId    String
-  role      ProjectRole
+  role      AnnotationProjectRole
+  joinedAt  DateTime              @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userId])
   @@index([userId])
+  @@index([role])
 }
 
-model Image {
-  id          String   @id @default(cuid())
-  projectId   String
-  storageKey  String   @unique
-  filename    String?
-  contentType String?
-  size        Int?
-  createdAt   DateTime @default(now())
-
-  // IMPORTANT: explicit opposite relation name
-  masks       Mask[]   @relation("ImageMasks")
-
+model LabelSchemaVersion {
+  id          String            @id @default(cuid())
+  name        String
+  version     String
+  status      LabelSchemaStatus @default(ACTIVE)
+  isDefault   Boolean           @default(false)
   createdById String?
-  createdBy   User?    @relation("ImageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy        User?                        @relation("LabelSchemaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  definitions      LabelDefinition[]
+  activeProjects   AnnotationProject[]          @relation("ProjectActiveLabelSchema")
+  artifactVersions AnnotationArtifactVersion[]
+  classifications  SliceClassificationVersion[]
+
+  @@unique([name, version])
+  @@index([isDefault, status])
+  @@index([createdById])
+}
+
+model LabelDefinition {
+  id              String             @id @default(cuid())
+  schemaVersionId String
+  stableId        String
+  byteValue       Int?
+  displayName     String
+  semanticMeaning String
+  applicability   LabelApplicability
+  colorToken      String?
+  sortOrder       Int                @default(0)
+  isTrainable     Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+
+  schemaVersion LabelSchemaVersion @relation(fields: [schemaVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([schemaVersionId, stableId])
+  @@unique([schemaVersionId, byteValue])
+  @@index([schemaVersionId, applicability])
+}
+
+model ImageAsset {
+  id               String                @id @default(cuid())
+  projectId        String
+  storageKey       String                @unique
+  filename         String?
+  contentType      String?
+  size             Int?
+  checksum         String?
+  width            Int?
+  height           Int?
+  validationStatus ImageValidationStatus @default(PENDING)
+  uploadedById     String?
+  uploadedAt       DateTime              @default(now())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  project                    AnnotationProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy                 User?                          @relation("ImageUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  acquisitionMetadata        ImageAcquisitionMetadata?
+  sampleMetadata             SampleMetadata?
+  tasks                      AnnotationTask[]
+  annotationSessions         AnnotationSession[]
+  artifacts                  AnnotationArtifact[]
+  sliceInstances             SliceInstance[]
+  sliceBoundingBoxes         SliceBoundingBoxVersion[]
+  cropWorkflowState          ImageCropWorkflowState?
+  annotationReview           ImageAnnotationReview?
+  derivedSliceCrops          DerivedSliceCrop[]             @relation("DerivedSliceCropSourceImage")
+  classifications            SliceClassificationVersion[]
+  exportItems                ExportItem[]
+  predictionProvenances      PredictionArtifactProvenance[]
+  predictionImportBatchItems PredictionImportBatchItem[]
 
   @@index([projectId])
-  @@index([createdById])
+  @@index([uploadedById])
+  @@index([validationStatus])
 }
 
-model Mask {
-  id        String   @id @default(cuid())
-  imageId   String
-  kind      MaskKind
-  createdAt DateTime @default(now())
+model ImageAcquisitionMetadata {
+  id            String    @id @default(cuid())
+  imageId       String    @unique
+  cameraDevice  String?
+  lensObjective String?
+  exposure      String?
+  aperture      String?
+  iso           String?
+  whiteBalance  String?
+  colorProfile  String?
+  lightingSetup String?
+  capturedBy    String?
+  capturedAt    DateTime?
+  importedExif  Json?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  // IMPORTANT: matches Image.masks relation name
-  image     Image        @relation("ImageMasks", fields: [imageId], references: [id], onDelete: Cascade)
-  versions  MaskVersion[]
+  image ImageAsset @relation(fields: [imageId], references: [id], onDelete: Cascade)
+}
 
-  // so we can do: where: { imageId_kind: { imageId, kind } }
-  @@unique([imageId, kind], name: "imageId_kind")
+model SampleMetadata {
+  id                 String   @id @default(cuid())
+  imageId            String   @unique
+  tNumber            String?
+  specimenIdentifier String?
+  sliceIndex         Int?
+  replicate          String?
+  treatmentReference String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  image ImageAsset @relation(fields: [imageId], references: [id], onDelete: Cascade)
+}
+
+model AnnotationTask {
+  id                      String               @id @default(cuid())
+  projectId               String
+  imageId                 String?
+  sliceInstanceId         String?
+  type                    AnnotationTaskType
+  status                  AnnotationTaskStatus @default(OPEN)
+  priority                Int                  @default(0)
+  taskReason              String?
+  uncertaintyScore        Float?
+  confidenceScore         Float?
+  modelSource             String?
+  sourceArtifactVersionId String?
+  predictionRunId         String?
+  predictionProvenanceId  String?
+  createdById             String?
+  assigneeId              String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  project              AnnotationProject             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image                ImageAsset?                   @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance        SliceInstance?                @relation(fields: [sliceInstanceId], references: [id], onDelete: SetNull)
+  predictionRun        PredictionRun?                @relation(fields: [predictionRunId], references: [id], onDelete: SetNull)
+  predictionProvenance PredictionArtifactProvenance? @relation(fields: [predictionProvenanceId], references: [id], onDelete: SetNull)
+  createdBy            User?                         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee             User?                         @relation("TaskAssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
+  annotationSessions   AnnotationSession[]
+  artifactVersions     AnnotationArtifactVersion[]
+  classifications      SliceClassificationVersion[]
+
+  @@unique([predictionProvenanceId, type])
+  @@index([projectId, status])
   @@index([imageId])
+  @@index([assigneeId, status])
+  @@index([predictionRunId])
+  @@index([predictionProvenanceId])
+  @@index([type])
 }
 
-model MaskVersion {
-  id         String   @id @default(cuid())
-  maskId     String
-  version    Int
-  createdAt  DateTime @default(now())
+model AnnotationSession {
+  id            String    @id @default(cuid())
+  projectId     String
+  imageId       String?
+  taskId        String?
+  actorId       String
+  startedAt     DateTime  @default(now())
+  committedAt   DateTime?
+  clientVersion String?
+  toolMode      String?
+  auditContext  Json?
 
-  storageKey String   @unique
-  size       Int
-  width      Int
-  height     Int
-  format     String   @default("u8raw-v1")
+  project          AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image            ImageAsset?                 @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  task             AnnotationTask?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  actor            User                        @relation("AnnotationSessionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  artifactVersions AnnotationArtifactVersion[]
 
+  @@index([projectId, startedAt])
+  @@index([imageId])
+  @@index([taskId])
+  @@index([actorId])
+}
+
+model AnnotationArtifact {
+  id          String                 @id @default(cuid())
+  projectId   String
+  imageId     String
+  kind        AnnotationArtifactKind
+  scopeKey    String                 @default("default")
   createdById String?
-  createdBy   User?    @relation("MaskVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
-  mask Mask @relation(fields: [maskId], references: [id], onDelete: Cascade)
+  project   AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image     ImageAsset                  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  createdBy User?                       @relation("ArtifactCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  versions  AnnotationArtifactVersion[]
 
-  @@unique([maskId, version])
-  @@index([maskId, createdAt])
+  @@unique([imageId, kind, scopeKey])
+  @@index([projectId, kind])
   @@index([createdById])
+}
+
+model AnnotationArtifactVersion {
+  id                   String              @id @default(cuid())
+  artifactId           String
+  version              Int
+  reviewState          ArtifactReviewState @default(DRAFT)
+  provenance           ArtifactProvenance  @default(HUMAN_ANNOTATION)
+  storageKey           String              @unique
+  contentType          String?
+  size                 Int
+  checksum             String?
+  width                Int
+  height               Int
+  coordinateSpace      CoordinateSpace     @default(IMAGE_PIXEL)
+  coordinateTransform  Json?
+  format               String              @default("u8raw-v1")
+  labelSchemaVersionId String
+  derivedCropId        String?
+  sliceInstanceId      String?
+  supportMaskVersionId String?
+  cropSemanticMode     CropSemanticMode?
+  metadataJson         Json?
+  taskId               String?
+  sessionId            String?
+  parentVersionId      String?
+  createdById          String?
+  createdAt            DateTime            @default(now())
+
+  artifact                   AnnotationArtifact            @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  labelSchemaVersion         LabelSchemaVersion            @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
+  derivedCrop                DerivedSliceCrop?             @relation("CropSupportMaskVersions", fields: [derivedCropId], references: [id], onDelete: SetNull)
+  sliceInstance              SliceInstance?                @relation("SliceArtifactVersions", fields: [sliceInstanceId], references: [id], onDelete: SetNull)
+  task                       AnnotationTask?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  session                    AnnotationSession?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  parentVersion              AnnotationArtifactVersion?    @relation("ArtifactVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions              AnnotationArtifactVersion[]   @relation("ArtifactVersionParent")
+  supportMaskVersion         AnnotationArtifactVersion?    @relation("CropSemanticMaskSupportVersion", fields: [supportMaskVersionId], references: [id], onDelete: SetNull)
+  cropSemanticMaskVersions   AnnotationArtifactVersion[]   @relation("CropSemanticMaskSupportVersion")
+  classificationSemanticUses SliceClassificationVersion[]  @relation("SliceClassificationSemanticSource")
+  classificationSupportUses  SliceClassificationVersion[]  @relation("SliceClassificationSupportSource")
+  createdBy                  User?                         @relation("ArtifactVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  supportForSlices           SliceInstance[]               @relation("SliceSupportArtifactVersion")
+  reviewDecisions            ReviewDecision[]
+  exportItems                ExportItem[]
+  predictionProvenance       PredictionArtifactProvenance?
+  predictionImportBatchItems PredictionImportBatchItem[]   @relation("PredictionImportBatchArtifactVersion")
+
+  @@unique([artifactId, version])
+  @@index([artifactId, createdAt])
+  @@index([labelSchemaVersionId])
+  @@index([reviewState])
+  @@index([createdById])
+  @@index([derivedCropId, createdAt])
+  @@index([derivedCropId, cropSemanticMode, createdAt])
+  @@index([sliceInstanceId, createdAt])
+  @@index([parentVersionId])
+  @@index([supportMaskVersionId, createdAt])
+}
+
+model SliceInstance {
+  id                       String   @id @default(cuid())
+  projectId                String
+  imageId                  String
+  supportArtifactVersionId String?
+  boundingBox              Json?
+  createdById              String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  project                AnnotationProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image                  ImageAsset                     @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  supportArtifactVersion AnnotationArtifactVersion?     @relation("SliceSupportArtifactVersion", fields: [supportArtifactVersionId], references: [id], onDelete: SetNull)
+  createdBy              User?                          @relation("SliceInstanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks                  AnnotationTask[]
+  boundingBoxVersions    SliceBoundingBoxVersion[]
+  derivedCrops           DerivedSliceCrop[]
+  artifactVersions       AnnotationArtifactVersion[]    @relation("SliceArtifactVersions")
+  classifications        SliceClassificationVersion[]
+  predictionProvenances  PredictionArtifactProvenance[]
+
+  @@index([projectId])
+  @@index([imageId])
+  @@index([supportArtifactVersionId])
+  @@index([createdById])
+}
+
+model SliceBoundingBoxVersion {
+  id              String                 @id @default(cuid())
+  projectId       String
+  imageId         String
+  sliceInstanceId String
+  version         Int
+  status          SliceBoundingBoxStatus @default(ACTIVE)
+  x               Int
+  y               Int
+  width           Int
+  height          Int
+  coordinateSpace CoordinateSpace        @default(SOURCE_IMAGE_PIXEL)
+  provenance      ArtifactProvenance     @default(HUMAN_ANNOTATION)
+  metadataJson    Json?
+  createdById     String?
+  createdAt       DateTime               @default(now())
+
+  project       AnnotationProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image         ImageAsset         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance SliceInstance      @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  createdBy     User?              @relation("SliceBoundingBoxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  derivedCrops  DerivedSliceCrop[]
+
+  @@unique([sliceInstanceId, version])
+  @@index([projectId, status])
+  @@index([imageId, status])
+  @@index([sliceInstanceId, status])
+  @@index([createdById])
+}
+
+model ImageCropWorkflowState {
+  id                      String                 @id @default(cuid())
+  projectId               String
+  imageId                 String                 @unique
+  bboxSetStatus           ImageCropBBoxSetStatus @default(DRAFT)
+  confirmedBBoxVersionIds Json?
+  confirmedAt             DateTime?
+  confirmedById           String?
+  lastBBoxChangeAt        DateTime?
+  lastBBoxVersionId       String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  project     AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image       ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  confirmedBy User?             @relation("ImageCropWorkflowConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, bboxSetStatus])
+  @@index([confirmedById])
+  @@index([lastBBoxVersionId])
+}
+
+model ImageAnnotationReview {
+  id            String              @id @default(cuid())
+  projectId     String
+  imageId       String              @unique
+  state         ArtifactReviewState @default(DRAFT)
+  snapshotJson  Json?
+  submittedById String?
+  submittedAt   DateTime?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  comments      String?
+  reason        String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  project     AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image       ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  submittedBy User?             @relation("ImageAnnotationReviewSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy  User?             @relation("ImageAnnotationReviewReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, state])
+  @@index([submittedById])
+  @@index([reviewedById])
+}
+
+model DerivedSliceCrop {
+  id                     String          @id @default(cuid())
+  projectId              String
+  sourceImageId          String
+  sourceImageChecksum    String?
+  sourceImageWidth       Int
+  sourceImageHeight      Int
+  sliceInstanceId        String
+  bboxVersionId          String
+  version                Int
+  sourceX                Int
+  sourceY                Int
+  sourceWidth            Int
+  sourceHeight           Int
+  cropX                  Int             @default(0)
+  cropY                  Int             @default(0)
+  cropWidth              Int
+  cropHeight             Int
+  paddingRequestedPx     Int
+  paddingAppliedLeftPx   Int
+  paddingAppliedTopPx    Int
+  paddingAppliedRightPx  Int
+  paddingAppliedBottomPx Int
+  paddingClipped         Boolean         @default(false)
+  coordinateSpace        CoordinateSpace @default(CROP_PIXEL)
+  transformToSourceJson  Json
+  storageKey             String          @unique
+  checksum               String?
+  contentType            String?
+  byteSize               Int
+  format                 String          @default("png")
+  metadataJson           Json?
+  createdById            String?
+  createdAt              DateTime        @default(now())
+
+  project         AnnotationProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceImage     ImageAsset                   @relation("DerivedSliceCropSourceImage", fields: [sourceImageId], references: [id], onDelete: Cascade)
+  sliceInstance   SliceInstance                @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  bboxVersion     SliceBoundingBoxVersion      @relation(fields: [bboxVersionId], references: [id], onDelete: Cascade)
+  createdBy       User?                        @relation("DerivedSliceCropCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  supportMasks    AnnotationArtifactVersion[]  @relation("CropSupportMaskVersions")
+  classifications SliceClassificationVersion[] @relation("SliceClassificationCropSource")
+  exportItems     ExportItem[]
+
+  @@unique([sliceInstanceId, version])
+  @@index([projectId, createdAt])
+  @@index([sourceImageId, createdAt])
+  @@index([bboxVersionId, createdAt])
+  @@index([createdById])
+}
+
+model SliceClassificationVersion {
+  id                               String                               @id @default(cuid())
+  projectId                        String
+  imageId                          String
+  sliceInstanceId                  String
+  version                          Int
+  class                            SliceClass
+  labelSchemaVersionId             String
+  reviewState                      ArtifactReviewState                  @default(DRAFT)
+  source                           SliceClassificationSource            @default(MANUAL)
+  derivationReason                 SliceClassificationDerivationReason?
+  derivedFromSemanticMaskVersionId String?
+  derivedFromSupportMaskVersionId  String?
+  derivedFromCropId                String?
+  metadataJson                     Json?
+  taskId                           String?
+  createdById                      String?
+  createdAt                        DateTime                             @default(now())
+
+  project                 AnnotationProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image                   ImageAsset                 @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance           SliceInstance              @relation(fields: [sliceInstanceId], references: [id], onDelete: Cascade)
+  labelSchemaVersion      LabelSchemaVersion         @relation(fields: [labelSchemaVersionId], references: [id], onDelete: Restrict)
+  derivedFromSemanticMask AnnotationArtifactVersion? @relation("SliceClassificationSemanticSource", fields: [derivedFromSemanticMaskVersionId], references: [id], onDelete: SetNull)
+  derivedFromSupportMask  AnnotationArtifactVersion? @relation("SliceClassificationSupportSource", fields: [derivedFromSupportMaskVersionId], references: [id], onDelete: SetNull)
+  derivedFromCrop         DerivedSliceCrop?          @relation("SliceClassificationCropSource", fields: [derivedFromCropId], references: [id], onDelete: SetNull)
+  task                    AnnotationTask?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy               User?                      @relation("SliceClassificationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewDecisions         ReviewDecision[]
+  exportItems             ExportItem[]
+
+  @@unique([sliceInstanceId, version])
+  @@unique([derivedFromSemanticMaskVersionId])
+  @@index([projectId, class])
+  @@index([imageId])
+  @@index([reviewState])
+  @@index([source, derivationReason])
+  @@index([derivedFromSupportMaskVersionId])
+  @@index([derivedFromCropId])
+  @@index([labelSchemaVersionId])
+}
+
+model ReviewDecision {
+  id                           String               @id @default(cuid())
+  projectId                    String
+  artifactVersionId            String?
+  sliceClassificationVersionId String?
+  fromState                    ArtifactReviewState?
+  toState                      ArtifactReviewState
+  reviewedById                 String
+  reviewedAt                   DateTime             @default(now())
+  comments                     String?
+  reason                       String?
+  createdAt                    DateTime             @default(now())
+
+  project                    AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifactVersion            AnnotationArtifactVersion?  @relation(fields: [artifactVersionId], references: [id], onDelete: Cascade)
+  sliceClassificationVersion SliceClassificationVersion? @relation(fields: [sliceClassificationVersionId], references: [id], onDelete: Cascade)
+  reviewedBy                 User                        @relation("ReviewDecisionReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, reviewedAt])
+  @@index([artifactVersionId])
+  @@index([sliceClassificationVersionId])
+  @@index([reviewedById])
+  @@index([toState])
+}
+
+model ExportBatch {
+  id                    String       @id @default(cuid())
+  projectId             String
+  target                ExportTarget
+  status                ExportStatus @default(CREATED)
+  manifestFormatVersion String       @default("sapen-annotate-manifest-v1")
+  manifestStorageKey    String?
+  manifestChecksum      String?
+  packageStorageKey     String?
+  packageChecksum       String?
+  packageSize           Int?
+  selectionCriteria     Json?
+  warnings              Json?
+  metadataSummary       Json?
+  exportedById          String
+  exportedAt            DateTime     @default(now())
+  jobAttemptCount       Int          @default(0)
+  jobMaxAttempts        Int          @default(3)
+  nextRetryAt           DateTime?
+  processorId           String?
+  processorRunId        String?
+  leaseExpiresAt        DateTime?
+  processingStartedAt   DateTime?
+  completedAt           DateTime?
+  failedAt              DateTime?
+  errorCode             String?
+  errorMessage          String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  project              AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exportedBy           User              @relation("ExportBatchExportedBy", fields: [exportedById], references: [id], onDelete: Restrict)
+  items                ExportItem[]
+  trainingModelRuns    ModelRun[]        @relation("ModelRunTrainingExportBatch")
+  sourcePredictionRuns PredictionRun[]   @relation("PredictionRunSourceExportBatch")
+
+  @@index([projectId, exportedAt])
+  @@index([exportedById])
+  @@index([target, status])
+  @@index([status, nextRetryAt])
+  @@index([status, leaseExpiresAt])
+  @@index([status, createdAt])
+  @@index([processorRunId])
+}
+
+model ExportItem {
+  id                           String   @id @default(cuid())
+  exportBatchId                String
+  imageId                      String?
+  artifactVersionId            String?
+  sliceClassificationVersionId String?
+  predictionProvenanceId       String?
+  derivedCropId                String?
+  role                         String
+  createdAt                    DateTime @default(now())
+
+  exportBatch                ExportBatch                   @relation(fields: [exportBatchId], references: [id], onDelete: Cascade)
+  image                      ImageAsset?                   @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  artifactVersion            AnnotationArtifactVersion?    @relation(fields: [artifactVersionId], references: [id], onDelete: SetNull)
+  sliceClassificationVersion SliceClassificationVersion?   @relation(fields: [sliceClassificationVersionId], references: [id], onDelete: SetNull)
+  predictionProvenance       PredictionArtifactProvenance? @relation(fields: [predictionProvenanceId], references: [id], onDelete: SetNull)
+  derivedCrop                DerivedSliceCrop?             @relation(fields: [derivedCropId], references: [id], onDelete: SetNull)
+
+  @@index([exportBatchId])
+  @@index([imageId])
+  @@index([artifactVersionId])
+  @@index([sliceClassificationVersionId])
+  @@index([predictionProvenanceId])
+  @@index([derivedCropId])
+}
+
+model ModelRun {
+  id                    String        @id @default(cuid())
+  modelFamily           String
+  modelName             String
+  modelVersion          String?
+  taskType              ModelTaskType
+  checkpointId          String?
+  checkpointPath        String?
+  checkpointHash        String?
+  trainingRunId         String?
+  trainingDatasetRef    String?
+  trainingExportBatchId String?
+  trainingCodeVersion   String?
+  trainingGitCommit     String?
+  configHash            String?
+  createdById           String?
+  notes                 String?
+  warnings              Json?
+  metadata              Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  trainingExportBatch ExportBatch?    @relation("ModelRunTrainingExportBatch", fields: [trainingExportBatchId], references: [id], onDelete: SetNull)
+  createdBy           User?           @relation("ModelRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  predictionRuns      PredictionRun[]
+
+  @@index([taskType])
+  @@index([createdById])
+  @@index([trainingExportBatchId])
+  @@index([modelName, modelVersion])
+}
+
+model PredictionRun {
+  id                          String              @id @default(cuid())
+  modelRunId                  String
+  projectId                   String
+  sourceExportBatchId         String?
+  sourceDatasetRef            String?
+  selectionCriteria           Json?
+  inferenceRunId              String?
+  generatedById               String?
+  generatedAt                 DateTime            @default(now())
+  status                      PredictionRunStatus @default(CREATED)
+  inputImageCount             Int?
+  outputPredictionCount       Int?
+  aggregateConfidenceSummary  Json?
+  aggregateUncertaintySummary Json?
+  configHash                  String?
+  notes                       String?
+  warnings                    Json?
+  metadata                    Json?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+
+  modelRun          ModelRun                       @relation(fields: [modelRunId], references: [id], onDelete: Restrict)
+  project           AnnotationProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceExportBatch ExportBatch?                   @relation("PredictionRunSourceExportBatch", fields: [sourceExportBatchId], references: [id], onDelete: SetNull)
+  generatedBy       User?                          @relation("PredictionRunGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  predictions       PredictionArtifactProvenance[]
+  tasks             AnnotationTask[]
+  importBatches     PredictionImportBatchJob[]
+
+  @@unique([projectId, modelRunId, inferenceRunId])
+  @@index([projectId, generatedAt])
+  @@index([modelRunId])
+  @@index([generatedById])
+  @@index([sourceExportBatchId])
+  @@index([status])
+}
+
+model PredictionArtifactProvenance {
+  id                  String               @id @default(cuid())
+  predictionRunId     String
+  artifactVersionId   String?              @unique
+  imageId             String
+  sliceInstanceId     String?
+  targetType          PredictionTargetType
+  predictedClass      SliceClass?
+  confidenceScore     Float?
+  uncertaintyScore    Float?
+  perClassScores      Json?
+  outputStats         Json?
+  modelOutputChecksum String?
+  sourceBatchItemId   String?              @unique
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  predictionRun              PredictionRun               @relation(fields: [predictionRunId], references: [id], onDelete: Cascade)
+  artifactVersion            AnnotationArtifactVersion?  @relation(fields: [artifactVersionId], references: [id], onDelete: SetNull)
+  image                      ImageAsset                  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  sliceInstance              SliceInstance?              @relation(fields: [sliceInstanceId], references: [id], onDelete: SetNull)
+  tasks                      AnnotationTask[]
+  exportItems                ExportItem[]
+  predictionImportBatchItems PredictionImportBatchItem[] @relation("PredictionImportBatchProvenance")
+
+  @@index([predictionRunId])
+  @@index([imageId])
+  @@index([sliceInstanceId])
+  @@index([targetType])
+}
+
+model PredictionImportBatchJob {
+  id                String                          @id @default(cuid())
+  projectId         String
+  predictionRunId   String
+  createdById       String?
+  status            PredictionImportBatchStatus     @default(PENDING)
+  manifestVersion   String
+  sourceKind        PredictionImportBatchSourceKind @default(ZIP_UPLOAD)
+  sourceFilename    String?
+  sourceChecksum    String?
+  totalItems        Int                             @default(0)
+  pendingItems      Int                             @default(0)
+  processingItems   Int                             @default(0)
+  succeededItems    Int                             @default(0)
+  failedItems       Int                             @default(0)
+  skippedItems      Int                             @default(0)
+  retryPendingItems Int                             @default(0)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  metadataJson      Json?
+  errorSummaryJson  Json?
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+
+  project       AnnotationProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  predictionRun PredictionRun               @relation(fields: [predictionRunId], references: [id], onDelete: Cascade)
+  createdBy     User?                       @relation("PredictionImportBatchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items         PredictionImportBatchItem[]
+
+  @@index([projectId, createdAt])
+  @@index([predictionRunId, status])
+  @@index([status, createdAt])
+}
+
+model PredictionImportBatchItem {
+  id                          String                          @id @default(cuid())
+  batchJobId                  String
+  clientItemId                String?
+  imageId                     String
+  targetType                  PredictionTargetType
+  status                      PredictionImportBatchItemStatus @default(PENDING)
+  attemptCount                Int                             @default(0)
+  maxAttempts                 Int                             @default(3)
+  nextRetryAt                 DateTime?
+  sourcePath                  String?
+  sourceFilename              String?
+  stagingKey                  String
+  expectedChecksum            String?
+  expectedWidth               Int
+  expectedHeight              Int
+  contentType                 String?
+  format                      String                          @default("u8raw-v1")
+  coordinateSpace             CoordinateSpace                 @default(IMAGE_PIXEL)
+  confidenceScore             Float?
+  uncertaintyScore            Float?
+  perClassScoresJson          Json?
+  outputStatsJson             Json?
+  predictionArtifactVersionId String?                         @unique
+  predictionProvenanceId      String?                         @unique
+  processorId                 String?
+  processorRunId              String?
+  leaseExpiresAt              DateTime?
+  lastHeartbeatAt             DateTime?
+  stagingPurgedAt             DateTime?
+  stagingPurgeReason          String?
+  errorCode                   String?
+  errorMessage                String?
+  createdAt                   DateTime                        @default(now())
+  startedAt                   DateTime?
+  completedAt                 DateTime?
+  updatedAt                   DateTime                        @updatedAt
+
+  batchJob                  PredictionImportBatchJob      @relation(fields: [batchJobId], references: [id], onDelete: Cascade)
+  image                     ImageAsset                    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  predictionArtifactVersion AnnotationArtifactVersion?    @relation("PredictionImportBatchArtifactVersion", fields: [predictionArtifactVersionId], references: [id], onDelete: SetNull)
+  predictionProvenance      PredictionArtifactProvenance? @relation("PredictionImportBatchProvenance", fields: [predictionProvenanceId], references: [id], onDelete: SetNull)
+
+  @@unique([batchJobId, clientItemId])
+  @@index([batchJobId, status])
+  @@index([batchJobId, status, leaseExpiresAt])
+  @@index([status, nextRetryAt])
+  @@index([status, leaseExpiresAt])
+  @@index([stagingPurgedAt])
+  @@index([processorRunId])
+  @@index([imageId])
+  @@index([targetType])
 }
 
 model AuditLog {
@@ -150,15 +1043,44 @@ model AuditLog {
   @@index([actorId, createdAt])
 }
 
+model AuthLoginThrottle {
+  id              String    @id @default(cuid())
+  scope           String
+  identifierHash  String
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  lastFailedAt    DateTime?
+  lockedUntil     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([scope, identifierHash])
+  @@index([lockedUntil])
+}
+
+model HighCostRateLimitBucket {
+  id              String   @id @default(cuid())
+  family          String
+  bucketKeyHash   String
+  requestCount    Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lastRequestAt   DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([family, bucketKeyHash])
+  @@index([windowStartedAt])
+}
+
 model Session {
   id        String @id @default(cuid())
   userId    String
   tokenHash String @unique
 
-  createdAt   DateTime  @default(now())
-  lastSeenAt  DateTime?
-  expiresAt   DateTime
-  revokedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  expiresAt  DateTime
+  revokedAt  DateTime?
 
   ip        String?
   userAgent String?

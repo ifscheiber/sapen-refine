@@ -1,0 +1,200 @@
+# Storage Retention Cleanup
+
+## Purpose
+
+RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. RB-114 extends the same operational path with a storage/DB consistency report. RB-138 adds explicit project-scoped deep checksum verification for durable primary objects. Cleanup is scoped to staged prediction-batch objects, identifiable presigned-upload orphans, and RB-137 crop-workflow object orphans. It must not delete committed raw images, committed artifact versions, DB-referenced derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
+
+Implemented evidence:
+
+- `src/server/domain/storageCleanup.ts` - retention policy parsing, candidate classification, protected-object checks, RB-114/RB-138 consistency reporting, dry-run/execute behavior, and audit events.
+- `src/app/api/storage-cleanup/route.ts` - admin-only operational API.
+- `scripts/storage-cleanup.mjs` - API-based operational CLI.
+- `src/server/storage/s3.ts` - object listing and strict delete helper.
+- `prisma/schema.prisma` - `PredictionImportBatchItem.stagingPurgedAt` and `stagingPurgeReason`.
+- `prisma/migrations/20260521103000_storage_retention_cleanup/migration.sql` - RB-066 migration.
+
+## Retention Policy
+
+Defaults are suitable for the Strato-style customer trial:
+
+```text
+completed batch staging objects: 7 days
+failed/cancelled/error batch staging objects: 14 days
+abandoned presigned image/mask uploads from historical compatibility-route use: 24 hours
+unreferenced derived crop/support/semantic crop objects: 24 hours
+maximum deletions per execute run: 500
+active or retryable batch staging objects: never cleaned
+```
+
+Runtime variables:
+
+```env
+BATCH_STAGING_COMPLETED_RETENTION_DAYS=7
+BATCH_STAGING_FAILED_RETENTION_DAYS=14
+PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS=24
+STORAGE_CLEANUP_MAX_DELETE_PER_RUN=500
+```
+
+## Protected Object Rules
+
+Cleanup uses the database as the safety boundary before deleting. A candidate must be under an allowed temporary prefix, older than its retention threshold, and unreferenced by durable rows. Project-scoped cleanup lists only the `projects/<projectId>/` object prefix before applying those DB protections, so a busy shared bucket cannot hide the requested project's candidates behind unrelated objects. RB-114 consistency checks report missing protected DB-referenced objects as hard drift; RB-138 deep checksum checks can also report same-size object corruption as hard drift. The cleanup path does not try to repair or delete those durable references.
+
+Never delete:
+
+- `ImageAsset.storageKey` raw image objects.
+- `AnnotationArtifactVersion.storageKey` semantic, support, prediction, correction, or derived artifact objects.
+- `DerivedSliceCrop.storageKey` private derived crop PNG objects.
+- `ExportBatch` manifest/package objects. Export prefixes are not cleanup candidates. Orphaned or unreferenced export-prefix objects are reported only.
+- Successful imported prediction artifact objects.
+- Active, pending, processing, or retryable batch item staging objects. Terminal staging objects remain cleanup candidates; if a terminal staging object is already gone, that is not hard drift.
+- PostgreSQL, MinIO, Caddy, or backup volume data.
+
+If a failed batch item source is purged, the item is marked with `stagingPurgedAt` and `stagingPurgeReason`. The retry endpoint ignores purged items because the source object no longer exists. Re-upload the batch if the failed item still needs processing.
+
+## Candidate Categories
+
+Cleanup classifies only known private temporary prefixes:
+
+```text
+BATCH_STAGED_ITEM
+BATCH_SOURCE_ZIP
+ABANDONED_PRESIGNED_UPLOAD
+ORPHAN_DERIVED_CROP_OBJECT
+ORPHAN_CROP_SUPPORT_MASK_OBJECT
+ORPHAN_CROP_SEMANTIC_MASK_OBJECT
+UNKNOWN_STAGING_OBJECT
+```
+
+Current RB-061 batch creation stages extracted item files under:
+
+```text
+projects/<projectId>/prediction-import-batches/<batchId>/<item>.msk
+```
+
+The current code does not persist the original uploaded ZIP as a separate source object. `BATCH_SOURCE_ZIP` exists as an explicit category for possible temporary ZIP objects under the same batch prefix.
+
+Presigned compatibility routes remain present but disabled after RB-105:
+
+- `POST /api/projects/[projectId]/images/presign`
+- `POST /api/projects/[projectId]/images/commit`
+- `POST /api/images/[imageId]/mask/presign`
+- `POST /api/images/[imageId]/mask/commit`
+
+These routes now return `410 PRESIGNED_UPLOADS_DISABLED` after authentication and project membership checks, so new abandoned presigned upload objects should not be created by normal app flows. Historical uncommitted objects from earlier enabled route versions are identifiable by age and prefix under `projects/<projectId>/images/...` or `projects/<projectId>/masks/<imageId>/...msk`. RB-066 still handles them as `ABANDONED_PRESIGNED_UPLOAD` after the presigned retention window. App-mediated upload/read paths are the supported customer-trial path.
+
+Crop workflows write additional app-mediated objects under:
+
+```text
+projects/<projectId>/derived-crops/<imageId>/<sliceInstanceId>/<uuid>.png
+projects/<projectId>/crop-support-masks/<imageId>/<sliceInstanceId>/<cropId>/<uuid>.msk
+projects/<projectId>/crop-semantic-masks/<imageId>/<sliceInstanceId>/<cropId>/<semanticMode>/<uuid>.msk
+```
+
+If the object write succeeds but the DB commit or best-effort rollback cleanup fails, those objects are classified as crop-workflow orphans after the same `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS` window. `DerivedSliceCrop.storageKey` and `AnnotationArtifactVersion.storageKey` remain the deletion boundary, so committed crop PNGs and committed crop support/semantic masks are skipped as protected DB references.
+
+## Operational Commands
+
+Dry-run is the default. On a trial deployment prepared with [deployment-trial.md](deployment-trial.md), run it first:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup
+```
+
+Project-scoped dry-run:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --project '<project-id>' --category all
+```
+
+Batch-staging dry-run:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --category batch-staging --batch '<batch-id>'
+```
+
+Execute requires `--execute`:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --execute --category all --limit 100
+```
+
+Use a named global `ADMIN` account for cleanup. Do not use shared demo credentials for customer-facing trial operations.
+
+Deep checksum verification is opt-in and project-scoped. It reads durable primary objects for one project and compares stored SHA-256 metadata for `ImageAsset`, `AnnotationArtifactVersion`, and `DerivedSliceCrop` rows. Run a dry-run first:
+
+```bash
+docker compose --env-file deploy/trial.env -f deploy/docker-compose.trial.yml exec -e SAPEN_CLEANUP_EMAIL='admin@example.com' -e SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password app npm run storage:cleanup -- --project '<project-id>' --deep-checksum --deep-checksum-max-objects 100 --deep-checksum-max-bytes 536870912
+```
+
+Deep checksum mode rejects requests without `--project`. It also rejects requests that would read more than the configured object or byte limit before any cleanup deletion runs. Normal cleanup and consistency reports remain stat-only for primary objects.
+
+RB-076 verified this dry-run command against the local trial Compose stack; the dry run returned zero cleanup candidates.
+
+The same script can run outside Compose against a deployed app:
+
+```bash
+SAPEN_CLEANUP_BASE_URL=https://annotate.example.com SAPEN_CLEANUP_EMAIL=admin@example.com SAPEN_CLEANUP_PASSWORD_FILE=/run/secrets/sapen_cleanup_password npm run storage:cleanup -- --dry-run
+```
+
+## API
+
+`POST /api/storage-cleanup` accepts JSON matching the CLI flags:
+
+```json
+{
+  "execute": false,
+  "category": "all",
+  "projectId": "optional-project-id",
+  "batchId": "optional-batch-id",
+  "limit": 100,
+  "deepChecksum": false,
+  "deepChecksumMaxObjects": 100,
+  "deepChecksumMaxBytes": 536870912
+}
+```
+
+Valid categories are `all`, `batch-staging`, and `upload-orphans`. The route requires an authenticated global `ADMIN` user through the same audit-view permission used for admin audit access. Browser same-origin mutation protection still applies.
+
+When `deepChecksum=true`, `projectId` is required. The route rejects unsafe deep-mode scope or limits with stable `400` errors such as `DEEP_CHECKSUM_PROJECT_REQUIRED`, `DEEP_CHECKSUM_LIMIT_INVALID`, or `DEEP_CHECKSUM_LIMIT_EXCEEDED`.
+
+The response includes options, summary counts, item-level cleanup results with key, category, status, reason, size, age, project id, batch id, and item id, plus an additive `consistency` report. Existing `cleanup.summary` and `cleanup.results` fields remain present for older consumers. The response does not expose presigned URLs or credentials.
+
+## Consistency Report
+
+Dry-run and execute responses include a report with:
+
+- scanned storage object counts and known bytes,
+- scanned protected DB reference count,
+- deep checksum enablement, object count, and expected bytes when explicitly requested,
+- missing referenced object count,
+- checksum missing/mismatch and size mismatch counts,
+- report-only orphan export object count,
+- stale `PENDING` export job count,
+- expired `PROCESSING` export lease count,
+- per-finding code, severity, entity, key, project id, expected/actual size, and expected/actual checksum where relevant.
+
+`HARD_DRIFT` findings are reserved for protected DB references that are missing from storage, protected DB references with size mismatch, protected primary objects with deep checksum mismatch, and completed export manifest/package checksum or size mismatches. Missing or invalid checksum metadata for a deep-checked primary object is a warning. Ordinary cleanup candidates, including unreferenced crop-workflow object orphans, skipped/ambiguous objects, report-only orphan export package objects, stale `PENDING` export jobs, and expired `PROCESSING` leases are warnings/findings only.
+
+The CLI exits non-zero only when `cleanup.consistency.hardDriftCount > 0`, invalid configuration is supplied, or storage/API connectivity fails. A dry-run with only cleanup candidates or warnings exits `0`.
+
+## Audit
+
+Cleanup writes append-only `AuditLog` rows:
+
+```text
+STORAGE_CLEANUP_DRY_RUN
+STORAGE_CLEANUP_EXECUTED
+STORAGE_CLEANUP_OBJECT_DELETED
+STORAGE_CLEANUP_OBJECT_SKIPPED
+STORAGE_CLEANUP_OBJECT_DELETE_FAILED
+```
+
+Audit details include category, reason, project id, batch id, item id, mode, limit, and summary counts. They must not include credentials or private URLs.
+
+## Deferred
+
+- No cleanup UI/dashboard exists.
+- No provider lifecycle rules, replication, HA, or point-in-time recovery are added.
+- Committed-artifact retention remains a separate governance problem and is intentionally not part of RB-066.
+- Export package retention remains report-only; RB-114 does not delete orphaned export-prefix objects.
+- Production-scale queue infrastructure remains deferred; this cleanup is for the current single-host PostgreSQL/MinIO trial model.

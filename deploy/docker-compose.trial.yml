@@ -1,0 +1,204 @@
+name: sapen-annotate-trial
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      TRIAL_HOSTNAME: ${TRIAL_HOSTNAME:?Set TRIAL_HOSTNAME}
+      CADDY_MAX_BODY_SIZE: ${CADDY_MAX_BODY_SIZE:-120MB}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.trial:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_started
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
+      APP_BASE_URL: ${APP_BASE_URL:?Set APP_BASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:?Set S3_BUCKET}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      IMAGE_UPLOAD_MAX_BYTES: ${IMAGE_UPLOAD_MAX_BYTES:-104857600}
+      MASK_UPLOAD_MAX_BYTES: ${MASK_UPLOAD_MAX_BYTES:-52428800}
+      PREDICTION_BATCH_UPLOAD_MAX_BYTES: ${PREDICTION_BATCH_UPLOAD_MAX_BYTES:-104857600}
+      PREDICTION_BATCH_MAX_ITEMS: ${PREDICTION_BATCH_MAX_ITEMS:-200}
+      PREDICTION_BATCH_PROCESS_LIMIT: ${PREDICTION_BATCH_PROCESS_LIMIT:-25}
+      PREDICTION_BATCH_ITEM_MAX_ATTEMPTS: ${PREDICTION_BATCH_ITEM_MAX_ATTEMPTS:-3}
+      PREDICTION_BATCH_LEASE_SECONDS: ${PREDICTION_BATCH_LEASE_SECONDS:-900}
+      PREDICTION_BATCH_MAX_JOBS_PER_TICK: ${PREDICTION_BATCH_MAX_JOBS_PER_TICK:-5}
+      PREDICTION_BATCH_WORKER_INTERVAL_SECONDS: ${PREDICTION_BATCH_WORKER_INTERVAL_SECONDS:-30}
+      PREDICTION_IMPORT_PROCESSOR_ID: ${PREDICTION_IMPORT_PROCESSOR_ID:-sapen-annotate-worker}
+      EXPORT_JOB_LEASE_SECONDS: ${EXPORT_JOB_LEASE_SECONDS:-900}
+      EXPORT_JOB_MAX_ATTEMPTS: ${EXPORT_JOB_MAX_ATTEMPTS:-3}
+      EXPORT_JOB_RETRY_DELAY_SECONDS: ${EXPORT_JOB_RETRY_DELAY_SECONDS:-60}
+      EXPORT_JOB_MAX_JOBS_PER_TICK: ${EXPORT_JOB_MAX_JOBS_PER_TICK:-2}
+      EXPORT_JOB_WORKER_INTERVAL_SECONDS: ${EXPORT_JOB_WORKER_INTERVAL_SECONDS:-30}
+      EXPORT_JOB_PROCESSOR_ID: ${EXPORT_JOB_PROCESSOR_ID:-sapen-annotate-export-worker}
+      BATCH_STAGING_COMPLETED_RETENTION_DAYS: ${BATCH_STAGING_COMPLETED_RETENTION_DAYS:-7}
+      BATCH_STAGING_FAILED_RETENTION_DAYS: ${BATCH_STAGING_FAILED_RETENTION_DAYS:-14}
+      PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS: ${PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS:-24}
+      STORAGE_CLEANUP_MAX_DELETE_PER_RUN: ${STORAGE_CLEANUP_MAX_DELETE_PER_RUN:-500}
+      SLICE_CROP_DEFAULT_PADDING_PX: ${SLICE_CROP_DEFAULT_PADDING_PX:-32}
+      HIGH_COST_LIMITS_ENABLED: ${HIGH_COST_LIMITS_ENABLED:-true}
+      HIGH_COST_UPLOAD_MAX_REQUESTS: ${HIGH_COST_UPLOAD_MAX_REQUESTS:-20}
+      HIGH_COST_UPLOAD_WINDOW_SECONDS: ${HIGH_COST_UPLOAD_WINDOW_SECONDS:-60}
+      HIGH_COST_EDITOR_SAVE_MAX_REQUESTS: ${HIGH_COST_EDITOR_SAVE_MAX_REQUESTS:-120}
+      HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS: ${HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS:-60}
+      HIGH_COST_EXPORT_CREATE_MAX_REQUESTS: ${HIGH_COST_EXPORT_CREATE_MAX_REQUESTS:-5}
+      HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS: ${HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS:-600}
+      HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS: ${HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS:-10}
+      HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS: ${HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS:-600}
+      HIGH_COST_OPERATIONS_MAX_REQUESTS: ${HIGH_COST_OPERATIONS_MAX_REQUESTS:-10}
+      HIGH_COST_OPERATIONS_WINDOW_SECONDS: ${HIGH_COST_OPERATIONS_WINDOW_SECONDS:-600}
+      TRAINING_EXPORT_MAX_ITEMS: ${TRAINING_EXPORT_MAX_ITEMS:-500}
+      TRAINING_EXPORT_MAX_BYTES: ${TRAINING_EXPORT_MAX_BYTES:-536870912}
+      PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS: ${PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS:-500}
+      PREDICTION_ANALYSIS_EXPORT_MAX_BYTES: ${PREDICTION_ANALYSIS_EXPORT_MAX_BYTES:-536870912}
+      SAPEN_CLEANUP_BASE_URL: http://localhost:3000
+      SAPEN_CLEANUP_EMAIL: ${SAPEN_CLEANUP_EMAIL:-}
+      SAPEN_CLEANUP_PASSWORD_FILE: ${SAPEN_CLEANUP_PASSWORD_FILE:-}
+      SAPEN_CLEANUP_PASSWORD: ${SAPEN_CLEANUP_PASSWORD:-}
+      SHOW_DEMO_CREDENTIALS: ${SHOW_DEMO_CREDENTIALS:-false}
+      LOGIN_RATE_LIMIT_MAX_FAILURES: ${LOGIN_RATE_LIMIT_MAX_FAILURES:-5}
+      LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:-900}
+      LOGIN_RATE_LIMIT_LOCK_SECONDS: ${LOGIN_RATE_LIMIT_LOCK_SECONDS:-900}
+      SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS: ${SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS:-900}
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
+    restart: "no"
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prediction-import-worker:
+    profiles: ["worker"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
+    restart: unless-stopped
+    command: ["npm", "run", "jobs:prediction-import", "--", "--loop", "--base-url", "http://app:3000"]
+    environment:
+      NODE_ENV: production
+      SAPEN_JOB_BASE_URL: http://app:3000
+      SAPEN_JOB_EMAIL: ${SAPEN_JOB_EMAIL:-}
+      SAPEN_JOB_PASSWORD_FILE: ${SAPEN_JOB_PASSWORD_FILE:-}
+      SAPEN_JOB_PASSWORD: ${SAPEN_JOB_PASSWORD:-}
+      PREDICTION_BATCH_PROCESS_LIMIT: ${PREDICTION_BATCH_PROCESS_LIMIT:-25}
+      PREDICTION_BATCH_MAX_JOBS_PER_TICK: ${PREDICTION_BATCH_MAX_JOBS_PER_TICK:-5}
+      PREDICTION_BATCH_WORKER_INTERVAL_SECONDS: ${PREDICTION_BATCH_WORKER_INTERVAL_SECONDS:-30}
+      PREDICTION_IMPORT_PROCESSOR_ID: ${PREDICTION_IMPORT_PROCESSOR_ID:-sapen-annotate-worker}
+    depends_on:
+      app:
+        condition: service_started
+
+  export-worker:
+    profiles: ["worker"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}
+    restart: unless-stopped
+    command: ["npm", "run", "exports:process", "--", "--loop", "--base-url", "http://app:3000"]
+    environment:
+      NODE_ENV: production
+      SAPEN_JOB_BASE_URL: http://app:3000
+      SAPEN_JOB_EMAIL: ${SAPEN_JOB_EMAIL:-}
+      SAPEN_JOB_PASSWORD_FILE: ${SAPEN_JOB_PASSWORD_FILE:-}
+      SAPEN_JOB_PASSWORD: ${SAPEN_JOB_PASSWORD:-}
+      EXPORT_JOB_MAX_JOBS_PER_TICK: ${EXPORT_JOB_MAX_JOBS_PER_TICK:-2}
+      EXPORT_JOB_WORKER_INTERVAL_SECONDS: ${EXPORT_JOB_WORKER_INTERVAL_SECONDS:-30}
+      EXPORT_JOB_PROCESSOR_ID: ${EXPORT_JOB_PROCESSOR_ID:-sapen-annotate-export-worker}
+    depends_on:
+      app:
+        condition: service_started
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/minio-init.sh"]
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:?Set S3_BUCKET}
+    volumes:
+      - ./minio-init.sh:/scripts/minio-init.sh:ro
+
+volumes:
+  pgdata:
+  miniodata:
+  caddy_data:
+  caddy_config:

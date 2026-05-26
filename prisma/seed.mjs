@@ -4,19 +4,13 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
+import { ensureDefaultLabelSchema, ensureGlobalRole, ensureRole } from "../scripts/trial-bootstrap-lib.mjs";
+
 const { Pool } = pg;
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL })),
 });
-
-async function upsertRole(name) {
-  return prisma.role.upsert({
-    where: { name },
-    update: {},
-    create: { name },
-  });
-}
 
 async function upsertUser({ email, name, password }) {
   const passwordHash = await bcrypt.hash(password, 12);
@@ -28,17 +22,9 @@ async function upsertUser({ email, name, password }) {
   });
 }
 
-async function ensureGlobalRole(userId, roleId) {
-  await prisma.userGlobalRole.upsert({
-    where: { userId_roleId: { userId, roleId } },
-    update: {},
-    create: { userId, roleId },
-  });
-}
-
 async function main() {
-  const adminRole = await upsertRole("ADMIN");
-  const userRole = await upsertRole("USER");
+  await ensureRole(prisma, "ADMIN");
+  await ensureRole(prisma, "USER");
 
   const admin = await upsertUser({
     email: "admin@sapen.local",
@@ -52,23 +38,33 @@ async function main() {
     password: "labeler1234",
   });
 
-  await ensureGlobalRole(admin.id, adminRole.id);
-  await ensureGlobalRole(admin.id, userRole.id);
-  await ensureGlobalRole(labeler.id, userRole.id);
+  await ensureGlobalRole(prisma, admin.id, "ADMIN");
+  await ensureGlobalRole(prisma, admin.id, "USER");
+  await ensureGlobalRole(prisma, labeler.id, "USER");
 
-  const project = await prisma.project.upsert({
+  const labelSchema = await ensureDefaultLabelSchema(prisma, admin.id);
+
+  const project = await prisma.annotationProject.upsert({
     where: { id: "demo_project" },
-    update: { name: "Demo Project" },
-    create: { id: "demo_project", name: "Demo Project" },
+    update: {
+      name: "Demo Project",
+      labelSchemaVersionId: labelSchema.id,
+    },
+    create: {
+      id: "demo_project",
+      name: "Demo Project",
+      labelSchemaVersionId: labelSchema.id,
+      createdById: admin.id,
+    },
   });
 
-  await prisma.projectMember.upsert({
+  await prisma.annotationProjectMember.upsert({
     where: { projectId_userId: { projectId: project.id, userId: admin.id } },
     update: { role: "OWNER" },
     create: { projectId: project.id, userId: admin.id, role: "OWNER" },
   });
 
-  await prisma.projectMember.upsert({
+  await prisma.annotationProjectMember.upsert({
     where: { projectId_userId: { projectId: project.id, userId: labeler.id } },
     update: { role: "LABELER" },
     create: { projectId: project.id, userId: labeler.id, role: "LABELER" },
@@ -80,19 +76,24 @@ async function main() {
       action: "SEED",
       entity: "System",
       entityId: project.id,
-      details: { users: [admin.email, labeler.email], project: project.name },
+      details: {
+        users: [admin.email, labeler.email],
+        project: project.name,
+        labelSchemaVersionId: labelSchema.id,
+      },
     },
   });
 
-  console.log("✅ Seed complete");
+  console.log("Seed complete");
   console.log("Admin:   admin@sapen.local / admin1234");
   console.log("Labeler: labeler@sapen.local / labeler1234");
   console.log(`Project: ${project.name} (${project.id})`);
+  console.log(`Label schema: ${labelSchema.name}@${labelSchema.version}`);
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Seed failed", e);
+    console.error("Seed failed", e);
     process.exit(1);
   })
   .finally(async () => {

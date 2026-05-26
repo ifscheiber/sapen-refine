@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
-import { MaskKind } from "@prisma/client";
-import { presignGetObject } from "@/server/storage/s3";
+import { AnnotationArtifactKind } from "@prisma/client";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> }
 ) {
@@ -12,71 +12,69 @@ export async function GET(
   const user = await requireUser();
 
   if (!imageId) {
-    return NextResponse.json({ error: "IMAGE_ID_REQUIRED" }, { status: 400 });
+    return apiError("IMAGE_ID_REQUIRED", 400);
   }
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
     select: { id: true, projectId: true },
   });
   if (!image) {
-    return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
+    return apiError("IMAGE_NOT_FOUND", 404);
   }
 
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
   if (!membership) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    return apiError("FORBIDDEN", 403);
   }
 
-  const kind: MaskKind = MaskKind.REFINED;
+  const kind = AnnotationArtifactKind.SEMANTIC_MASK;
 
-  // ✅ eindeutige Maske per (imageId, kind)
-  const mask = await prisma.mask.findUnique({
-    where: { imageId_kind: { imageId, kind } },
+  const artifact = await prisma.annotationArtifact.findUnique({
+    where: { imageId_kind_scopeKey: { imageId, kind, scopeKey: "default" } },
     select: { id: true },
   });
 
-  if (!mask) {
+  if (!artifact) {
     return NextResponse.json({ ok: true, exists: false });
   }
 
-  // ✅ neueste Version
-  const latest = await prisma.maskVersion.findFirst({
-    where: { maskId: mask.id },
+  const latest = await prisma.annotationArtifactVersion.findFirst({
+    where: { artifactId: artifact.id },
     orderBy: { version: "desc" },
     select: {
       id: true,
       version: true,
-      storageKey: true,
       size: true,
       width: true,
       height: true,
       format: true,
+      reviewState: true,
       createdAt: true,
+      createdBy: { select: { id: true, email: true, name: true } },
     },
   });
 
   if (!latest) {
-    return NextResponse.json({ ok: true, exists: false, maskId: mask.id });
+    return NextResponse.json({ ok: true, exists: false, maskId: artifact.id });
   }
-
-  const url = await presignGetObject(latest.storageKey, 300);
 
   return NextResponse.json({
     ok: true,
     exists: true,
-    maskId: mask.id,
+    maskId: artifact.id,
     versionId: latest.id,
     version: latest.version,
-    key: latest.storageKey,
     size: latest.size,
     width: latest.width,
     height: latest.height,
     format: latest.format,
+    reviewState: latest.reviewState,
     createdAt: latest.createdAt,
-    url,
+    createdBy: latest.createdBy,
+    url: `/api/images/${imageId}/mask/versions/${latest.id}/asset`,
   });
-}
+});

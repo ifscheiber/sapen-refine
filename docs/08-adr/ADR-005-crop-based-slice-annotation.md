@@ -1,0 +1,82 @@
+# ADR-005 - Crop-Based Slice Annotation
+
+## Status
+
+Accepted for RB-085 design. RB-086 implements source-image BBox proposal persistence and editor drawing. RB-087 implements derived slice crop generation/persistence. RB-088 through RB-092 implement crop support masks, crop semantic masks, auto classification, crop training export, and crop review/readiness integration.
+
+## Context
+
+The current SaPen Annotate editor is a full-resolution image editor. RB-080 and RB-081 fixed the immediate large-mask upload blocker by sending exact `u8raw-v1` request bodies and by raising the Next proxy body limit. That keeps full-resolution trial annotation viable inside the documented bounds.
+
+Large full-image masks still have important memory and request-size costs. An `8000x6000` image has 48,000,000 pixels. One `u8raw-v1` mask at that size is 48,000,000 bytes, and the editor can hold multiple working layers plus the decoded browser image. This is especially relevant for iPad Safari and lower-memory client devices.
+
+The product therefore needs a crop-based workflow that preserves the original uploaded image as the immutable source of truth while allowing annotation work to happen on smaller derived slice crops.
+
+## Decision
+
+Adopt a support-first crop-based slice annotation workflow as the planned scalable path:
+
+```text
+Original image
+-> BBox proposal
+-> derived slice crop
+-> pixel-perfect slice support mask in crop coordinates
+-> semantic annotation with mode-aware support policy
+-> auto-suggested slice classification
+-> review/approval
+-> export with crop and source-image coordinate provenance
+```
+
+The bounding box is an ergonomic proposal and crop seed. It is not instance ground truth. Final slice geometry comes from a pixel-perfect support mask.
+
+Derived crops are versioned artifacts, not raw uploaded images. They must reference the source image id, source image checksum/version, BBox version, crop origin, crop dimensions, padding, creator, timestamp, and storage/checksum metadata when persisted.
+
+Coordinate spaces are explicit:
+
+- `SOURCE_IMAGE_PIXEL` names pixel coordinates on the immutable uploaded image.
+- `CROP_PIXEL` names pixel coordinates inside a derived slice crop.
+
+The base transform is:
+
+```text
+sourceX = cropX + cropOriginX
+sourceY = cropY + cropOriginY
+```
+
+Padding is part of the crop artifact metadata. Implementations must clip padded crop regions at source-image boundaries and must document how out-of-source crop pixels are represented if they exist.
+
+Copper training-ready slice instances require explicit support masks. Sap/Heartwood crop semantics may be supportless; non-background Sap/Heartwood semantic foreground is the support geometry source. Copper semantic masks remain material labels only and must never be treated as complete slice support geometry. Sapwood/heartwood workflows may use complement fill inside support or foreground-derived support, but unknown/review-required semantics must remain possible.
+
+Slice classification can be auto-suggested from semantic content, but the suggestion must be auditable and overridable by a human reviewer. Auto-derived classifications do not silently become approved training labels unless a later implementation defines an explicit accepted-auto policy.
+
+## Consequences
+
+- Full-resolution editing remains an implemented MVP workflow and is not removed by the crop sprint.
+- RB-086 introduces BBox proposal versions without weakening existing ground-truth rules. RB-087 introduces derived crop versions without treating crop padding as support geometry. RB-088 through RB-090 introduce crop support masks, crop-constrained semantics, and auditable auto classification suggestions. RB-091 implements crop training export, and RB-092 implements shared crop readiness plus review integration.
+- Export manifests must preserve enough transform and provenance data to map crop masks back to source-image pixels.
+- Review state must stay artifact-specific. A reviewed crop does not automatically approve its support mask, semantic mask, or classification.
+- Export readiness must reject or flag stale lineage. Copper uses explicit support lineage and support/semantic validation; supportless Sap/Heartwood records `SEMANTIC_FOREGROUND` support geometry in the export contract.
+- Current `IMAGE_PIXEL` mask coordinate-space behavior remains implemented for semantic/support masks. RB-086 persists `SOURCE_IMAGE_PIXEL` for BBox proposal versions; RB-087 persists `CROP_PIXEL` for derived crop artifacts.
+- Prediction-analysis exports remain separate from ground-truth training exports; RB-085 does not add crop-aware model QA export semantics.
+
+## Deferred Work
+
+- RB-086: BBox slice proposal workflow. Implemented first runtime slice: source-image BBox proposal versions.
+- RB-087: Derived slice crop generation and persistence. Implemented server-side PNG generation, 32 px default configurable padding, source-bound clipping, app-mediated reads, and editor preview.
+- RB-088: Crop support mask editor. Implemented crop-scoped support artifact versions.
+- RB-089/RB-100: Crop semantic annotation. Implemented mode-aware crop semantic masks: Sap/Heartwood supportless foreground geometry and Copper explicit-support readiness/export.
+- RB-090: Auto slice classification from semantic masks. Implemented draft auto suggestions and manual override provenance.
+- RB-091: Crop/original-coordinate export contract implementation. Implemented crop training manifest/package export with crop/source provenance; source-image-space reprojection remains deferred.
+- RB-092: Crop workflow review/approval integration. Implemented central crop readiness, review actions in crop editors, and project/export readiness integration.
+- Later: tiled/downscaled full-image editor, edit-session/multi-tab warnings, real iPad Safari validation, and production-scale dataset export jobs.
+
+## Evidence
+
+- Current editor docs: `docs/03-features/editor.md`
+- Current mask/artifact docs: `docs/06-data/mask-and-artifact-versioning.md`
+- Crop workflow design: `docs/06-data/crop-based-slice-annotation.md`
+- Coordinate-space design: `docs/06-data/coordinate-spaces-and-transforms.md`
+- Training export contract: `docs/06-data/training-export-contract.md`
+- Current editor implementation: `src/features/editor/EditorClient.tsx`
+- Current mask upload helper: `src/features/editor/editorMaskUpload.ts`
+- Current server mask request reader: `src/server/uploads/maskRequest.ts`

@@ -1,37 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/auth/rbac";
-import { getPresignedGetUrl } from "@/server/storage"; // gleich unten
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function GET(
+export const GET = withApiErrorHandling(async function GET(
   _req: Request,
   props: { params: Promise<{ imageId: string }> }
 ) {
   const { imageId } = await props.params;
   const user = await requireUser();
 
-  const image = await prisma.image.findUnique({
+  const image = await prisma.imageAsset.findUnique({
     where: { id: imageId },
-    select: { id: true, projectId: true, storageKey: true, contentType: true },
+    select: { id: true, projectId: true },
   });
 
   if (!image) {
-    return NextResponse.json({ error: "IMAGE_NOT_FOUND" }, { status: 404 });
+    return apiError("IMAGE_NOT_FOUND", 404);
   }
 
   // Authorization: User muss Projektmitglied sein
-  const membership = await prisma.projectMember.findUnique({
+  const membership = await prisma.annotationProjectMember.findUnique({
     where: { projectId_userId: { projectId: image.projectId, userId: user.id } },
     select: { role: true },
   });
 
   if (!membership) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    return apiError("FORBIDDEN", 403);
   }
 
-  // Presigned GET für Objekt
-  const url = await getPresignedGetUrl(image.storageKey);
-
-  // Browser folgt Redirect und lädt Bild direkt aus MinIO
-  return NextResponse.redirect(url);
-}
+  return NextResponse.redirect(new URL(`/api/images/${image.id}/asset`, _req.url));
+});

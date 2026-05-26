@@ -50,6 +50,48 @@ export function applyBrush(mask: MaskBuffer, cx: number, cy: number, radius: num
   return { x: x0, y: y0, w, h, before, after };
 }
 
+export function applyBrushWithinSupport(
+  mask: MaskBuffer,
+  support: MaskBuffer,
+  cx: number,
+  cy: number,
+  radius: number,
+  label: LabelId,
+): Patch | null {
+  if (mask.width !== support.width || mask.height !== support.height) {
+    throw new Error("SUPPORT_MASK_DIMENSIONS_MISMATCH");
+  }
+
+  const r = Math.max(1, Math.floor(radius));
+  const x0 = clamp(cx - r, 0, mask.width - 1);
+  const y0 = clamp(cy - r, 0, mask.height - 1);
+  const x1 = clamp(cx + r, 0, mask.width - 1);
+  const y1 = clamp(cy + r, 0, mask.height - 1);
+
+  const w = x1 - x0 + 1;
+  const h = y1 - y0 + 1;
+
+  const before = captureBox(mask, x0, y0, w, h);
+  const rr = r * r;
+  let changed = false;
+
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const index = y * mask.width + x;
+      if (dx * dx + dy * dy <= rr && support.data[index] !== 0 && mask.data[index] !== label) {
+        mask.data[index] = label;
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed) return null;
+  const after = captureBox(mask, x0, y0, w, h);
+  return { x: x0, y: y0, w, h, before, after };
+}
+
 export function applyPolygonFill(mask: MaskBuffer, points: Point[], label: LabelId): Patch | null {
   if (points.length < 3) return null;
 

@@ -1,40 +1,14 @@
-import { NextResponse } from "next/server";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import crypto from "crypto";
-
-import { s3 } from "@/server/storage/s3";
+import { PROJECT_ANNOTATE_ROLES } from "@/server/auth/policies";
 import { requireProjectRole } from "@/server/auth/rbac";
+import { apiError, withApiErrorHandling } from "@/server/http/apiErrors";
 
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ projectId: string }> } // <— wichtig
+export const POST = withApiErrorHandling(async function POST(
+  _req: Request,
+  ctx: { params: Promise<{ projectId: string }> },
 ) {
-  const { projectId } = await ctx.params; // <— wichtig
+  const { projectId } = await ctx.params;
 
-  await requireProjectRole(projectId, ["OWNER", "QA", "LABELER"]);
+  await requireProjectRole(projectId, PROJECT_ANNOTATE_ROLES);
 
-  const body = await req.json().catch(() => null);
-  const filename = typeof body?.filename === "string" ? body.filename : "upload.bin";
-  const contentType =
-    typeof body?.contentType === "string"
-      ? body.contentType
-      : "application/octet-stream";
-
-  const bucket = process.env.S3_BUCKET!;
-  if (!bucket) return NextResponse.json({ ok: false, error: "S3_BUCKET_MISSING" }, { status: 500 });
-
-  const ext = filename.includes(".") ? filename.split(".").pop() : "bin";
-  const key = `projects/${projectId}/images/${crypto.randomUUID()}.${ext}`;
-
- 
-  const cmd = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ContentType: contentType,
-  });
-
-  const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 60 * 5 });
-  return NextResponse.json({ ok: true, uploadUrl, key });
-}
-
+  return apiError("PRESIGNED_UPLOADS_DISABLED", 410);
+});
