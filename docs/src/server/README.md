@@ -23,7 +23,7 @@
 - `src/server/domain/review.ts` - RB-052 review transition, permission, decision, and export-readiness helpers.
 - `src/server/domain/exports.ts` - RB-053 full-image and RB-091 crop training export readiness, exact export snapshot creation, async job package generation, export persistence, and download authorization.
 - `src/server/domain/exportJobs.ts` - RB-112 single-host export job processor, PostgreSQL claim/retry/lease handling, and due-job summaries.
-- `src/server/domain/exportPackageWriter.ts` - RB-112 verified JSZip package writer boundary for current capped exports.
+- `src/server/domain/exportPackageWriter.ts` - RB-112 verified JSZip package writer boundary plus EX-002 manifest-only writer/source-verification helpers.
 - `src/server/domain/predictionProvenance.ts` - RB-056 model-run, prediction-run, prediction-item provenance validation, authorization, and task-link resolution helpers.
 - `src/server/domain/predictionImport.ts` - RB-057 prediction mask import validation, storage write/stat verification, artifact-version creation, provenance linking, and audit events.
 - `src/server/domain/predictionImportBatches.ts` - RB-061 ZIP batch prediction import manifest validation, private staging, job/item status updates, retry, and processing through the RB-057 import service.
@@ -56,7 +56,7 @@
 - `presignGetObject(key)` and `presignPutObject(key, contentType)` wrap S3 presigned URLs for server-only utility use. RB-105 disables the browser-facing presign/commit upload routes so final persisted object keys are not client-writeable.
 - `putObject(key, body, contentType)` writes app-mediated uploads to S3/MinIO.
 - `loadImageReviewStateForUser`, `transitionArtifactVersionForUser`, and `transitionSliceClassificationVersionForUser` implement the minimal review/approval workflow.
-- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `processClaimedTrainingExportJob`, `getTrainingExportForUser`, and `readTrainingExportFileForUser` implement the owner-only training export workflow, including RB-053 full-image targets, the exclusive RB-091 `crop_training` target, RB-112 async package generation, and RB-105 export object-byte verification.
+- `resolveProjectExportReadiness`, `createTrainingExportForUser`, `processClaimedTrainingExportJob`, `getTrainingExportForUser`, `readTrainingExportFileForUser`, and `getTrainingExportMaterializationRefsForUser` implement the owner-only training export workflow, including RB-053 full-image targets, the exclusive RB-091 `crop_training` target, RB-112 async package generation, EX-002 manifest-only mode, audited private materialization refs, and RB-105 export object-byte verification.
 - `createModelRunForUser`, `getModelRunForUser`, `createPredictionRunForUser`, `listProjectPredictionRunsForUser`, `getPredictionRunForUser`, `createPredictionArtifactProvenance`, and `resolveTaskPredictionProvenance` implement the RB-056 provenance registry service layer.
 - `importPredictionMaskForUser` implements the RB-057 one-artifact prediction import path.
 - `createPredictionImportBatchFromZipForUser`, `processPredictionImportBatchForUser`, `retryPredictionImportBatchForUser`, and batch list/detail helpers implement the RB-061 single-host DB-backed batch import baseline.
@@ -106,7 +106,7 @@
 
 - Audit logging is still not exposed through an admin UI.
 - Login and high-cost write endpoints have DB-backed throttling. This remains a single-host trial guard, not a distributed quota/billing system.
-- Training and prediction-analysis exports use RB-112 async single-host DB jobs, but package generation still uses JSZip behind RB-111 caps. Streaming ZIP generation and metric dashboards remain deferred.
+- Training and prediction-analysis exports use RB-112 async single-host DB jobs. ZIP package generation still uses JSZip behind RB-111 caps; training exports may also use EX-002 manifest-only mode, which writes only the manifest after source-object verification. Streaming ZIP generation and metric dashboards remain deferred.
 - RB-065 adds an optional single-host worker path for RB-061 batch prediction imports. RB-112 adds a separate optional single-host worker path for exports. RB-066/RB-114 adds temporary staged-object cleanup and storage/DB consistency reporting without a cleanup UI. Production-scale queue infrastructure and slice-classification prediction correction remain deferred.
 
 ## Related Tickets / Docs

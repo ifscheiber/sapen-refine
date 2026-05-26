@@ -13,7 +13,7 @@ Ticket sequence:
 1. `done/EX-001-sapen-cnn-training-dataset-contract.md`  
    Define the architecture/data contract.
 
-2. `EX-002-manifest-only-training-snapshot-mode.md`  
+2. `done/EX-002-manifest-only-training-snapshot-mode.md`
    Add manifest-only snapshot transport without making ZIP the primary training path.
 
 3. `EX-003-full-image-training-from-crop-annotations.md`  

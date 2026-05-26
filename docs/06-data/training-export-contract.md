@@ -18,12 +18,13 @@ Important files:
 
 - `src/server/domain/exports.ts` - readiness, exact snapshot creation, manifest generation, async package processing, export persistence, and download authorization.
 - `src/server/domain/exportJobs.ts` - due-job processing, atomic claim, bounded retry, and stale lease recovery for export jobs.
-- `src/server/domain/exportPackageWriter.ts` - current verified JSZip package-writer boundary.
+- `src/server/domain/exportPackageWriter.ts` - current verified JSZip package-writer and manifest-only writer boundary.
 - `src/app/api/projects/[projectId]/export/readiness/route.ts` - project export readiness.
 - `src/app/api/projects/[projectId]/exports/route.ts` - export creation.
 - `src/app/api/export-jobs/process-due/route.ts` - worker-oriented due export job processing.
 - `src/app/api/exports/[exportId]/route.ts` - export summary.
 - `src/app/api/exports/[exportId]/download/route.ts` - manifest/package download through the app.
+- `src/app/api/exports/[exportId]/materialization-refs/route.ts` - audited owner-only private object refs for local materialization.
 - `src/features/projects/ProjectExportPanel.tsx` - project exports route UI mounted by `src/features/projects/ProjectExportsPage.tsx`.
 
 API target strings:
@@ -37,6 +38,8 @@ API target strings:
 The persisted `ExportBatch.target` maps single-target training exports to the existing Prisma enum values, maps multi-target or combined full-image selections to `COMBINED_MANIFEST`, and maps crop packages to `CROP_TRAINING`. `crop_training` is intentionally exclusive and cannot be mixed with full-image target strings in one request. RB-060 adds `ExportTarget.PREDICTION_ANALYSIS`, but that value is not accepted by the training export API.
 
 Create endpoints return `202 Accepted` with `status = PENDING` and no download links. Status reads expose `PENDING`, `PROCESSING`, `COMPLETED`, or `FAILED`; downloads are available only when the batch is `COMPLETED`. Failed jobs store stable `errorCode`/`errorMessage` values without exposing private storage keys.
+
+The create payload may include `packageMode`. Omitted mode keeps the original ZIP behavior. `packageMode = "manifest_only"` writes only `manifest.json` after verifying referenced source objects. It leaves package storage/checksum/size fields empty, keeps `downloads.package = null`, and is intended for materialization workflows rather than browser ZIP handoff.
 
 The RB-112 processor is single-host safe. It atomically claims pending or stale `PROCESSING` `ExportBatch` rows, increments `jobAttemptCount`, sets `processorId`/`processorRunId`/`leaseExpiresAt`, and writes package metadata only after source bytes pass checksum/size verification. Retryable failures return to `PENDING` until `jobMaxAttempts`; integrity and cap failures become terminal `FAILED` jobs. Run it through:
 
@@ -203,6 +206,9 @@ projects/<projectId>/exports/<exportId>/package.zip
 
 These storage keys remain server-private. Browser downloads use `/api/exports/[exportId]/download?file=manifest` and `/api/exports/[exportId]/download?file=package`.
 
+Manifest-only exports store only `projects/<projectId>/exports/<exportId>/manifest.json`.
+Their object sources remain private in `ExportBatch.metadataSummary.objectSources` and are reachable only through the audited materialization refs endpoint. Normal export summaries and public manifests must not expose storage keys, buckets, or signed URLs.
+
 ## Export Eligibility
 
 The MVP exports approved ground-truth components only:
@@ -243,6 +249,7 @@ RB-055 makes integrity metadata blocking for selected/included training inputs. 
 - selection criteria,
 - exportedBy/exportedAt,
 - manifest storage key and checksum,
+- package mode,
 - warnings,
 - metadata summary with package storage key, package checksum, package size, item count, skipped image count, and warning count.
 

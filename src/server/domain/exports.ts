@@ -22,8 +22,12 @@ import {
   ExportObjectIntegrityError,
 } from "@/server/domain/exportObjectIntegrity";
 import {
+  deleteExportManifestObjectBestEffort,
   deleteExportPackageObjectsBestEffort,
+  type ExportManifestWriteResult,
   type ExportPackageSource,
+  verifyExportPackageSources,
+  writeExportManifestObject,
   writeExportPackageObjects,
 } from "@/server/domain/exportPackageWriter";
 import {
@@ -43,6 +47,8 @@ export type ApiExportTarget =
   | "slice_classification"
   | "combined"
   | "crop_training";
+
+export type ApiExportPackageMode = "zip" | "manifest_only";
 
 type ReviewApproval = {
   decisionId: string;
@@ -170,6 +176,7 @@ const EXPORT_BATCH_SANITIZE_SELECT = {
   target: true,
   status: true,
   manifestChecksum: true,
+  manifestFormatVersion: true,
   packageChecksum: true,
   selectionCriteria: true,
   warnings: true,
@@ -254,6 +261,13 @@ function canExport(role: AnnotationProjectRole) {
 }
 
 const EXPORT_JOB_PACKAGE_WRITER = "jszip-verified-v1";
+const EXPORT_JOB_MANIFEST_WRITER = "manifest-only-verified-sources-v1";
+
+export function parseExportPackageMode(value: unknown): ApiExportPackageMode {
+  if (value === undefined || value === null || value === "") return "zip";
+  if (value === "zip" || value === "manifest_only") return value;
+  throw new TrainingExportError("EXPORT_PACKAGE_MODE_INVALID");
+}
 
 function safeExtension(filename: string | null, contentType: string | null, fallback: string) {
   const ext = filename ? path.extname(filename).toLowerCase().replace(/[^a-z0-9.]/g, "") : "";
@@ -1210,6 +1224,7 @@ function readPackageSources(metadata: Record<string, unknown>): ExportPackageSou
       }
     }
     return {
+      objectRefId: typeof record.objectRefId === "string" ? record.objectRefId : undefined,
       path: record.path as string,
       storageKey: record.storageKey as string,
       expectedChecksum: typeof record.expectedChecksum === "string" ? record.expectedChecksum : null,
@@ -1218,6 +1233,14 @@ function readPackageSources(metadata: Record<string, unknown>): ExportPackageSou
       resourceId: record.resourceId as string,
     };
   });
+}
+
+function packageModeFromMetadata(metadata: Record<string, unknown>): ApiExportPackageMode {
+  return metadata.packageMode === "manifest_only" ? "manifest_only" : "zip";
+}
+
+function packageWriterForMode(mode: ApiExportPackageMode) {
+  return mode === "manifest_only" ? EXPORT_JOB_MANIFEST_WRITER : EXPORT_JOB_PACKAGE_WRITER;
 }
 
 function exportJobConfig() {
@@ -1230,6 +1253,7 @@ function sanitizeExportBatch(batch: {
   target: ExportTarget;
   status: string;
   manifestChecksum: string | null;
+  manifestFormatVersion?: string;
   packageChecksum?: string | null;
   selectionCriteria: Prisma.JsonValue | null;
   warnings: Prisma.JsonValue | null;
@@ -1251,6 +1275,11 @@ function sanitizeExportBatch(batch: {
 }) {
   const metadata = metadataRecord(batch.metadataSummary);
   const warningList = Array.isArray(batch.warnings) ? batch.warnings : [];
+  const packageChecksum =
+    batch.packageChecksum ?? (typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null);
+  const packageMode = packageModeFromMetadata(metadata);
+  const packageAvailable = batch.status === "COMPLETED" && Boolean(packageChecksum);
+  const manifestAvailable = batch.status === "COMPLETED" && Boolean(batch.manifestChecksum);
 
   return {
     id: batch.id,
@@ -1258,7 +1287,12 @@ function sanitizeExportBatch(batch: {
     target: batch.target,
     status: batch.status,
     manifestChecksum: batch.manifestChecksum,
-    packageChecksum: batch.packageChecksum ?? (typeof metadata.packageChecksum === "string" ? metadata.packageChecksum : null),
+    manifestFormatVersion: batch.manifestFormatVersion ?? null,
+    packageChecksum,
+    packageMode,
+    logicalTarget: typeof metadata.logicalTarget === "string" ? metadata.logicalTarget : null,
+    manifestAvailable,
+    packageAvailable,
     itemCount: batch._count?.items ?? (typeof metadata.itemCount === "number" ? metadata.itemCount : 0),
     warningCount: warningList.length,
     selection: batch.selectionCriteria,
@@ -1281,7 +1315,7 @@ function sanitizeExportBatch(batch: {
       batch.status === "COMPLETED"
         ? {
             manifest: `/api/exports/${batch.id}/download?file=manifest`,
-            package: `/api/exports/${batch.id}/download?file=package`,
+            package: packageAvailable ? `/api/exports/${batch.id}/download?file=package` : null,
           }
         : null,
   };
@@ -1388,6 +1422,7 @@ export function sanitizeReadiness(
 async function createCropTrainingExportBatch(params: {
   readiness: Awaited<ReturnType<typeof resolveProjectExportReadiness>>;
   user: { id: string; email: string; name: string | null };
+  packageMode: ApiExportPackageMode;
 }, db: PrismaClient) {
   const exportId = randomUUID();
   const exportedAt = new Date();
@@ -1429,9 +1464,11 @@ async function createCropTrainingExportBatch(params: {
         selectionCriteria,
         warnings: manifest.warnings,
         metadataSummary: {
-          packageWriter: EXPORT_JOB_PACKAGE_WRITER,
+          packageMode: params.packageMode,
+          packageWriter: packageWriterForMode(params.packageMode),
           manifestSnapshot: manifest,
           packageSources,
+          objectSources: packageSources,
           itemCount: manifest.summary.cropItemCount,
           cropItemCount: manifest.summary.cropItemCount,
           skippedCropItemCount: manifest.summary.skippedCropItemCount,
@@ -1457,6 +1494,7 @@ async function createCropTrainingExportBatch(params: {
         projectId: created.projectId,
         target: created.target,
         manifestFormatVersion: CROP_TRAINING_EXPORT_MANIFEST_VERSION,
+        packageMode: params.packageMode,
         itemCount: manifest.summary.cropItemCount,
       },
     }, tx);
@@ -1471,6 +1509,7 @@ export async function createTrainingExportForUser(params: {
   projectId: string;
   userId: string;
   targets: ApiExportTarget[];
+  packageMode?: ApiExportPackageMode;
 }, db: PrismaClient = prisma) {
   const readiness = await resolveProjectExportReadiness(
     { projectId: params.projectId, userId: params.userId },
@@ -1483,9 +1522,10 @@ export async function createTrainingExportForUser(params: {
     select: { id: true, email: true, name: true },
   });
   if (!user) throw new TrainingExportError("USER_NOT_FOUND");
+  const packageMode = params.packageMode ?? "zip";
 
   if (isCropTrainingSelection(params.targets)) {
-    return createCropTrainingExportBatch({ readiness, user }, db);
+    return createCropTrainingExportBatch({ readiness, user, packageMode }, db);
   }
 
   const selectionCriteria = {
@@ -1530,9 +1570,11 @@ export async function createTrainingExportForUser(params: {
         selectionCriteria,
         warnings: manifest.warnings,
         metadataSummary: {
-          packageWriter: EXPORT_JOB_PACKAGE_WRITER,
+          packageMode,
+          packageWriter: packageWriterForMode(packageMode),
           manifestSnapshot: manifest,
           packageSources,
+          objectSources: packageSources,
           itemCount: manifest.summary.itemCount,
           skippedImageCount: manifest.summary.skippedImageCount,
           warningCount: manifest.summary.warningCount,
@@ -1556,6 +1598,7 @@ export async function createTrainingExportForUser(params: {
       details: {
         projectId: created.projectId,
         target: created.target,
+        packageMode,
         itemCount: manifest.summary.itemCount,
       },
     }, tx);
@@ -1589,6 +1632,7 @@ export async function processClaimedTrainingExportJob(params: {
   const metadata = metadataRecord(batch.metadataSummary);
   const manifest = readManifestSnapshot(metadata);
   const sources = readPackageSources(metadata);
+  const packageMode = packageModeFromMetadata(metadata);
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
   const summary = metadataRecord((manifest as Record<string, unknown>).summary as Prisma.JsonValue);
   const itemCount =
@@ -1609,12 +1653,30 @@ export async function processClaimedTrainingExportJob(params: {
   });
 
   const exportPrefix = `projects/${batch.projectId}/exports/${batch.id}`;
-  const writeResult = await writeExportPackageObjects({
-    manifest,
-    sources,
-    manifestStorageKey: `${exportPrefix}/manifest.json`,
-    packageStorageKey: `${exportPrefix}/package.zip`,
-  });
+  let writeResult:
+    | ({ packageMode: "zip" } & Awaited<ReturnType<typeof writeExportPackageObjects>>)
+    | ({ packageMode: "manifest_only" } & ExportManifestWriteResult);
+
+  if (packageMode === "manifest_only") {
+    await verifyExportPackageSources(sources);
+    writeResult = {
+      packageMode,
+      ...(await writeExportManifestObject({
+        manifest,
+        manifestStorageKey: `${exportPrefix}/manifest.json`,
+      })),
+    };
+  } else {
+    writeResult = {
+      packageMode,
+      ...(await writeExportPackageObjects({
+        manifest,
+        sources,
+        manifestStorageKey: `${exportPrefix}/manifest.json`,
+        packageStorageKey: `${exportPrefix}/package.zip`,
+      })),
+    };
+  }
 
   let completed: Prisma.ExportBatchGetPayload<{ select: typeof EXPORT_BATCH_SANITIZE_SELECT }>;
   try {
@@ -1625,17 +1687,20 @@ export async function processClaimedTrainingExportJob(params: {
           status: ExportStatus.COMPLETED,
           manifestStorageKey: writeResult.manifestStorageKey,
           manifestChecksum: writeResult.manifestChecksum,
-          packageStorageKey: writeResult.packageStorageKey,
-          packageChecksum: writeResult.packageChecksum,
-          packageSize: writeResult.packageSize,
+          packageStorageKey: writeResult.packageMode === "zip" ? writeResult.packageStorageKey : null,
+          packageChecksum: writeResult.packageMode === "zip" ? writeResult.packageChecksum : null,
+          packageSize: writeResult.packageMode === "zip" ? writeResult.packageSize : null,
           warnings: Array.isArray((manifest as Record<string, unknown>).warnings)
             ? (manifest as Record<string, unknown>).warnings as Prisma.InputJsonValue
             : [],
           metadataSummary: {
             ...metadata,
-            packageStorageKey: writeResult.packageStorageKey,
-            packageChecksum: writeResult.packageChecksum,
-            packageSize: writeResult.packageSize,
+            packageMode,
+            manifestStorageKey: writeResult.manifestStorageKey,
+            manifestChecksum: writeResult.manifestChecksum,
+            packageStorageKey: writeResult.packageMode === "zip" ? writeResult.packageStorageKey : null,
+            packageChecksum: writeResult.packageMode === "zip" ? writeResult.packageChecksum : null,
+            packageSize: writeResult.packageMode === "zip" ? writeResult.packageSize : null,
           },
           completedAt: new Date(),
           failedAt: null,
@@ -1660,13 +1725,18 @@ export async function processClaimedTrainingExportJob(params: {
           manifestChecksum: updated.manifestChecksum,
           packageChecksum: updated.packageChecksum,
           manifestFormatVersion: batch.manifestFormatVersion,
+          packageMode,
         },
       }, tx);
 
       return updated;
     });
   } catch (error) {
-    await deleteExportPackageObjectsBestEffort(writeResult);
+    if (writeResult.packageMode === "zip") {
+      await deleteExportPackageObjectsBestEffort(writeResult);
+    } else {
+      await deleteExportManifestObjectBestEffort(writeResult);
+    }
     throw error;
   }
 
@@ -1744,6 +1814,52 @@ export async function readTrainingExportFileForUser(params: {
         ? `sapen-export-${batch.id}-manifest.json`
         : `sapen-export-${batch.id}.zip`,
     contentType: params.file === "manifest" ? "application/json" : "application/zip",
+  };
+}
+
+export async function getTrainingExportMaterializationRefsForUser(params: {
+  exportId: string;
+  userId: string;
+}, db: ExportDb = prisma) {
+  const batch = await loadExportForUser(params, db);
+  if (batch.status === "FAILED") throw new TrainingExportError("EXPORT_FAILED");
+  if (batch.status !== "COMPLETED") throw new TrainingExportError("EXPORT_NOT_READY");
+
+  const metadata = metadataRecord(batch.metadataSummary);
+  const sources = readPackageSources(metadata);
+  const packageMode = packageModeFromMetadata(metadata);
+  const logicalTarget = typeof metadata.logicalTarget === "string" ? metadata.logicalTarget : null;
+
+  await recordAuditEvent({
+    action: "EXPORT_MATERIALIZATION_REFS_ACCESSED",
+    entity: "ExportBatch",
+    entityId: batch.id,
+    actorId: params.userId,
+    details: {
+      projectId: batch.projectId,
+      manifestFormatVersion: batch.manifestFormatVersion,
+      logicalTarget,
+      packageMode,
+      refCount: sources.length,
+    },
+  }, db);
+
+  return {
+    exportId: batch.id,
+    projectId: batch.projectId,
+    manifestFormatVersion: batch.manifestFormatVersion,
+    logicalTarget,
+    packageMode,
+    refs: sources.map((source) => ({
+      objectRefId: source.objectRefId ?? source.path,
+      path: source.path,
+      role: source.resourceType,
+      resourceType: source.resourceType,
+      resourceId: source.resourceId,
+      storageKey: source.storageKey,
+      expectedChecksum: source.expectedChecksum ?? null,
+      expectedSize: source.expectedSize ?? null,
+    })),
   };
 }
 

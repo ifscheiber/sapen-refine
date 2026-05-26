@@ -47,9 +47,12 @@ type CreatedExport = {
   } | null;
   manifestChecksum: string | null;
   packageChecksum: string | null;
+  packageMode?: "zip" | "manifest_only";
+  manifestAvailable?: boolean;
+  packageAvailable?: boolean;
   downloads: {
     manifest: string;
-    package: string;
+    package: string | null;
   } | null;
 };
 
@@ -396,6 +399,11 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
           <div className="mt-1 text-muted-foreground">
             {createdExport.id} · {createdExport.itemCount} item rows · {createdExport.warningCount} warnings
           </div>
+          {createdExport.packageMode && (
+            <div className="mt-1 text-muted-foreground">
+              Mode: {createdExport.packageMode === "manifest_only" ? "Manifest-only snapshot" : "ZIP package"}
+            </div>
+          )}
           {createdExport.errorCode && (
             <div className="mt-2 text-destructive">{createdExport.errorMessage ?? createdExport.errorCode}</div>
           )}
@@ -404,9 +412,11 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
               <Button asChild variant="outline">
                 <a href={createdExport.downloads.manifest}>Download manifest</a>
               </Button>
-              <Button asChild variant="outline">
-                <a href={createdExport.downloads.package}>Download package</a>
-              </Button>
+              {createdExport.downloads.package && (
+                <Button asChild variant="outline">
+                  <a href={createdExport.downloads.package}>Download package</a>
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -551,14 +561,16 @@ export function ProjectExportPanel({ projectId }: ProjectExportPanelProps) {
             )}
             {createdPredictionExport.downloads && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button asChild variant="outline">
-                  <a href={createdPredictionExport.downloads.manifest}>Download manifest</a>
-                </Button>
+              <Button asChild variant="outline">
+                <a href={createdPredictionExport.downloads.manifest}>Download manifest</a>
+              </Button>
+              {createdPredictionExport.downloads.package && (
                 <Button asChild variant="outline">
                   <a href={createdPredictionExport.downloads.package}>Download package</a>
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
+          )}
           </div>
         )}
       </div>

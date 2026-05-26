@@ -5,6 +5,7 @@ import { deleteObjectBestEffort, putObject } from "@/server/storage/s3";
 import { sha256Checksum } from "@/server/uploads/integrity";
 
 export type ExportPackageSource = {
+  objectRefId?: string;
   path: string;
   storageKey: string;
   expectedChecksum: string | null | undefined;
@@ -20,6 +21,21 @@ export type ExportPackageWriteResult = {
   packageChecksum: string;
   packageSize: number;
 };
+
+export type ExportManifestWriteResult = {
+  manifestStorageKey: string;
+  manifestChecksum: string;
+};
+
+function encodeManifest(manifest: unknown) {
+  return new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+}
+
+export async function verifyExportPackageSources(sources: ExportPackageSource[]) {
+  for (const source of sources) {
+    await getVerifiedExportObjectBytes(source);
+  }
+}
 
 export async function buildVerifiedZipPackage(params: {
   manifest: unknown;
@@ -49,7 +65,7 @@ export async function writeExportPackageObjects(params: {
   let packageWriteAttempted = false;
 
   try {
-    const manifestBytes = new TextEncoder().encode(JSON.stringify(params.manifest, null, 2));
+    const manifestBytes = encodeManifest(params.manifest);
     const packageBytes = await buildVerifiedZipPackage({
       manifest: params.manifest,
       sources: params.sources,
@@ -72,6 +88,22 @@ export async function writeExportPackageObjects(params: {
     if (packageWriteAttempted) await deleteObjectBestEffort(params.packageStorageKey);
     throw error;
   }
+}
+
+export async function writeExportManifestObject(params: {
+  manifest: unknown;
+  manifestStorageKey: string;
+}): Promise<ExportManifestWriteResult> {
+  const manifestBytes = encodeManifest(params.manifest);
+  await putObject(params.manifestStorageKey, manifestBytes, "application/json");
+  return {
+    manifestStorageKey: params.manifestStorageKey,
+    manifestChecksum: sha256Checksum(manifestBytes),
+  };
+}
+
+export async function deleteExportManifestObjectBestEffort(result: ExportManifestWriteResult) {
+  await deleteObjectBestEffort(result.manifestStorageKey);
 }
 
 export async function deleteExportPackageObjectsBestEffort(result: ExportPackageWriteResult) {

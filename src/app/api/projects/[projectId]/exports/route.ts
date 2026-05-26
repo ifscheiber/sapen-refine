@@ -4,6 +4,7 @@ import { requireUser } from "@/server/auth/rbac";
 import {
   createTrainingExportForUser,
   exportErrorResponse,
+  parseExportPackageMode,
   parseExportTargets,
 } from "@/server/domain/exports";
 import { apiErrorFromPayload, withApiErrorHandling } from "@/server/http/apiErrors";
@@ -27,6 +28,7 @@ export const POST = withApiErrorHandling(async function POST(
       projectId,
       userId: user.id,
       targets: parseExportTargets(body?.targets),
+      packageMode: parseExportPackageMode(body?.packageMode),
     });
     return NextResponse.json({ ok: true, export: exportBatch }, { status: 202 });
   } catch (error) {

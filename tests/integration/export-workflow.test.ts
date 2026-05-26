@@ -616,6 +616,102 @@ describe("training export workflow", () => {
     );
   });
 
+  it("creates manifest-only exports without exposing private refs in normal responses", async () => {
+    const imageId = await createImage("manifest-only");
+    const semanticVersionId = await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "manifest-only-semantic",
+    });
+
+    const queued = await exportsDomain.createTrainingExportForUser(
+      {
+        projectId,
+        userId: ownerId,
+        targets: ["semantic_segmentation"],
+        packageMode: "manifest_only",
+      },
+      prisma,
+    );
+    expect(queued).toMatchObject({
+      status: "PENDING",
+      packageMode: "manifest_only",
+      packageAvailable: false,
+      downloads: null,
+    });
+    expect(JSON.stringify(queued)).not.toContain("tests/export/");
+
+    const completed = await processQueuedTrainingExport(queued.id);
+    expect(completed).toMatchObject({
+      status: "COMPLETED",
+      packageMode: "manifest_only",
+      manifestAvailable: true,
+      packageAvailable: false,
+    });
+    expect(completed.downloads?.manifest).toBe(`/api/exports/${queued.id}/download?file=manifest`);
+    expect(completed.downloads?.package).toBeNull();
+    expect(completed.packageChecksum).toBeNull();
+    expect(JSON.stringify(completed)).not.toContain("tests/export/");
+
+    const manifestFile = await exportsDomain.readTrainingExportFileForUser(
+      { exportId: queued.id, userId: ownerId, file: "manifest" },
+      prisma,
+    );
+    const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
+    expect(manifest.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          image: expect.objectContaining({ id: imageId }),
+          semanticMask: expect.objectContaining({ artifactVersionId: semanticVersionId }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(manifest)).not.toContain("tests/export/");
+
+    await expect(
+      exportsDomain.readTrainingExportFileForUser(
+        { exportId: queued.id, userId: ownerId, file: "package" },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "EXPORT_FILE_NOT_FOUND" });
+
+    const refs = await exportsDomain.getTrainingExportMaterializationRefsForUser(
+      { exportId: queued.id, userId: ownerId },
+      prisma,
+    );
+    expect(refs).toMatchObject({
+      exportId: queued.id,
+      packageMode: "manifest_only",
+    });
+    expect(refs.refs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceType: "ImageAsset", resourceId: imageId }),
+        expect.objectContaining({
+          resourceType: "AnnotationArtifactVersion",
+          resourceId: semanticVersionId,
+        }),
+      ]),
+    );
+    expect(JSON.stringify(refs)).toContain("tests/export/");
+
+    await expect(
+      exportsDomain.getTrainingExportMaterializationRefsForUser(
+        { exportId: queued.id, userId: viewerId },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const refsAudit = await prisma.auditLog.findFirst({
+      where: {
+        entity: "ExportBatch",
+        entityId: queued.id,
+        action: "EXPORT_MATERIALIZATION_REFS_ACCESSED",
+      },
+      select: { id: true },
+    });
+    expect(refsAudit).toBeTruthy();
+  });
+
   it("claims a queued training export once across concurrent processor passes", async () => {
     const imageId = await createImage("concurrent-claim");
     await createArtifactVersion({
