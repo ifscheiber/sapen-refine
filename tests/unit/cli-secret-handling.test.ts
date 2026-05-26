@@ -96,6 +96,7 @@ describe("cli secret handling", () => {
       ["node", ["scripts/process-prediction-import-batch.mjs", "--help"]],
       ["node", ["scripts/storage-cleanup.mjs", "--help"]],
       ["node", ["scripts/create-trial-user.mjs", "--help"]],
+      ["node", ["scripts/materialize-sapen-cnn-dataset.mjs", "--help"]],
     ] as const;
 
     for (const [command, args] of commands) {

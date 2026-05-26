@@ -288,8 +288,12 @@ classification/val_manifest.csv
 CSV columns:
 
 ```text
-sample_id,image_path,label,source_image_id,crop_id,bbox_x,bbox_y,bbox_w,bbox_h,group_key,split
+sample_id,crop_path,image_path,label,source_image_id,crop_id,bbox_x,bbox_y,bbox_w,bbox_h,group_key,split
 ```
+
+`crop_path` and `image_path` both point at the materialized crop image for the current
+contract so the current `../sapen-cnn/models/sapen_clsf/dataset.py` loader can use its
+`crop_path` branch while downstream tooling still gets a generic image path.
 
 Semantic segmentation:
 

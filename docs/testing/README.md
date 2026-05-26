@@ -58,6 +58,7 @@ This page defines the current validation baseline and the intended testing direc
 - `tests/unit/high-cost-rate-limit.test.ts` covers RB-111 rate-limit family policy mapping plus allow/deny/retry calculations.
 - `tests/unit/high-cost-route-inventory.test.ts` guards representative expensive mutation routes so they remain wired to the shared high-cost limiter.
 - `tests/unit/export-trial-caps.test.ts` covers RB-111 export item/byte cap decisions and stable cap error metadata.
+- `tests/unit/sapen-cnn-materializer.test.ts` covers EX-005 local SaPen-CNN dataset materialization from a minimal snapshot fixture, including crop classification CSVs, crop semantic mask remapping, 32-bit TIFF instance masks, object caching, checksum mismatch failure, invalid semantic-label failure, overlap failure, and unsafe overwrite rejection.
 - `tests/unit/storage-cleanup.test.ts` covers RB-066 temporary-object key classification, retention cutoffs, and age calculations.
 - `tests/unit/storage-cleanup-route-contract.test.ts` pins the `/api/storage-cleanup` response shape so RB-114 consistency data remains additive and existing `cleanup.summary` / `cleanup.results` consumers keep working.
 - `tests/unit/prediction-import-batch-leases.test.ts` covers RB-065 lease expiry, stale legacy processing detection, and retry/fail recovery state selection.

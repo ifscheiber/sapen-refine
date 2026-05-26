@@ -22,5 +22,5 @@ Ticket sequence:
 4. `done/EX-004-crop-semantic-training-dataset-snapshot.md`
    Build crop semantic segmentation manifest data for Sap/Heartwood and Copper models.
 
-5. `EX-005-annotate-side-local-sapen-cnn-materializer.md`  
+5. `done/EX-005-annotate-side-local-sapen-cnn-materializer.md`
    Add an annotate-side local materializer that creates `sapen-cnn`-compatible local folders/manifests without editing `sapen-cnn`.

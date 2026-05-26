@@ -13,7 +13,7 @@ This folder documents local development, environment variables, and handoff hygi
 
 ## Public Interfaces / Routes / Functions
 
-Not applicable.
+- `npm run dataset:materialize` runs the local SaPen-CNN dataset materializer documented in [local-sapen-cnn-training-handoff.md](local-sapen-cnn-training-handoff.md).
 
 ## Invariants And Constraints
 

@@ -15,6 +15,7 @@ const ROUTE_CLASSIFICATION: Record<string, RouteClassification> = {
   "src/app/api/correction-tasks/[taskId]/route.ts": "protected-api",
   "src/app/api/export-jobs/process-due/route.ts": "protected-api",
   "src/app/api/exports/[exportId]/download/route.ts": "protected-api",
+  "src/app/api/exports/[exportId]/materialization-refs/route.ts": "protected-api",
   "src/app/api/exports/[exportId]/route.ts": "protected-api",
   "src/app/api/health/route.ts": "public-api",
   "src/app/api/images/[imageId]/asset/route.ts": "protected-api",

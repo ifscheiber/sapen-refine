@@ -1,4 +1,4 @@
-import { AnnotationArtifactKind, type Prisma, type PrismaClient } from "@prisma/client";
+import { type Prisma, type PrismaClient } from "@prisma/client";
 
 import type { CropWorkflowCandidate } from "@/server/domain/cropReadiness";
 import type { ExportPackageSource } from "@/server/domain/exportPackageWriter";
@@ -667,6 +667,18 @@ export async function buildSapenCnnTrainingSnapshot(params: {
           derivedCropId: candidate.crop.id,
           sliceInstanceId: candidate.crop.sliceInstanceId,
           supportGeometrySource: candidate.supportGeometrySource,
+          supportGeometryObjectRefId:
+            candidate.supportGeometrySource === "EXPLICIT_SUPPORT_MASK"
+              ? candidate.supportMask ? supportMaskRef(candidate)?.objectRefId ?? null : null
+              : candidate.semanticMask ? semanticMaskRef(candidate)?.objectRefId ?? null : null,
+          supportGeometryWidth:
+            candidate.supportGeometrySource === "EXPLICIT_SUPPORT_MASK"
+              ? candidate.supportMask?.width ?? null
+              : candidate.semanticMask?.width ?? null,
+          supportGeometryHeight:
+            candidate.supportGeometrySource === "EXPLICIT_SUPPORT_MASK"
+              ? candidate.supportMask?.height ?? null
+              : candidate.semanticMask?.height ?? null,
           supportMaskVersionId: candidate.supportMask?.id ?? null,
           semanticMaskVersionId: candidate.semanticMask?.id ?? null,
         })),
@@ -674,6 +686,8 @@ export async function buildSapenCnnTrainingSnapshot(params: {
       sourceCropRefs: sorted.map((candidate) => ({
         derivedCropId: candidate.crop.id,
         cropObjectRefId: cropImageRef(candidate).objectRefId,
+        cropWidth: candidate.crop.cropWidth,
+        cropHeight: candidate.crop.cropHeight,
         sourceRect: sourceRect(candidate),
         transformToSource: candidate.crop.transformToSourceJson,
       })),
