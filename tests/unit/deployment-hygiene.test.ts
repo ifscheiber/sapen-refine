@@ -14,6 +14,30 @@ function dockerIgnorePatterns() {
     .filter((line) => line && !line.startsWith("#"));
 }
 
+function appServiceBlock(compose: string) {
+  const match = compose.match(/\n  app:\n([\s\S]*?)\n  migrate:/);
+  expect(match?.[1]).toBeTruthy();
+  return match?.[1] ?? "";
+}
+
+const APP_RUNTIME_TRIAL_LIMITS = [
+  ["HIGH_COST_LIMITS_ENABLED", "true"],
+  ["HIGH_COST_UPLOAD_MAX_REQUESTS", "20"],
+  ["HIGH_COST_UPLOAD_WINDOW_SECONDS", "60"],
+  ["HIGH_COST_EDITOR_SAVE_MAX_REQUESTS", "120"],
+  ["HIGH_COST_EDITOR_SAVE_WINDOW_SECONDS", "60"],
+  ["HIGH_COST_EXPORT_CREATE_MAX_REQUESTS", "5"],
+  ["HIGH_COST_EXPORT_CREATE_WINDOW_SECONDS", "600"],
+  ["HIGH_COST_PREDICTION_IMPORT_MAX_REQUESTS", "10"],
+  ["HIGH_COST_PREDICTION_IMPORT_WINDOW_SECONDS", "600"],
+  ["HIGH_COST_OPERATIONS_MAX_REQUESTS", "10"],
+  ["HIGH_COST_OPERATIONS_WINDOW_SECONDS", "600"],
+  ["TRAINING_EXPORT_MAX_ITEMS", "500"],
+  ["TRAINING_EXPORT_MAX_BYTES", "536870912"],
+  ["PREDICTION_ANALYSIS_EXPORT_MAX_ITEMS", "500"],
+  ["PREDICTION_ANALYSIS_EXPORT_MAX_BYTES", "536870912"],
+] as const;
+
 describe("deployment hygiene", () => {
   it("keeps generated artifacts and local secrets out of the Docker build context", () => {
     const patterns = dockerIgnorePatterns();
@@ -116,5 +140,16 @@ describe("deployment hygiene", () => {
     expect(dockerfile).toContain("ENV NEXT_PROXY_CLIENT_MAX_BODY_SIZE=${NEXT_PROXY_CLIENT_MAX_BODY_SIZE}");
     expect(compose).toContain("NEXT_PROXY_CLIENT_MAX_BODY_SIZE: ${NEXT_PROXY_CLIENT_MAX_BODY_SIZE:-120mb}");
     expect(trialEnv).toContain("NEXT_PROXY_CLIENT_MAX_BODY_SIZE=120mb");
+  });
+
+  it("propagates documented high-cost and export cap limits into the trial app service", () => {
+    const compose = readRepoFile("deploy/docker-compose.trial.yml");
+    const trialEnv = readRepoFile("deploy/trial.env.example");
+    const appBlock = appServiceBlock(compose);
+
+    for (const [name, fallback] of APP_RUNTIME_TRIAL_LIMITS) {
+      expect(trialEnv).toContain(`${name}=${fallback}`);
+      expect(appBlock).toContain(`${name}: ${"${"}${name}:-${fallback}}`);
+    }
   });
 });

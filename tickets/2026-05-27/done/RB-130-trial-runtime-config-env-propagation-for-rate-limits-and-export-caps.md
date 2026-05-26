@@ -6,9 +6,9 @@ Type: Production configuration / data-safety guardrail
 
 ## Context
 
-RB-111 added DB-backed high-cost write limits and export item/byte caps in [../../src/server/runtime/config.ts](../../src/server/runtime/config.ts). The customer-trial environment template [../../deploy/trial.env.example](../../deploy/trial.env.example) exposes these settings, and deployment docs tell operators to tune them through `deploy/trial.env`.
+RB-111 added DB-backed high-cost write limits and export item/byte caps in [../../../src/server/runtime/config.ts](../../../src/server/runtime/config.ts). The customer-trial environment template [../../../deploy/trial.env.example](../../../deploy/trial.env.example) exposes these settings, and deployment docs tell operators to tune them through `deploy/trial.env`.
 
-The app service in [../../deploy/docker-compose.trial.yml](../../deploy/docker-compose.trial.yml) does not currently pass the `HIGH_COST_*`, `TRAINING_EXPORT_MAX_*`, or `PREDICTION_ANALYSIS_EXPORT_MAX_*` variables into the container. In the trial stack, changing those values in `deploy/trial.env` can therefore leave the app using runtime defaults.
+The app service in [../../../deploy/docker-compose.trial.yml](../../../deploy/docker-compose.trial.yml) does not currently pass the `HIGH_COST_*`, `TRAINING_EXPORT_MAX_*`, or `PREDICTION_ANALYSIS_EXPORT_MAX_*` variables into the container. In the trial stack, changing those values in `deploy/trial.env` can therefore leave the app using runtime defaults.
 
 ## Impact
 
@@ -28,7 +28,7 @@ Make the customer-trial runtime path honor documented high-cost write-limit and 
 
 ## Implementation Plan
 
-1. Add all RB-111 high-cost limit variables and export cap variables to the app service environment in [../../deploy/docker-compose.trial.yml](../../deploy/docker-compose.trial.yml).
+1. Add all RB-111 high-cost limit variables and export cap variables to the app service environment in [../../../deploy/docker-compose.trial.yml](../../../deploy/docker-compose.trial.yml).
 2. Keep the variables sourced from `${...}` values so `deploy/trial.env` remains the operator-facing control surface.
 3. Add or extend a focused deployment hygiene test that checks the trial Compose app service includes every runtime config variable documented as customer-trial configurable.
 4. Update environment/deployment docs only as needed to make the propagation path explicit.

@@ -36,7 +36,7 @@ The third concern is attribution preservation during account lifecycle operation
 ### F-01 - Trial rate-limit and export-cap env values are not propagated to the app container
 
 Priority: P1
-Ticket: [RB-130](RB-130-trial-runtime-config-env-propagation-for-rate-limits-and-export-caps.md)
+Ticket: [RB-130](done/RB-130-trial-runtime-config-env-propagation-for-rate-limits-and-export-caps.md)
 
 Evidence:
 
