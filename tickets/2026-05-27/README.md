@@ -15,16 +15,16 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 
 ## Active Risk-First Order
 
-1. [RB-131 - Runtime environment docs, templates, and secret-input parity](RB-131-runtime-environment-docs-templates-and-secret-input-parity.md) - P2; follows RB-130 so the environment inventory reflects the propagation fix.
-2. [RB-132 - Current-state and architecture documentation drift cleanup](RB-132-current-state-and-architecture-doc-drift-cleanup.md) - P2; follows higher-risk operational/data-integrity tickets.
-3. [RB-135 - Ticket and docs governance scope extension](RB-135-ticket-and-docs-governance-scope-extension.md) - P2; should make future active sprint README drift visible.
-4. [RB-138 - Deep checksum consistency for primary storage objects](RB-138-storage-consistency-primary-object-checksums.md) - P1/P2; keep explicit/deep mode only, after cleanup-category behavior is clear.
-5. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
-6. [RB-133 - Opportunistic decomposition map refresh and hotspot guard](RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md) - P3; maintainability map, no production refactor by itself.
+1. [RB-132 - Current-state and architecture documentation drift cleanup](RB-132-current-state-and-architecture-doc-drift-cleanup.md) - P2; follows higher-risk operational/data-integrity tickets.
+2. [RB-135 - Ticket and docs governance scope extension](RB-135-ticket-and-docs-governance-scope-extension.md) - P2; should make future active sprint README drift visible.
+3. [RB-138 - Deep checksum consistency for primary storage objects](RB-138-storage-consistency-primary-object-checksums.md) - P1/P2; keep explicit/deep mode only, after cleanup-category behavior is clear.
+4. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
+5. [RB-133 - Opportunistic decomposition map refresh and hotspot guard](RB-133-opportunistic-decomposition-map-refresh-and-hotspot-guard.md) - P3; maintainability map, no production refactor by itself.
 
 ## Done
 
 - [RB-130 - Trial runtime config env propagation for rate limits and export caps](done/RB-130-trial-runtime-config-env-propagation-for-rate-limits-and-export-caps.md) - completed; `deploy/docker-compose.trial.yml` now passes documented RB-111 high-cost write limit and export cap vars into the app service, guarded by `tests/unit/deployment-hygiene.test.ts`.
+- [RB-131 - Runtime environment docs, templates, and secret-input parity](done/RB-131-runtime-environment-docs-templates-and-secret-input-parity.md) - completed; the environment inventory and templates now cover runtime, operational-script, and SaPen-CNN materializer variables with a parity guard.
 - [RB-134 - User lifecycle deactivation and attribution preservation](done/RB-134-user-lifecycle-deactivation-and-attribution-preservation.md) - completed; named admin operators can deactivate users, revoke sessions, and preserve historical user-row attribution.
 - [RB-136 - Approved snapshot freshness gating](done/RB-136-approved-snapshot-freshness-gating.md) - completed; training exports now report and block stale approved snapshots when newer non-approved support, semantic, or classification work exists in the requested export scope.
 - [RB-137 - Storage cleanup coverage for crop object prefixes](done/RB-137-storage-cleanup-crop-object-prefixes.md) - completed; cleanup now classifies unreferenced crop workflow prefixes while DB-referenced derived crops and crop artifact versions remain protected.

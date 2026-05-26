@@ -1,6 +1,6 @@
 # RB-131 - Runtime Environment Docs, Templates, And Secret-Input Parity
 
-Status: Planned
+Status: Done
 Priority: P2
 Type: Operations documentation / configuration governance
 
