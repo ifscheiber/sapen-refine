@@ -95,6 +95,14 @@ summary
 `splitPolicy` records the deterministic split method, the seed/hash strategy, and a
 `groupSplitMap` summary. Every item also records its own `groupKey` and `split`.
 
+The snapshot uses the same approved-snapshot freshness policy as other training exports.
+`selection.approvedSnapshotFreshnessPolicy` is
+`"block_newer_non_approved_versions"`, and snapshot creation is blocked with
+`EXPORT_APPROVED_SNAPSHOT_OUTDATED` if any crop candidate in the export scope has a newer non-approved
+support mask, semantic mask, or classification than the approved version that would otherwise
+feed the manifest. This prevents SaPen-CNN manifests from silently training on stale approved
+crop data while newer draft, submitted, or rejected corrections exist.
+
 ## Split Policy
 
 Create one deterministic group split map per export and apply it consistently to:

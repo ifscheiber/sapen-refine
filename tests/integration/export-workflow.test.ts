@@ -164,8 +164,16 @@ describe("training export workflow", () => {
     reviewState?: ArtifactReviewState;
     name: string;
   }) {
-    const artifact = await prisma.annotationArtifact.create({
-      data: {
+    const artifact = await prisma.annotationArtifact.upsert({
+      where: {
+        imageId_kind_scopeKey: {
+          imageId: params.imageId,
+          kind: params.kind,
+          scopeKey: "default",
+        },
+      },
+      update: {},
+      create: {
         projectId,
         imageId: params.imageId,
         kind: params.kind,
@@ -174,15 +182,20 @@ describe("training export workflow", () => {
       },
       select: { id: true },
     });
+    const latest = await prisma.annotationArtifactVersion.aggregate({
+      where: { artifactId: artifact.id },
+      _max: { version: true },
+    });
+    const version = (latest._max.version ?? 0) + 1;
 
     const bytes = new Uint8Array(16).fill(params.kind === "SLICE_SUPPORT_MASK" ? 10 : 3);
     const storageKey = `tests/export/${suffix}/${params.name}.u8raw`;
     await storage.putObject(storageKey, bytes, "application/octet-stream");
 
-    const version = await prisma.annotationArtifactVersion.create({
+    const artifactVersion = await prisma.annotationArtifactVersion.create({
       data: {
         artifactId: artifact.id,
-        version: 1,
+        version,
         reviewState: params.reviewState ?? "APPROVED",
         storageKey,
         contentType: "application/octet-stream",
@@ -200,7 +213,7 @@ describe("training export workflow", () => {
       await prisma.reviewDecision.create({
         data: {
           projectId,
-          artifactVersionId: version.id,
+          artifactVersionId: artifactVersion.id,
           fromState: "SUBMITTED",
           toState: "APPROVED",
           reviewedById: ownerId,
@@ -209,7 +222,7 @@ describe("training export workflow", () => {
       });
     }
 
-    return version.id;
+    return artifactVersion.id;
   }
 
   async function createClassificationVersion(params: {
@@ -1473,6 +1486,187 @@ describe("training export workflow", () => {
         prisma,
       ),
     ).rejects.toBeInstanceOf(exportsDomain.TrainingExportError);
+  });
+
+  it("blocks selected full-image exports when a newer non-approved version exists", async () => {
+    const imageId = await createImage("freshness-full-image");
+    const approvedV1 = await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "freshness-full-image-semantic-v1",
+    });
+    const draftV2 = await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      reviewState: "DRAFT",
+      name: "freshness-full-image-semantic-v2",
+    });
+
+    const staleReadiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    const staleCandidate = staleReadiness.candidates.find((candidate) => candidate.image.id === imageId);
+    expect(staleCandidate).toMatchObject({
+      warnings: expect.arrayContaining(["SEMANTIC_APPROVED_VERSION_OUTDATED"]),
+    });
+    expect(staleCandidate?.semanticMask?.id).toBe(approvedV1);
+    expect(staleCandidate?.latestSemanticMask?.id).toBe(draftV2);
+
+    await expect(
+      exportsDomain.createTrainingExportForUser(
+        { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "EXPORT_APPROVED_SNAPSHOT_OUTDATED" });
+
+    const supportOnlyQueued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["support_segmentation"] },
+      prisma,
+    );
+    expect(supportOnlyQueued.status).toBe("PENDING");
+    await expect(processQueuedTrainingExport(supportOnlyQueued.id)).resolves.toMatchObject({
+      status: "COMPLETED",
+    });
+
+    const approvedV3 = await createArtifactVersion({
+      imageId,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      name: "freshness-full-image-semantic-v3",
+    });
+    const currentReadiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    const currentCandidate = currentReadiness.candidates.find((candidate) => candidate.image.id === imageId);
+    expect(currentCandidate?.semanticMask?.id).toBe(approvedV3);
+    expect(currentCandidate?.latestSemanticMask?.id).toBe(approvedV3);
+    expect(currentCandidate?.warnings).not.toContain("SEMANTIC_APPROVED_VERSION_OUTDATED");
+
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["semantic_segmentation"] },
+      prisma,
+    );
+    expect(queued.status).toBe("PENDING");
+    expect(queued.selection).toMatchObject({
+      approvedSnapshotFreshnessPolicy: "block_newer_non_approved_versions",
+    });
+    await expect(processQueuedTrainingExport(queued.id)).resolves.toMatchObject({
+      status: "COMPLETED",
+    });
+  });
+
+  it("marks crop candidates stale when newer non-approved crop components exist", async () => {
+    const { crop } = await createCropFixture("freshness-crop");
+    const approvedSupportV1 = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "freshness-crop-support-v1",
+    });
+    const approvedSemanticV1 = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: approvedSupportV1,
+      semanticMode: "COPPER",
+      name: "freshness-crop-semantic-v1",
+    });
+    await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: approvedSemanticV1,
+      supportMaskVersionId: approvedSupportV1,
+      name: "freshness-crop-classification-v1",
+    });
+
+    const draftSupportV2 = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      reviewState: "DRAFT",
+      name: "freshness-crop-support-v2",
+    });
+    const submittedSemanticV2 = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: draftSupportV2,
+      semanticMode: "COPPER",
+      reviewState: "SUBMITTED",
+      name: "freshness-crop-semantic-v2",
+    });
+    await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: submittedSemanticV2,
+      supportMaskVersionId: draftSupportV2,
+      reviewState: "REJECTED",
+      name: "freshness-crop-classification-v2",
+    });
+
+    const staleReadiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    expect(staleReadiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id)).toMatchObject({
+      readinessStatus: "REVIEW_REQUIRED",
+      readinessReasons: expect.arrayContaining([
+        "SUPPORT_APPROVED_VERSION_OUTDATED",
+        "SEMANTIC_APPROVED_VERSION_OUTDATED",
+        "CLASSIFICATION_APPROVED_VERSION_OUTDATED",
+      ]),
+      nextActions: expect.arrayContaining([
+        "REVIEW_SUPPORT_MASK",
+        "REVIEW_SEMANTIC_MASK",
+        "REVIEW_CLASSIFICATION",
+      ]),
+    });
+    expect(
+      staleReadiness.cropCandidates
+        .filter((candidate) => candidate.crop.id !== crop.id)
+        .some((candidate) => candidate.readinessReasons.includes("SUPPORT_APPROVED_VERSION_OUTDATED")),
+    ).toBe(false);
+
+    await expect(
+      exportsDomain.createTrainingExportForUser(
+        { projectId, userId: ownerId, targets: ["crop_training"] },
+        prisma,
+      ),
+    ).rejects.toMatchObject({ code: "EXPORT_APPROVED_SNAPSHOT_OUTDATED" });
+
+    const approvedSupportV3 = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      name: "freshness-crop-support-v3",
+    });
+    const approvedSemanticV3 = await createCropArtifactVersion({
+      crop,
+      kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      supportMaskVersionId: approvedSupportV3,
+      semanticMode: "COPPER",
+      name: "freshness-crop-semantic-v3",
+    });
+    await createCropClassificationVersion({
+      crop,
+      semanticMaskVersionId: approvedSemanticV3,
+      supportMaskVersionId: approvedSupportV3,
+      name: "freshness-crop-classification-v3",
+    });
+
+    const currentReadiness = await exportsDomain.resolveProjectExportReadiness(
+      { projectId, userId: ownerId },
+      prisma,
+    );
+    expect(currentReadiness.cropCandidates.find((candidate) => candidate.crop.id === crop.id)).toMatchObject({
+      readinessStatus: "READY",
+      readinessReasons: [],
+    });
+    const queued = await exportsDomain.createTrainingExportForUser(
+      { projectId, userId: ownerId, targets: ["crop_training"] },
+      prisma,
+    );
+    expect(queued.status).toBe("PENDING");
+    expect(queued.selection).toMatchObject({
+      approvedSnapshotFreshnessPolicy: "block_newer_non_approved_versions",
+    });
+    await expect(processQueuedTrainingExport(queued.id)).resolves.toMatchObject({
+      status: "COMPLETED",
+    });
   });
 
   it("fails export when selected approved artifact object bytes do not match persisted checksum", async () => {

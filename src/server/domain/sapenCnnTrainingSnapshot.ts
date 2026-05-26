@@ -1,5 +1,6 @@
 import { type Prisma, type PrismaClient } from "@prisma/client";
 
+import { APPROVED_SNAPSHOT_FRESHNESS_POLICY } from "@/server/domain/approvedSnapshotFreshness";
 import type { CropWorkflowCandidate } from "@/server/domain/cropReadiness";
 import type { ExportPackageSource } from "@/server/domain/exportPackageWriter";
 import { getObjectBytes } from "@/server/storage/s3";
@@ -733,6 +734,7 @@ export async function buildSapenCnnTrainingSnapshot(params: {
     selection: {
       targets: [SAPEN_CNN_TRAINING_TARGET],
       approvedOnly: true,
+      approvedSnapshotFreshnessPolicy: APPROVED_SNAPSHOT_FRESHNESS_POLICY,
       source: "crop-workflow-ready-candidates",
       packageMode: "manifest_only",
     },

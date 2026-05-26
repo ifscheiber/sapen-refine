@@ -15,6 +15,9 @@ import {
   supportBytesOccupyAnnotationFamily,
 } from "@/server/domain/cropAnnotationFamilies";
 import {
+  isApprovedSnapshotOutdated,
+} from "@/server/domain/approvedSnapshotFreshness";
+import {
   buildCropSemanticFamilyState,
   classConflictsWithSemanticFamily,
   type CropSemanticFamilyState,
@@ -387,6 +390,9 @@ function readinessStatus(reasons: Set<string>, hasAnyCropWork: boolean): CropWor
         "SUPPORT_SEMANTIC_VALIDATION_FAILED",
         "SEMANTIC_FAMILY_CONFLICT",
         "CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH",
+        "SUPPORT_APPROVED_VERSION_OUTDATED",
+        "SEMANTIC_APPROVED_VERSION_OUTDATED",
+        "CLASSIFICATION_APPROVED_VERSION_OUTDATED",
       ].includes(reason),
     )
   ) {
@@ -400,6 +406,9 @@ function nextActions(params: {
   supportAny: CropArtifactVersion | null;
   semanticAny: CropArtifactVersion | null;
   classificationAny: CropClassificationVersion | null;
+  supportLatest?: CropArtifactVersion | null;
+  semanticLatest?: CropArtifactVersion | null;
+  classificationLatest?: CropClassificationVersion | null;
 }) {
   const actions = new Set<CropWorkflowNextAction>();
   const reasons = new Set(params.reasons);
@@ -408,11 +417,20 @@ function nextActions(params: {
   if (reasons.has("MISSING_SEMANTIC_MASK")) actions.add("OPEN_SEMANTIC_EDITOR");
   if (reasons.has("SEMANTIC_FAMILY_CONFLICT")) actions.add("OPEN_SEMANTIC_EDITOR");
   if (reasons.has("SUPPORT_NOT_APPROVED") && params.supportAny) actions.add("REVIEW_SUPPORT_MASK");
+  if (reasons.has("SUPPORT_APPROVED_VERSION_OUTDATED") && params.supportLatest) {
+    actions.add("REVIEW_SUPPORT_MASK");
+  }
   if (reasons.has("SEMANTIC_NOT_APPROVED") && params.semanticAny) actions.add("REVIEW_SEMANTIC_MASK");
+  if (reasons.has("SEMANTIC_APPROVED_VERSION_OUTDATED") && params.semanticLatest) {
+    actions.add("REVIEW_SEMANTIC_MASK");
+  }
   if (
     (reasons.has("CLASSIFICATION_NOT_APPROVED") || reasons.has("AUTO_CLASSIFICATION_NEEDS_REVIEW")) &&
     params.classificationAny
   ) {
+    actions.add("REVIEW_CLASSIFICATION");
+  }
+  if (reasons.has("CLASSIFICATION_APPROVED_VERSION_OUTDATED") && params.classificationLatest) {
     actions.add("REVIEW_CLASSIFICATION");
   }
   if (reasons.has("CLASSIFICATION_SEMANTIC_FAMILY_MISMATCH") && params.classificationAny) {
@@ -452,10 +470,13 @@ export function evaluateCropWorkflowReadiness(params: {
   crop: CropRecord;
   supportAny: CropArtifactVersion | null;
   supportApproved: CropArtifactVersion | null;
+  supportLatest: CropArtifactVersion | null;
   semanticAny: CropArtifactVersion | null;
   semanticApproved: CropArtifactVersion | null;
+  semanticLatest: CropArtifactVersion | null;
   classificationAny: CropClassificationVersion | null;
   classificationApproved: CropClassificationVersion | null;
+  classificationLatest: CropClassificationVersion | null;
   semanticFamily: CropSemanticFamilyState;
   annotationFamilyConflict?: boolean;
   semanticSupportValidationReason?: string | null;
@@ -465,10 +486,13 @@ export function evaluateCropWorkflowReadiness(params: {
     crop,
     supportAny,
     supportApproved,
+    supportLatest,
     semanticAny,
     semanticApproved,
+    semanticLatest,
     classificationAny,
     classificationApproved,
+    classificationLatest,
   } = params;
   const supportPolicy = cropSemanticSupportPolicy(semanticApproved ?? semanticAny);
   const classificationForFamilyCheck = classificationApproved ?? classificationAny;
@@ -482,7 +506,13 @@ export function evaluateCropWorkflowReadiness(params: {
   if (supportPolicy.supportRequired && !supportApproved) {
     reasons.add(supportAny ? "SUPPORT_NOT_APPROVED" : "MISSING_SUPPORT_MASK");
   }
+  if (isApprovedSnapshotOutdated({ approved: supportApproved, latest: supportLatest })) {
+    reasons.add("SUPPORT_APPROVED_VERSION_OUTDATED");
+  }
   if (!semanticApproved) reasons.add(semanticAny ? "SEMANTIC_NOT_APPROVED" : "MISSING_SEMANTIC_MASK");
+  if (isApprovedSnapshotOutdated({ approved: semanticApproved, latest: semanticLatest })) {
+    reasons.add("SEMANTIC_APPROVED_VERSION_OUTDATED");
+  }
   if (params.semanticFamily.state === "CONFLICT" || params.annotationFamilyConflict) {
     reasons.add("SEMANTIC_FAMILY_CONFLICT");
   }
@@ -498,6 +528,9 @@ export function evaluateCropWorkflowReadiness(params: {
     } else {
       reasons.add(classificationAny ? "CLASSIFICATION_NOT_APPROVED" : "MISSING_CLASSIFICATION");
     }
+  }
+  if (isApprovedSnapshotOutdated({ approved: classificationApproved, latest: classificationLatest })) {
+    reasons.add("CLASSIFICATION_APPROVED_VERSION_OUTDATED");
   }
 
   if (supportApproved) {
@@ -547,17 +580,28 @@ export function evaluateCropWorkflowReadiness(params: {
 
   const hasAnyCropWork = Boolean(
     supportAny ||
+      supportLatest ||
       supportApproved ||
       semanticAny ||
+      semanticLatest ||
       semanticApproved ||
       classificationAny ||
+      classificationLatest ||
       classificationApproved,
   );
   const reasonList = Array.from(reasons).sort();
   return {
     status: readinessStatus(reasons, hasAnyCropWork),
     reasons: reasonList,
-    nextActions: nextActions({ reasons: reasonList, supportAny, semanticAny, classificationAny }),
+    nextActions: nextActions({
+      reasons: reasonList,
+      supportAny,
+      semanticAny,
+      classificationAny,
+      supportLatest,
+      semanticLatest,
+      classificationLatest,
+    }),
   };
 }
 
@@ -745,6 +789,7 @@ async function loadLatestCropClassificationVersion(params: {
       imageId: params.imageId,
       sliceInstanceId: params.sliceInstanceId,
       ...(params.reviewState ? { reviewState: params.reviewState } : {}),
+      ...(!params.reviewState ? { reviewState: { not: ArtifactReviewState.SUPERSEDED } } : {}),
     },
     orderBy: [{ createdAt: "desc" }, { version: "desc" }],
     select: CROP_CLASSIFICATION_SELECT,
@@ -866,6 +911,7 @@ export async function resolveCropWorkflowReadiness(params: {
 
     const semanticAny = latestSemanticFromFamily(semanticFamilyAnyWithForeground);
     const semanticApproved = latestSemanticFromFamily(semanticFamilyApprovedWithForeground);
+    const semanticLatest = latestSemanticFromFamily(semanticFamilyAny);
     const semanticFamily = buildCropSemanticFamilyState(Object.values(semanticFamilyAnyWithForeground));
     const annotationFamilyConflict = Boolean(
       semanticFamilyAnyWithForeground.SAP_HEARTWOOD &&
@@ -881,10 +927,13 @@ export async function resolveCropWorkflowReadiness(params: {
       crop,
       supportAny: supportAnyWithForeground,
       supportApproved: supportApprovedWithForeground,
+      supportLatest: supportAny,
       semanticAny,
       semanticApproved,
+      semanticLatest,
       classificationAny,
       classificationApproved,
+      classificationLatest: classificationAny,
       semanticFamily,
       annotationFamilyConflict,
       semanticSupportValidationReason,
@@ -895,8 +944,8 @@ export async function resolveCropWorkflowReadiness(params: {
       supportMask: supportApprovedWithForeground,
       semanticMask: semanticApproved,
       classification: classificationApproved,
-      latestSupportMask: supportAnyWithForeground,
-      latestSemanticMask: semanticAny,
+      latestSupportMask: supportAny,
+      latestSemanticMask: semanticLatest,
       latestClassification: classificationAny,
       semanticFamily,
       supportGeometrySource:
@@ -907,10 +956,10 @@ export async function resolveCropWorkflowReadiness(params: {
       readinessReasons: readiness.reasons,
       nextActions: readiness.nextActions,
       reviewActions: {
-        supportMask: supportAnyWithForeground
-          ? cropReviewActionsForVersion(supportAnyWithForeground, params.role)
+        supportMask: supportAny
+          ? cropReviewActionsForVersion(supportAny, params.role)
           : null,
-        semanticMask: semanticAny ? cropReviewActionsForVersion(semanticAny, params.role) : null,
+        semanticMask: semanticLatest ? cropReviewActionsForVersion(semanticLatest, params.role) : null,
         classification: classificationAny ? cropReviewActionsForVersion(classificationAny, params.role) : null,
       },
     });

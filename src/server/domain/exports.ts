@@ -4,14 +4,19 @@ import {
   AnnotationArtifactKind,
   ExportTarget,
   ExportStatus,
+  ArtifactReviewState,
   type AnnotationProjectRole,
-  type ArtifactReviewState,
   type Prisma,
   PrismaClient,
 } from "@prisma/client";
 
 import { canExportTraining, canViewProjectExports } from "@/server/auth/policies";
 import { prisma } from "@/server/db";
+import {
+  APPROVED_SNAPSHOT_FRESHNESS_POLICY,
+  isApprovedSnapshotOutdated,
+  isApprovedSnapshotOutdatedReasonCode,
+} from "@/server/domain/approvedSnapshotFreshness";
 import { recordAuditEvent } from "@/server/domain/audit";
 import {
   resolveCropWorkflowReadiness,
@@ -151,6 +156,9 @@ export type ExportCandidate = {
   semanticMask: ArtifactVersionExport | null;
   supportMask: ArtifactVersionExport | null;
   classification: ClassificationExport | null;
+  latestSemanticMask: ArtifactVersionExport | null;
+  latestSupportMask: ArtifactVersionExport | null;
+  latestClassification: ClassificationExport | null;
   warnings: string[];
   eligibleTargets: ApiExportTarget[];
 };
@@ -396,6 +404,42 @@ async function loadLatestApprovedArtifact(params: {
   };
 }
 
+async function loadLatestArtifact(params: {
+  db: ExportDb;
+  imageId: string;
+  kind: AnnotationArtifactKind;
+}) {
+  const artifact = await params.db.annotationArtifact.findUnique({
+    where: {
+      imageId_kind_scopeKey: {
+        imageId: params.imageId,
+        kind: params.kind,
+        scopeKey: "default",
+      },
+    },
+    select: { id: true },
+  });
+  if (!artifact) return null;
+
+  const version = await params.db.annotationArtifactVersion.findFirst({
+    where: {
+      artifactId: artifact.id,
+      reviewState: { not: ArtifactReviewState.SUPERSEDED },
+    },
+    orderBy: [{ createdAt: "desc" }, { version: "desc" }],
+    select: ARTIFACT_SELECT,
+  });
+  if (!version) return null;
+
+  return {
+    ...version,
+    approval:
+      version.reviewState === ArtifactReviewState.APPROVED
+        ? await loadApprovalForArtifactVersion(params.db, version.id)
+        : null,
+  };
+}
+
 async function loadLatestApprovedClassification(db: ExportDb, imageId: string) {
   const version = await db.sliceClassificationVersion.findFirst({
     where: { imageId, reviewState: "APPROVED" },
@@ -408,6 +452,60 @@ async function loadLatestApprovedClassification(db: ExportDb, imageId: string) {
     ...version,
     approval: await loadApprovalForClassification(db, version.id),
   };
+}
+
+async function loadLatestClassification(db: ExportDb, imageId: string) {
+  const version = await db.sliceClassificationVersion.findFirst({
+    where: { imageId, reviewState: { not: ArtifactReviewState.SUPERSEDED } },
+    orderBy: [{ createdAt: "desc" }, { version: "desc" }],
+    select: CLASSIFICATION_SELECT,
+  });
+  if (!version) return null;
+
+  return {
+    ...version,
+    approval:
+      version.reviewState === ArtifactReviewState.APPROVED
+        ? await loadApprovalForClassification(db, version.id)
+        : null,
+  };
+}
+
+function freshnessWarnings(candidate: Pick<
+  ExportCandidate,
+  | "semanticMask"
+  | "supportMask"
+  | "classification"
+  | "latestSemanticMask"
+  | "latestSupportMask"
+  | "latestClassification"
+>) {
+  const warnings: string[] = [];
+  if (
+    isApprovedSnapshotOutdated({
+      approved: candidate.semanticMask,
+      latest: candidate.latestSemanticMask,
+    })
+  ) {
+    warnings.push("SEMANTIC_APPROVED_VERSION_OUTDATED");
+  }
+  if (
+    isApprovedSnapshotOutdated({
+      approved: candidate.supportMask,
+      latest: candidate.latestSupportMask,
+    })
+  ) {
+    warnings.push("SUPPORT_APPROVED_VERSION_OUTDATED");
+  }
+  if (
+    isApprovedSnapshotOutdated({
+      approved: candidate.classification,
+      latest: candidate.latestClassification,
+    })
+  ) {
+    warnings.push("CLASSIFICATION_APPROVED_VERSION_OUTDATED");
+  }
+  return warnings;
 }
 
 function candidateWarnings(candidate: Omit<ExportCandidate, "warnings" | "eligibleTargets">) {
@@ -425,6 +523,7 @@ function candidateWarnings(candidate: Omit<ExportCandidate, "warnings" | "eligib
     warnings.push("MISSING_SUPPORT_MASK_INTEGRITY_METADATA");
   }
   if (!candidate.classification) warnings.push("MISSING_APPROVED_SLICE_CLASSIFICATION");
+  warnings.push(...freshnessWarnings(candidate));
   return warnings;
 }
 
@@ -487,6 +586,16 @@ function hasBlockingIntegrityWarnings(manifest: { warnings: Array<{ code: string
   );
 }
 
+function hasBlockingFreshnessWarnings(manifest: { warnings: Array<{ code: string }> }) {
+  return manifest.warnings.some((warning) => isApprovedSnapshotOutdatedReasonCode(warning.code));
+}
+
+function hasBlockingCropFreshnessReasons(candidates: CropExportCandidate[]) {
+  return candidates.some((candidate) =>
+    candidate.readinessReasons.some((reason) => isApprovedSnapshotOutdatedReasonCode(reason)),
+  );
+}
+
 function safeByteSize(value: number | null | undefined) {
   return Number.isFinite(value) && value && value > 0 ? value : 0;
 }
@@ -496,11 +605,27 @@ function warningsForSelectedTargets(candidate: ExportCandidate, targets: ApiExpo
   const needsSemantic = targets.includes("semantic_segmentation") || targets.includes("combined");
   const needsSupport = targets.includes("support_segmentation") || targets.includes("combined");
   const needsClassification = targets.includes("slice_classification") || targets.includes("combined");
+  const staleWarnings = freshnessWarnings(candidate);
 
   if (needsSemantic && !candidate.semanticMask) warnings.push("MISSING_APPROVED_SEMANTIC_MASK");
   if (needsSupport && !candidate.supportMask) warnings.push("MISSING_APPROVED_SUPPORT_MASK");
   if (needsClassification && !candidate.classification) {
     warnings.push("MISSING_APPROVED_SLICE_CLASSIFICATION");
+  }
+  if (needsSemantic) {
+    warnings.push(
+      ...staleWarnings.filter((warning) => warning === "SEMANTIC_APPROVED_VERSION_OUTDATED"),
+    );
+  }
+  if (needsSupport) {
+    warnings.push(
+      ...staleWarnings.filter((warning) => warning === "SUPPORT_APPROVED_VERSION_OUTDATED"),
+    );
+  }
+  if (needsClassification) {
+    warnings.push(
+      ...staleWarnings.filter((warning) => warning === "CLASSIFICATION_APPROVED_VERSION_OUTDATED"),
+    );
   }
   if (!candidate.sampleMetadata?.tNumber) warnings.push("MISSING_T_NUMBER");
   if (!candidate.acquisitionMetadata) warnings.push("MISSING_ACQUISITION_METADATA");
@@ -573,6 +698,17 @@ export async function resolveProjectExportReadiness(params: {
         kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
       }),
       classification: await loadLatestApprovedClassification(db, image.id),
+      latestSemanticMask: await loadLatestArtifact({
+        db,
+        imageId: image.id,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+      }),
+      latestSupportMask: await loadLatestArtifact({
+        db,
+        imageId: image.id,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+      }),
+      latestClassification: await loadLatestClassification(db, image.id),
     };
     candidates.push({
       ...base,
@@ -831,6 +967,7 @@ async function buildManifest(params: {
     selection: {
       targets: params.targets,
       approvedOnly: true,
+      approvedSnapshotFreshnessPolicy: APPROVED_SNAPSHOT_FRESHNESS_POLICY,
     },
     labelSchemas,
     items,
@@ -1004,6 +1141,7 @@ async function buildCropTrainingManifest(params: {
     selection: {
       targets: ["crop_training"],
       approvedOnly: true,
+      approvedSnapshotFreshnessPolicy: APPROVED_SNAPSHOT_FRESHNESS_POLICY,
       cropCoordinateSpace: "CROP_PIXEL",
       originalCoordinateMasks: false,
     },
@@ -1427,6 +1565,9 @@ export function sanitizeReadiness(
       semanticMaskVersionId: candidate.semanticMask?.id ?? null,
       supportMaskVersionId: candidate.supportMask?.id ?? null,
       classificationVersionId: candidate.classification?.id ?? null,
+      latestSemanticMaskVersionId: candidate.latestSemanticMask?.id ?? null,
+      latestSupportMaskVersionId: candidate.latestSupportMask?.id ?? null,
+      latestClassificationVersionId: candidate.latestClassification?.id ?? null,
       eligibleTargets: candidate.eligibleTargets,
       warnings: candidate.warnings,
     })),
@@ -1444,9 +1585,13 @@ async function createCropTrainingExportBatch(params: {
   const selectionCriteria = {
     targets: ["crop_training"],
     approvedOnly: true,
+    approvedSnapshotFreshnessPolicy: APPROVED_SNAPSHOT_FRESHNESS_POLICY,
     cropCoordinateSpace: "CROP_PIXEL",
     originalCoordinateMasks: false,
   };
+  if (hasBlockingCropFreshnessReasons(params.readiness.cropCandidates)) {
+    throw new TrainingExportError("EXPORT_APPROVED_SNAPSHOT_OUTDATED");
+  }
 
   const manifest = await buildCropTrainingManifest({
     db,
@@ -1529,8 +1674,12 @@ async function createSapenCnnTrainingExportBatch(params: {
   const selectionCriteria = {
     targets: [SAPEN_CNN_TRAINING_TARGET],
     approvedOnly: true,
+    approvedSnapshotFreshnessPolicy: APPROVED_SNAPSHOT_FRESHNESS_POLICY,
     packageMode: "manifest_only",
   };
+  if (hasBlockingCropFreshnessReasons(params.readiness.cropCandidates)) {
+    throw new TrainingExportError("EXPORT_APPROVED_SNAPSHOT_OUTDATED");
+  }
 
   const snapshot = await buildSapenCnnTrainingSnapshot({
     db,
@@ -1641,6 +1790,7 @@ export async function createTrainingExportForUser(params: {
   const selectionCriteria = {
     targets: params.targets,
     approvedOnly: true,
+    approvedSnapshotFreshnessPolicy: APPROVED_SNAPSHOT_FRESHNESS_POLICY,
   };
 
   const exportId = randomUUID();
@@ -1656,6 +1806,9 @@ export async function createTrainingExportForUser(params: {
   });
   if (hasBlockingIntegrityWarnings(manifest)) {
     throw new TrainingExportError("EXPORT_INTEGRITY_METADATA_MISSING");
+  }
+  if (hasBlockingFreshnessWarnings(manifest)) {
+    throw new TrainingExportError("EXPORT_APPROVED_SNAPSHOT_OUTDATED");
   }
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
   assertTrainingExportCaps({

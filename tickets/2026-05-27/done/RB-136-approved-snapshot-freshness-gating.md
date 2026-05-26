@@ -1,6 +1,6 @@
 # RB-136 - Approved Snapshot Freshness Gating
 
-Status: Planned
+Status: Done
 Priority: P1
 Type: Export/training data integrity
 
