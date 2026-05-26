@@ -35,7 +35,7 @@ Active and completed editor follow-up tickets added after the export sprint:
 2. `done/FEAT-020-live-navigator-refresh-on-mask-changes.md`
    Refresh the crop navigator from local mask edits without requiring slice switches or persisted preview reloads.
 
-3. `FEAT-019-reeditable-closed-polygons-semantic-masks.md`
+3. `done/FEAT-019-reeditable-closed-polygons-semantic-masks.md`
    Preserve in-session closed polygon geometry so committed semantic polygons can be reselected and edited.
 
 4. `FEAT-021-image-level-submission-review-workflow.md`

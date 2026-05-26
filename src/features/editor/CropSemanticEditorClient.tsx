@@ -74,7 +74,12 @@ type CropSemanticEditorClientProps = {
   initialTarget?: "semantic" | "support";
 };
 
-type Stroke = Patch[];
+type StrokeStep = {
+  patch: Patch;
+  apply: "before" | "after";
+  revert: "before" | "after";
+};
+type Stroke = StrokeStep[];
 type CropReviewTarget = {
   key: string;
   label: string;
@@ -83,6 +88,17 @@ type CropReviewTarget = {
   reviewState: string;
   kind: "artifact" | "classification";
   actions: CropReviewActions | null;
+};
+type Bounds = { x: number; y: number; w: number; h: number };
+type EditablePolygon = {
+  id: string;
+  targetKey: string;
+  label: LabelId;
+  points: Point[];
+  patch: Patch;
+  bounds: Bounds;
+  stale: boolean;
+  revision: number;
 };
 
 const MODE_LABELS: Record<CropSemanticMode, string> = {
@@ -110,6 +126,43 @@ const LABEL_COLORS: Record<string, Pick<LabelDef, "rgb" | "alpha">> = {
 };
 
 const SUPPORT_CONTOUR_RGBA = [30, 180, 120, 128] as const;
+
+function appliedPatchStep(patch: Patch): StrokeStep {
+  return { patch, apply: "after", revert: "before" };
+}
+
+function revertedPatchStep(patch: Patch): StrokeStep {
+  return { patch, apply: "before", revert: "after" };
+}
+
+function patchBounds(patch: Patch): Bounds {
+  return { x: patch.x, y: patch.y, w: patch.w, h: patch.h };
+}
+
+function boundsIntersect(left: Bounds, right: Bounds) {
+  return (
+    left.x < right.x + right.w &&
+    left.x + left.w > right.x &&
+    left.y < right.y + right.h &&
+    left.y + left.h > right.y
+  );
+}
+
+function pointInPolygon(point: Point, polygon: Point[]) {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const currentPoint = polygon[index];
+    const previousPoint = polygon[previous];
+    const intersects =
+      currentPoint.y > point.y !== previousPoint.y > point.y &&
+      point.x <
+        ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) /
+          (previousPoint.y - currentPoint.y || Number.EPSILON) +
+          currentPoint.x;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
 
 function loadImageElement(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -242,6 +295,9 @@ export function CropSemanticEditorClient({
   const lassoActiveRef = useRef(false);
   const lassoClosedRef = useRef(false);
   const lassoDragIndexRef = useRef<number | null>(null);
+  const editablePolygonsRef = useRef<EditablePolygon[]>([]);
+  const editablePolygonCounterRef = useRef(0);
+  const selectedEditablePolygonIdRef = useRef<string | null>(null);
   const currentStrokeRef = useRef<Stroke>([]);
   const undoRef = useRef<Stroke[]>([]);
   const redoRef = useRef<Stroke[]>([]);
@@ -276,6 +332,7 @@ export function CropSemanticEditorClient({
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
   const [lassoPointCount, setLassoPointCount] = useState(0);
   const [lassoClosed, setLassoClosed] = useState(false);
+  const [selectedEditablePolygonId, setSelectedEditablePolygonId] = useState<string | null>(null);
 
   const editingSupport = activeFamily === "CU_SUPPORT" && cuSupportTarget === "support";
   const semanticMode = semanticModeForFamily(activeFamily);
@@ -498,6 +555,8 @@ export function CropSemanticEditorClient({
     lassoPointsRef.current = [];
     lassoDragIndexRef.current = null;
     lassoClosedRef.current = false;
+    selectedEditablePolygonIdRef.current = null;
+    setSelectedEditablePolygonId(null);
     setLassoPointCount(0);
     setLassoClosed(false);
     clearPreview();
@@ -533,6 +592,10 @@ export function CropSemanticEditorClient({
     lassoPointsRef.current = [];
     lassoDragIndexRef.current = null;
     lassoClosedRef.current = false;
+    editablePolygonsRef.current = [];
+    editablePolygonCounterRef.current = 0;
+    selectedEditablePolygonIdRef.current = null;
+    setSelectedEditablePolygonId(null);
     setLassoPointCount(0);
     setLassoClosed(false);
     clearPreview();
@@ -857,6 +920,67 @@ export function CropSemanticEditorClient({
     return true;
   }
 
+  function editableTargetKey() {
+    return editingSupport ? "support" : `semantic:${semanticMode}`;
+  }
+
+  function applyStrokeStep(mask: MaskBuffer, step: StrokeStep, direction: "apply" | "revert") {
+    const patchDirection = direction === "apply" ? step.apply : step.revert;
+    applyPatch(mask, step.patch, patchDirection);
+    paintOverlayRect(step.patch.x, step.patch.y, step.patch.w, step.patch.h);
+  }
+
+  function markEditablePolygonsStaleForBounds(targetKey: string, bounds: Bounds, exceptId?: string) {
+    for (const polygon of editablePolygonsRef.current) {
+      if (
+        polygon.id !== exceptId &&
+        polygon.targetKey === targetKey &&
+        !polygon.stale &&
+        boundsIntersect(polygon.bounds, bounds)
+      ) {
+        polygon.stale = true;
+      }
+    }
+    if (
+      selectedEditablePolygonIdRef.current &&
+      editablePolygonsRef.current.some(
+        (polygon) => polygon.id === selectedEditablePolygonIdRef.current && polygon.stale,
+      )
+    ) {
+      resetLasso();
+    }
+  }
+
+  function markEditablePolygonsStaleForPatch(patch: Patch, exceptId?: string) {
+    markEditablePolygonsStaleForBounds(editableTargetKey(), patchBounds(patch), exceptId);
+  }
+
+  function markEditablePolygonsStaleForCurrentTarget() {
+    const targetKey = editableTargetKey();
+    for (const polygon of editablePolygonsRef.current) {
+      if (polygon.targetKey === targetKey) polygon.stale = true;
+    }
+    if (selectedEditablePolygonIdRef.current) resetLasso();
+  }
+
+  function selectEditablePolygonAt(point: Point) {
+    const targetKey = editableTargetKey();
+    const candidates = editablePolygonsRef.current
+      .filter((polygon) => polygon.targetKey === targetKey && !polygon.stale && pointInPolygon(point, polygon.points))
+      .sort((left, right) => right.revision - left.revision);
+    if (candidates.length === 0) return false;
+
+    const selected = candidates.find((polygon) => polygon.label === activeLabel) ?? candidates[0];
+    selectedEditablePolygonIdRef.current = selected.id;
+    setSelectedEditablePolygonId(selected.id);
+    setActiveLabel(selected.label);
+    setLassoPoints(selected.points.map((entry) => ({ ...entry })));
+    setPolygonClosed(true);
+    drawLassoPreview(selected.points, null, true);
+    setStatus("Polygon selected; drag points and apply to update.");
+    return true;
+  }
+
   function stamp(x: number, y: number) {
     const mask = maskRef.current;
     const supportMask = supportMaskRef.current;
@@ -877,8 +1001,9 @@ export function CropSemanticEditorClient({
       label: paintLabel,
     });
     if (!patch) return;
-    currentStrokeRef.current.push(patch);
+    currentStrokeRef.current.push(appliedPatchStep(patch));
     paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    markEditablePolygonsStaleForPatch(patch);
     markDirty();
   }
 
@@ -898,16 +1023,62 @@ export function CropSemanticEditorClient({
       return;
     }
 
+    const paintLabel = getPaintLabelForTool({
+      tool,
+      maskMode: editingSupport ? "support" : "semantic",
+      activeLabel,
+      supportBackgroundLabel: supportBackgroundValue,
+    });
+    const targetKey = editableTargetKey();
+    const selectedPolygon = selectedEditablePolygonIdRef.current
+      ? editablePolygonsRef.current.find(
+          (polygon) =>
+            polygon.id === selectedEditablePolygonIdRef.current &&
+            polygon.targetKey === targetKey &&
+            !polygon.stale,
+        ) ?? null
+      : null;
+
+    if (tool === "lasso_poly" && selectedPolygon) {
+      const revertStep = revertedPatchStep(selectedPolygon.patch);
+      applyStrokeStep(mask, revertStep, "apply");
+      const nextPatch = applyCropPolygonFill({
+        mask,
+        supportMask,
+        points,
+        label: paintLabel,
+        constrainToSupport: !editingSupport && semanticMode === "COPPER" && Boolean(supportMask),
+      });
+      if (!nextPatch) {
+        applyStrokeStep(mask, revertStep, "revert");
+        setStatus("Polygon update did not change the mask.");
+        drawLassoPreview(points, null, true);
+        return;
+      }
+
+      const applyStep = appliedPatchStep(nextPatch);
+      undoRef.current.push([revertStep, applyStep]);
+      redoRef.current = [];
+      markEditablePolygonsStaleForPatch(selectedPolygon.patch, selectedPolygon.id);
+      markEditablePolygonsStaleForPatch(nextPatch, selectedPolygon.id);
+      selectedPolygon.points = points.map((point) => ({ ...point }));
+      selectedPolygon.patch = nextPatch;
+      selectedPolygon.bounds = patchBounds(nextPatch);
+      selectedPolygon.label = paintLabel;
+      selectedPolygon.revision = dirtyRevisionRef.current + 1;
+      paintOverlayRect(nextPatch.x, nextPatch.y, nextPatch.w, nextPatch.h);
+      markDirty();
+      dispatchNavigatorMaskSnapshot();
+      scheduleAutosave();
+      resetLasso();
+      return;
+    }
+
     const patch = applyCropPolygonFill({
       mask,
       supportMask,
       points,
-      label: getPaintLabelForTool({
-        tool,
-        maskMode: editingSupport ? "support" : "semantic",
-        activeLabel,
-        supportBackgroundLabel: supportBackgroundValue,
-      }),
+      label: paintLabel,
       constrainToSupport: !editingSupport && semanticMode === "COPPER" && Boolean(supportMask),
     });
     if (!patch) {
@@ -915,9 +1086,25 @@ export function CropSemanticEditorClient({
       return;
     }
 
-    undoRef.current.push([patch]);
+    undoRef.current.push([appliedPatchStep(patch)]);
     redoRef.current = [];
     paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    if (tool === "lasso_poly") {
+      markEditablePolygonsStaleForPatch(patch);
+      editablePolygonCounterRef.current += 1;
+      editablePolygonsRef.current.push({
+        id: `${cropId}:polygon:${editablePolygonCounterRef.current}`,
+        targetKey,
+        label: paintLabel,
+        points: points.map((point) => ({ ...point })),
+        patch,
+        bounds: patchBounds(patch),
+        stale: false,
+        revision: dirtyRevisionRef.current + 1,
+      });
+    } else {
+      markEditablePolygonsStaleForPatch(patch);
+    }
     markDirty();
     dispatchNavigatorMaskSnapshot();
     scheduleAutosave();
@@ -965,7 +1152,15 @@ export function CropSemanticEditorClient({
             return;
           }
         }
+        if (selectedEditablePolygonIdRef.current && !pointInPolygon(point, points)) {
+          resetLasso();
+          return;
+        }
         drawLassoPreview(points, null, true);
+        return;
+      }
+
+      if (points.length === 0 && selectEditablePolygonAt(point)) {
         return;
       }
 
@@ -1119,10 +1314,9 @@ export function CropSemanticEditorClient({
     const stroke = undoRef.current.pop();
     if (!stroke) return;
     for (let i = stroke.length - 1; i >= 0; i -= 1) {
-      const patch = stroke[i];
-      applyPatch(mask, patch, "before");
-      paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+      applyStrokeStep(mask, stroke[i], "revert");
     }
+    markEditablePolygonsStaleForCurrentTarget();
     redoRef.current.push(stroke);
     markDirty();
     dispatchNavigatorMaskSnapshot();
@@ -1134,10 +1328,10 @@ export function CropSemanticEditorClient({
     if (!mask || !editorCanEdit) return;
     const stroke = redoRef.current.pop();
     if (!stroke) return;
-    for (const patch of stroke) {
-      applyPatch(mask, patch, "after");
-      paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
+    for (const step of stroke) {
+      applyStrokeStep(mask, step, "apply");
     }
+    markEditablePolygonsStaleForCurrentTarget();
     undoRef.current.push(stroke);
     markDirty();
     dispatchNavigatorMaskSnapshot();
@@ -1425,11 +1619,13 @@ export function CropSemanticEditorClient({
           ? "Copper drafts can save now; support is required before export."
           : "Editing explicit slice support.";
   const toolState =
-    tool === "lasso_poly" && lassoPointCount > 0
-      ? `Polygon ${lassoClosed ? "closed" : "draft"}: ${lassoPointCount} point${lassoPointCount === 1 ? "" : "s"}`
-      : activeLabel === activeBackgroundLabel
-        ? "Background clears pixels with the active tool."
-        : modeStateLabel;
+    selectedEditablePolygonId
+      ? "Polygon selected: drag points and apply to update."
+      : tool === "lasso_poly" && lassoPointCount > 0
+        ? `Polygon ${lassoClosed ? "closed" : "draft"}: ${lassoPointCount} point${lassoPointCount === 1 ? "" : "s"}`
+        : activeLabel === activeBackgroundLabel
+          ? "Background clears pixels with the active tool."
+          : modeStateLabel;
 
   useEffect(() => {
     dispatchCropSemanticEditorStatus({
