@@ -6,6 +6,12 @@ This page defines the implemented RB-053 export contract for reproducible SaPen 
 
 Exports are generated from stored image assets, approved artifact/classification versions, label schema versions, metadata, attribution, review decisions, and the manifest. RB-112 makes creation asynchronous: the create request snapshots exact selected references and returns a pending `ExportBatch`; a single-host worker later verifies source object bytes, writes the manifest and ZIP package to MinIO, and enables app-mediated downloads after completion.
 
+The SaPen-CNN local training handoff is defined separately in
+[`sapen-cnn-training-dataset-snapshot-contract.md`](sapen-cnn-training-dataset-snapshot-contract.md).
+It adds the `sapen_cnn_training` logical snapshot target for manifest-backed materialization
+into current `../sapen-cnn` dataset layouts. That target must not reinterpret existing
+`combined` exports.
+
 ## Current Implementation
 
 Important files:

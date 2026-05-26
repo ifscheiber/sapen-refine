@@ -43,6 +43,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Annotation domain model: [06-data/annotation-domain-model.md](06-data/annotation-domain-model.md)
 - Prisma schema proposal: [06-data/prisma-schema-proposal.md](06-data/prisma-schema-proposal.md)
 - Training export contract: [06-data/training-export-contract.md](06-data/training-export-contract.md)
+- SaPen-CNN training dataset snapshot contract: [06-data/sapen-cnn-training-dataset-snapshot-contract.md](06-data/sapen-cnn-training-dataset-snapshot-contract.md)
 - Crop-based slice annotation: [06-data/crop-based-slice-annotation.md](06-data/crop-based-slice-annotation.md)
 - Crop workflow UX orchestration ADR: [08-adr/ADR-006-crop-workflow-ux-orchestration.md](08-adr/ADR-006-crop-workflow-ux-orchestration.md)
 - System actor attribution ADR: [08-adr/ADR-007-system-actor-attribution-model.md](08-adr/ADR-007-system-actor-attribution-model.md)
@@ -75,6 +76,7 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Caddy reverse proxy: [04-server/reverse-proxy-caddy.md](04-server/reverse-proxy-caddy.md)
 - Storage retention cleanup: [04-server/storage-retention-cleanup.md](04-server/storage-retention-cleanup.md)
 - Handoff ZIP checklist: [operations/handoff-zip-checklist.md](operations/handoff-zip-checklist.md)
+- Local SaPen-CNN training handoff: [operations/local-sapen-cnn-training-handoff.md](operations/local-sapen-cnn-training-handoff.md)
 
 ## Structure Note
 

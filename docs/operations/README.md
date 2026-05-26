@@ -9,6 +9,7 @@ This folder documents local development, environment variables, and handoff hygi
 - [local-development.md](local-development.md)
 - [environment.md](environment.md)
 - [handoff-zip-checklist.md](handoff-zip-checklist.md)
+- [local-sapen-cnn-training-handoff.md](local-sapen-cnn-training-handoff.md)
 
 ## Public Interfaces / Routes / Functions
 

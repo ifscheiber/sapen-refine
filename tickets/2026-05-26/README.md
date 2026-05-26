@@ -10,7 +10,7 @@ Important boundary:
 
 Ticket sequence:
 
-1. `EX-001-sapen-cnn-training-dataset-contract.md`  
+1. `done/EX-001-sapen-cnn-training-dataset-contract.md`  
    Define the architecture/data contract.
 
 2. `EX-002-manifest-only-training-snapshot-mode.md`  
