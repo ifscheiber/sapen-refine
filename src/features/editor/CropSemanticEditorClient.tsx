@@ -33,6 +33,7 @@ import {
   CROP_SEMANTIC_EDITOR_COMMAND_EVENT,
   CROP_SEMANTIC_EDITOR_FLUSH_REQUEST_EVENT,
   CROP_SEMANTIC_EDITOR_FLUSH_RESPONSE_EVENT,
+  dispatchCropSemanticEditorMask,
   dispatchCropSemanticEditorStatus,
   type CropSemanticEditorCommandDetail,
   type CropSemanticEditorFlushRequestDetail,
@@ -537,6 +538,20 @@ export function CropSemanticEditorClient({
     clearPreview();
   }, [clearPendingAutosave, clearPreview]);
 
+  const dispatchNavigatorMaskSnapshot = useCallback(() => {
+    const mask = maskRef.current;
+    if (!mask) return;
+    dispatchCropSemanticEditorMask({
+      cropId,
+      kind: editingSupportRef.current ? "support" : "semantic",
+      semanticMode: editingSupportRef.current ? null : semanticMode,
+      width: mask.width,
+      height: mask.height,
+      bytes: mask.data.slice(),
+      revision: dirtyRevisionRef.current,
+    });
+  }, [cropId, semanticMode]);
+
   const loadEditor = useCallback(async (signal?: AbortSignal) => {
     const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
     resetEditor();
@@ -663,6 +678,7 @@ export function CropSemanticEditorClient({
       supportCtx.clearRect(0, 0, width, height);
       if (!editingSupport && supportMask) renderSupportOverlayFull();
       renderOverlayFull();
+      dispatchNavigatorMaskSnapshot();
       setEditorReady(true);
       setHasUnsavedChanges(false);
       setStatus("");
@@ -675,7 +691,16 @@ export function CropSemanticEditorClient({
       setEditorReady(false);
       setStatus(errorMessage(error, editingSupport ? "Crop support editor failed" : "Crop semantic editor failed"));
     }
-  }, [cropId, editingSupport, fitToContainer, renderOverlayFull, renderSupportOverlayFull, resetEditor, semanticMode]);
+  }, [
+    cropId,
+    dispatchNavigatorMaskSnapshot,
+    editingSupport,
+    fitToContainer,
+    renderOverlayFull,
+    renderSupportOverlayFull,
+    resetEditor,
+    semanticMode,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -894,6 +919,7 @@ export function CropSemanticEditorClient({
     redoRef.current = [];
     paintOverlayRect(patch.x, patch.y, patch.w, patch.h);
     markDirty();
+    dispatchNavigatorMaskSnapshot();
     scheduleAutosave();
     resetLasso();
   }
@@ -1025,6 +1051,7 @@ export function CropSemanticEditorClient({
     if (currentStrokeRef.current.length > 0) {
       undoRef.current.push(currentStrokeRef.current);
       currentStrokeRef.current = [];
+      dispatchNavigatorMaskSnapshot();
       scheduleAutosave();
     }
   }
@@ -1098,6 +1125,7 @@ export function CropSemanticEditorClient({
     }
     redoRef.current.push(stroke);
     markDirty();
+    dispatchNavigatorMaskSnapshot();
     scheduleAutosave();
   }
 
@@ -1112,6 +1140,7 @@ export function CropSemanticEditorClient({
     }
     undoRef.current.push(stroke);
     markDirty();
+    dispatchNavigatorMaskSnapshot();
     scheduleAutosave();
   }
 
@@ -1251,6 +1280,7 @@ export function CropSemanticEditorClient({
       if (!data?.ok) throw new Error(data?.error ?? "CROP_SEMANTIC_MASK_SAVE_FAILED");
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
+      dispatchNavigatorMaskSnapshot();
       if (dirtyRevisionRef.current === saveRevision) {
         dirtyMaskRef.current = false;
         setHasUnsavedChanges(false);

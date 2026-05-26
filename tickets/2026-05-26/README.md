@@ -32,7 +32,7 @@ Active and completed editor follow-up tickets added after the export sprint:
 1. `done/DESIGN-022-per-label-opacity-support-contour-state-cleanup.md`
    Add per-label semantic opacity, contour-only support display, and a quieter editor status rail.
 
-2. `FEAT-020-live-navigator-refresh-on-mask-changes.md`
+2. `done/FEAT-020-live-navigator-refresh-on-mask-changes.md`
    Refresh the crop navigator from local mask edits without requiring slice switches or persisted preview reloads.
 
 3. `FEAT-019-reeditable-closed-polygons-semantic-masks.md`

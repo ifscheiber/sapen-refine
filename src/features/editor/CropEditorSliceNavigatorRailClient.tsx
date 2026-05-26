@@ -17,7 +17,11 @@ import {
   type NavigatorViewport,
 } from "./cropNavigatorPreview";
 import { API_ENSURE_SLICE_CROPS } from "./editorApi";
-import { requestCropSemanticEditorFlush } from "./cropSemanticEditorEvents";
+import {
+  CROP_SEMANTIC_EDITOR_MASK_EVENT,
+  requestCropSemanticEditorFlush,
+  type CropSemanticEditorMaskDetail,
+} from "./cropSemanticEditorEvents";
 
 type CropEditorMode = "editor" | "support" | "semantic";
 
@@ -43,6 +47,8 @@ type OverlayCacheEntry =
   | {
       status: "unavailable";
     };
+
+type LocalNavigatorMaskOverlay = CropSemanticEditorMaskDetail;
 
 const MAX_NAVIGATOR_MASK_PREVIEW_PIXELS = 4_000_000;
 const MAX_NAVIGATOR_OVERLAY_EDGE_PX = 1024;
@@ -148,6 +154,7 @@ function drawNavigatorOverlays(
   viewport: NavigatorViewport,
   slices: CropSliceNavigatorSlice[],
   overlayCache: Record<string, OverlayCacheEntry>,
+  localOverlay: LocalNavigatorMaskOverlay | null,
   scale: number,
 ) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -156,6 +163,18 @@ function drawNavigatorOverlays(
 
   for (const slice of slices) {
     if (!slice.currentCrop) continue;
+    const localSliceOverlay = localOverlay?.cropId === slice.currentCrop.id ? localOverlay : null;
+    if (localSliceOverlay?.kind === "semantic") {
+      drawRgbaMask(
+        ctx,
+        renderSemanticMaskPreviewRgba(localSliceOverlay.bytes, localSliceOverlay.width, localSliceOverlay.height),
+        localSliceOverlay.width,
+        localSliceOverlay.height,
+        viewport,
+        slice,
+      );
+      continue;
+    }
     if (isPreviewRenderable(slice.semanticMaskPreview)) {
       const semantic = overlayCache[slice.semanticMaskPreview.id];
       if (semantic?.status === "loaded") {
@@ -173,6 +192,18 @@ function drawNavigatorOverlays(
 
   for (const slice of slices) {
     if (!slice.currentCrop) continue;
+    const localSliceOverlay = localOverlay?.cropId === slice.currentCrop.id ? localOverlay : null;
+    if (localSliceOverlay?.kind === "support") {
+      drawRgbaMask(
+        ctx,
+        renderMaskContourPreviewRgba(localSliceOverlay.bytes, localSliceOverlay.width, localSliceOverlay.height),
+        localSliceOverlay.width,
+        localSliceOverlay.height,
+        viewport,
+        slice,
+      );
+      continue;
+    }
     if (isPreviewRenderable(slice.supportMaskPreview)) {
       const support = overlayCache[slice.supportMaskPreview.id];
       if (support?.status === "loaded") {
@@ -185,6 +216,26 @@ function drawNavigatorOverlays(
           slice,
         );
       }
+      continue;
+    }
+
+    if (
+      localSliceOverlay?.kind === "semantic" &&
+      localSliceOverlay.semanticMode === "SAP_HEARTWOOD"
+    ) {
+      drawRgbaMask(
+        ctx,
+        renderMaskContourPreviewRgba(
+          localSliceOverlay.bytes,
+          localSliceOverlay.width,
+          localSliceOverlay.height,
+          sapHeartwoodSupportForegroundLabels(),
+        ),
+        localSliceOverlay.width,
+        localSliceOverlay.height,
+        viewport,
+        slice,
+      );
       continue;
     }
 
@@ -234,6 +285,7 @@ export function CropEditorSliceNavigatorRailClient({
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [busySliceId, setBusySliceId] = useState<string | null>(null);
   const [overlayCache, setOverlayCache] = useState<Record<string, OverlayCacheEntry>>({});
+  const [localOverlay, setLocalOverlay] = useState<LocalNavigatorMaskOverlay | null>(null);
   const [status, setStatus] = useState("");
   const overlayCacheRef = useRef(overlayCache);
   const selectedSlice = useMemo(
@@ -253,10 +305,24 @@ export function CropEditorSliceNavigatorRailClient({
     [navigator.image.height, navigator.image.width, navigator.slices],
   );
   const overlayRequests = useMemo(() => collectOverlayRequests(navigator.slices), [navigator.slices]);
+  const selectedCropId = selectedSlice?.currentCrop?.id ?? null;
 
   useEffect(() => {
     overlayCacheRef.current = overlayCache;
   }, [overlayCache]);
+
+  useEffect(() => {
+    const onMask = (event: CustomEvent<CropSemanticEditorMaskDetail>) => {
+      if (event.detail.cropId !== selectedCropId) return;
+      setLocalOverlay(event.detail);
+    };
+    window.addEventListener(CROP_SEMANTIC_EDITOR_MASK_EVENT, onMask as EventListener);
+    return () => window.removeEventListener(CROP_SEMANTIC_EDITOR_MASK_EVENT, onMask as EventListener);
+  }, [selectedCropId]);
+
+  useEffect(() => {
+    if (localOverlay && localOverlay.cropId !== selectedCropId) setLocalOverlay(null);
+  }, [localOverlay, selectedCropId]);
 
   useEffect(() => {
     const missingRequests = overlayRequests.filter((request) => !overlayCacheRef.current[request.id]);
@@ -311,8 +377,8 @@ export function CropEditorSliceNavigatorRailClient({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    drawNavigatorOverlays(ctx, viewport, navigator.slices, overlayCache, scale);
-  }, [navigator.slices, overlayCache, viewport]);
+    drawNavigatorOverlays(ctx, viewport, navigator.slices, overlayCache, localOverlay, scale);
+  }, [navigator.slices, localOverlay, overlayCache, viewport]);
 
   async function openSlice(slice: CropSliceNavigatorSlice) {
     const canNavigate = await requestCropSemanticEditorFlush();

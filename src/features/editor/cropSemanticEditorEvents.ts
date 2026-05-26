@@ -4,6 +4,7 @@ export const CROP_SEMANTIC_EDITOR_STATUS_EVENT = "sapen:crop-semantic-editor-sta
 export const CROP_SEMANTIC_EDITOR_COMMAND_EVENT = "sapen:crop-semantic-editor-command";
 export const CROP_SEMANTIC_EDITOR_FLUSH_REQUEST_EVENT = "sapen:crop-semantic-editor-flush-request";
 export const CROP_SEMANTIC_EDITOR_FLUSH_RESPONSE_EVENT = "sapen:crop-semantic-editor-flush-response";
+export const CROP_SEMANTIC_EDITOR_MASK_EVENT = "sapen:crop-semantic-editor-mask";
 
 export type CropSemanticEditorSaveState = "idle" | "dirty" | "saving" | "saved" | "failed";
 
@@ -41,12 +42,26 @@ export type CropSemanticEditorFlushResponseDetail = {
   ok: boolean;
 };
 
+export type CropSemanticEditorMaskDetail = {
+  cropId: string;
+  kind: "semantic" | "support";
+  semanticMode: "SAP_HEARTWOOD" | "COPPER" | null;
+  width: number;
+  height: number;
+  bytes: Uint8Array;
+  revision: number;
+};
+
 export function dispatchCropSemanticEditorStatus(detail: CropSemanticEditorStatusDetail) {
   window.dispatchEvent(new CustomEvent(CROP_SEMANTIC_EDITOR_STATUS_EVENT, { detail }));
 }
 
 export function dispatchCropSemanticEditorCommand(detail: CropSemanticEditorCommandDetail) {
   window.dispatchEvent(new CustomEvent(CROP_SEMANTIC_EDITOR_COMMAND_EVENT, { detail }));
+}
+
+export function dispatchCropSemanticEditorMask(detail: CropSemanticEditorMaskDetail) {
+  window.dispatchEvent(new CustomEvent(CROP_SEMANTIC_EDITOR_MASK_EVENT, { detail }));
 }
 
 export function requestCropSemanticEditorFlush(timeoutMs = 10_000) {
