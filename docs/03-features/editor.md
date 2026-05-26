@@ -135,7 +135,7 @@ RB-094 implements the crop workflow entry route and BBox stage route. RB-095 imp
 - Crop support-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/support-mask/upload`.
 - Crop semantic-mask state is loaded from `GET /api/slice-crops/[cropId]/semantic-mask`.
 - Crop semantic-mask saves upload raw `u8raw-v1` bytes to `POST /api/slice-crops/[cropId]/semantic-mask/upload` with `x-semantic-mode` and optional `x-support-mask-version-id`. Sap/Heartwood can save without support and derives support from semantic foreground. Copper can save supportless drafts, but Copper readiness/export requires approved explicit support. Non-empty opposite-family saves are rejected with `CROP_ANNOTATION_FAMILY_CONFLICT`; all-background saves can clear the active family.
-- The unified crop annotation editor surfaces submit/approve/reject actions for the latest crop support mask, active crop semantic mask, and latest slice classification through the existing review APIs.
+- The unified crop annotation editor shows a compact image-level review strip. `POST /api/images/[imageId]/annotation-review` submits, approves, or rejects the current image annotation snapshot as one workflow action while internally transitioning the current crop support-mask, crop semantic-mask, and slice-classification versions needed by existing export/readiness logic.
 
 ## Current Domain Model
 
@@ -237,7 +237,7 @@ Current RB-095 behavior:
 
 Current RB-096 behavior:
 
-- `/crop/slices/[sliceInstanceId]/crops/[cropId]` is the selected-crop unified editor. It shows support/semantic/classification/readiness status, annotation family controls, review actions, and the embedded whole-image slice navigator.
+- `/crop/slices/[sliceInstanceId]/crops/[cropId]` is the selected-crop unified editor. It shows support/semantic/classification/readiness status, annotation family controls, image-level review actions, and the embedded whole-image slice navigator.
 - Sap/Heartwood semantic editing is available without explicit support. Copper semantic drafts are available without support, while readiness/export guidance requires approved explicit support.
 - Crop workflow support and semantic links use the crop-prefixed route family as compatibility aliases. The older non-crop-prefixed support/semantic routes redirect to the canonical editor.
 

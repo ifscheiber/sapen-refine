@@ -36,6 +36,8 @@ export const API_SLICE_CLASSIFICATION = (imageId: string) => `/api/images/${imag
 export const API_SLICE_INSTANCE_CLASSIFICATION = (sliceInstanceId: string) =>
   `/api/slices/${sliceInstanceId}/classification`;
 export const API_REVIEW_STATE = (imageId: string) => `/api/images/${imageId}/review-state`;
+export const API_IMAGE_ANNOTATION_REVIEW = (imageId: string) =>
+  `/api/images/${imageId}/annotation-review`;
 export const API_ARTIFACT_REVIEW = (versionId: string) => `/api/artifact-versions/${versionId}/review`;
 export const API_CLASSIFICATION_REVIEW = (versionId: string) =>
   `/api/slice-classification-versions/${versionId}/review`;

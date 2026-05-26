@@ -39,11 +39,10 @@ import {
   type CropSemanticEditorFlushRequestDetail,
 } from "./cropSemanticEditorEvents";
 import {
-  API_ARTIFACT_REVIEW,
-  API_CLASSIFICATION_REVIEW,
   API_CROP_SUPPORT_MASK_UPLOAD,
   API_CROP_SEMANTIC_MASK,
   API_CROP_SEMANTIC_MASK_UPLOAD,
+  API_IMAGE_ANNOTATION_REVIEW,
 } from "./editorApi";
 import {
   errorMessage,
@@ -59,11 +58,11 @@ import { getPaintLabelForTool, isBrushLikeTool } from "./editorTools";
 import { useCanvasZoomControls } from "./useCanvasZoomControls";
 import {
   type CropAnnotationFamily,
-  type CropReviewActions,
   type CropSemanticMaskState,
   type CropSemanticMode,
   type Point,
   type ReviewAction,
+  type ReviewStateValue,
   type Tool,
 } from "./editorTypes";
 
@@ -80,15 +79,6 @@ type StrokeStep = {
   revert: "before" | "after";
 };
 type Stroke = StrokeStep[];
-type CropReviewTarget = {
-  key: string;
-  label: string;
-  versionId: string;
-  version: number;
-  reviewState: string;
-  kind: "artifact" | "classification";
-  actions: CropReviewActions | null;
-};
 type Bounds = { x: number; y: number; w: number; h: number };
 type EditablePolygon = {
   id: string;
@@ -99,6 +89,30 @@ type EditablePolygon = {
   bounds: Bounds;
   stale: boolean;
   revision: number;
+};
+type ImageAnnotationReviewState = {
+  state: ReviewStateValue;
+  actions: {
+    canSubmit: boolean;
+    canApprove: boolean;
+    canReject: boolean;
+  };
+  summary: {
+    totalTargets: number;
+    draftTargets: number;
+    submittedTargets: number;
+    approvedTargets: number;
+    rejectedTargets: number;
+  };
+  blockingReasons: string[];
+  persistedReview: {
+    submittedAt: string | null;
+    reviewedAt: string | null;
+    comments: string | null;
+    reason: string | null;
+    submittedBy: { email: string; name: string | null } | null;
+    reviewedBy: { email: string; name: string | null } | null;
+  } | null;
 };
 
 const MODE_LABELS: Record<CropSemanticMode, string> = {
@@ -328,8 +342,9 @@ export function CropSemanticEditorClient({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved" | "failed">("idle");
-  const [reviewComment, setReviewComment] = useState("");
-  const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null);
+  const [imageReviewState, setImageReviewState] = useState<ImageAnnotationReviewState | null>(null);
+  const [imageReviewComment, setImageReviewComment] = useState("");
+  const [imageReviewBusy, setImageReviewBusy] = useState<ReviewAction | null>(null);
   const [lassoPointCount, setLassoPointCount] = useState(0);
   const [lassoClosed, setLassoClosed] = useState(false);
   const [selectedEditablePolygonId, setSelectedEditablePolygonId] = useState<string | null>(null);
@@ -615,6 +630,23 @@ export function CropSemanticEditorClient({
     });
   }, [cropId, semanticMode]);
 
+  const loadImageAnnotationReview = useCallback(async (imageId: string) => {
+    try {
+      const response = await fetch(API_IMAGE_ANNOTATION_REVIEW(imageId), {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? `IMAGE_ANNOTATION_REVIEW_FAILED_${response.status}`);
+      }
+      setImageReviewState(data as ImageAnnotationReviewState);
+    } catch (error) {
+      setImageReviewState(null);
+      setStatus(errorMessage(error, "Image review state failed"));
+    }
+  }, []);
+
   const loadEditor = useCallback(async (signal?: AbortSignal) => {
     const loadGuard = createEditorLoadGuard(loadSequenceRef, signal);
     resetEditor();
@@ -632,6 +664,7 @@ export function CropSemanticEditorClient({
       if (!loadGuard.isCurrent()) return;
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
+      void loadImageAnnotationReview(nextState.crop.sourceImageId);
       const nextSupportLabel = nextState.supportLabels.sliceSupport;
       paletteRef.current = editingSupport
         ? buildPalette(supportMaskLabels(nextSupportLabel), 1)
@@ -759,6 +792,7 @@ export function CropSemanticEditorClient({
     dispatchNavigatorMaskSnapshot,
     editingSupport,
     fitToContainer,
+    loadImageAnnotationReview,
     renderOverlayFull,
     renderSupportOverlayFull,
     resetEditor,
@@ -1475,6 +1509,7 @@ export function CropSemanticEditorClient({
       const nextState = data as CropSemanticMaskState;
       setState(nextState);
       dispatchNavigatorMaskSnapshot();
+      void loadImageAnnotationReview(nextState.crop.sourceImageId);
       if (dirtyRevisionRef.current === saveRevision) {
         dirtyMaskRef.current = false;
         setHasUnsavedChanges(false);
@@ -1509,23 +1544,20 @@ export function CropSemanticEditorClient({
     await loadEditor();
   }
 
-  async function runReviewAction(target: CropReviewTarget, action: ReviewAction) {
-    if (hasUnsavedChanges) return;
-    const comment = reviewComment.trim();
+  async function runImageReviewAction(action: ReviewAction) {
+    const comment = imageReviewComment.trim();
     if (action === "reject" && !comment) {
       setStatus("Reject reason required");
       return;
     }
 
-    const busyKey = `${target.key}:${target.versionId}:${action}`;
-    setReviewBusyKey(busyKey);
+    const saved = await flushPendingSave();
+    if (!saved || !state) return;
+
+    setImageReviewBusy(action);
     setStatus("");
     try {
-      const endpoint =
-        target.kind === "classification"
-          ? API_CLASSIFICATION_REVIEW(target.versionId)
-          : API_ARTIFACT_REVIEW(target.versionId);
-      const response = await fetch(endpoint, {
+      const response = await fetch(API_IMAGE_ANNOTATION_REVIEW(state.crop.sourceImageId), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1536,66 +1568,20 @@ export function CropSemanticEditorClient({
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
-        throw new Error(data?.error ?? `CROP_REVIEW_FAILED_${response.status}`);
+        throw new Error(data?.error ?? `IMAGE_REVIEW_FAILED_${response.status}`);
       }
-      setReviewComment("");
+      setImageReviewComment("");
+      setImageReviewState(data as ImageAnnotationReviewState);
       await loadEditor();
-      setStatus(`${target.label} ${formatReviewState(data.toState)}`);
+      setStatus(`Image ${formatReviewState(data.state)}`);
       setTimeout(() => setStatus(""), 800);
     } catch (error) {
-      setStatus(errorMessage(error, "Crop review action failed"));
+      setStatus(errorMessage(error, "Image review action failed"));
     } finally {
-      setReviewBusyKey(null);
+      setImageReviewBusy(null);
     }
   }
 
-  const activeSemanticMask = state?.latestSemanticMasks[semanticMode] ?? null;
-  const classificationReviewActions =
-    state?.latestClassification &&
-    state.cropReadiness?.latestClassificationVersionId === state.latestClassification.id
-      ? state.cropReadiness.reviewActions.classification
-      : null;
-  const reviewTargets: CropReviewTarget[] = [
-    ...(state?.currentSupportMask
-      ? [
-          {
-            key: "support",
-            label: "Support",
-            versionId: state.currentSupportMask.id,
-            version: state.currentSupportMask.version,
-            reviewState: state.currentSupportMask.reviewState,
-            kind: "artifact" as const,
-            actions: state.currentSupportMask.reviewActions,
-          },
-        ]
-      : []),
-    ...(activeSemanticMask
-      ? [
-          {
-            key: `semantic-${semanticMode}`,
-            label: MODE_LABELS[semanticMode],
-            versionId: activeSemanticMask.id,
-            version: activeSemanticMask.version,
-            reviewState: activeSemanticMask.reviewState,
-            kind: "artifact" as const,
-            actions: activeSemanticMask.reviewActions,
-          },
-        ]
-      : []),
-    ...(state?.latestClassification
-      ? [
-          {
-            key: "classification",
-            label: "Classification",
-            versionId: state.latestClassification.id,
-            version: state.latestClassification.version,
-            reviewState: state.latestClassification.reviewState,
-            kind: "classification" as const,
-            actions: classificationReviewActions,
-          },
-        ]
-      : []),
-  ];
   const sapHeartwoodBlockedReason = familyBlockedReason("SAP_HEARTWOOD");
   const cuSupportBlockedReason = familyBlockedReason("CU_SUPPORT");
   const familyConflict = state?.annotationFamily.state === "CONFLICT";
@@ -1707,6 +1693,12 @@ export function CropSemanticEditorClient({
     document.addEventListener("click", onDocumentClick, true);
     return () => document.removeEventListener("click", onDocumentClick, true);
   });
+
+  const imageReviewBlocker = imageReviewState?.blockingReasons[0] ?? null;
+  const imageReviewControlsBlocked = imageReviewBusy !== null || isSaving;
+  const imageReviewStatus = imageReviewState
+    ? `${formatReviewState(imageReviewState.state)} · ${imageReviewState.summary.totalTargets} item${imageReviewState.summary.totalTargets === 1 ? "" : "s"}`
+    : "Loading";
 
   return (
     <div className="overflow-hidden border border-[var(--border-subtle)] bg-[var(--workspace-background)] text-[var(--text-primary)]">
@@ -1845,53 +1837,48 @@ export function CropSemanticEditorClient({
         />
       </AnnotationToolbarShell>
 
-      {(reviewTargets.length > 0 || reviewComment) && (
+      {(imageReviewState || imageReviewComment) && (
         <div className="border-b border-[var(--border-subtle)] bg-[var(--workspace-panel)] px-4 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {reviewTargets.map((target) => {
-              const blocked = hasUnsavedChanges || reviewBusyKey !== null;
-              return (
-                <div
-                  key={target.key}
-                  data-review-target={target.key}
-                  className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]"
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+            <span className="font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+              Image review
+            </span>
+            <span>{imageReviewStatus}</span>
+            {imageReviewBlocker ? <span title={imageReviewBlocker}>Blocked: {imageReviewBlocker}</span> : null}
+            <button
+              className={idleButtonClass}
+              onClick={() => void runImageReviewAction("submit")}
+              disabled={imageReviewControlsBlocked || !imageReviewState?.actions.canSubmit}
+            >
+              Submit image
+            </button>
+            {imageReviewState?.actions.canApprove || imageReviewState?.actions.canReject ? (
+              <>
+                <button
+                  className={idleButtonClass}
+                  onClick={() => void runImageReviewAction("approve")}
+                  disabled={imageReviewControlsBlocked || !imageReviewState.actions.canApprove}
                 >
-                  <span>
-                    {target.label}: {formatReviewState(target.reviewState)} v{target.version}
-                  </span>
-                  <button
-                    className={idleButtonClass}
-                    onClick={() => void runReviewAction(target, "submit")}
-                    disabled={blocked || !target.actions?.canSubmit}
-                  >
-                    Submit
-                  </button>
-                  <button
-                    className={idleButtonClass}
-                    onClick={() => void runReviewAction(target, "approve")}
-                    disabled={blocked || !target.actions?.canApprove}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className={idleButtonClass}
-                    onClick={() => void runReviewAction(target, "reject")}
-                    disabled={blocked || !target.actions?.canReject}
-                  >
-                    Reject
-                  </button>
-                </div>
-              );
-            })}
-            {reviewTargets.length > 0 && (
+                  Approve image
+                </button>
+                <button
+                  className={idleButtonClass}
+                  onClick={() => void runImageReviewAction("reject")}
+                  disabled={imageReviewControlsBlocked || !imageReviewState.actions.canReject}
+                >
+                  Reject image
+                </button>
+              </>
+            ) : null}
+            {imageReviewState?.actions.canReject || imageReviewComment ? (
               <input
-                aria-label="Crop review comment"
-                value={reviewComment}
-                onChange={(event) => setReviewComment(event.target.value)}
+                aria-label="Image review comment"
+                value={imageReviewComment}
+                onChange={(event) => setImageReviewComment(event.target.value)}
                 placeholder="Review comment"
                 className="h-8 w-48 rounded-sm border border-[var(--border-subtle)] bg-[var(--workspace-input-background)] px-2 text-[11px] font-medium text-[var(--text-primary)]"
               />
-            )}
+            ) : null}
           </div>
         </div>
       )}

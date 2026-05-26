@@ -19,6 +19,7 @@ const ROUTE_CLASSIFICATION: Record<string, RouteClassification> = {
   "src/app/api/exports/[exportId]/route.ts": "protected-api",
   "src/app/api/health/route.ts": "public-api",
   "src/app/api/images/[imageId]/asset/route.ts": "protected-api",
+  "src/app/api/images/[imageId]/annotation-review/route.ts": "protected-api",
   "src/app/api/images/[imageId]/bbox-preview/route.ts": "protected-api",
   "src/app/api/images/[imageId]/mask/commit/route.ts": "protected-api",
   "src/app/api/images/[imageId]/mask/latest/route.ts": "protected-api",

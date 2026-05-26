@@ -52,6 +52,8 @@ This page lists the current API route handlers under `src/app/api`.
 - `GET /api/images/[imageId]/support-mask/latest` - returns latest support-mask version metadata and app-mediated asset URL.
 - `POST /api/images/[imageId]/support-mask/upload` - uploads support-mask bytes through the app server, verifies image-sized `u8raw-v1` bytes and support-only values, and records a draft `SLICE_SUPPORT_MASK` artifact version.
 - `GET /api/images/[imageId]/review-state` - returns review permissions, latest versions, latest approved versions, and export-readiness warnings for semantic masks, support masks, and slice classifications.
+- `GET /api/images/[imageId]/annotation-review` - returns the image-level annotation review state, current crop-derived review targets, submit blockers, and permitted image review actions.
+- `POST /api/images/[imageId]/annotation-review` - submits, approves, or rejects the whole image annotation snapshot while transitioning the current underlying crop mask/classification versions used by export readiness.
 - `POST /api/artifact-versions/[versionId]/review` - submits, approves, or rejects semantic/support artifact versions after membership and transition checks.
 - `POST /api/slice-classification-versions/[versionId]/review` - submits, approves, or rejects slice classification versions after membership and transition checks.
 - `GET /api/projects/[projectId]/crop-readiness` - returns sanitized central crop readiness for project members, with optional `imageId` and `sliceInstanceId` filters, stable reason counts, next-action hints, and review action availability.

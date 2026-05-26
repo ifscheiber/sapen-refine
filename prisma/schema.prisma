@@ -212,6 +212,8 @@ model User {
   createdSliceInstances          SliceInstance[]              @relation("SliceInstanceCreatedBy")
   createdSliceBoundingBoxes      SliceBoundingBoxVersion[]    @relation("SliceBoundingBoxCreatedBy")
   confirmedImageCropWorkflows    ImageCropWorkflowState[]     @relation("ImageCropWorkflowConfirmedBy")
+  submittedImageAnnotationReviews ImageAnnotationReview[]      @relation("ImageAnnotationReviewSubmittedBy")
+  reviewedImageAnnotationReviews  ImageAnnotationReview[]      @relation("ImageAnnotationReviewReviewedBy")
   createdDerivedSliceCrops       DerivedSliceCrop[]           @relation("DerivedSliceCropCreatedBy")
   createdSliceClassifications    SliceClassificationVersion[] @relation("SliceClassificationCreatedBy")
   reviewDecisions                ReviewDecision[]             @relation("ReviewDecisionReviewedBy")
@@ -261,6 +263,7 @@ model AnnotationProject {
   sliceInstances          SliceInstance[]
   sliceBoundingBoxes      SliceBoundingBoxVersion[]
   imageCropWorkflowStates ImageCropWorkflowState[]
+  imageAnnotationReviews  ImageAnnotationReview[]
   derivedSliceCrops       DerivedSliceCrop[]
   classifications         SliceClassificationVersion[]
   reviewDecisions         ReviewDecision[]
@@ -353,6 +356,7 @@ model ImageAsset {
   sliceInstances             SliceInstance[]
   sliceBoundingBoxes         SliceBoundingBoxVersion[]
   cropWorkflowState          ImageCropWorkflowState?
+  annotationReview           ImageAnnotationReview?
   derivedSliceCrops          DerivedSliceCrop[]             @relation("DerivedSliceCropSourceImage")
   classifications            SliceClassificationVersion[]
   exportItems                ExportItem[]
@@ -619,6 +623,31 @@ model ImageCropWorkflowState {
   @@index([projectId, bboxSetStatus])
   @@index([confirmedById])
   @@index([lastBBoxVersionId])
+}
+
+model ImageAnnotationReview {
+  id            String              @id @default(cuid())
+  projectId     String
+  imageId       String              @unique
+  state         ArtifactReviewState @default(DRAFT)
+  snapshotJson  Json?
+  submittedById String?
+  submittedAt   DateTime?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  comments      String?
+  reason        String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  project     AnnotationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image       ImageAsset        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  submittedBy User?             @relation("ImageAnnotationReviewSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy  User?             @relation("ImageAnnotationReviewReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, state])
+  @@index([submittedById])
+  @@index([reviewedById])
 }
 
 model DerivedSliceCrop {

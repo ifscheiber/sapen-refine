@@ -38,5 +38,5 @@ Active and completed editor follow-up tickets added after the export sprint:
 3. `done/FEAT-019-reeditable-closed-polygons-semantic-masks.md`
    Preserve in-session closed polygon geometry so committed semantic polygons can be reselected and edited.
 
-4. `FEAT-021-image-level-submission-review-workflow.md`
+4. `done/FEAT-021-image-level-submission-review-workflow.md`
    Replace mask-level review controls with a persisted image-level submission/review workflow.

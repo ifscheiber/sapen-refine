@@ -16,6 +16,7 @@
 - `src/app/(workspace)/app/[...missing]/page.tsx` - authenticated workspace catch-all that routes unknown `/app/**` URLs to the workspace not-found fallback.
 - `src/app/(workspace)/app/projects/**` - route-addressable project, active-project image workspace, image, and editor pages.
 - `src/app/api/**/route.ts` - HTTP API route handlers.
+- `src/app/api/images/[imageId]/annotation-review/route.ts` - protected image-level annotation review endpoint for whole-image submit/approve/reject transitions.
 
 ## Public Interfaces / Routes / Functions
 

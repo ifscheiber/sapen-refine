@@ -16,7 +16,7 @@ SaPen Annotate is the system of record for attributable annotation work that can
 - Current editor: `src/features/editor/EditorClient.tsx`
 - Current mask labels and editor raw-byte upload helper: `src/mask/labels.ts`, `src/features/editor/editorMaskUpload.ts`
 - Legacy/test mask serialization helper: `src/mask/serialize.ts`
-- Current review domain/API: `src/server/domain/review.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
+- Current review domain/API: `src/server/domain/review.ts`, `src/server/domain/imageAnnotationReview.ts`, `src/app/api/images/[imageId]/review-state/route.ts`, `src/app/api/images/[imageId]/annotation-review/route.ts`, `src/app/api/artifact-versions/[versionId]/review/route.ts`, `src/app/api/slice-classification-versions/[versionId]/review/route.ts`
 - Current BBox proposal domain/API: `src/server/domain/sliceBboxes.ts`, `src/app/api/images/[imageId]/slice-bboxes/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/route.ts`
 - Current BBox workflow state domain/API: `src/server/domain/imageCropWorkflow.ts`, `src/app/api/images/[imageId]/slice-bboxes/confirm/route.ts`
 - Current derived crop domain/API: `src/server/domain/sliceCrops.ts`, `src/app/api/images/[imageId]/slice-crops/route.ts`, `src/app/api/slice-bboxes/[bboxVersionId]/crop/route.ts`, `src/app/api/slice-crops/[cropId]/asset/route.ts`
@@ -267,6 +267,8 @@ Implemented transitions are:
 - previous/new state.
 
 The schema allows a review decision to target either an artifact version or a slice classification version; `src/server/domain/review.ts` enforces the exact-one-target invariant.
+
+`ImageAnnotationReview` stores the user-facing image-level review state. The image-level endpoint snapshots the current crop support-mask, crop semantic-mask, and slice-classification version ids and transitions those underlying versions so existing export/readiness code can continue to rely on approved immutable version rows.
 
 ### Model Predictions And Human Corrections
 
