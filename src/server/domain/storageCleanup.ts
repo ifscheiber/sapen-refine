@@ -19,6 +19,9 @@ export type CleanupObjectCategory =
   | "BATCH_SOURCE_ZIP"
   | "BATCH_STAGED_ITEM"
   | "ABANDONED_PRESIGNED_UPLOAD"
+  | "ORPHAN_DERIVED_CROP_OBJECT"
+  | "ORPHAN_CROP_SUPPORT_MASK_OBJECT"
+  | "ORPHAN_CROP_SEMANTIC_MASK_OBJECT"
   | "UNKNOWN_STAGING_OBJECT";
 export type CleanupResultStatus = "WOULD_DELETE" | "DELETED" | "SKIPPED" | "FAILED";
 
@@ -180,6 +183,25 @@ export function classifyStorageCleanupKey(key: string): {
   const maskMatch = key.match(/^projects\/([^/]+)\/masks\/[^/]+\/[^/]+\.msk$/);
   if (maskMatch?.[1]) {
     return { category: "ABANDONED_PRESIGNED_UPLOAD", projectId: maskMatch[1] };
+  }
+
+  const derivedCropMatch = key.match(/^projects\/([^/]+)\/derived-crops\/[^/]+\/[^/]+\/[^/]+\.png$/);
+  if (derivedCropMatch?.[1]) {
+    return { category: "ORPHAN_DERIVED_CROP_OBJECT", projectId: derivedCropMatch[1] };
+  }
+
+  const cropSupportMaskMatch = key.match(
+    /^projects\/([^/]+)\/crop-support-masks\/[^/]+\/[^/]+\/[^/]+\/[^/]+\.msk$/,
+  );
+  if (cropSupportMaskMatch?.[1]) {
+    return { category: "ORPHAN_CROP_SUPPORT_MASK_OBJECT", projectId: cropSupportMaskMatch[1] };
+  }
+
+  const cropSemanticMaskMatch = key.match(
+    /^projects\/([^/]+)\/crop-semantic-masks\/[^/]+\/[^/]+\/[^/]+\/[^/]+\/[^/]+\.msk$/,
+  );
+  if (cropSemanticMaskMatch?.[1]) {
+    return { category: "ORPHAN_CROP_SEMANTIC_MASK_OBJECT", projectId: cropSemanticMaskMatch[1] };
   }
 
   const batchMatch = key.match(/^projects\/([^/]+)\/prediction-import-batches\/([^/]+)\/[^/]+$/);
@@ -452,6 +474,20 @@ function isBatchTemporaryObject(category: CleanupObjectCategory) {
   return category === "BATCH_SOURCE_ZIP" || category === "UNKNOWN_STAGING_OBJECT";
 }
 
+function isUploadOrphanObject(category: CleanupObjectCategory) {
+  return category === "ABANDONED_PRESIGNED_UPLOAD" ||
+    category === "ORPHAN_DERIVED_CROP_OBJECT" ||
+    category === "ORPHAN_CROP_SUPPORT_MASK_OBJECT" ||
+    category === "ORPHAN_CROP_SEMANTIC_MASK_OBJECT";
+}
+
+function orphanCleanupReason(category: CleanupObjectCategory) {
+  if (category === "ORPHAN_DERIVED_CROP_OBJECT") return "DERIVED_CROP_OBJECT_ORPHAN_RETENTION_EXPIRED";
+  if (category === "ORPHAN_CROP_SUPPORT_MASK_OBJECT") return "CROP_SUPPORT_MASK_OBJECT_ORPHAN_RETENTION_EXPIRED";
+  if (category === "ORPHAN_CROP_SEMANTIC_MASK_OBJECT") return "CROP_SEMANTIC_MASK_OBJECT_ORPHAN_RETENTION_EXPIRED";
+  return "PRESIGNED_UPLOAD_ORPHAN_RETENTION_EXPIRED";
+}
+
 async function collectObjectStorageCandidates(
   db: CleanupDb,
   options: StorageCleanupOptions,
@@ -469,7 +505,7 @@ async function collectObjectStorageCandidates(
       if (options.batchId && entry.classification.batchId !== options.batchId) return false;
       if (options.projectId && entry.classification.projectId !== options.projectId) return false;
       if (options.category === "upload-orphans") {
-        return entry.classification.category === "ABANDONED_PRESIGNED_UPLOAD";
+        return isUploadOrphanObject(entry.classification.category);
       }
       if (isBatchTemporaryObject(entry.classification.category)) return true;
       return options.category !== "batch-staging";
@@ -486,7 +522,7 @@ async function collectObjectStorageCandidates(
   const candidates: CleanupCandidate[] = [];
   for (const entry of classified) {
     const { object, classification } = entry;
-    if (classification.category === "ABANDONED_PRESIGNED_UPLOAD" && !shouldConsiderObject(object, options)) {
+    if (isUploadOrphanObject(classification.category) && !shouldConsiderObject(object, options)) {
       continue;
     }
 
@@ -538,7 +574,7 @@ async function collectObjectStorageCandidates(
         ? classification.category === "BATCH_SOURCE_ZIP"
           ? "BATCH_SOURCE_ZIP_RETENTION_EXPIRED"
           : "UNKNOWN_STAGING_RETENTION_EXPIRED"
-        : "PRESIGNED_UPLOAD_ORPHAN_RETENTION_EXPIRED",
+        : orphanCleanupReason(classification.category),
       size: object.size,
       ageSeconds: ageSeconds(options.now, object.lastModified),
       batchId: classification.batchId ?? null,
@@ -558,6 +594,37 @@ function summarizeBytes(results: StorageCleanupResult[], status: CleanupResultSt
   return results
     .filter((result) => result.status === status)
     .reduce((total, result) => total + (result.size ?? 0), 0);
+}
+
+function summarizeByCategory(results: StorageCleanupResult[]) {
+  const byCategory: Partial<Record<CleanupObjectCategory, {
+    totalResults: number;
+    wouldDeleteCount: number;
+    deletedCount: number;
+    skippedCount: number;
+    failedCount: number;
+    knownBytes: number;
+  }>> = {};
+
+  for (const result of results) {
+    const category = byCategory[result.category] ?? {
+      totalResults: 0,
+      wouldDeleteCount: 0,
+      deletedCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+      knownBytes: 0,
+    };
+    category.totalResults += 1;
+    category.knownBytes += result.size ?? 0;
+    if (result.status === "WOULD_DELETE") category.wouldDeleteCount += 1;
+    if (result.status === "DELETED") category.deletedCount += 1;
+    if (result.status === "SKIPPED") category.skippedCount += 1;
+    if (result.status === "FAILED") category.failedCount += 1;
+    byCategory[result.category] = category;
+  }
+
+  return byCategory;
 }
 
 function finding(params: StorageConsistencyFinding): StorageConsistencyFinding {
@@ -941,6 +1008,7 @@ function summarize(results: StorageCleanupResult[], execute: boolean) {
     deletedBytes: summarizeBytes(results, "DELETED"),
     skippedBytes: summarizeBytes(results, "SKIPPED"),
     failedBytes: summarizeBytes(results, "FAILED"),
+    byCategory: summarizeByCategory(results),
   };
 }
 

@@ -18,7 +18,7 @@ Trial browser invariant:
 - Browser-facing helpers in `src/lib` use app-mediated routes and do not expose `storageKey`, bucket names, endpoints, upload URLs, or download URL internals.
 - Presign/commit routes for images and semantic masks remain as disabled legacy/internal compatibility endpoints. After auth/RBAC they return `410 PRESIGNED_UPLOADS_DISABLED`; any future direct-upload compatibility must use staging keys and a fresh server-owned final key.
 - Export packaging verifies each packaged image, artifact version, and derived crop against persisted checksum and size before writing ZIP bytes.
-- RB-066 cleanup may delete only temporary/staged objects after retention: batch staging files, possible temporary batch ZIPs under the batch staging prefix, and historical abandoned presigned image/mask uploads created before RB-105. Database references protect raw images, artifact versions, prediction artifacts, and exports.
+- RB-066/RB-137 cleanup may delete only temporary/staged or unreferenced workflow objects after retention: batch staging files, possible temporary batch ZIPs under the batch staging prefix, historical abandoned presigned image/mask uploads created before RB-105, and unreferenced crop workflow objects under `derived-crops`, `crop-support-masks`, or `crop-semantic-masks`. Database references protect raw images, derived crops, artifact versions, prediction artifacts, and exports.
 
 Operational cleanup runbook:
 

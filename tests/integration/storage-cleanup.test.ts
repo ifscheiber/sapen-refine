@@ -3,7 +3,15 @@ import { config as loadEnv } from "dotenv";
 import JSZip from "jszip";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { AnnotationArtifactKind, ExportStatus, ExportTarget, PrismaClient } from "@prisma/client";
+import {
+  AnnotationArtifactKind,
+  ArtifactProvenance,
+  CoordinateSpace,
+  CropSemanticMode,
+  ExportStatus,
+  ExportTarget,
+  PrismaClient,
+} from "@prisma/client";
 
 import { sha256Checksum } from "@/server/uploads/integrity";
 
@@ -121,13 +129,13 @@ describe("storage cleanup workflow", () => {
     await pool.end();
   });
 
-  async function createImage(name: string) {
+  async function createImage(name: string, targetProjectId = projectId) {
     const storageKey = `tests/storage-cleanup/${suffix}/${name}.png`;
     await storage.putObject(storageKey, new Uint8Array([0, 1, 2, 3]), "image/png");
     objectKeys.add(storageKey);
     const image = await prisma.imageAsset.create({
       data: {
-        projectId,
+        projectId: targetProjectId,
         storageKey,
         filename: `${name}.png`,
         contentType: "image/png",
@@ -141,6 +149,132 @@ describe("storage cleanup workflow", () => {
       select: { id: true },
     });
     return image.id;
+  }
+
+  async function createCropFixture(params: {
+    projectId: string;
+    name: string;
+    derivedCropKey: string;
+    bytes: Uint8Array;
+  }) {
+    const imageId = await createImage(params.name, params.projectId);
+    const slice = await prisma.sliceInstance.create({
+      data: {
+        projectId: params.projectId,
+        imageId,
+        boundingBox: { x: 0, y: 0, width: 2, height: 2 },
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    const bbox = await prisma.sliceBoundingBoxVersion.create({
+      data: {
+        projectId: params.projectId,
+        imageId,
+        sliceInstanceId: slice.id,
+        version: 1,
+        x: 0,
+        y: 0,
+        width: 2,
+        height: 2,
+        coordinateSpace: CoordinateSpace.SOURCE_IMAGE_PIXEL,
+        provenance: ArtifactProvenance.HUMAN_ANNOTATION,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+    const crop = await prisma.derivedSliceCrop.create({
+      data: {
+        projectId: params.projectId,
+        sourceImageId: imageId,
+        sourceImageChecksum: `sha256:source-${params.name}-${suffix}`,
+        sourceImageWidth: 2,
+        sourceImageHeight: 2,
+        sliceInstanceId: slice.id,
+        bboxVersionId: bbox.id,
+        version: 1,
+        sourceX: 0,
+        sourceY: 0,
+        sourceWidth: 2,
+        sourceHeight: 2,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: 2,
+        cropHeight: 2,
+        paddingRequestedPx: 0,
+        paddingAppliedLeftPx: 0,
+        paddingAppliedTopPx: 0,
+        paddingAppliedRightPx: 0,
+        paddingAppliedBottomPx: 0,
+        coordinateSpace: CoordinateSpace.CROP_PIXEL,
+        transformToSourceJson: {
+          cropX: 0,
+          cropY: 0,
+          sourceX: 0,
+          sourceY: 0,
+          sourceWidth: 2,
+          sourceHeight: 2,
+        },
+        storageKey: params.derivedCropKey,
+        checksum: sha256Checksum(params.bytes),
+        contentType: "image/png",
+        byteSize: params.bytes.byteLength,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    return {
+      imageId,
+      sliceInstanceId: slice.id,
+      cropId: crop.id,
+    };
+  }
+
+  async function createCropArtifactVersion(params: {
+    projectId: string;
+    imageId: string;
+    sliceInstanceId: string;
+    cropId: string;
+    key: string;
+    kind: AnnotationArtifactKind;
+    scopeKey: string;
+    bytes: Uint8Array;
+    supportMaskVersionId?: string;
+    cropSemanticMode?: CropSemanticMode;
+  }) {
+    const artifact = await prisma.annotationArtifact.create({
+      data: {
+        projectId: params.projectId,
+        imageId: params.imageId,
+        kind: params.kind,
+        scopeKey: params.scopeKey,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
+
+    return prisma.annotationArtifactVersion.create({
+      data: {
+        artifactId: artifact.id,
+        version: 1,
+        provenance: ArtifactProvenance.HUMAN_ANNOTATION,
+        storageKey: params.key,
+        contentType: "application/octet-stream",
+        size: params.bytes.byteLength,
+        checksum: sha256Checksum(params.bytes),
+        width: 2,
+        height: 2,
+        coordinateSpace: CoordinateSpace.CROP_PIXEL,
+        labelSchemaVersionId,
+        derivedCropId: params.cropId,
+        sliceInstanceId: params.sliceInstanceId,
+        supportMaskVersionId: params.supportMaskVersionId,
+        cropSemanticMode: params.cropSemanticMode,
+        createdById: ownerId,
+      },
+      select: { id: true },
+    });
   }
 
   async function createZip(params: {
@@ -503,6 +637,178 @@ describe("storage cleanup workflow", () => {
     await storage.statObject(artifactKey);
     await storage.statObject(exportKey);
     expect(result.consistency.hardDriftCount).toBe(0);
+  });
+
+  it("deletes only unreferenced crop workflow orphans", async () => {
+    const cropProject = await prisma.annotationProject.create({
+      data: {
+        name: `Storage Cleanup Crop Objects ${suffix}`,
+        labelSchemaVersionId,
+        createdById: ownerId,
+        members: { create: [{ userId: ownerId, role: "OWNER" }] },
+      },
+      select: { id: true },
+    });
+    const bytes = new Uint8Array([4, 5, 6, 7]);
+    const protectedDerivedKey =
+      `projects/${cropProject.id}/derived-crops/protected-image/protected-slice/protected-${suffix}.png`;
+    const protectedSupportKey =
+      `projects/${cropProject.id}/crop-support-masks/protected-image/protected-slice/protected-crop/${suffix}.msk`;
+    const protectedSemanticKey =
+      `projects/${cropProject.id}/crop-semantic-masks/protected-image/protected-slice/protected-crop/SAP_HEARTWOOD/${suffix}.msk`;
+    const orphanDerivedKey =
+      `projects/${cropProject.id}/derived-crops/orphan-image/orphan-slice/orphan-${suffix}.png`;
+    const orphanSupportKey =
+      `projects/${cropProject.id}/crop-support-masks/orphan-image/orphan-slice/orphan-crop/${suffix}.msk`;
+    const orphanSemanticKey =
+      `projects/${cropProject.id}/crop-semantic-masks/orphan-image/orphan-slice/orphan-crop/COPPER/${suffix}.msk`;
+    const allCropKeys = [
+      protectedDerivedKey,
+      protectedSupportKey,
+      protectedSemanticKey,
+      orphanDerivedKey,
+      orphanSupportKey,
+      orphanSemanticKey,
+    ];
+
+    try {
+      for (const key of allCropKeys) {
+        await storage.putObject(key, bytes, key.endsWith(".png") ? "image/png" : "application/octet-stream");
+        objectKeys.add(key);
+      }
+
+      const crop = await createCropFixture({
+        projectId: cropProject.id,
+        name: "crop-protected",
+        derivedCropKey: protectedDerivedKey,
+        bytes,
+      });
+      const support = await createCropArtifactVersion({
+        projectId: cropProject.id,
+        imageId: crop.imageId,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropId: crop.cropId,
+        key: protectedSupportKey,
+        kind: AnnotationArtifactKind.SLICE_SUPPORT_MASK,
+        scopeKey: `crop-support:${crop.cropId}`,
+        bytes,
+      });
+      await createCropArtifactVersion({
+        projectId: cropProject.id,
+        imageId: crop.imageId,
+        sliceInstanceId: crop.sliceInstanceId,
+        cropId: crop.cropId,
+        key: protectedSemanticKey,
+        kind: AnnotationArtifactKind.SEMANTIC_MASK,
+        scopeKey: `crop-semantic:${crop.cropId}:sap-heartwood`,
+        bytes,
+        supportMaskVersionId: support.id,
+        cropSemanticMode: CropSemanticMode.SAP_HEARTWOOD,
+      });
+
+      const now = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const dryRun = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "upload-orphans",
+            projectId: cropProject.id,
+            now: now.toISOString(),
+          },
+        },
+        prisma,
+      );
+
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: protectedDerivedKey,
+        category: "ORPHAN_DERIVED_CROP_OBJECT",
+        status: "SKIPPED",
+        reason: "DERIVED_SLICE_CROP_REFERENCE",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: protectedSupportKey,
+        category: "ORPHAN_CROP_SUPPORT_MASK_OBJECT",
+        status: "SKIPPED",
+        reason: "ARTIFACT_VERSION_REFERENCE",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: protectedSemanticKey,
+        category: "ORPHAN_CROP_SEMANTIC_MASK_OBJECT",
+        status: "SKIPPED",
+        reason: "ARTIFACT_VERSION_REFERENCE",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: orphanDerivedKey,
+        category: "ORPHAN_DERIVED_CROP_OBJECT",
+        status: "WOULD_DELETE",
+        reason: "DERIVED_CROP_OBJECT_ORPHAN_RETENTION_EXPIRED",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: orphanSupportKey,
+        category: "ORPHAN_CROP_SUPPORT_MASK_OBJECT",
+        status: "WOULD_DELETE",
+        reason: "CROP_SUPPORT_MASK_OBJECT_ORPHAN_RETENTION_EXPIRED",
+      }));
+      expect(dryRun.results).toContainEqual(expect.objectContaining({
+        key: orphanSemanticKey,
+        category: "ORPHAN_CROP_SEMANTIC_MASK_OBJECT",
+        status: "WOULD_DELETE",
+        reason: "CROP_SEMANTIC_MASK_OBJECT_ORPHAN_RETENTION_EXPIRED",
+      }));
+      expect(dryRun.summary.byCategory).toMatchObject({
+        ORPHAN_DERIVED_CROP_OBJECT: { wouldDeleteCount: 1, skippedCount: 1 },
+        ORPHAN_CROP_SUPPORT_MASK_OBJECT: { wouldDeleteCount: 1, skippedCount: 1 },
+        ORPHAN_CROP_SEMANTIC_MASK_OBJECT: { wouldDeleteCount: 1, skippedCount: 1 },
+      });
+
+      const batchOnly = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            category: "batch-staging",
+            projectId: cropProject.id,
+            now: now.toISOString(),
+          },
+        },
+        prisma,
+      );
+      expect(batchOnly.results.some((entry) => allCropKeys.includes(entry.key))).toBe(false);
+
+      const executed = await cleanup.runStorageCleanup(
+        {
+          actorId: adminId,
+          input: {
+            execute: true,
+            category: "upload-orphans",
+            projectId: cropProject.id,
+            limit: 10,
+            now: now.toISOString(),
+          },
+        },
+        prisma,
+      );
+      expect(executed.results).toContainEqual(expect.objectContaining({
+        key: orphanDerivedKey,
+        status: "DELETED",
+      }));
+      expect(executed.results).toContainEqual(expect.objectContaining({
+        key: orphanSupportKey,
+        status: "DELETED",
+      }));
+      expect(executed.results).toContainEqual(expect.objectContaining({
+        key: orphanSemanticKey,
+        status: "DELETED",
+      }));
+      await expect(storage.statObject(orphanDerivedKey)).rejects.toThrow();
+      await expect(storage.statObject(orphanSupportKey)).rejects.toThrow();
+      await expect(storage.statObject(orphanSemanticKey)).rejects.toThrow();
+      await storage.statObject(protectedDerivedKey);
+      await storage.statObject(protectedSupportKey);
+      await storage.statObject(protectedSemanticKey);
+      expect(executed.consistency.hardDriftCount).toBe(0);
+    } finally {
+      await prisma.annotationProject.delete({ where: { id: cropProject.id } }).catch(() => undefined);
+    }
   });
 
   it("reports export package orphans and stale jobs as warnings only", async () => {

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. RB-114 extends the same operational path with a storage/DB consistency report. Cleanup is scoped to staged prediction-batch objects and identifiable presigned-upload orphans. It must not delete committed raw images, committed artifact versions, derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
+RB-066 adds a safe cleanup baseline for temporary storage objects in the single-host trial deployment. RB-114 extends the same operational path with a storage/DB consistency report. Cleanup is scoped to staged prediction-batch objects, identifiable presigned-upload orphans, and RB-137 crop-workflow object orphans. It must not delete committed raw images, committed artifact versions, DB-referenced derived crop objects, imported prediction artifact versions, training exports, prediction-analysis exports, backups, or Docker volume data.
 
 Implemented evidence:
 
@@ -21,6 +21,7 @@ Defaults are suitable for the Strato-style customer trial:
 completed batch staging objects: 7 days
 failed/cancelled/error batch staging objects: 14 days
 abandoned presigned image/mask uploads from historical compatibility-route use: 24 hours
+unreferenced derived crop/support/semantic crop objects: 24 hours
 maximum deletions per execute run: 500
 active or retryable batch staging objects: never cleaned
 ```
@@ -58,6 +59,9 @@ Cleanup classifies only known private temporary prefixes:
 BATCH_STAGED_ITEM
 BATCH_SOURCE_ZIP
 ABANDONED_PRESIGNED_UPLOAD
+ORPHAN_DERIVED_CROP_OBJECT
+ORPHAN_CROP_SUPPORT_MASK_OBJECT
+ORPHAN_CROP_SEMANTIC_MASK_OBJECT
 UNKNOWN_STAGING_OBJECT
 ```
 
@@ -77,6 +81,16 @@ Presigned compatibility routes remain present but disabled after RB-105:
 - `POST /api/images/[imageId]/mask/commit`
 
 These routes now return `410 PRESIGNED_UPLOADS_DISABLED` after authentication and project membership checks, so new abandoned presigned upload objects should not be created by normal app flows. Historical uncommitted objects from earlier enabled route versions are identifiable by age and prefix under `projects/<projectId>/images/...` or `projects/<projectId>/masks/<imageId>/...msk`. RB-066 still handles them as `ABANDONED_PRESIGNED_UPLOAD` after the presigned retention window. App-mediated upload/read paths are the supported customer-trial path.
+
+Crop workflows write additional app-mediated objects under:
+
+```text
+projects/<projectId>/derived-crops/<imageId>/<sliceInstanceId>/<uuid>.png
+projects/<projectId>/crop-support-masks/<imageId>/<sliceInstanceId>/<cropId>/<uuid>.msk
+projects/<projectId>/crop-semantic-masks/<imageId>/<sliceInstanceId>/<cropId>/<semanticMode>/<uuid>.msk
+```
+
+If the object write succeeds but the DB commit or best-effort rollback cleanup fails, those objects are classified as crop-workflow orphans after the same `PRESIGNED_UPLOAD_STAGING_RETENTION_HOURS` window. `DerivedSliceCrop.storageKey` and `AnnotationArtifactVersion.storageKey` remain the deletion boundary, so committed crop PNGs and committed crop support/semantic masks are skipped as protected DB references.
 
 ## Operational Commands
 
@@ -145,7 +159,7 @@ Dry-run and execute responses include a report with:
 - expired `PROCESSING` export lease count,
 - per-finding code, severity, entity, key, project id, expected/actual size, and expected/actual checksum where relevant.
 
-`HARD_DRIFT` findings are reserved for protected DB references that are missing from storage and completed export manifest/package checksum or size mismatches. Ordinary cleanup candidates, skipped/ambiguous objects, report-only orphan export package objects, stale `PENDING` export jobs, and expired `PROCESSING` leases are warnings/findings only.
+`HARD_DRIFT` findings are reserved for protected DB references that are missing from storage and completed export manifest/package checksum or size mismatches. Ordinary cleanup candidates, including unreferenced crop-workflow object orphans, skipped/ambiguous objects, report-only orphan export package objects, stale `PENDING` export jobs, and expired `PROCESSING` leases are warnings/findings only.
 
 The CLI exits non-zero only when `cleanup.consistency.hardDriftCount > 0`, invalid configuration is supplied, or storage/API connectivity fails. A dry-run with only cleanup candidates or warnings exits `0`.
 

@@ -1,6 +1,6 @@
 # RB-137 - Storage Cleanup Coverage For Crop Object Prefixes
 
-Status: Planned
+Status: Done
 Priority: P1
 Type: Object-store integrity / operational cleanup
 
