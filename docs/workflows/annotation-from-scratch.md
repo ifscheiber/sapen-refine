@@ -17,7 +17,7 @@ This is the current primary workflow for SaPen Annotate.
 9. User chooses one annotation family for the crop: `Sapwood / Heartwood` or `Cu`. Support is selected as a Cu-family label when Copper support geometry is required.
 10. User draws the selected crop family with mode-aware support policy. Sap/Heartwood can save without explicit support and derives support from semantic foreground; Copper drafts can save before support but require approved explicit support for readiness/export. The app blocks non-empty saves in the opposite family until the active family is cleared.
 11. User reviews the auto-derived slice classification or appends a manual override.
-12. Crop editors upload serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, coordinate space, lineage, and appends `AnnotationArtifactVersion` rows.
+12. Crop editors upload serialized `u8raw-v1` mask bytes through the app server; the server validates byte length, dimensions, checksum, support-mask values where applicable, coordinate space, lineage, computes crop mask statistics, and appends `AnnotationArtifactVersion` rows.
 13. User submits and, with `OWNER`/`QA` permission, approves crop semantic mask, crop support mask where required, and classification versions.
 14. Latest crop masks can be reloaded through `/api/slice-crops/[cropId]/semantic-mask` and `/api/slice-crops/[cropId]/support-mask`; BBox proposals reload through `/api/images/[imageId]/slice-bboxes`; derived crops reload through `/api/images/[imageId]/slice-crops`; crop readiness is read through `/api/projects/[projectId]/crop-readiness`.
 15. A project `OWNER` can open `/app/projects/[projectId]/exports`, create a crop training export from ready approved crop artifacts, and download the generated manifest/package through app routes.
@@ -50,6 +50,7 @@ This is the current primary workflow for SaPen Annotate.
 - Raw images should be immutable after commit.
 - Raw images and masks should have server-verified checksums and dimensions before they are exportable.
 - Mask and classification saves must append versions.
+- Crop mask statistics are immutable version metadata used to avoid repeated object-storage reads during readiness/family checks; legacy or stale stats fall back to byte reads.
 - BBox proposal replacement and deletion must append versions.
 - Derived crop generation must append crop versions and preserve historical crops.
 - Crop padding must not be interpreted as support geometry.

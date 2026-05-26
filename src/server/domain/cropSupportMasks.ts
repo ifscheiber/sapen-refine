@@ -18,6 +18,10 @@ import {
   sanitizeCropWorkflowCandidate,
 } from "@/server/domain/cropReadiness";
 import {
+  buildCropMaskStatsMetadata,
+  cropMaskStatsJson,
+} from "@/server/domain/maskStats";
+import {
   getProjectLabelSchemaVersionId,
   getSupportLabelValues,
   SliceWorkflowError,
@@ -366,9 +370,18 @@ export async function createCropSupportMaskVersionForUser(params: {
     cropHeight: crop.cropHeight,
   });
 
-  const { labelSchemaVersionId } = await supportLabelsForProject(db, crop.projectId);
+  const { labelSchemaVersionId, supportLabels } = await supportLabelsForProject(db, crop.projectId);
   const scopeKey = cropSupportMaskScopeKey(crop.id);
   const supportBytes = params.supportBytes ?? await getObjectBytes(params.storageKey);
+  const maskStats = buildCropMaskStatsMetadata({
+    kind: "crop-support-mask",
+    bytes: supportBytes,
+    width: params.width,
+    height: params.height,
+    checksum: params.checksum,
+    foregroundValues: new Set([supportLabels.sliceSupport]),
+    unknownValue: null,
+  });
 
   await db.$transaction((tx) =>
     withVersionAllocationLock(
@@ -430,6 +443,7 @@ export async function createCropSupportMaskVersionForUser(params: {
                 labelSchemaVersionId,
                 derivedCropId: crop.id,
                 sliceInstanceId: crop.sliceInstanceId,
+                metadataJson: cropMaskStatsJson(maskStats),
                 createdById: params.userId,
               },
               select: { id: true },

@@ -24,6 +24,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `prisma/migrations/20260524113000_high_cost_rate_limit_buckets/migration.sql` - RB-111 high-cost write limiter bucket table.
 - `prisma/migrations/20260524123000_async_export_jobs/migration.sql` - RB-112 async export job status, package columns, processor lease/retry fields, and indexes.
 - `prisma/migrations/20260524124500_export_legacy_created_completed/migration.sql` - RB-112 compatibility migration that marks legacy generated `CREATED` exports with persisted package objects as `COMPLETED`.
+- `prisma/migrations/20260527110000_artifact_version_mask_stats_metadata/migration.sql` - RB-142 optional artifact-version `metadataJson` for crop mask statistics.
 - `prisma/seed.mjs` - active Prisma seed command from `prisma.config.ts`.
 - `scripts/trial-bootstrap.mjs` - trial-safe role/label-schema bootstrap without shared demo credentials.
 - `src/server/db.ts` - Prisma client setup.
@@ -62,6 +63,7 @@ This page summarizes the current persisted model in `prisma/schema.prisma`.
 - `DerivedSliceCrop` records private PNG crop artifacts generated from exact active BBox versions. It uses `CoordinateSpace.CROP_PIXEL`, stores source-image checksum/dimensions, source rectangle, requested/applied padding, clipping state, transform metadata, storage checksum/size/content type, and version per slice instance. It is not a raw `ImageAsset` and does not define support geometry.
 - Crop support masks are `SLICE_SUPPORT_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, support-only bytes, and explicit crop/slice lineage. They define support geometry for the selected crop; crop padding itself remains non-geometry.
 - Crop semantic masks are `SEMANTIC_MASK` artifact versions with `CoordinateSpace.CROP_PIXEL`, crop dimensions, mode-specific semantic bytes, explicit crop/slice lineage, and exact support-mask lineage. They do not define support geometry.
+- Crop support and crop semantic mask versions store optional `metadataJson` stats with foreground counts, label histograms, foreground BBox, unknown-label presence, and Copper support-coverage counts. These stats are an optimization for readiness/family checks; byte validation and object checks remain authoritative when metadata is missing or stale.
 - `ExportTarget.CROP_TRAINING` is the RB-091 ground-truth crop package target. `ExportItem.derivedCropId` links each original-image, derived-crop, crop support-mask, crop semantic-mask, and crop classification export row to the exact `DerivedSliceCrop`.
 - `ReviewDecision` targets either an `AnnotationArtifactVersion` or a `SliceClassificationVersion`; `ReviewDecision_exactly_one_target_chk` enforces exactly one target at the database layer.
 - `ExportItem` stores exact persisted package references. RB-109 adds DB checks for the current stable roles while leaving unknown future role strings unconstrained until they have an explicit contract.

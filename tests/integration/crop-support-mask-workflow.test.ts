@@ -2,10 +2,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { config as loadEnv } from "dotenv";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import sharp from "sharp";
 
 import { Labels } from "@/mask/labels";
+import {
+  cropMaskStatsFromMetadata,
+  histogramCount,
+} from "@/server/domain/maskStats";
 import { sha256Checksum } from "@/server/uploads/integrity";
 import type { createSliceBoundingBoxForUser as CreateSliceBoundingBoxForUser } from "@/server/domain/sliceBboxes";
 import type { generateCropForSliceBBox as GenerateCropForSliceBBox } from "@/server/domain/sliceCrops";
@@ -237,6 +241,11 @@ describe("crop support mask workflow", () => {
         labelSchemaVersionId: true,
         createdById: true,
         reviewState: true,
+        size: true,
+        checksum: true,
+        width: true,
+        height: true,
+        metadataJson: true,
       },
     });
     expect(persisted.artifact.kind).toBe("SLICE_SUPPORT_MASK");
@@ -254,6 +263,20 @@ describe("crop support mask workflow", () => {
     expect(persisted.labelSchemaVersionId).toBe(labelSchemaVersionId);
     expect(persisted.createdById).toBe(ownerId);
     expect(persisted.reviewState).toBe("DRAFT");
+    const stats = cropMaskStatsFromMetadata(persisted.metadataJson, {
+      kind: "crop-support-mask",
+      width: persisted.width,
+      height: persisted.height,
+      size: persisted.size,
+      checksum: persisted.checksum,
+    });
+    expect(stats).toMatchObject({
+      statsVersion: "crop-mask-stats-v1",
+      kind: "crop-support-mask",
+      foregroundPixelCount: crop.cropWidth - 1,
+      containsUnknownLabel: false,
+    });
+    expect(histogramCount(stats, Labels.SLICE_SUPPORT)).toBe(crop.cropWidth - 1);
 
     const slice = await prisma.sliceInstance.findUniqueOrThrow({
       where: { id: crop.sliceInstanceId },
@@ -264,6 +287,55 @@ describe("crop support mask workflow", () => {
     const reloaded = await loadCropSupportMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
     expect(reloaded.latestSupportMask?.id).toBe(latestSupportMask.id);
     expect(reloaded.supportReadiness.status).toBe("DRAFT");
+  });
+
+  it("uses persisted support stats for family/readiness checks without object reads", async () => {
+    const { crop } = await createCrop();
+    const bytes = new Uint8Array(crop.cropWidth * crop.cropHeight);
+    bytes.fill(Labels.SLICE_SUPPORT, crop.cropWidth + 1, crop.cropWidth * 2);
+    const storageKey = `tests/crop-support/${suffix}/${crop.id}-stats-only-support.msk`;
+    supportKeys.add(storageKey);
+    await storage.putObject(storageKey, bytes, "application/octet-stream");
+
+    const state = await createCropSupportMaskVersionForUser(
+      {
+        cropId: crop.id,
+        userId: ownerId,
+        storageKey,
+        contentType: "application/octet-stream",
+        size: bytes.byteLength,
+        checksum: sha256Checksum(bytes),
+        width: crop.cropWidth,
+        height: crop.cropHeight,
+        format: "u8raw-v1",
+        supportBytes: bytes,
+      },
+      prisma,
+    );
+    expect(state.annotationFamily.state).toBe("CU_SUPPORT");
+
+    await storage.deleteObjectBestEffort(storageKey);
+    const reloaded = await loadCropSupportMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
+    expect(reloaded.annotationFamily).toMatchObject({
+      state: "CU_SUPPORT",
+      families: {
+        cuSupport: {
+          occupied: true,
+          supportMaskVersionId: state.latestSupportMask?.id,
+          hasSupport: true,
+        },
+      },
+    });
+
+    await storage.putObject(storageKey, bytes, "application/octet-stream");
+    const supportVersionId = state.latestSupportMask?.id;
+    if (!supportVersionId) throw new Error("SUPPORT_VERSION_MISSING");
+    await prisma.annotationArtifactVersion.update({
+      where: { id: supportVersionId },
+      data: { metadataJson: Prisma.JsonNull },
+    });
+    const legacyReloaded = await loadCropSupportMaskStateForUser({ cropId: crop.id, userId: ownerId }, prisma);
+    expect(legacyReloaded.annotationFamily.state).toBe("CU_SUPPORT");
   });
 
   it("allows viewers to read crop support state but rejects crop support saves", async () => {

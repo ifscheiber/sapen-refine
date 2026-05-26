@@ -1,6 +1,6 @@
 # RB-142 - Mask Statistic Metadata For Readiness Performance
 
-Status: Planned
+Status: Done
 Priority: P2
 Type: Scalability / operational performance
 

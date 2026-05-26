@@ -6,6 +6,11 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 
+import {
+  cropMaskStatsFromMetadata,
+  histogramCount,
+} from "@/server/domain/maskStats";
+
 type CropAnnotationFamilyDb = PrismaClient | Prisma.TransactionClient;
 
 const SEMANTIC_LABEL_STABLE_IDS = ["background", "sapwood", "heartwood", "copper"] as const;
@@ -70,6 +75,11 @@ type FamilyArtifactVersion = {
   version: number;
   storageKey: string;
   reviewState: ArtifactReviewState;
+  size: number;
+  checksum: string | null;
+  width: number;
+  height: number;
+  metadataJson: Prisma.JsonValue | null;
 };
 
 export function cropAnnotationFamilyLockKey(cropId: string) {
@@ -165,6 +175,11 @@ async function latestArtifactVersion(params: {
       version: true,
       storageKey: true,
       reviewState: true,
+      size: true,
+      checksum: true,
+      width: true,
+      height: true,
+      metadataJson: true,
     },
   });
 }
@@ -205,6 +220,95 @@ export function supportBytesOccupyAnnotationFamily(params: {
   labels: Pick<FamilyLabelValues, "sliceSupport">;
 }) {
   return hasSupportBytes(params.supportBytes, params.labels.sliceSupport);
+}
+
+function semanticVersionStatsOccupancy(params: {
+  semanticMode: CropSemanticMode;
+  version: FamilyArtifactVersion;
+  labels: FamilyLabelValues;
+}) {
+  const stats = cropMaskStatsFromMetadata(params.version.metadataJson, {
+    kind: "crop-semantic-mask",
+    width: params.version.width,
+    height: params.version.height,
+    size: params.version.size,
+    checksum: params.version.checksum,
+  });
+  if (!stats) return null;
+  if (stats.semanticMode && stats.semanticMode !== params.semanticMode) return null;
+  if (params.semanticMode === CropSemanticMode.SAP_HEARTWOOD) {
+    return {
+      hasSapwood: histogramCount(stats, params.labels.sapwood) > 0,
+      hasHeartwood: histogramCount(stats, params.labels.heartwood) > 0,
+      hasCopper: false,
+    };
+  }
+  return {
+    hasSapwood: false,
+    hasHeartwood: false,
+    hasCopper: histogramCount(stats, params.labels.copper) > 0,
+  };
+}
+
+function supportVersionStatsOccupancy(params: {
+  version: FamilyArtifactVersion;
+  labels: Pick<FamilyLabelValues, "sliceSupport">;
+}) {
+  const stats = cropMaskStatsFromMetadata(params.version.metadataJson, {
+    kind: "crop-support-mask",
+    width: params.version.width,
+    height: params.version.height,
+    size: params.version.size,
+    checksum: params.version.checksum,
+  });
+  return stats ? histogramCount(stats, params.labels.sliceSupport) > 0 : null;
+}
+
+async function semanticVersionOccupancy(params: {
+  semanticMode: CropSemanticMode;
+  version: FamilyArtifactVersion | null;
+  labels: FamilyLabelValues;
+}) {
+  if (!params.version) return { hasSapwood: false, hasHeartwood: false, hasCopper: false };
+  const statsOccupancy = semanticVersionStatsOccupancy({
+    semanticMode: params.semanticMode,
+    version: params.version,
+    labels: params.labels,
+  });
+  if (statsOccupancy) return statsOccupancy;
+  const bytes = await readVersionBytes(params.version);
+  return {
+    hasSapwood:
+      params.semanticMode === CropSemanticMode.SAP_HEARTWOOD && bytes
+        ? hasAnyByte(bytes, new Set([params.labels.sapwood]))
+        : false,
+    hasHeartwood:
+      params.semanticMode === CropSemanticMode.SAP_HEARTWOOD && bytes
+        ? hasAnyByte(bytes, new Set([params.labels.heartwood]))
+        : false,
+    hasCopper:
+      params.semanticMode === CropSemanticMode.COPPER && bytes
+        ? semanticBytesOccupyAnnotationFamily({
+            semanticMode: CropSemanticMode.COPPER,
+            semanticBytes: bytes,
+            labels: params.labels,
+          })
+        : false,
+  };
+}
+
+async function supportVersionOccupancy(params: {
+  version: FamilyArtifactVersion | null;
+  labels: Pick<FamilyLabelValues, "sliceSupport">;
+}) {
+  if (!params.version) return false;
+  const statsOccupancy = supportVersionStatsOccupancy({
+    version: params.version,
+    labels: params.labels,
+  });
+  if (statsOccupancy !== null) return statsOccupancy;
+  const bytes = await readVersionBytes(params.version);
+  return bytes ? supportBytesOccupyAnnotationFamily({ supportBytes: bytes, labels: params.labels }) : false;
 }
 
 function buildState(params: {
@@ -286,24 +390,31 @@ export async function resolveCropAnnotationFamilyState(params: {
       scopeKey: cropSupportMaskScopeKey(params.crop.id),
     }),
   ]);
-  const [sapHeartwoodBytes, copperBytes, supportBytes] = await Promise.all([
-    readVersionBytes(sapHeartwoodVersion),
-    readVersionBytes(copperVersion),
-    readVersionBytes(supportVersion),
+  const [sapHeartwoodOccupancy, copperOccupancy, hasSupport] = await Promise.all([
+    semanticVersionOccupancy({
+      semanticMode: CropSemanticMode.SAP_HEARTWOOD,
+      version: sapHeartwoodVersion,
+      labels,
+    }),
+    semanticVersionOccupancy({
+      semanticMode: CropSemanticMode.COPPER,
+      version: copperVersion,
+      labels,
+    }),
+    supportVersionOccupancy({
+      version: supportVersion,
+      labels,
+    }),
   ]);
 
   return buildState({
     sapHeartwoodVersion,
     copperVersion,
     supportVersion,
-    hasSapwood: sapHeartwoodBytes ? hasAnyByte(sapHeartwoodBytes, new Set([labels.sapwood])) : false,
-    hasHeartwood: sapHeartwoodBytes ? hasAnyByte(sapHeartwoodBytes, new Set([labels.heartwood])) : false,
-    hasCopper: copperBytes ? semanticBytesOccupyAnnotationFamily({
-      semanticMode: CropSemanticMode.COPPER,
-      semanticBytes: copperBytes,
-      labels,
-    }) : false,
-    hasSupport: supportBytes ? supportBytesOccupyAnnotationFamily({ supportBytes, labels }) : false,
+    hasSapwood: sapHeartwoodOccupancy.hasSapwood,
+    hasHeartwood: sapHeartwoodOccupancy.hasHeartwood,
+    hasCopper: copperOccupancy.hasCopper,
+    hasSupport,
   });
 }
 

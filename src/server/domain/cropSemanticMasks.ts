@@ -20,6 +20,10 @@ import {
   resolveCropWorkflowReadiness,
   sanitizeCropWorkflowCandidate,
 } from "@/server/domain/cropReadiness";
+import {
+  buildCropMaskStatsMetadata,
+  cropMaskStatsJson,
+} from "@/server/domain/maskStats";
 import { getObjectBytes } from "@/server/storage/s3";
 import {
   getProjectLabelSchemaVersionId,
@@ -753,13 +757,35 @@ export async function createCropSemanticMaskVersionForUser(params: {
     semanticBytes: params.semanticBytes,
     allowedValues,
   });
+  let supportBytes: Uint8Array | null = null;
   if (supportMaskVersion && semanticMode === CropSemanticMode.COPPER) {
-    const supportBytes = await getObjectBytes(supportMaskVersion.storageKey);
+    supportBytes = await getObjectBytes(supportMaskVersion.storageKey);
     validateSemanticForegroundWithinSupport({
       semanticBytes: params.semanticBytes,
       supportBytes,
     });
   }
+  const semanticModeLabels = semanticLabels.modes[semanticMode];
+  const maskStats = buildCropMaskStatsMetadata({
+    kind: "crop-semantic-mask",
+    bytes: params.semanticBytes,
+    width: params.width,
+    height: params.height,
+    checksum: params.checksum,
+    backgroundValue: semanticModeLabels.backgroundValue,
+    foregroundValues: new Set(
+      semanticModeLabels.allowedValues.filter((value) => value !== semanticModeLabels.backgroundValue),
+    ),
+    unknownValue: semanticModeLabels.primaryValues.unknown,
+    semanticMode,
+    supportMask: supportMaskVersion && supportBytes
+      ? {
+          versionId: supportMaskVersion.id,
+          checksum: supportMaskVersion.checksum,
+          bytes: supportBytes,
+        }
+      : null,
+  });
 
   const scopeKey = cropSemanticMaskScopeKey(crop.id, semanticMode);
 
@@ -828,6 +854,7 @@ export async function createCropSemanticMaskVersionForUser(params: {
                 sliceInstanceId: crop.sliceInstanceId,
                 supportMaskVersionId: supportMaskVersion?.id ?? null,
                 cropSemanticMode: semanticMode,
+                metadataJson: cropMaskStatsJson(maskStats),
                 createdById: params.userId,
               },
               select: { id: true },

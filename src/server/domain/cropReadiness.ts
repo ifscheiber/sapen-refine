@@ -15,6 +15,10 @@ import {
   supportBytesOccupyAnnotationFamily,
 } from "@/server/domain/cropAnnotationFamilies";
 import {
+  cropMaskStatsFromMetadata,
+  histogramCount,
+} from "@/server/domain/maskStats";
+import {
   isApprovedSnapshotOutdated,
 } from "@/server/domain/approvedSnapshotFreshness";
 import {
@@ -73,6 +77,7 @@ const CROP_ARTIFACT_SELECT = {
   sliceInstanceId: true,
   supportMaskVersionId: true,
   cropSemanticMode: true,
+  metadataJson: true,
   createdAt: true,
   createdBy: { select: { id: true, email: true, name: true } },
   artifact: {
@@ -612,6 +617,33 @@ async function validateApprovedSemanticSupportPair(params: {
 }) {
   if (!params.supportRequired || !params.supportApproved || !params.semanticApproved) return null;
   if (params.supportApproved.size !== params.semanticApproved.size) return "SUPPORT_SEMANTIC_MISMATCH";
+  const semanticStats = cropMaskStatsFromMetadata(params.semanticApproved.metadataJson, {
+    kind: "crop-semantic-mask",
+    width: params.semanticApproved.width,
+    height: params.semanticApproved.height,
+    size: params.semanticApproved.size,
+    checksum: params.semanticApproved.checksum,
+  });
+  const expectedSupportChecksum = normalizeChecksum(params.supportApproved.checksum);
+  const semanticOutsideSupportPixelCount = semanticStats?.semanticOutsideSupportPixelCount;
+  if (
+    semanticStats &&
+    (
+      !semanticStats.semanticMode ||
+      semanticStats.semanticMode === CropSemanticMode.COPPER
+    ) &&
+    semanticStats.supportMaskVersionId === params.supportApproved.id &&
+    (
+      !expectedSupportChecksum ||
+      semanticStats.supportChecksum === expectedSupportChecksum
+    ) &&
+    typeof semanticOutsideSupportPixelCount === "number" &&
+    Number.isInteger(semanticOutsideSupportPixelCount)
+  ) {
+    return semanticOutsideSupportPixelCount > 0
+      ? "SEMANTIC_OUTSIDE_SUPPORT"
+      : null;
+  }
 
   try {
     const [supportBytes, semanticBytes] = await Promise.all([
@@ -746,6 +778,16 @@ async function keepSupportVersionWithForeground(params: {
 }) {
   if (!params.version) return null;
   const labels = await familyLabelValuesForProject(params.db, params.projectId);
+  const stats = cropMaskStatsFromMetadata(params.version.metadataJson, {
+    kind: "crop-support-mask",
+    width: params.version.width,
+    height: params.version.height,
+    size: params.version.size,
+    checksum: params.version.checksum,
+  });
+  if (stats) {
+    return histogramCount(stats, labels.sliceSupport) > 0 ? params.version : null;
+  }
   const bytes = await getObjectBytes(params.version.storageKey);
   return supportBytesOccupyAnnotationFamily({ supportBytes: bytes, labels }) ? params.version : null;
 }
@@ -760,6 +802,20 @@ async function keepSemanticVersionsWithForeground(params: {
     Object.entries(params.versions).map(async ([mode, version]) => {
       if (!version) return [mode, null] as const;
       const semanticMode = mode as CropSemanticMode;
+      const stats = cropMaskStatsFromMetadata(version.metadataJson, {
+        kind: "crop-semantic-mask",
+        width: version.width,
+        height: version.height,
+        size: version.size,
+        checksum: version.checksum,
+      });
+      if (stats && (!stats.semanticMode || stats.semanticMode === semanticMode)) {
+        const occupied =
+          semanticMode === CropSemanticMode.SAP_HEARTWOOD
+            ? histogramCount(stats, labels.sapwood) > 0 || histogramCount(stats, labels.heartwood) > 0
+            : histogramCount(stats, labels.copper) > 0;
+        return [semanticMode, occupied ? version : null] as const;
+      }
       const bytes = await getObjectBytes(version.storageKey);
       const occupied = semanticBytesOccupyAnnotationFamily({
         semanticMode,

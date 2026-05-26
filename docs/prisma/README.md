@@ -26,6 +26,7 @@
 - `prisma/migrations/20260524113000_high_cost_rate_limit_buckets/migration.sql` - RB-111 hashed high-cost write limiter bucket persistence.
 - `prisma/migrations/20260524123000_async_export_jobs/migration.sql` - RB-112 async export job statuses, package metadata, processor lease/retry fields, and package metadata backfill.
 - `prisma/migrations/20260524124500_export_legacy_created_completed/migration.sql` - RB-112 legacy generated-export compatibility update from `CREATED` to `COMPLETED`.
+- `prisma/migrations/20260527110000_artifact_version_mask_stats_metadata/migration.sql` - RB-142 optional `AnnotationArtifactVersion.metadataJson` for version-scoped crop mask stats.
 - `prisma/seed.ts` and `prisma/seed.mjs` - local seed scripts.
 - `scripts/trial-bootstrap.mjs` - customer-trial bootstrap for global roles and the default label schema without demo users/projects.
 - `prisma.config.ts` - Prisma config and environment loading.
@@ -54,6 +55,7 @@
 - `DerivedSliceCrop` rows are append-only crop versions per slice instance. They reference the source image, source checksum/dimensions, exact BBox version, private crop PNG object, `CoordinateSpace.CROP_PIXEL`, requested/applied padding, clipping state, and transform metadata. They are not raw image uploads and not support geometry.
 - Crop support masks are crop-scoped `SLICE_SUPPORT_MASK` artifact versions. `AnnotationArtifactVersion.derivedCropId` and `sliceInstanceId` link each saved `CROP_PIXEL` mask to the selected `DerivedSliceCrop` and `SliceInstance`.
 - Crop semantic masks are crop-scoped `SEMANTIC_MASK` artifact versions. `AnnotationArtifactVersion.supportMaskVersionId` references the exact crop support-mask version used as the editing constraint, and `cropSemanticMode` records whether the crop semantic draft is `SAP_HEARTWOOD` or `COPPER`.
+- Crop support and crop semantic artifact versions may store immutable `metadataJson` mask statistics generated at save time. Readiness and family checks can use those stats before falling back to object-storage byte reads for legacy or stale rows.
 - Auto-derived crop classifications are draft `SliceClassificationVersion` rows with `source = AUTO_FROM_SEMANTIC_MASK`, a stable derivation reason, and links to the source semantic mask, support mask, and crop. Manual crop overrides append separate `source = MANUAL` rows.
 - `ExportTarget.CROP_TRAINING` records RB-091 crop ground-truth packages. `ExportItem.derivedCropId` links crop package rows back to the exact `DerivedSliceCrop` used for original image, crop PNG, crop support-mask, crop semantic-mask, and crop classification roles.
 - `ExportItem.predictionProvenanceId` is required for constrained prediction-analysis item roles except the shared `image` role, where it remains optional because full-image training exports and prediction-analysis exports both use that role.

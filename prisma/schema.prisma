@@ -504,6 +504,7 @@ model AnnotationArtifactVersion {
   sliceInstanceId      String?
   supportMaskVersionId String?
   cropSemanticMode     CropSemanticMode?
+  metadataJson         Json?
   taskId               String?
   sessionId            String?
   parentVersionId      String?

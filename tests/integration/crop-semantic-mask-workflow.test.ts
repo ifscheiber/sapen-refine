@@ -6,6 +6,10 @@ import { PrismaClient } from "@prisma/client";
 import sharp from "sharp";
 
 import { Labels } from "@/mask/labels";
+import {
+  cropMaskStatsFromMetadata,
+  histogramCount,
+} from "@/server/domain/maskStats";
 import { sha256Checksum } from "@/server/uploads/integrity";
 import type { createSliceBoundingBoxForUser as CreateSliceBoundingBoxForUser } from "@/server/domain/sliceBboxes";
 import type { generateCropForSliceBBox as GenerateCropForSliceBBox } from "@/server/domain/sliceCrops";
@@ -324,6 +328,11 @@ describe("crop semantic mask workflow", () => {
         labelSchemaVersionId: true,
         createdById: true,
         reviewState: true,
+        size: true,
+        checksum: true,
+        width: true,
+        height: true,
+        metadataJson: true,
       },
     });
     expect(persisted.artifact.kind).toBe("SEMANTIC_MASK");
@@ -344,6 +353,24 @@ describe("crop semantic mask workflow", () => {
     expect(persisted.labelSchemaVersionId).toBe(labelSchemaVersionId);
     expect(persisted.createdById).toBe(ownerId);
     expect(persisted.reviewState).toBe("DRAFT");
+    const stats = cropMaskStatsFromMetadata(persisted.metadataJson, {
+      kind: "crop-semantic-mask",
+      width: persisted.width,
+      height: persisted.height,
+      size: persisted.size,
+      checksum: persisted.checksum,
+    });
+    expect(stats).toMatchObject({
+      statsVersion: "crop-mask-stats-v1",
+      kind: "crop-semantic-mask",
+      semanticMode: "SAP_HEARTWOOD",
+      foregroundPixelCount: 3,
+      foregroundBBox: { x: 1, y: 1, width: 3, height: 1 },
+      containsUnknownLabel: true,
+    });
+    expect(histogramCount(stats, Labels.SAPWOOD)).toBe(1);
+    expect(histogramCount(stats, Labels.HEARTWOOD)).toBe(1);
+    expect(histogramCount(stats, Labels.UNKNOWN)).toBe(1);
     expect(state.classificationDerivation).toMatchObject({
       ok: true,
       semanticMaskVersionId: latest.id,
@@ -404,11 +431,32 @@ describe("crop semantic mask workflow", () => {
       select: {
         artifact: { select: { kind: true, scopeKey: true } },
         cropSemanticMode: true,
+        size: true,
+        checksum: true,
+        width: true,
+        height: true,
+        metadataJson: true,
       },
     });
     expect(persisted.artifact.kind).toBe("SEMANTIC_MASK");
     expect(persisted.artifact.scopeKey).toBe(`crop-semantic:${crop.id}:COPPER`);
     expect(persisted.cropSemanticMode).toBe("COPPER");
+    const stats = cropMaskStatsFromMetadata(persisted.metadataJson, {
+      kind: "crop-semantic-mask",
+      width: persisted.width,
+      height: persisted.height,
+      size: persisted.size,
+      checksum: persisted.checksum,
+    });
+    expect(stats).toMatchObject({
+      semanticMode: "COPPER",
+      supportMaskVersionId: supportMask.id,
+      supportCoveredSemanticPixelCount: 1,
+      semanticOutsideSupportPixelCount: 0,
+      foregroundPixelCount: 1,
+      containsUnknownLabel: false,
+    });
+    expect(histogramCount(stats, Labels.COPPER)).toBe(1);
     expect(state.latestClassification).toMatchObject({
       class: "COPPER_SLICE",
       source: "AUTO_FROM_SEMANTIC_MASK",

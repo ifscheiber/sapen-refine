@@ -23,6 +23,7 @@
 - Crop semantic-mask latest/upload routes live under `src/app/api/slice-crops/[cropId]/semantic-mask`.
 - These paths persist `AnnotationArtifactVersion` records with explicit artifact kind and label schema version.
 - RB-055 upload helpers validate `u8raw-v1` byte length, checksum, dimensions, and support-mask label values before persisting version rows.
+- RB-142 crop mask saves also persist version-scoped mask statistics in `AnnotationArtifactVersion.metadataJson`. The stats include label histograms, foreground counts/BBox, unknown-label presence, and Copper support-coverage metadata where applicable.
 
 ## Invariants And Constraints
 
@@ -32,6 +33,7 @@
 - Support-mask bytes may contain only `0` and the active `slice_support` byte.
 - Crop support-mask bytes follow the same binary support values and must not interpret crop padding as support geometry.
 - Crop semantic-mask bytes must use mode-specific semantic labels. Sap/Heartwood bytes may be supportless and use non-background semantic foreground as support geometry. Copper bytes may be saved as drafts without support, but Copper readiness/export requires explicit support and rejects foreground outside approved support.
+- Crop readiness and annotation-family checks prefer valid persisted mask stats, then fall back to object-storage byte reads for legacy rows or stale metadata. Byte-level upload validation remains the source of truth for committed mask contents.
 - Crop editor brush and polygon tools use crop-pixel coordinates. `src/features/editor/cropMaskOperations.ts` wraps the shared `src/mask/tools.ts` mutation helpers so Copper semantic brush and lasso fills can be clipped to explicit support while Sap/Heartwood and support-mask edits remain unconstrained in crop space.
 - RB-070 editor erasing uses existing mask tool mutation paths: semantic erasing writes `Labels.BG`, and support-mask erasing writes the current support background value.
 - Approved ground-truth mask versions must be append-only when review/approval exists.

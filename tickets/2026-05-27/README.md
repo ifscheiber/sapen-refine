@@ -15,7 +15,7 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 
 ## Active Risk-First Order
 
-1. [RB-142 - Mask statistic metadata for readiness performance](RB-142-mask-stat-metadata-for-readiness-performance.md) - P2; performance/scalability work after correctness tickets.
+All active tickets in this sprint are complete. The next backlog should come from a new review or follow-up sprint rather than this sprint index.
 
 ## Done
 
@@ -30,6 +30,7 @@ The reconciliation baseline found the assistant-side RB-136 through RB-142 files
 - [RB-138 - Deep checksum consistency for primary storage objects](done/RB-138-storage-consistency-primary-object-checksums.md) - completed; storage cleanup consistency can now run explicit project-scoped deep checksum verification for durable raw image, artifact version, and derived crop objects.
 - [RB-139 - Prediction batch ZIP inflation guard](done/RB-139-prediction-batch-zip-inflation-guard.md) - completed; prediction batch create now checks expected and metadata-reported uncompressed mask sizes before staging ZIP entries.
 - [RB-140 - Export job processor RBAC and audit alignment](done/RB-140-export-job-processor-rbac-audit-alignment.md) - completed; due export job processing now uses `export:processJobs` while export creation/download permissions remain target-specific.
+- [RB-142 - Mask statistic metadata for readiness performance](done/RB-142-mask-stat-metadata-for-readiness-performance.md) - completed; crop support/semantic saves now persist version-scoped mask stats and readiness/family checks prefer those stats before byte-read fallback.
 
 ## Reviewed But Not Active
 
