@@ -73,6 +73,8 @@ This folder is the implementation-level documentation source for SaPen Annotate.
 - Prediction-assisted annotation/correction: [workflows/future-prediction-assisted-annotation.md](workflows/future-prediction-assisted-annotation.md)
 - Local development: [operations/local-development.md](operations/local-development.md)
 - Environment variables: [operations/environment.md](operations/environment.md)
+- IONOS resource sizing: [operations/ionos-resource-sizing.md](operations/ionos-resource-sizing.md)
+- IONOS deployment runbook: [operations/ionos-deployment-runbook.md](operations/ionos-deployment-runbook.md)
 - Caddy reverse proxy: [04-server/reverse-proxy-caddy.md](04-server/reverse-proxy-caddy.md)
 - Storage retention cleanup: [04-server/storage-retention-cleanup.md](04-server/storage-retention-cleanup.md)
 - Handoff ZIP checklist: [operations/handoff-zip-checklist.md](operations/handoff-zip-checklist.md)
